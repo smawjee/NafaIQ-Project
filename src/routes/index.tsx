@@ -1386,6 +1386,18 @@ function HowItWorksDesktop() {
   const reduce = useReducedMotion();
   const [active, setActive] = useState(0);
   const stepRefs = useRef<(HTMLDivElement | null)[]>([]);
+  const railRef = useRef<HTMLDivElement | null>(null);
+
+  // Smooth scroll-linked progress that fills the vertical rail as you scroll.
+  const { scrollYProgress } = useScroll({
+    target: railRef,
+    offset: ["start 55%", "end 55%"],
+  });
+  const railScale = useSpring(scrollYProgress, {
+    stiffness: 120,
+    damping: 30,
+    mass: 0.4,
+  });
 
   useEffect(() => {
     const io = new IntersectionObserver(
@@ -1405,16 +1417,16 @@ function HowItWorksDesktop() {
   }, []);
 
   return (
-    <div className="mt-16 hidden grid-cols-2 items-stretch gap-16 lg:grid">
-      {/* Left: tall scrolling steps with progress rail */}
-      <div className="relative pl-10">
+    <div className="mt-16 hidden grid-cols-2 items-start gap-16 lg:grid">
+      {/* Left: tall scrolling steps with scroll-linked progress rail */}
+      <div ref={railRef} className="relative pl-10">
         {/* Vertical rail track */}
         <div className="absolute left-[15px] top-0 bottom-0 w-px bg-white/[0.08]" />
-        {/* Vertical rail progress fill */}
-        <div
-          className="absolute left-[15px] top-0 w-px bg-gradient-to-b from-bull via-bull to-bull/40 transition-[height] duration-700 ease-out"
+        {/* Vertical rail progress fill — scroll-linked, smooth */}
+        <motion.div
+          className="absolute left-[15px] top-0 h-full w-px origin-top bg-gradient-to-b from-bull via-bull to-bull/40"
           style={{
-            height: `${((active + 1) / STEPS.length) * 100}%`,
+            scaleY: reduce ? 1 : railScale,
             boxShadow: "0 0 12px rgba(0,212,170,0.6)",
           }}
         />
@@ -1429,9 +1441,6 @@ function HowItWorksDesktop() {
           />
         ))}
 
-
-
-
         {STEPS.map((s, i) => {
           const done = i <= active;
           const isActive = active === i;
@@ -1444,9 +1453,8 @@ function HowItWorksDesktop() {
               }}
               className="relative min-h-[80vh]"
             >
-              {/* Pinned wrapper: keeps this step's content vertically centered
-                  in the viewport (matching the sticky right panel) while the
-                  step scrolls through, so both columns share the same center. */}
+              {/* Pinned wrapper keeps this step vertically centered while it
+                  scrolls, so both columns share the same center. */}
               <div className="sticky top-[50vh] -translate-y-1/2">
                 {/* Rail dot centered beside the step badge */}
                 <span
@@ -1463,7 +1471,7 @@ function HowItWorksDesktop() {
                   />
                 </span>
 
-                {/* Step content — vanish effect: inactive steps fade, blur & shrink */}
+                {/* Step content — inactive steps fade, blur & shrink */}
                 <motion.div
                   animate={{
                     opacity: isActive ? 1 : 0.08,
@@ -1472,7 +1480,7 @@ function HowItWorksDesktop() {
                   }}
                   transition={{ duration: 0.6, ease: "easeOut" }}
                 >
-                  {/* Eyebrow: [number] —— CATEGORY LABEL */}
+                  {/* Eyebrow: [icon badge] —— CATEGORY LABEL */}
                   <div className="flex items-center gap-3">
                     <div
                       className="flex h-12 w-12 items-center justify-center rounded-[12px] transition-colors duration-700"
@@ -1480,36 +1488,75 @@ function HowItWorksDesktop() {
                         background: isActive ? "rgba(0,212,170,0.15)" : "rgba(255,255,255,0.04)",
                       }}
                     >
-                      <span className="font-mono text-lg font-bold text-bull">{s.step}</span>
+                      <s.Icon
+                        className={cn(
+                          "h-5 w-5 transition-colors duration-700",
+                          isActive ? "text-bull" : "text-text-muted",
+                        )}
+                        strokeWidth={1.75}
+                      />
                     </div>
                     <span className="h-px w-6 bg-white/20" aria-hidden />
-                    <span className="text-[11px] font-semibold uppercase tracking-[0.22em] text-text-muted">
-                      {s.label}
+                    <span className="font-mono text-[11px] font-semibold uppercase tracking-[0.22em] text-text-muted">
+                      {s.step} · {s.label}
                     </span>
                   </div>
                   <h3
                     className={cn(
-                      "mt-4 text-2xl font-bold leading-tight transition-colors duration-700",
+                      "mt-4 text-3xl font-bold leading-tight transition-colors duration-700",
                       isActive ? "text-text-primary" : "text-text-secondary",
                     )}
                   >
                     {s.title}
                   </h3>
-                  <p className="mt-3 max-w-[420px] text-base leading-[1.6] text-text-secondary">
+                  <p className="mt-3 max-w-[440px] text-base leading-[1.6] text-text-secondary">
                     {s.desc}
                   </p>
 
+                  {/* Feature chips */}
+                  <div className="mt-5 flex flex-wrap gap-2">
+                    {s.chips.map((c) => (
+                      <span
+                        key={c}
+                        className="rounded-full border border-bull/20 bg-bull/[0.06] px-3 py-1 text-[11px] font-semibold text-bull/90"
+                      >
+                        {c}
+                      </span>
+                    ))}
+                  </div>
                 </motion.div>
               </div>
-
             </div>
           );
         })}
       </div>
 
-      {/* Right: sticky panel with crossfade + bottom dots */}
+      {/* Right: sticky panel with ambient glow + crossfade */}
       <div className="relative">
         <div className="sticky top-0 flex h-screen flex-col items-center justify-center">
+          {/* Ambient pulsing glow behind the panel */}
+          <motion.div
+            aria-hidden
+            className="pointer-events-none absolute left-1/2 top-1/2 h-[420px] w-[420px] -translate-x-1/2 -translate-y-1/2 rounded-full"
+            style={{
+              background:
+                "radial-gradient(circle, rgba(0,212,170,0.16) 0%, rgba(0,212,170,0.05) 45%, transparent 70%)",
+              filter: "blur(30px)",
+            }}
+            animate={reduce ? undefined : { scale: [1, 1.08, 1], opacity: [0.7, 1, 0.7] }}
+            transition={{ duration: 4.5, repeat: Infinity, ease: "easeInOut" }}
+          />
+
+          {/* Step counter header */}
+          <div className="relative mb-6 flex w-full max-w-[380px] items-center justify-between">
+            <span className="font-mono text-[11px] font-semibold uppercase tracking-[0.22em] text-text-muted">
+              Live Preview
+            </span>
+            <span className="font-mono text-[11px] font-bold tabular-nums text-bull">
+              {STEPS[active].step} / {STEPS[STEPS.length - 1].step}
+            </span>
+          </div>
+
           {reduce ? (
             <StepPanelFrame key={active}>{STEP_PANELS[active]}</StepPanelFrame>
           ) : (
@@ -1520,14 +1567,14 @@ function HowItWorksDesktop() {
                 animate={{ opacity: 1, y: 0, scale: 1 }}
                 exit={{ opacity: 0, y: -16, scale: 0.97 }}
                 transition={{ duration: 0.45, ease: "easeOut" }}
-                className="w-full flex justify-center"
+                className="relative flex w-full justify-center"
               >
                 <StepPanelFrame>{STEP_PANELS[active]}</StepPanelFrame>
               </motion.div>
             </AnimatePresence>
           )}
 
-          {/* Bottom step indicator dots — absolute so they don't offset the panel's vertical center */}
+          {/* Bottom step indicator dots */}
           <div className="absolute bottom-16 left-1/2 flex -translate-x-1/2 items-center gap-2.5">
             {STEPS.map((s, i) => (
               <span
@@ -1543,7 +1590,6 @@ function HowItWorksDesktop() {
           </div>
         </div>
       </div>
-
     </div>
   );
 }
@@ -1560,16 +1606,25 @@ function HowItWorksMobile() {
             </span>
             <div className="flex items-center gap-3">
               <div className="flex h-12 w-12 items-center justify-center rounded-[12px] bg-bull/10 text-bull">
-                <span className="font-mono text-lg font-bold">{s.step}</span>
+                <s.Icon className="h-5 w-5" strokeWidth={1.75} />
               </div>
               <span className="h-px w-6 bg-white/20" aria-hidden />
-              <span className="text-[10px] font-semibold uppercase tracking-[0.22em] text-text-muted">
-                {s.label}
+              <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.22em] text-text-muted">
+                {s.step} · {s.label}
               </span>
             </div>
             <h3 className="mt-4 text-lg font-bold text-text-primary">{s.title}</h3>
             <p className="mt-2 text-sm leading-[1.6] text-text-secondary">{s.desc}</p>
-
+            <div className="mt-4 flex flex-wrap gap-2">
+              {s.chips.map((c) => (
+                <span
+                  key={c}
+                  className="rounded-full border border-bull/20 bg-bull/[0.06] px-2.5 py-1 text-[10px] font-semibold text-bull/90"
+                >
+                  {c}
+                </span>
+              ))}
+            </div>
           </div>
         </RevealItem>
       ))}
@@ -1580,17 +1635,23 @@ function HowItWorksMobile() {
 function HowItWorks() {
   return (
     <section className="mx-auto max-w-[1200px] px-6 py-[60px] lg:py-[100px]">
-      <Reveal className="text-center">
+      <Reveal className="mx-auto max-w-[720px] text-center">
         <SectionLabel>How it works</SectionLabel>
         <h2 className="mt-3 text-[28px] font-bold leading-[1.2] sm:text-[40px]">
-          From data to decision in three steps
+          From raw PSX data to confident decisions
         </h2>
+        <p className="mt-4 text-base leading-[1.7] text-text-secondary">
+          NafaIQ is a premium PSX terminal and personal-finance companion. It reveals your
+          real, devaluation-adjusted wealth — then turns AI insight into halal, Zakat-aware
+          action. Here's the journey in three steps.
+        </p>
       </Reveal>
       <HowItWorksMobile />
       <HowItWorksDesktop />
     </section>
   );
 }
+
 
 /* ---------- FAQ accordion ---------- */
 const FAQS: { Icon: LucideIcon; q: string; a: string }[] = [
