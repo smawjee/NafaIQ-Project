@@ -1544,7 +1544,7 @@ function HowItWorksDesktop() {
 
       {/* Right: sticky panel with ambient glow + crossfade */}
       <div className="relative">
-        <div className="sticky top-1/2 flex -translate-y-1/2 flex-col items-center justify-center">
+        <div className="sticky top-[50vh] flex -translate-y-1/2 flex-col items-center justify-center">
           {/* Ambient pulsing glow behind the panel */}
           <motion.div
             aria-hidden
