@@ -1161,11 +1161,11 @@ function UnderstandPanel() {
 function DecidePanel() {
   return (
     <div>
-      <div className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-widest text-ai">
-        <Lightbulb className="h-3.5 w-3.5" /> Recommended for you
+      <div className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-widest text-text-muted">
+        <Lightbulb className="h-3.5 w-3.5 text-bull" /> Recommended for you
       </div>
-      <div className="mt-4 rounded-[10px] border border-l-2 border-l-warning border-white/10 bg-warning/[0.06] p-3">
-        <div className="flex items-center gap-2 text-[12px] font-semibold text-warning">
+      <div className="mt-4 rounded-[10px] border border-l-2 border-l-bull border-white/10 bg-bull/[0.06] p-3">
+        <div className="flex items-center gap-2 text-[12px] font-semibold text-bull">
           <ShieldCheck className="h-4 w-4" /> Devaluation Shield Score
         </div>
         <div className="mt-1 font-mono text-2xl font-bold text-text-primary">72 / 100</div>
@@ -1184,6 +1184,7 @@ function DecidePanel() {
     </div>
   );
 }
+
 
 const STEP_PANELS = [<TrackPanel />, <UnderstandPanel />, <DecidePanel />];
 
