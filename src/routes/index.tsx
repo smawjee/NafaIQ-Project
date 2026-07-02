@@ -1066,26 +1066,40 @@ function FlipCard() {
 }
 
 /* ---------- How NafaIQ Works — 3 steps ---------- */
-const STEPS: { step: string; title: string; label: string; desc: string }[] = [
+const STEPS: {
+  step: string;
+  title: string;
+  label: string;
+  desc: string;
+  Icon: LucideIcon;
+  chips: string[];
+}[] = [
   {
     step: "01",
     title: "Track",
     label: "Live Market Data",
-    desc: "Connect your portfolio or explore live PSX data instantly, no account required.",
+    desc: "Connect your portfolio or explore live PSX data instantly — no account required. Real-time KSE-100, watchlists, and pro charts in one terminal.",
+    Icon: CandlestickChart,
+    chips: ["PSX Live", "Watchlists", "Pro Charts"],
   },
   {
     step: "02",
     title: "Understand",
     label: "Real Wealth Engine",
-    desc: "See your real wealth, AI insights, and devaluation-adjusted returns in plain language.",
+    desc: "See your real, devaluation-adjusted wealth in plain language. Haqeeqi Daulat™ strips away rupee decay so you know what your money is truly worth.",
+    Icon: Brain,
+    chips: ["Devaluation-Adjusted", "AI Insights", "Haqeeqi Daulat™"],
   },
   {
     step: "03",
     title: "Decide",
     label: "Decision Engine",
-    desc: "Act on personalized recommendations for investing, saving, and Zakat — all in one place.",
+    desc: "Act on personalized moves for investing, saving, and Zakat. Halal-screened recommendations turn insight into confident, values-aligned action.",
+    Icon: ShieldCheck,
+    chips: ["Recommendations", "Zakat-Aware", "Halal Screened"],
   },
 ];
+
 
 
 /* ---------- Sticky panel visuals (shared terminal frame) ---------- */
