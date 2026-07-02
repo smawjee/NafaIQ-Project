@@ -1226,6 +1226,18 @@ function HowItWorksDesktop() {
           }}
         />
 
+        {/* Static tick marks — route markers at each step's position */}
+        {STEPS.map((s, i) => (
+          <span
+            key={`tick-${s.step}`}
+            className="absolute left-[15px] h-2 w-2 -translate-x-1/2 -translate-y-1/2 rounded-full bg-white/20"
+            style={{ top: `${((i + 0.5) / STEPS.length) * 100}%` }}
+            aria-hidden
+          />
+        ))}
+
+
+
 
         {STEPS.map((s, i) => {
           const done = i <= active;
