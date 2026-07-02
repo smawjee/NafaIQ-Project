@@ -1452,95 +1452,77 @@ function HowItWorksDesktop() {
           />
         ))}
 
-        {STEPS.map((s, i) => {
-          const done = i <= active;
-          const isActive = active === i;
-          return (
-            <div
-              key={s.step}
-              data-index={i}
-              ref={(el) => {
-                stepRefs.current[i] = el;
-              }}
-              className="relative min-h-[80vh]"
-            >
-              {/* Pinned wrapper keeps this step vertically centered while it
-                  scrolls, so both columns share the same center. */}
-              <div className="sticky top-[50vh] -translate-y-1/2">
-                {/* Rail dot centered beside the step badge */}
-                <span
-                  className="absolute left-[-35px] top-1/2 flex h-5 w-5 -translate-y-1/2 items-center justify-center"
-                  aria-hidden
-                >
-                  <span
-                    className="h-3 w-3 rounded-full transition-all duration-700"
-                    style={{
-                      background: done ? "rgb(0,212,170)" : "rgba(255,255,255,0.18)",
-                      transform: isActive ? "scale(1.5)" : "scale(1)",
-                      boxShadow: isActive ? "0 0 20px 4px rgba(0,212,170,0.8)" : "none",
+        {/* Invisible scroll spacers — drive the IntersectionObserver + rail */}
+        {STEPS.map((s, i) => (
+          <div
+            key={s.step}
+            data-index={i}
+            ref={(el) => {
+              stepRefs.current[i] = el;
+            }}
+            className="min-h-[80vh]"
+            aria-hidden
+          />
+        ))}
+
+        {/* Single pinned panel — only the active step is shown (crossfade),
+            so eyebrow/title/paragraph of different steps never overlap. */}
+        <div className="pointer-events-none absolute inset-0">
+          <div className="sticky top-[50vh] -translate-y-1/2">
+            <div className="relative min-h-[280px]">
+              {STEPS.map((s, i) => {
+                const isActive = active === i;
+                return (
+                  <motion.div
+                    key={s.step}
+                    className="absolute inset-x-0 top-1/2 -translate-y-1/2"
+                    animate={{
+                      opacity: isActive ? 1 : 0,
+                      y: reduce ? 0 : isActive ? 0 : 16,
+                      filter: isActive ? "blur(0px)" : "blur(4px)",
                     }}
-                  />
-                </span>
-
-                {/* Step content — inactive steps fade, blur & shrink */}
-                <motion.div
-                  animate={{
-                    opacity: isActive ? 1 : 0.08,
-                    scale: isActive ? 1 : 0.94,
-                    filter: isActive ? "blur(0px)" : "blur(3px)",
-                  }}
-                  transition={{ duration: 0.6, ease: "easeOut" }}
-                >
-                  {/* Eyebrow: [icon badge] —— CATEGORY LABEL */}
-                  <div className="flex items-center gap-3">
-                    <div
-                      className="flex h-12 w-12 items-center justify-center rounded-[12px] transition-colors duration-700"
-                      style={{
-                        background: isActive ? "rgba(0,212,170,0.15)" : "rgba(255,255,255,0.04)",
-                      }}
-                    >
-                      <s.Icon
-                        className={cn(
-                          "h-5 w-5 transition-colors duration-700",
-                          isActive ? "text-bull" : "text-text-muted",
-                        )}
-                        strokeWidth={1.75}
-                      />
-                    </div>
-                    <span className="h-px w-6 bg-white/20" aria-hidden />
-                    <span className="font-mono text-[11px] font-semibold uppercase tracking-[0.22em] text-text-muted">
-                      {s.step} · {s.label}
-                    </span>
-                  </div>
-                  <h3
-                    className={cn(
-                      "mt-4 text-3xl font-bold leading-tight transition-colors duration-700",
-                      isActive ? "text-text-primary" : "text-text-secondary",
-                    )}
+                    transition={{ duration: 0.5, ease: "easeOut" }}
+                    style={{ pointerEvents: isActive ? "auto" : "none" }}
                   >
-                    {s.title}
-                  </h3>
-                  <p className="mt-3 max-w-[440px] text-base leading-[1.6] text-text-secondary">
-                    {s.desc}
-                  </p>
-
-                  {/* Feature chips */}
-                  <div className="mt-5 flex flex-wrap gap-2">
-                    {s.chips.map((c) => (
-                      <span
-                        key={c}
-                        className="rounded-full border border-bull/20 bg-bull/[0.06] px-3 py-1 text-[11px] font-semibold text-bull/90"
+                    {/* Eyebrow: [icon badge] —— CATEGORY LABEL */}
+                    <div className="flex items-center gap-3">
+                      <div
+                        className="flex h-12 w-12 items-center justify-center rounded-[12px]"
+                        style={{ background: "rgba(0,212,170,0.15)" }}
                       >
-                        {c}
+                        <s.Icon className="h-5 w-5 text-bull" strokeWidth={1.75} />
+                      </div>
+                      <span className="h-px w-6 bg-white/20" aria-hidden />
+                      <span className="font-mono text-[11px] font-semibold uppercase tracking-[0.22em] text-text-muted">
+                        {s.step} · {s.label}
                       </span>
-                    ))}
-                  </div>
-                </motion.div>
-              </div>
+                    </div>
+                    <h3 className="mt-4 text-3xl font-bold leading-tight text-text-primary">
+                      {s.title}
+                    </h3>
+                    <p className="mt-3 max-w-[440px] text-base leading-[1.6] text-text-secondary">
+                      {s.desc}
+                    </p>
+
+                    {/* Feature chips */}
+                    <div className="mt-5 flex flex-wrap gap-2">
+                      {s.chips.map((c) => (
+                        <span
+                          key={c}
+                          className="rounded-full border border-bull/20 bg-bull/[0.06] px-3 py-1 text-[11px] font-semibold text-bull/90"
+                        >
+                          {c}
+                        </span>
+                      ))}
+                    </div>
+                  </motion.div>
+                );
+              })}
             </div>
-          );
-        })}
+          </div>
+        </div>
       </div>
+
 
       {/* Right: sticky panel with ambient glow + crossfade */}
       <div className="relative">
