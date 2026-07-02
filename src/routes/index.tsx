@@ -1062,29 +1062,33 @@ function FlipCard() {
 }
 
 /* ---------- How NafaIQ Works — 3 steps ---------- */
-const STEPS: { step: string; title: string; desc: string }[] = [
+const STEPS: { step: string; title: string; label: string; desc: string }[] = [
   {
     step: "01",
     title: "Track",
+    label: "Live Market Data",
     desc: "Connect your portfolio or explore live PSX data instantly, no account required.",
   },
   {
     step: "02",
     title: "Understand",
+    label: "Real Wealth Engine",
     desc: "See your real wealth, AI insights, and devaluation-adjusted returns in plain language.",
   },
   {
     step: "03",
     title: "Decide",
+    label: "Decision Engine",
     desc: "Act on personalized recommendations for investing, saving, and Zakat — all in one place.",
   },
 ];
+
 
 /* ---------- Sticky panel visuals (shared terminal frame) ---------- */
 function StepPanelFrame({ children }: { children: React.ReactNode }) {
   return (
     <div
-      className="relative w-full max-w-[380px] rounded-[16px] border border-white/10 p-6"
+      className="relative flex min-h-[280px] w-full max-w-[380px] flex-col justify-center rounded-[16px] border border-white/10 p-6"
       style={{
         background: "rgba(17,24,39,0.92)",
         boxShadow: "0 40px 80px rgba(0,0,0,0.5), 0 0 60px rgba(0,212,170,0.08)",
@@ -1094,6 +1098,7 @@ function StepPanelFrame({ children }: { children: React.ReactNode }) {
     </div>
   );
 }
+
 
 function TrackPanel() {
   return (
@@ -1156,11 +1161,11 @@ function UnderstandPanel() {
 function DecidePanel() {
   return (
     <div>
-      <div className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-widest text-ai">
-        <Lightbulb className="h-3.5 w-3.5" /> Recommended for you
+      <div className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-widest text-text-muted">
+        <Lightbulb className="h-3.5 w-3.5 text-bull" /> Recommended for you
       </div>
-      <div className="mt-4 rounded-[10px] border border-l-2 border-l-warning border-white/10 bg-warning/[0.06] p-3">
-        <div className="flex items-center gap-2 text-[12px] font-semibold text-warning">
+      <div className="mt-4 rounded-[10px] border border-l-2 border-l-bull border-white/10 bg-bull/[0.06] p-3">
+        <div className="flex items-center gap-2 text-[12px] font-semibold text-bull">
           <ShieldCheck className="h-4 w-4" /> Devaluation Shield Score
         </div>
         <div className="mt-1 font-mono text-2xl font-bold text-text-primary">72 / 100</div>
@@ -1179,6 +1184,7 @@ function DecidePanel() {
     </div>
   );
 }
+
 
 const STEP_PANELS = [<TrackPanel />, <UnderstandPanel />, <DecidePanel />];
 
@@ -1219,6 +1225,18 @@ function HowItWorksDesktop() {
             boxShadow: "0 0 12px rgba(0,212,170,0.6)",
           }}
         />
+
+        {/* Static tick marks — route markers at each step's position */}
+        {STEPS.map((s, i) => (
+          <span
+            key={`tick-${s.step}`}
+            className="absolute left-[15px] h-2 w-2 -translate-x-1/2 -translate-y-1/2 rounded-full bg-white/20"
+            style={{ top: `${((i + 0.5) / STEPS.length) * 100}%` }}
+            aria-hidden
+          />
+        ))}
+
+
 
 
         {STEPS.map((s, i) => {
@@ -1261,7 +1279,8 @@ function HowItWorksDesktop() {
                   }}
                   transition={{ duration: 0.6, ease: "easeOut" }}
                 >
-                  <div className="flex items-center gap-4">
+                  {/* Eyebrow: [number] —— CATEGORY LABEL */}
+                  <div className="flex items-center gap-3">
                     <div
                       className="flex h-12 w-12 items-center justify-center rounded-[12px] transition-colors duration-700"
                       style={{
@@ -1270,20 +1289,23 @@ function HowItWorksDesktop() {
                     >
                       <span className="font-mono text-lg font-bold text-bull">{s.step}</span>
                     </div>
-                    <h3
-                      className={cn(
-                        "text-2xl transition-all duration-700",
-                        isActive
-                          ? "font-bold text-text-primary"
-                          : "font-semibold text-text-secondary",
-                      )}
-                    >
-                      {s.title}
-                    </h3>
+                    <span className="h-px w-6 bg-white/20" aria-hidden />
+                    <span className="text-[11px] font-semibold uppercase tracking-[0.22em] text-text-muted">
+                      {s.label}
+                    </span>
                   </div>
-                  <p className="mt-4 max-w-[420px] text-base leading-[1.6] text-text-secondary">
+                  <h3
+                    className={cn(
+                      "mt-4 text-2xl font-bold leading-tight transition-colors duration-700",
+                      isActive ? "text-text-primary" : "text-text-secondary",
+                    )}
+                  >
+                    {s.title}
+                  </h3>
+                  <p className="mt-3 max-w-[420px] text-base leading-[1.6] text-text-secondary">
                     {s.desc}
                   </p>
+
                 </motion.div>
               </div>
 
@@ -1343,11 +1365,18 @@ function HowItWorksMobile() {
             <span className="absolute right-5 top-4 font-mono text-3xl font-bold tabular-nums text-white/[0.06]">
               {s.step}
             </span>
-            <div className="flex h-12 w-12 items-center justify-center rounded-[12px] bg-bull/10 text-bull">
-              <span className="font-mono text-lg font-bold">{s.step}</span>
+            <div className="flex items-center gap-3">
+              <div className="flex h-12 w-12 items-center justify-center rounded-[12px] bg-bull/10 text-bull">
+                <span className="font-mono text-lg font-bold">{s.step}</span>
+              </div>
+              <span className="h-px w-6 bg-white/20" aria-hidden />
+              <span className="text-[10px] font-semibold uppercase tracking-[0.22em] text-text-muted">
+                {s.label}
+              </span>
             </div>
-            <h3 className="mt-4 text-lg font-semibold text-text-primary">{s.title}</h3>
+            <h3 className="mt-4 text-lg font-bold text-text-primary">{s.title}</h3>
             <p className="mt-2 text-sm leading-[1.6] text-text-secondary">{s.desc}</p>
+
           </div>
         </RevealItem>
       ))}
