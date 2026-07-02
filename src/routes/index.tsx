@@ -177,14 +177,14 @@ function StoreButtons({ center = false }: { center?: boolean }) {
       {/* SECONDARY — coming-soon stores, visually de-emphasized */}
       <div className={cn("flex flex-col items-start gap-2.5", center && "items-center")}>
         <div className={cn("flex flex-wrap gap-2", center && "justify-center")}>
-          <div className="flex items-center gap-2 rounded-[10px] border border-white/[0.07] bg-white/[0.02] px-3 py-1.5 text-left opacity-55 grayscale">
+          <div className="flex items-center gap-2 rounded-[10px] border border-white/[0.08] bg-white/[0.02] px-3 py-1.5 text-left opacity-55 grayscale">
             <AppleGlyph />
             <span className="flex flex-col leading-tight">
               <span className="text-[9px] uppercase tracking-wide text-white/50">Coming soon</span>
               <span className="text-xs font-medium text-white/80">App Store</span>
             </span>
           </div>
-          <div className="flex items-center gap-2 rounded-[10px] border border-white/[0.07] bg-white/[0.02] px-3 py-1.5 text-left opacity-55 grayscale">
+          <div className="flex items-center gap-2 rounded-[10px] border border-white/[0.08] bg-white/[0.02] px-3 py-1.5 text-left opacity-55 grayscale">
             <GooglePlayGlyph />
             <span className="flex flex-col leading-tight">
               <span className="text-[9px] uppercase tracking-wide text-white/50">Coming soon</span>
@@ -1835,7 +1835,7 @@ function Landing() {
                     whileHover={{ y: -4, scale: 1.02 }}
                     transition={SPRING_UI}
                     className={cn(
-                      "group relative h-full rounded-[16px] border border-white/[0.07] p-7 backdrop-blur-md transition-shadow duration-[250ms] hover:border-bull/30 hover:shadow-[0_24px_60px_rgba(0,212,170,0.18),0_0_0_1px_rgba(0,212,170,0.18)]",
+                      "group relative h-full rounded-[16px] border border-white/[0.08] p-7 backdrop-blur-md transition-shadow duration-[250ms] hover:border-bull/30 hover:shadow-[0_24px_60px_rgba(0,212,170,0.18),0_0_0_1px_rgba(0,212,170,0.18)]",
                       f.badge && "spin-border",
                     )}
                     style={{ background: "rgba(17,24,39,0.6)" }}
@@ -1947,7 +1947,7 @@ function Landing() {
             <RevealItem key={t.initials} delay={i * 0.1} className="[perspective:1000px]">
               <Tilt3D max={8} scale={1.03} className="h-full">
                 <div
-                  className="relative h-full overflow-hidden rounded-[16px] border border-white/[0.07] p-6 backdrop-blur-md"
+                  className="relative h-full overflow-hidden rounded-[16px] border border-white/[0.08] p-6 backdrop-blur-md"
                   style={{ background: "rgba(17,24,39,0.6)" }}
                 >
                   <span className="pointer-events-none absolute left-3 top-0 select-none font-serif text-[80px] leading-none text-white opacity-[0.08]">
@@ -1981,7 +1981,7 @@ function Landing() {
           ))}
         </div>
         <Reveal className="mt-16">
-          <div className="rounded-[16px] border border-white/[0.07] bg-surface/40 py-2">
+          <div className="rounded-[16px] border border-white/[0.08] bg-surface/40 py-2">
             <StatsStrip />
           </div>
         </Reveal>
