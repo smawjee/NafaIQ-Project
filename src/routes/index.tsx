@@ -1130,32 +1130,183 @@ function TrackPanel() {
   );
 }
 
-function UnderstandPanel() {
+// Animated count-up used inside the scrolly panels (replays on step mount)
+function PanelCountUp({
+  to,
+  decimals = 0,
+  prefix = "",
+  suffix = "",
+  duration = 1.1,
+  className,
+}: {
+  to: number;
+  decimals?: number;
+  prefix?: string;
+  suffix?: string;
+  duration?: number;
+  className?: string;
+}) {
+  const reduce = useReducedMotion();
+  const [val, setVal] = useState(reduce ? to : 0);
+  useEffect(() => {
+    if (reduce) {
+      setVal(to);
+      return;
+    }
+    let raf = 0;
+    const start = performance.now();
+    const tick = (now: number) => {
+      const p = Math.min((now - start) / (duration * 1000), 1);
+      const eased = 1 - Math.pow(1 - p, 3);
+      setVal(to * eased);
+      if (p < 1) raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [to, duration, reduce]);
   return (
-    <div>
-      <div className="text-[10px] font-semibold uppercase tracking-widest text-text-muted">
-        Haqeeqi Daulat™ — حقیقی دولت
-      </div>
-      <div className="mt-1 text-sm font-semibold text-text-primary">Your Real Wealth</div>
-      <div className="mt-6 grid grid-cols-2 gap-4">
+    <span className={className}>
+      {prefix}
+      {val.toLocaleString("en-US", {
+        minimumFractionDigits: decimals,
+        maximumFractionDigits: decimals,
+      })}
+      {suffix}
+    </span>
+  );
+}
+
+function UnderstandPanel() {
+  const reduce = useReducedMotion();
+  return (
+    <div className="relative">
+      {/* header */}
+      <div className="flex items-start justify-between">
         <div>
-          <div className="text-[10px] text-text-muted">PSX Shows You</div>
-          <div className="mt-1 font-mono text-[30px] font-bold leading-none text-bull">+12.73%</div>
-          <div className="mt-2 text-[10px] text-text-secondary">PKR 858,054</div>
+          <div className="font-mono text-[10px] font-semibold uppercase tracking-[0.18em] text-text-muted">
+            Haqeeqi Daulat™ · حقیقی دولت
+          </div>
+          <div className="mt-1.5 text-[15px] font-bold text-text-primary">Your Real Wealth</div>
         </div>
+        <span className="inline-flex items-center gap-1 rounded-full border border-bear/25 bg-bear/10 px-2 py-1 text-[9px] font-bold uppercase tracking-widest text-bear">
+          <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-bear" /> Erosion
+        </span>
+      </div>
+
+      {/* divergence bars */}
+      <div className="mt-6 space-y-5">
         <div>
-          <div className="text-[10px] text-warning">Real USD Return</div>
-          <div className="mt-1 font-mono text-[30px] font-bold leading-none text-bear">-3.2%</div>
-          <div className="mt-2 text-[10px] text-text-secondary">After 16.2% PKR decay</div>
+          <div className="flex items-baseline justify-between">
+            <span className="flex items-center gap-1.5 text-[11px] text-text-secondary">
+              <TrendingUp className="h-3.5 w-3.5 text-bull" strokeWidth={1.75} /> PSX shows you
+            </span>
+            <PanelCountUp
+              to={12.73}
+              decimals={2}
+              prefix="+"
+              suffix="%"
+              className="font-mono text-lg font-bold text-bull tabular-nums"
+            />
+          </div>
+          <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-white/[0.06]">
+            <motion.div
+              className="h-full rounded-full bg-gradient-to-r from-bull/60 to-bull"
+              style={{ boxShadow: "0 0 12px rgba(0,212,170,0.5)" }}
+              initial={{ width: reduce ? "82%" : 0 }}
+              animate={{ width: "82%" }}
+              transition={{ duration: 1, ease: "easeOut" }}
+            />
+          </div>
+        </div>
+
+        <div>
+          <div className="flex items-baseline justify-between">
+            <span className="flex items-center gap-1.5 text-[11px] text-text-secondary">
+              <TrendingDown className="h-3.5 w-3.5 text-bear" strokeWidth={1.75} /> Real USD return
+            </span>
+            <PanelCountUp
+              to={-3.2}
+              decimals={1}
+              suffix="%"
+              className="font-mono text-lg font-bold text-bear tabular-nums"
+            />
+          </div>
+          <div className="relative mt-2 h-2 w-full overflow-hidden rounded-full bg-white/[0.06]">
+            <div className="absolute inset-y-0 left-1/2 w-px bg-white/15" />
+            <motion.div
+              className="absolute right-1/2 h-full rounded-l-full bg-gradient-to-l from-bear to-bear/50"
+              style={{ boxShadow: "0 0 12px rgba(255,77,79,0.45)" }}
+              initial={{ width: reduce ? "22%" : 0 }}
+              animate={{ width: "22%" }}
+              transition={{ duration: 1, ease: "easeOut", delay: 0.15 }}
+            />
+          </div>
         </div>
       </div>
-      <div
-        className="mt-6 rounded-[8px] p-3 text-[11px] text-warning"
-        style={{ background: "rgba(245,158,11,0.1)" }}
+
+      {/* erosion callout with animated glow */}
+      <motion.div
+        className="mt-6 flex items-start gap-2.5 overflow-hidden rounded-[10px] border border-bear/20 p-3"
+        style={{ background: "rgba(255,77,79,0.06)" }}
+        animate={
+          reduce
+            ? undefined
+            : { boxShadow: ["0 0 0 rgba(255,77,79,0)", "0 0 22px rgba(255,77,79,0.18)", "0 0 0 rgba(255,77,79,0)"] }
+        }
+        transition={{ duration: 2.6, repeat: Infinity, ease: "easeInOut" }}
       >
-        <span className="inline-flex items-center gap-1.5">
-          <AlertTriangle className="h-3.5 w-3.5" strokeWidth={1.5} /> PKR 1,02,722 eroded by
-          devaluation this year
+        <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-bear" strokeWidth={1.75} />
+        <p className="text-[11px] leading-relaxed text-text-secondary">
+          <PanelCountUp
+            to={102722}
+            prefix="PKR "
+            className="font-mono font-bold text-bear"
+          />{" "}
+          in purchasing power lost to a <span className="text-text-primary">15.9% rupee decay</span>{" "}
+          this year.
+        </p>
+      </motion.div>
+    </div>
+  );
+}
+
+function ShieldGauge({ score = 72 }: { score?: number }) {
+  const reduce = useReducedMotion();
+  const R = 34;
+  const C = 2 * Math.PI * R;
+  const target = C * (1 - score / 100);
+  return (
+    <div className="relative h-[92px] w-[92px] shrink-0">
+      <svg viewBox="0 0 80 80" className="h-full w-full -rotate-90">
+        <defs>
+          <linearGradient id="shieldGrad" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0%" stopColor="#00d4aa" />
+            <stop offset="100%" stopColor="#3b82f6" />
+          </linearGradient>
+        </defs>
+        <circle cx="40" cy="40" r={R} fill="none" strokeWidth="6" className="stroke-white/[0.08]" />
+        <motion.circle
+          cx="40"
+          cy="40"
+          r={R}
+          fill="none"
+          strokeWidth="6"
+          stroke="url(#shieldGrad)"
+          strokeLinecap="round"
+          strokeDasharray={C}
+          initial={{ strokeDashoffset: reduce ? target : C }}
+          animate={{ strokeDashoffset: target }}
+          transition={{ duration: 1.3, ease: "easeOut" }}
+          style={{ filter: "drop-shadow(0 0 6px rgba(0,212,170,0.5))" }}
+        />
+      </svg>
+      <div className="absolute inset-0 flex flex-col items-center justify-center">
+        <PanelCountUp
+          to={score}
+          className="font-mono text-2xl font-bold leading-none text-text-primary tabular-nums"
+        />
+        <span className="mt-0.5 text-[8px] font-semibold uppercase tracking-widest text-text-muted">
+          / 100
         </span>
       </div>
     </div>
@@ -1163,31 +1314,55 @@ function UnderstandPanel() {
 }
 
 function DecidePanel() {
+  const reduce = useReducedMotion();
   return (
-    <div>
-      <div className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-widest text-text-muted">
-        <Lightbulb className="h-3.5 w-3.5 text-bull" /> Recommended for you
+    <div className="relative">
+      <div className="flex items-center gap-2 font-mono text-[10px] font-semibold uppercase tracking-[0.18em] text-text-muted">
+        <Sparkles className="h-3.5 w-3.5 text-bull" strokeWidth={1.75} /> Recommended for you
       </div>
-      <div className="mt-4 rounded-[10px] border border-l-2 border-l-bull border-white/10 bg-bull/[0.06] p-3">
-        <div className="flex items-center gap-2 text-[12px] font-semibold text-bull">
-          <ShieldCheck className="h-4 w-4" /> Devaluation Shield Score
-        </div>
-        <div className="mt-1 font-mono text-2xl font-bold text-text-primary">72 / 100</div>
-        <div className="mt-1 text-[11px] text-text-secondary">
-          Shift 15% into USD-hedged assets to raise your score.
+
+      {/* score hero */}
+      <div className="mt-4 flex items-center gap-5 rounded-[12px] border border-white/10 bg-white/[0.02] p-4">
+        <ShieldGauge score={72} />
+        <div className="min-w-0">
+          <div className="flex items-center gap-1.5 text-[12px] font-semibold text-bull">
+            <ShieldCheck className="h-4 w-4" strokeWidth={1.75} /> Devaluation Shield
+          </div>
+          <p className="mt-1.5 text-[11px] leading-relaxed text-text-secondary">
+            Shift 15% into USD-hedged assets to push your score into the{" "}
+            <span className="font-semibold text-bull">safe zone</span>.
+          </p>
+          <div className="mt-2 inline-flex items-center gap-1 text-[10px] font-semibold text-bull">
+            <ArrowUpRight className="h-3 w-3" /> +11 projected
+          </div>
         </div>
       </div>
-      <div className="mt-3 rounded-[10px] border border-l-2 border-l-bull border-white/10 bg-bull/[0.06] p-3">
-        <div className="flex items-center gap-2 text-[12px] font-semibold text-bull">
-          <CrescentIcon className="h-4 w-4" /> Zakat Reminder
+
+      {/* zakat reminder */}
+      <div className="mt-3 flex items-center justify-between rounded-[12px] border border-white/10 bg-white/[0.02] p-3.5">
+        <div className="flex items-center gap-2.5">
+          <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-bull/10 text-bull">
+            <CrescentIcon className="h-4 w-4" />
+          </span>
+          <div>
+            <div className="text-[12px] font-semibold text-text-primary">Zakat Reminder</div>
+            <div className="font-mono text-[10px] text-text-secondary tabular-nums">
+              PKR 21,451 due
+            </div>
+          </div>
         </div>
-        <div className="mt-1 text-[11px] text-text-secondary">
-          PKR 21,451 due this year — 12 days left in your cycle.
-        </div>
+        <motion.span
+          className="rounded-full border border-warning/25 bg-warning/10 px-2.5 py-1 font-mono text-[10px] font-bold text-warning tabular-nums"
+          animate={reduce ? undefined : { opacity: [1, 0.55, 1] }}
+          transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
+        >
+          12 days left
+        </motion.span>
       </div>
     </div>
   );
 }
+
 
 
 const STEP_PANELS = [<TrackPanel />, <UnderstandPanel />, <DecidePanel />];
