@@ -1836,7 +1836,8 @@ function Landing() {
                     transition={SPRING_UI}
                     className={cn(
                       "group relative h-full rounded-[16px] border border-white/[0.08] p-7 backdrop-blur-md transition-shadow duration-[250ms] hover:border-bull/30 hover:shadow-[0_24px_60px_rgba(0,212,170,0.18),0_0_0_1px_rgba(0,212,170,0.18)]",
-                      f.badge && "spin-border",
+                      f.badge &&
+                        "border-gold/40 shadow-[0_0_0_1px_rgba(212,160,23,0.22),0_20px_50px_rgba(212,160,23,0.12)]",
                     )}
                     style={{ background: "rgba(17,24,39,0.6)" }}
                   >
