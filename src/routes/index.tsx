@@ -1088,7 +1088,7 @@ const STEPS: { step: string; title: string; label: string; desc: string }[] = [
 function StepPanelFrame({ children }: { children: React.ReactNode }) {
   return (
     <div
-      className="relative w-full max-w-[380px] rounded-[16px] border border-white/10 p-6"
+      className="relative flex min-h-[280px] w-full max-w-[380px] flex-col justify-center rounded-[16px] border border-white/10 p-6"
       style={{
         background: "rgba(17,24,39,0.92)",
         boxShadow: "0 40px 80px rgba(0,0,0,0.5), 0 0 60px rgba(0,212,170,0.08)",
@@ -1098,6 +1098,7 @@ function StepPanelFrame({ children }: { children: React.ReactNode }) {
     </div>
   );
 }
+
 
 function TrackPanel() {
   return (
