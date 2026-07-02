@@ -1062,23 +1062,27 @@ function FlipCard() {
 }
 
 /* ---------- How NafaIQ Works — 3 steps ---------- */
-const STEPS: { step: string; title: string; desc: string }[] = [
+const STEPS: { step: string; title: string; label: string; desc: string }[] = [
   {
     step: "01",
     title: "Track",
+    label: "Live Market Data",
     desc: "Connect your portfolio or explore live PSX data instantly, no account required.",
   },
   {
     step: "02",
     title: "Understand",
+    label: "Real Wealth Engine",
     desc: "See your real wealth, AI insights, and devaluation-adjusted returns in plain language.",
   },
   {
     step: "03",
     title: "Decide",
+    label: "Decision Engine",
     desc: "Act on personalized recommendations for investing, saving, and Zakat — all in one place.",
   },
 ];
+
 
 /* ---------- Sticky panel visuals (shared terminal frame) ---------- */
 function StepPanelFrame({ children }: { children: React.ReactNode }) {
