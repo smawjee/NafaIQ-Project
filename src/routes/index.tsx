@@ -1306,8 +1306,8 @@ function HowItWorksDesktop() {
             </AnimatePresence>
           )}
 
-          {/* Bottom step indicator dots */}
-          <div className="mt-8 flex items-center gap-2.5">
+          {/* Bottom step indicator dots — absolute so they don't offset the panel's vertical center */}
+          <div className="absolute bottom-16 left-1/2 flex -translate-x-1/2 items-center gap-2.5">
             {STEPS.map((s, i) => (
               <span
                 key={s.step}
@@ -1322,6 +1322,7 @@ function HowItWorksDesktop() {
           </div>
         </div>
       </div>
+
     </div>
   );
 }
