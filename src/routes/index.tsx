@@ -1533,11 +1533,11 @@ function HowItWorksDesktop() {
 
       {/* Right: sticky panel with ambient glow + crossfade */}
       <div className="relative">
-        <div className="sticky top-0 flex h-screen flex-col items-center justify-center">
+        <div className="sticky top-1/2 flex -translate-y-1/2 flex-col items-center justify-center">
           {/* Ambient pulsing glow behind the panel */}
           <motion.div
             aria-hidden
-            className="pointer-events-none absolute left-1/2 top-1/2 h-[420px] w-[420px] -translate-x-1/2 -translate-y-1/2 rounded-full"
+            className="pointer-events-none absolute left-1/2 top-1/2 h-[460px] w-[460px] -translate-x-1/2 -translate-y-1/2 rounded-full"
             style={{
               background:
                 "radial-gradient(circle, rgba(0,212,170,0.16) 0%, rgba(0,212,170,0.05) 45%, transparent 70%)",
@@ -1571,9 +1571,8 @@ function HowItWorksDesktop() {
             </motion.div>
           )}
 
-
-          {/* Bottom step indicator dots */}
-          <div className="absolute bottom-16 left-1/2 flex -translate-x-1/2 items-center gap-2.5">
+          {/* Step indicator dots */}
+          <div className="relative mt-8 flex items-center gap-2.5">
             {STEPS.map((s, i) => (
               <span
                 key={s.step}
