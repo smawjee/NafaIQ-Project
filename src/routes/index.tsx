@@ -2,7 +2,7 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import {
   motion,
-  AnimatePresence,
+  
   useScroll,
   useTransform,
   useSpring,
