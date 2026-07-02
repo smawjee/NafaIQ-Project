@@ -1231,56 +1231,62 @@ function HowItWorksDesktop() {
               ref={(el) => {
                 stepRefs.current[i] = el;
               }}
-              className="relative flex min-h-[80vh] flex-col justify-center"
+              className="relative min-h-[80vh]"
             >
-              {/* Rail dot centered on this step */}
-              <span
-                className="absolute left-[-35px] top-1/2 flex h-5 w-5 -translate-y-1/2 items-center justify-center"
-                aria-hidden
-              >
+              {/* Pinned wrapper: keeps this step's content vertically centered
+                  in the viewport (matching the sticky right panel) while the
+                  step scrolls through, so both columns share the same center. */}
+              <div className="sticky top-[50vh] -translate-y-1/2">
+                {/* Rail dot centered beside the step badge */}
                 <span
-                  className="h-3 w-3 rounded-full transition-all duration-700"
-                  style={{
-                    background: done ? "rgb(0,212,170)" : "rgba(255,255,255,0.18)",
-                    transform: isActive ? "scale(1.5)" : "scale(1)",
-                    boxShadow: isActive ? "0 0 20px 4px rgba(0,212,170,0.8)" : "none",
-                  }}
-                />
-              </span>
-
-              {/* Step content — vanish effect: inactive steps fade, blur & shrink */}
-              <motion.div
-                animate={{
-                  opacity: isActive ? 1 : 0.08,
-                  scale: isActive ? 1 : 0.94,
-                  filter: isActive ? "blur(0px)" : "blur(3px)",
-                }}
-                transition={{ duration: 0.6, ease: "easeOut" }}
-              >
-                <div className="flex items-center gap-4">
-                  <div
-                    className="flex h-12 w-12 items-center justify-center rounded-[12px] transition-colors duration-700"
+                  className="absolute left-[-35px] top-1/2 flex h-5 w-5 -translate-y-1/2 items-center justify-center"
+                  aria-hidden
+                >
+                  <span
+                    className="h-3 w-3 rounded-full transition-all duration-700"
                     style={{
-                      background: isActive ? "rgba(0,212,170,0.15)" : "rgba(255,255,255,0.04)",
+                      background: done ? "rgb(0,212,170)" : "rgba(255,255,255,0.18)",
+                      transform: isActive ? "scale(1.5)" : "scale(1)",
+                      boxShadow: isActive ? "0 0 20px 4px rgba(0,212,170,0.8)" : "none",
                     }}
-                  >
-                    <span className="font-mono text-lg font-bold text-bull">{s.step}</span>
+                  />
+                </span>
+
+                {/* Step content — vanish effect: inactive steps fade, blur & shrink */}
+                <motion.div
+                  animate={{
+                    opacity: isActive ? 1 : 0.08,
+                    scale: isActive ? 1 : 0.94,
+                    filter: isActive ? "blur(0px)" : "blur(3px)",
+                  }}
+                  transition={{ duration: 0.6, ease: "easeOut" }}
+                >
+                  <div className="flex items-center gap-4">
+                    <div
+                      className="flex h-12 w-12 items-center justify-center rounded-[12px] transition-colors duration-700"
+                      style={{
+                        background: isActive ? "rgba(0,212,170,0.15)" : "rgba(255,255,255,0.04)",
+                      }}
+                    >
+                      <span className="font-mono text-lg font-bold text-bull">{s.step}</span>
+                    </div>
+                    <h3
+                      className={cn(
+                        "text-2xl transition-all duration-700",
+                        isActive
+                          ? "font-bold text-text-primary"
+                          : "font-semibold text-text-secondary",
+                      )}
+                    >
+                      {s.title}
+                    </h3>
                   </div>
-                  <h3
-                    className={cn(
-                      "text-2xl transition-all duration-700",
-                      isActive
-                        ? "font-bold text-text-primary"
-                        : "font-semibold text-text-secondary",
-                    )}
-                  >
-                    {s.title}
-                  </h3>
-                </div>
-                <p className="mt-4 max-w-[420px] text-base leading-[1.6] text-text-secondary">
-                  {s.desc}
-                </p>
-              </motion.div>
+                  <p className="mt-4 max-w-[420px] text-base leading-[1.6] text-text-secondary">
+                    {s.desc}
+                  </p>
+                </motion.div>
+              </div>
+
             </div>
           );
         })}
