@@ -1235,7 +1235,7 @@ function HowItWorksDesktop() {
             >
               {/* Rail dot centered on this step */}
               <span
-                className="absolute left-[-52px] top-1/2 flex h-5 w-5 -translate-y-1/2 items-center justify-center"
+                className="absolute left-[-35px] top-1/2 flex h-5 w-5 -translate-y-1/2 items-center justify-center"
                 aria-hidden
               >
                 <span
