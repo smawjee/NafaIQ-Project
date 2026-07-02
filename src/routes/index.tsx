@@ -39,6 +39,10 @@ import {
   ChevronDown,
   Plus,
   Mail,
+  TrendingUp,
+  TrendingDown,
+  Sparkles,
+  ArrowUpRight,
   type LucideIcon,
 } from "lucide-react";
 
