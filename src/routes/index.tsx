@@ -1365,11 +1365,18 @@ function HowItWorksMobile() {
             <span className="absolute right-5 top-4 font-mono text-3xl font-bold tabular-nums text-white/[0.06]">
               {s.step}
             </span>
-            <div className="flex h-12 w-12 items-center justify-center rounded-[12px] bg-bull/10 text-bull">
-              <span className="font-mono text-lg font-bold">{s.step}</span>
+            <div className="flex items-center gap-3">
+              <div className="flex h-12 w-12 items-center justify-center rounded-[12px] bg-bull/10 text-bull">
+                <span className="font-mono text-lg font-bold">{s.step}</span>
+              </div>
+              <span className="h-px w-6 bg-white/20" aria-hidden />
+              <span className="text-[10px] font-semibold uppercase tracking-[0.22em] text-text-muted">
+                {s.label}
+              </span>
             </div>
-            <h3 className="mt-4 text-lg font-semibold text-text-primary">{s.title}</h3>
+            <h3 className="mt-4 text-lg font-bold text-text-primary">{s.title}</h3>
             <p className="mt-2 text-sm leading-[1.6] text-text-secondary">{s.desc}</p>
+
           </div>
         </RevealItem>
       ))}
