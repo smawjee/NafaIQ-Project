@@ -1279,7 +1279,8 @@ function HowItWorksDesktop() {
                   }}
                   transition={{ duration: 0.6, ease: "easeOut" }}
                 >
-                  <div className="flex items-center gap-4">
+                  {/* Eyebrow: [number] —— CATEGORY LABEL */}
+                  <div className="flex items-center gap-3">
                     <div
                       className="flex h-12 w-12 items-center justify-center rounded-[12px] transition-colors duration-700"
                       style={{
@@ -1288,20 +1289,23 @@ function HowItWorksDesktop() {
                     >
                       <span className="font-mono text-lg font-bold text-bull">{s.step}</span>
                     </div>
-                    <h3
-                      className={cn(
-                        "text-2xl transition-all duration-700",
-                        isActive
-                          ? "font-bold text-text-primary"
-                          : "font-semibold text-text-secondary",
-                      )}
-                    >
-                      {s.title}
-                    </h3>
+                    <span className="h-px w-6 bg-white/20" aria-hidden />
+                    <span className="text-[11px] font-semibold uppercase tracking-[0.22em] text-text-muted">
+                      {s.label}
+                    </span>
                   </div>
-                  <p className="mt-4 max-w-[420px] text-base leading-[1.6] text-text-secondary">
+                  <h3
+                    className={cn(
+                      "mt-4 text-2xl font-bold leading-tight transition-colors duration-700",
+                      isActive ? "text-text-primary" : "text-text-secondary",
+                    )}
+                  >
+                    {s.title}
+                  </h3>
+                  <p className="mt-3 max-w-[420px] text-base leading-[1.6] text-text-secondary">
                     {s.desc}
                   </p>
+
                 </motion.div>
               </div>
 
