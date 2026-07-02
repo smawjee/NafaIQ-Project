@@ -1431,11 +1431,11 @@ function HowItWorksDesktop() {
     <div className="mt-24 hidden grid-cols-2 items-stretch gap-16 lg:grid">
       {/* Left: tall scrolling steps with scroll-linked progress rail */}
       <div ref={railRef} className="relative pl-10">
-        {/* Vertical rail track */}
-        <div className="absolute left-[15px] top-0 bottom-0 w-px bg-white/[0.08]" />
-        {/* Vertical rail progress fill — scroll-linked, smooth */}
+        {/* Vertical rail track — clipped to span exactly Step 1 → Step 3 nodes */}
+        <div className="absolute left-[15px] top-[16.667%] bottom-[16.667%] w-px bg-white/[0.08]" />
+        {/* Vertical rail progress fill — scroll-linked, smooth, clipped to step range */}
         <motion.div
-          className="absolute left-[15px] top-0 h-full w-px origin-top bg-gradient-to-b from-bull via-bull to-bull/40"
+          className="absolute left-[15px] top-[16.667%] h-[66.666%] w-px origin-top bg-gradient-to-b from-bull via-bull to-bull/40"
           style={{
             scaleY: reduce ? 1 : railScale,
             boxShadow: "0 0 12px rgba(0,212,170,0.6)",
@@ -1468,7 +1468,7 @@ function HowItWorksDesktop() {
         {/* Single pinned panel — only the active step is shown (crossfade),
             so eyebrow/title/paragraph of different steps never overlap. */}
         <div className="pointer-events-none absolute inset-0">
-          <div className="sticky top-0 flex h-screen items-center">
+          <div className="sticky top-1/2 -translate-y-1/2">
             <div className="relative min-h-[280px] w-full">
               {STEPS.map((s, i) => {
                 const isActive = active === i;
@@ -1526,7 +1526,7 @@ function HowItWorksDesktop() {
 
       {/* Right: sticky panel with ambient glow + crossfade */}
       <div className="relative">
-        <div className="sticky top-0 flex h-screen flex-col items-center justify-center">
+        <div className="sticky top-1/2 flex -translate-y-1/2 flex-col items-center justify-center">
           {/* Ambient pulsing glow behind the panel */}
           <motion.div
             aria-hidden
