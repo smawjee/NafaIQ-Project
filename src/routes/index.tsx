@@ -1560,19 +1560,17 @@ function HowItWorksDesktop() {
           {reduce ? (
             <StepPanelFrame key={active}>{STEP_PANELS[active]}</StepPanelFrame>
           ) : (
-            <AnimatePresence mode="wait">
-              <motion.div
-                key={active}
-                initial={{ opacity: 0, y: 16, scale: 0.97 }}
-                animate={{ opacity: 1, y: 0, scale: 1 }}
-                exit={{ opacity: 0, y: -16, scale: 0.97 }}
-                transition={{ duration: 0.45, ease: "easeOut" }}
-                className="relative flex w-full justify-center"
-              >
-                <StepPanelFrame>{STEP_PANELS[active]}</StepPanelFrame>
-              </motion.div>
-            </AnimatePresence>
+            <motion.div
+              key={active}
+              initial={{ opacity: 0, y: 16, scale: 0.97 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              transition={{ duration: 0.45, ease: "easeOut" }}
+              className="relative flex w-full justify-center"
+            >
+              <StepPanelFrame>{STEP_PANELS[active]}</StepPanelFrame>
+            </motion.div>
           )}
+
 
           {/* Bottom step indicator dots */}
           <div className="absolute bottom-16 left-1/2 flex -translate-x-1/2 items-center gap-2.5">
