@@ -1468,7 +1468,7 @@ function HowItWorksDesktop() {
         {/* Single pinned panel — only the active step is shown (crossfade),
             so eyebrow/title/paragraph of different steps never overlap. */}
         <div className="pointer-events-none absolute inset-0">
-          <div className="sticky top-[50vh] -translate-y-1/2">
+          <div className="sticky top-0 flex h-screen items-center">
             <div className="relative min-h-[280px]">
               {STEPS.map((s, i) => {
                 const isActive = active === i;
