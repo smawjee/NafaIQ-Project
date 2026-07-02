@@ -1236,7 +1236,7 @@ function HowItWorksDesktop() {
               {/* Pinned wrapper: keeps this step's content vertically centered
                   in the viewport (matching the sticky right panel) while the
                   step scrolls through, so both columns share the same center. */}
-              <div className="sticky top-1/2 -translate-y-1/2">
+              <div className="sticky top-[50vh] -translate-y-1/2">
                 {/* Rail dot centered beside the step badge */}
                 <span
                   className="absolute left-[-35px] top-1/2 flex h-5 w-5 -translate-y-1/2 items-center justify-center"
