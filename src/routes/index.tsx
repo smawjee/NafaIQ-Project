@@ -1922,7 +1922,7 @@ function Landing() {
             <Magnetic strength={0.35}>
               <Link
                 to="/app"
-                className="mt-8 inline-flex items-center gap-1.5 rounded-[6px] bg-gradient-to-br from-[#00d4aa] to-[#00a88a] px-5 py-2.5 text-sm font-semibold text-bull-foreground shadow-[0_6px_24px_rgba(0,212,170,0.3)] transition hover:shadow-[0_10px_36px_rgba(0,212,170,0.5)]"
+                className="mt-8 inline-flex items-center gap-1.5 rounded-[12px] bg-gradient-to-br from-[#00d4aa] to-[#00a88a] px-5 py-2.5 text-sm font-semibold text-bull-foreground shadow-[0_6px_24px_rgba(0,212,170,0.3)] transition hover:shadow-[0_10px_36px_rgba(0,212,170,0.5)]"
               >
                 See Haqeeqi Daulat <ArrowRight className="h-4 w-4" />
               </Link>
