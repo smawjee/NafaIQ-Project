@@ -1206,19 +1206,20 @@ function HowItWorksDesktop() {
   }, []);
 
   return (
-    <div className="mt-16 hidden grid-cols-2 gap-16 lg:grid">
+    <div className="mt-16 hidden grid-cols-2 items-stretch gap-16 lg:grid">
       {/* Left: tall scrolling steps with progress rail */}
-      <div className="relative pl-16">
+      <div className="relative pl-10">
         {/* Vertical rail track */}
-        <div className="absolute left-[27px] top-0 bottom-0 w-px bg-white/[0.08]" />
+        <div className="absolute left-[15px] top-0 bottom-0 w-px bg-white/[0.08]" />
         {/* Vertical rail progress fill */}
         <div
-          className="absolute left-[27px] top-0 w-px bg-gradient-to-b from-bull via-bull to-bull/40 transition-[height] duration-700 ease-out"
+          className="absolute left-[15px] top-0 w-px bg-gradient-to-b from-bull via-bull to-bull/40 transition-[height] duration-700 ease-out"
           style={{
             height: `${((active + 1) / STEPS.length) * 100}%`,
             boxShadow: "0 0 12px rgba(0,212,170,0.6)",
           }}
         />
+
 
         {STEPS.map((s, i) => {
           const done = i <= active;
@@ -1234,7 +1235,7 @@ function HowItWorksDesktop() {
             >
               {/* Rail dot centered on this step */}
               <span
-                className="absolute left-[-52px] top-1/2 flex h-5 w-5 -translate-y-1/2 items-center justify-center"
+                className="absolute left-[-35px] top-1/2 flex h-5 w-5 -translate-y-1/2 items-center justify-center"
                 aria-hidden
               >
                 <span
@@ -1305,8 +1306,8 @@ function HowItWorksDesktop() {
             </AnimatePresence>
           )}
 
-          {/* Bottom step indicator dots */}
-          <div className="mt-8 flex items-center gap-2.5">
+          {/* Bottom step indicator dots — absolute so they don't offset the panel's vertical center */}
+          <div className="absolute bottom-16 left-1/2 flex -translate-x-1/2 items-center gap-2.5">
             {STEPS.map((s, i) => (
               <span
                 key={s.step}
@@ -1321,6 +1322,7 @@ function HowItWorksDesktop() {
           </div>
         </div>
       </div>
+
     </div>
   );
 }
