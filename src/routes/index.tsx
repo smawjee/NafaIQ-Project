@@ -1428,7 +1428,7 @@ function HowItWorksDesktop() {
   }, []);
 
   return (
-    <div className="mt-16 hidden grid-cols-2 items-stretch gap-16 lg:grid">
+    <div className="mt-24 hidden grid-cols-2 items-stretch gap-16 lg:grid">
       {/* Left: tall scrolling steps with scroll-linked progress rail */}
       <div ref={railRef} className="relative pl-10">
         {/* Vertical rail track */}
@@ -1468,8 +1468,8 @@ function HowItWorksDesktop() {
         {/* Single pinned panel — only the active step is shown (crossfade),
             so eyebrow/title/paragraph of different steps never overlap. */}
         <div className="pointer-events-none absolute inset-0">
-          <div className="sticky top-[50vh] -translate-y-1/2">
-            <div className="relative min-h-[280px]">
+          <div className="sticky top-0 flex h-screen items-center">
+            <div className="relative min-h-[280px] w-full">
               {STEPS.map((s, i) => {
                 const isActive = active === i;
                 return (
@@ -1526,7 +1526,7 @@ function HowItWorksDesktop() {
 
       {/* Right: sticky panel with ambient glow + crossfade */}
       <div className="relative">
-        <div className="sticky top-[50vh] flex -translate-y-1/2 flex-col items-center justify-center">
+        <div className="sticky top-0 flex h-screen flex-col items-center justify-center">
           {/* Ambient pulsing glow behind the panel */}
           <motion.div
             aria-hidden
