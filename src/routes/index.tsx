@@ -1106,16 +1106,27 @@ const STEPS: {
 function StepPanelFrame({ children }: { children: React.ReactNode }) {
   return (
     <div
-      className="relative flex min-h-[280px] w-full max-w-[380px] flex-col justify-center rounded-[16px] border border-white/10 p-6"
+      className="relative flex min-h-[300px] w-full max-w-[380px] flex-col overflow-hidden rounded-[18px] border border-white/10"
       style={{
-        background: "rgba(17,24,39,0.92)",
-        boxShadow: "0 40px 80px rgba(0,0,0,0.5), 0 0 60px rgba(0,212,170,0.08)",
+        background: "linear-gradient(180deg, rgba(20,28,44,0.96) 0%, rgba(13,19,32,0.96) 100%)",
+        boxShadow:
+          "0 40px 90px rgba(0,0,0,0.55), 0 0 0 1px rgba(255,255,255,0.02) inset, 0 0 60px rgba(0,212,170,0.07)",
       }}
     >
-      {children}
+      {/* window chrome */}
+      <div className="flex items-center gap-2 border-b border-white/[0.06] px-4 py-2.5">
+        <span className="h-2.5 w-2.5 rounded-full bg-bear/70" />
+        <span className="h-2.5 w-2.5 rounded-full bg-warning/70" />
+        <span className="h-2.5 w-2.5 rounded-full bg-bull/70" />
+        <span className="ml-auto font-mono text-[9px] font-semibold uppercase tracking-[0.2em] text-text-muted">
+          nafaiq · live
+        </span>
+      </div>
+      <div className="flex flex-1 flex-col justify-center p-6">{children}</div>
     </div>
   );
 }
+
 
 
 function TrackPanel() {
@@ -1533,11 +1544,11 @@ function HowItWorksDesktop() {
 
       {/* Right: sticky panel with ambient glow + crossfade */}
       <div className="relative">
-        <div className="sticky top-0 flex h-screen flex-col items-center justify-center">
+        <div className="sticky top-[50vh] flex -translate-y-1/2 flex-col items-center justify-center">
           {/* Ambient pulsing glow behind the panel */}
           <motion.div
             aria-hidden
-            className="pointer-events-none absolute left-1/2 top-1/2 h-[420px] w-[420px] -translate-x-1/2 -translate-y-1/2 rounded-full"
+            className="pointer-events-none absolute left-1/2 top-1/2 h-[460px] w-[460px] -translate-x-1/2 -translate-y-1/2 rounded-full"
             style={{
               background:
                 "radial-gradient(circle, rgba(0,212,170,0.16) 0%, rgba(0,212,170,0.05) 45%, transparent 70%)",
@@ -1571,9 +1582,8 @@ function HowItWorksDesktop() {
             </motion.div>
           )}
 
-
-          {/* Bottom step indicator dots */}
-          <div className="absolute bottom-16 left-1/2 flex -translate-x-1/2 items-center gap-2.5">
+          {/* Step indicator dots */}
+          <div className="relative mt-8 flex items-center gap-2.5">
             {STEPS.map((s, i) => (
               <span
                 key={s.step}
