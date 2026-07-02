@@ -1428,7 +1428,7 @@ function HowItWorksDesktop() {
   }, []);
 
   return (
-    <div className="mt-16 hidden grid-cols-2 items-stretch gap-16 lg:grid">
+    <div className="mt-24 hidden grid-cols-2 items-stretch gap-16 lg:grid">
       {/* Left: tall scrolling steps with scroll-linked progress rail */}
       <div ref={railRef} className="relative pl-10">
         {/* Vertical rail track */}
