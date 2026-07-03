@@ -381,11 +381,11 @@ function LessonInner({ lesson }: { lesson: LessonContent }) {
         >
           <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
           <div
-            className="relative h-[55vh] rounded-t-card border-t border-border bg-sidebar sm:h-[600px] sm:w-[400px] sm:rounded-card sm:border"
+            className="relative flex max-h-[70dvh] flex-col overflow-hidden rounded-t-card border-t border-border bg-sidebar sm:max-h-[calc(100dvh-5rem)] sm:h-[600px] sm:w-[400px] sm:rounded-card sm:border"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="mx-auto mt-2 h-1 w-10 rounded-full bg-border sm:hidden" />
-            <div className="flex items-center justify-between border-b border-border px-4 py-3">
+            <div className="mx-auto mt-2 h-1 w-10 shrink-0 rounded-full bg-border sm:hidden" />
+            <div className="flex shrink-0 items-center justify-between border-b border-border px-4 py-3">
               <span className="inline-flex items-center gap-1.5 text-sm font-semibold text-text-primary">
                 <Cpu className="h-4 w-4 text-ai" strokeWidth={1.5} /> {t("Ask AI Tutor")}
               </span>
@@ -393,7 +393,7 @@ function LessonInner({ lesson }: { lesson: LessonContent }) {
                 <X className="h-5 w-5 text-text-secondary" />
               </button>
             </div>
-            <div className="h-[calc(55vh-56px)] sm:h-[calc(600px-56px)]">
+            <div className="min-h-0 flex-1">
               <ChatPanel lesson={lesson} activeSection={activeSection} embedded />
             </div>
           </div>
