@@ -1,5 +1,5 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import {
   motion,
   
@@ -16,7 +16,6 @@ import {
   ArrowRight,
   ShieldCheck,
   Check,
-  Star,
   Linkedin,
   Github,
   Zap,
@@ -74,6 +73,7 @@ import {
 
 import { Tilt3D } from "@/components/Tilt3D";
 import { Particles } from "@/components/Particles";
+import { TestimonialsSection } from "@/components/TestimonialsSection";
 import { useAuth } from "@/hooks/use-auth";
 
 export const Route = createFileRoute("/")({
@@ -297,54 +297,6 @@ const FEATURES: {
     desc: "Beginner to advanced courses in Urdu and English. Earn XP. Build real investing knowledge.",
   },
 ];
-
-const TESTIMONIALS = [
-  {
-    initials: "AK",
-    color: "bg-bull/20 text-bull",
-    name: "Ahmed Khan, Karachi",
-    role: "PSX investor since 2018",
-    quote:
-      "Finally an app that shows me my REAL returns, not just the nominal PSX number. The Haqeeqi Daulat feature opened my eyes.",
-  },
-  {
-    initials: "SF",
-    color: "bg-ai/20 text-ai",
-    name: "Sara Farooq, Lahore",
-    role: "New to investing",
-    quote:
-      "The Learn Hub and AI tutor helped me understand PSX from scratch. The Urdu glossary is brilliant.",
-  },
-  {
-    initials: "MR",
-    color: "bg-warning/20 text-warning",
-    name: "Muhammad Raza, Islamabad",
-    role: "Finance professional",
-    quote:
-      "The sector heatmap and AI signals are at a level I've only seen on Bloomberg Terminal. Remarkable for a Pakistani app.",
-  },
-] as const;
-
-function StatsStrip() {
-  const stats = [
-    ["Public Beta", "Live now — free to use"],
-    ["Real-Time", "PSX & KSE-100 data"],
-    ["Halal-Ready", "Shariah screening built in"],
-  ];
-  return (
-    <div className="grid grid-cols-1 divide-y divide-white/[0.08] sm:grid-cols-3 sm:divide-x sm:divide-y-0">
-      {stats.map(([v, l]) => (
-        <div key={l} className="px-4 py-4 text-center">
-          <div className="font-display text-2xl font-bold tracking-tight text-text-primary sm:text-3xl">
-            {v}
-          </div>
-          <div className="mx-auto mt-2 h-0.5 w-8 rounded-full bg-gold/70" />
-          <div className="mt-2 text-sm text-text-secondary">{l}</div>
-        </div>
-      ))}
-    </div>
-  );
-}
 
 /* ---------- trust / recognition strip (honest, no fabricated logos) ---------- */
 const TRUST_MARKERS: { Icon: LucideIcon; label: string; sub: string }[] = [
@@ -1106,7 +1058,7 @@ const STEPS: {
 function StepPanelFrame({ children }: { children: React.ReactNode }) {
   return (
     <div
-      className="relative flex min-h-[300px] w-full max-w-[380px] flex-col overflow-hidden rounded-[18px] border border-white/10"
+      className="relative flex min-h-[300px] w-full max-w-[380px] flex-col rounded-[18px] border border-white/10"
       style={{
         background: "linear-gradient(180deg, rgba(20,28,44,0.96) 0%, rgba(13,19,32,0.96) 100%)",
         boxShadow:
@@ -1122,7 +1074,7 @@ function StepPanelFrame({ children }: { children: React.ReactNode }) {
           nafaiq · live
         </span>
       </div>
-      <div className="flex flex-1 flex-col justify-center p-6">{children}</div>
+      <div className="flex flex-1 flex-col justify-start p-6">{children}</div>
     </div>
   );
 }
@@ -1233,9 +1185,9 @@ function UnderstandPanel() {
               className="font-mono text-lg font-bold text-bull tabular-nums"
             />
           </div>
-          <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-white/[0.06]">
+          <div className="relative mt-2 h-2 w-full overflow-hidden rounded-full bg-white/[0.06]">
             <motion.div
-              className="h-full rounded-full bg-gradient-to-r from-bull/60 to-bull"
+              className="absolute left-0 h-full rounded-full bg-gradient-to-r from-bull/60 to-bull"
               style={{ boxShadow: "0 0 12px rgba(0,212,170,0.5)" }}
               initial={{ width: reduce ? "82%" : 0 }}
               animate={{ width: "82%" }}
@@ -1257,9 +1209,8 @@ function UnderstandPanel() {
             />
           </div>
           <div className="relative mt-2 h-2 w-full overflow-hidden rounded-full bg-white/[0.06]">
-            <div className="absolute inset-y-0 left-1/2 w-px bg-white/15" />
             <motion.div
-              className="absolute right-1/2 h-full rounded-l-full bg-gradient-to-l from-bear to-bear/50"
+              className="absolute left-0 h-full rounded-full bg-gradient-to-r from-bear/50 to-bear"
               style={{ boxShadow: "0 0 12px rgba(255,77,79,0.45)" }}
               initial={{ width: reduce ? "22%" : 0 }}
               animate={{ width: "22%" }}
@@ -1297,14 +1248,15 @@ function UnderstandPanel() {
 
 function ShieldGauge({ score = 72 }: { score?: number }) {
   const reduce = useReducedMotion();
+  const gradientId = useId();
   const R = 34;
   const C = 2 * Math.PI * R;
-  const target = C * (1 - score / 100);
+  const filled = C * (score / 100);
   return (
     <div className="relative h-[92px] w-[92px] shrink-0">
       <svg viewBox="0 0 80 80" className="h-full w-full -rotate-90">
         <defs>
-          <linearGradient id="shieldGrad" x1="0" y1="0" x2="1" y2="1">
+          <linearGradient id={gradientId} x1="0" y1="0" x2="1" y2="1">
             <stop offset="0%" stopColor="#00d4aa" />
             <stop offset="100%" stopColor="#3b82f6" />
           </linearGradient>
@@ -1316,11 +1268,11 @@ function ShieldGauge({ score = 72 }: { score?: number }) {
           r={R}
           fill="none"
           strokeWidth="6"
-          stroke="url(#shieldGrad)"
+          stroke={`url(#${gradientId})`}
           strokeLinecap="round"
-          strokeDasharray={C}
-          initial={{ strokeDashoffset: reduce ? target : C }}
-          animate={{ strokeDashoffset: target }}
+          strokeDasharray={`${filled} ${C}`}
+          initial={{ strokeDashoffset: reduce ? 0 : filled }}
+          animate={{ strokeDashoffset: 0 }}
           transition={{ duration: 1.3, ease: "easeOut" }}
           style={{ filter: "drop-shadow(0 0 6px rgba(0,212,170,0.5))" }}
         />
@@ -1404,14 +1356,23 @@ function HowItWorksDesktop() {
     target: railRef,
     offset: ["start 55%", "end 55%"],
   });
-  const railScale = useSpring(scrollYProgress, {
+  // Piecewise: fill reaches 0% at step 1 (scrollYProgress 0),
+  // 50% when step 2 becomes active (scrollYProgress 1/3),
+  // 100% when step 3 becomes active (scrollYProgress 2/3), then holds.
+  const fillScale = useTransform(
+    scrollYProgress,
+    [0, 1 / 3, 2 / 3, 1],
+    [0, 0.5, 1, 1],
+  );
+  const smoothFill = useSpring(fillScale, {
     stiffness: 120,
     damping: 30,
     mass: 0.4,
   });
 
   useEffect(() => {
-    const io = new IntersectionObserver(
+    // Observe scroll spacers to determine which step is active
+    const stepIo = new IntersectionObserver(
       (entries) => {
         entries.forEach((entry) => {
           if (entry.isIntersecting) {
@@ -1423,36 +1384,33 @@ function HowItWorksDesktop() {
       // Narrow band through the vertical center of the viewport.
       { rootMargin: "-45% 0px -45% 0px", threshold: 0 },
     );
-    stepRefs.current.forEach((el) => el && io.observe(el));
-    return () => io.disconnect();
+    stepRefs.current.forEach((el) => el && stepIo.observe(el));
+
+    // Observe whether the section is in the viewport at all
+    const sectionEl = railRef.current?.closest('section');
+    let sectionIo: IntersectionObserver | null = null;
+    if (sectionEl) {
+      sectionIo = new IntersectionObserver(
+        ([entry]) => {
+          if (!entry.isIntersecting) {
+            setActive(-1);
+          }
+        },
+        { threshold: 0 },
+      );
+      sectionIo.observe(sectionEl);
+    }
+
+    return () => {
+      stepIo.disconnect();
+      sectionIo?.disconnect();
+    };
   }, []);
 
   return (
-    <div className="mt-24 hidden grid-cols-2 items-stretch gap-16 lg:grid">
-      {/* Left: tall scrolling steps with scroll-linked progress rail */}
-      <div ref={railRef} className="relative pl-10">
-        {/* Vertical rail track — clipped to span exactly Step 1 → Step 3 nodes */}
-        <div className="absolute left-[15px] top-[16.667%] bottom-[16.667%] w-px bg-white/[0.08]" />
-        {/* Vertical rail progress fill — scroll-linked, smooth, clipped to step range */}
-        <motion.div
-          className="absolute left-[15px] top-[16.667%] h-[66.666%] w-px origin-top bg-gradient-to-b from-bull via-bull to-bull/40"
-          style={{
-            scaleY: reduce ? 1 : railScale,
-            boxShadow: "0 0 12px rgba(0,212,170,0.6)",
-          }}
-        />
-
-        {/* Static tick marks — route markers at each step's position */}
-        {STEPS.map((s, i) => (
-          <span
-            key={`tick-${s.step}`}
-            className="absolute left-[15px] h-2 w-2 -translate-x-1/2 -translate-y-1/2 rounded-full bg-white/20"
-            style={{ top: `${((i + 0.5) / STEPS.length) * 100}%` }}
-            aria-hidden
-          />
-        ))}
-
-        {/* Invisible scroll spacers — drive the IntersectionObserver + rail */}
+    <div className="mt-[35vh] hidden lg:block">
+      {/* Outer container with scroll spacers — drives the IntersectionObserver + useScroll */}
+      <div ref={railRef} className="relative">
         {STEPS.map((s, i) => (
           <div
             key={s.step}
@@ -1465,118 +1423,167 @@ function HowItWorksDesktop() {
           />
         ))}
 
-        {/* Single pinned panel — only the active step is shown (crossfade),
-            so eyebrow/title/paragraph of different steps never overlap. */}
+        {/* Pinned overlay: single sticky wrapper holds the entire shared flex row */}
         <div className="pointer-events-none absolute inset-0">
-          <div className="sticky top-1/2 -translate-y-1/2">
-            <div className="relative min-h-[280px] w-full">
-              {STEPS.map((s, i) => {
-                const isActive = active === i;
-                return (
-                  <motion.div
-                    key={s.step}
-                    className="absolute inset-x-0 top-1/2 -translate-y-1/2"
-                    animate={{
-                      opacity: isActive ? 1 : 0,
-                      y: reduce ? 0 : isActive ? 0 : 16,
-                      filter: isActive ? "blur(0px)" : "blur(4px)",
-                    }}
-                    transition={{ duration: 0.5, ease: "easeOut" }}
-                    style={{ pointerEvents: isActive ? "auto" : "none" }}
-                  >
-                    {/* Eyebrow: [icon badge] —— CATEGORY LABEL */}
-                    <div className="flex items-center gap-3">
-                      <div
-                        className="flex h-12 w-12 items-center justify-center rounded-[12px]"
-                        style={{ background: "rgba(0,212,170,0.15)" }}
-                      >
-                        <s.Icon className="h-5 w-5 text-bull" strokeWidth={1.75} />
+          <div className="sticky top-[calc(50vh-260px)] z-10">
+            {/* Shared flex row — vertically centers all three columns.
+                Fixed min-height keeps the row height stable across steps. */}
+            <div
+              className="flex items-center gap-8"
+              style={{ minHeight: "520px" }}
+            >
+              {/* Left: crossfading content (icon badge, heading, paragraph, chips) */}
+              <div className="relative flex-1" style={{ minHeight: "520px" }}>
+                {STEPS.map((s, i) => {
+                  const isActive = active === i;
+                  return (
+                    <motion.div
+                      key={s.step}
+                      className="absolute inset-0 flex flex-col justify-center"
+                      animate={{
+                        opacity: isActive ? 1 : 0,
+                        y: reduce ? 0 : isActive ? 0 : 16,
+                        filter: isActive ? "blur(0px)" : "blur(4px)",
+                      }}
+                      transition={{ duration: 0.5, ease: "easeOut" }}
+                      style={{ pointerEvents: isActive ? "auto" : "none" }}
+                    >
+                      {/* Eyebrow: [icon badge] —— CATEGORY LABEL */}
+                      <div className="flex items-center gap-3">
+                        <div
+                          className="flex h-12 w-12 items-center justify-center rounded-[12px]"
+                          style={{ background: "rgba(0,212,170,0.15)" }}
+                        >
+                          <s.Icon className="h-5 w-5 text-bull" strokeWidth={1.75} />
+                        </div>
+                        <span className="h-px w-6 bg-white/20" aria-hidden />
+                        <span className="font-mono text-[11px] font-semibold uppercase tracking-[0.22em] text-text-muted">
+                          {s.step} · {s.label}
+                        </span>
                       </div>
-                      <span className="h-px w-6 bg-white/20" aria-hidden />
+                      <h3 className="mt-4 text-3xl font-bold leading-tight text-text-primary">
+                        {s.title}
+                      </h3>
+                      <p className="mt-3 max-w-[440px] text-base leading-[1.6] text-text-secondary">
+                        {s.desc}
+                      </p>
+
+                      {/* Feature chips */}
+                      <div className="mt-5 flex flex-wrap gap-2">
+                        {s.chips.map((c) => (
+                          <span
+                            key={c}
+                            className="rounded-full border border-bull/20 bg-bull/[0.06] px-3 py-1 text-[11px] font-semibold text-bull/90"
+                          >
+                            {c}
+                          </span>
+                        ))}
+                      </div>
+                    </motion.div>
+                  );
+                })}
+              </div>
+
+              {/* Middle: rail with fixed height and fixed dot positions (structural, not content-tracked) */}
+              <div className="relative w-8 shrink-0" style={{ height: "520px" }}>
+                {/* Background connecting line — spans from dot 1 (15%) to dot 3 (85%) */}
+                <div className="absolute left-1/2 top-[15%] h-[70%] w-px -translate-x-1/2 bg-gradient-to-b from-white/[0.08] via-white/[0.08] to-transparent" />
+                {/* Teal fill line — scroll-driven scaleY, same fixed span */}
+                <motion.div
+                  className="absolute left-1/2 top-[15%] h-[70%] w-px -translate-x-1/2 origin-top bg-gradient-to-b from-bull via-bull to-bull/40"
+                  style={{
+                    scaleY: reduce ? 1 : smoothFill,
+                    boxShadow: "0 0 12px rgba(0,212,170,0.6)",
+                  }}
+                />
+
+                {/* Dots at fixed 15% / 50% / 85% — NOT runtime-measured against text */}
+                {STEPS.map((s, i) => {
+                  const stepState = active < 0 ? "upcoming" : i < active ? "completed" : i === active ? "active" : "upcoming";
+                  const isActive = stepState === "active";
+                  const isCompleted = stepState === "completed";
+                  const topPct = [15, 50, 85][i];
+                  return (
+                    <span
+                      key={s.step}
+                      className="absolute left-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full transition-all duration-500"
+                      style={{
+                        top: `${topPct}%`,
+                        width: isActive ? 14 : isCompleted ? 10 : 10,
+                        height: isActive ? 14 : isCompleted ? 10 : 10,
+                        background: isActive || isCompleted ? "rgb(0,212,170)" : "rgba(255,255,255,0.25)",
+                        border: isActive || isCompleted ? "none" : "1.5px solid rgba(255,255,255,0.3)",
+                        boxShadow: isActive ? "0 0 12px 3px rgba(0,212,170,0.55)" : "none",
+                      }}
+                      aria-hidden
+                    />
+                  );
+                })}
+              </div>
+
+              {/* Right: preview card — plain flex child, position derived from the shared row's align-items: center.
+                  No independent sticky / top offset / -translate-y-1/2. */}
+              <div
+                className="relative flex flex-1 flex-col items-center justify-center"
+                style={{ minHeight: "520px" }}
+              >
+                {/* Ambient pulsing glow behind the panel */}
+                <motion.div
+                  aria-hidden
+                  className="pointer-events-none absolute left-1/2 top-1/2 h-[460px] w-[460px] -translate-x-1/2 -translate-y-1/2 rounded-full"
+                  style={{
+                    background:
+                      "radial-gradient(circle, rgba(0,212,170,0.16) 0%, rgba(0,212,170,0.05) 45%, transparent 70%)",
+                    filter: "blur(30px)",
+                  }}
+                  animate={reduce ? undefined : { scale: [1, 1.08, 1], opacity: [0.7, 1, 0.7] }}
+                  transition={{ duration: 4.5, repeat: Infinity, ease: "easeInOut" }}
+                />
+
+                {active >= 0 && (
+                  <>
+                    {/* Step counter header */}
+                    <div className="relative mb-6 flex w-full max-w-[380px] items-center justify-between">
                       <span className="font-mono text-[11px] font-semibold uppercase tracking-[0.22em] text-text-muted">
-                        {s.step} · {s.label}
+                        Live Preview
+                      </span>
+                      <span className="font-mono text-[11px] font-bold tabular-nums text-bull">
+                        {STEPS[active].step} / {STEPS[STEPS.length - 1].step}
                       </span>
                     </div>
-                    <h3 className="mt-4 text-3xl font-bold leading-tight text-text-primary">
-                      {s.title}
-                    </h3>
-                    <p className="mt-3 max-w-[440px] text-base leading-[1.6] text-text-secondary">
-                      {s.desc}
-                    </p>
 
-                    {/* Feature chips */}
-                    <div className="mt-5 flex flex-wrap gap-2">
-                      {s.chips.map((c) => (
+                    {reduce ? (
+                      <StepPanelFrame key={active}>{STEP_PANELS[active]}</StepPanelFrame>
+                    ) : (
+                      <motion.div
+                        key={active}
+                        initial={{ opacity: 0, y: 16, scale: 0.97 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        transition={{ duration: 0.45, ease: "easeOut" }}
+                        className="relative flex w-full justify-center"
+                      >
+                        <StepPanelFrame>{STEP_PANELS[active]}</StepPanelFrame>
+                      </motion.div>
+                    )}
+
+                    {/* Step indicator dots */}
+                    <div className="relative mt-8 flex items-center gap-2.5">
+                      {STEPS.map((s, i) => (
                         <span
-                          key={c}
-                          className="rounded-full border border-bull/20 bg-bull/[0.06] px-3 py-1 text-[11px] font-semibold text-bull/90"
-                        >
-                          {c}
-                        </span>
+                          key={s.step}
+                          className="h-2 rounded-full transition-all duration-500"
+                          style={{
+                            width: active === i ? 24 : 8,
+                            background: active === i ? "rgb(0,212,170)" : "rgba(255,255,255,0.18)",
+                            boxShadow: active >= 0 && active === i ? "0 0 10px 2px rgba(0,212,170,0.6)" : "none",
+                          }}
+                        />
                       ))}
                     </div>
-                  </motion.div>
-                );
-              })}
+                  </>
+                )}
+              </div>
             </div>
-          </div>
-        </div>
-      </div>
-
-
-      {/* Right: sticky panel with ambient glow + crossfade */}
-      <div className="relative">
-        <div className="sticky top-1/2 flex -translate-y-1/2 flex-col items-center justify-center">
-          {/* Ambient pulsing glow behind the panel */}
-          <motion.div
-            aria-hidden
-            className="pointer-events-none absolute left-1/2 top-1/2 h-[460px] w-[460px] -translate-x-1/2 -translate-y-1/2 rounded-full"
-            style={{
-              background:
-                "radial-gradient(circle, rgba(0,212,170,0.16) 0%, rgba(0,212,170,0.05) 45%, transparent 70%)",
-              filter: "blur(30px)",
-            }}
-            animate={reduce ? undefined : { scale: [1, 1.08, 1], opacity: [0.7, 1, 0.7] }}
-            transition={{ duration: 4.5, repeat: Infinity, ease: "easeInOut" }}
-          />
-
-          {/* Step counter header */}
-          <div className="relative mb-6 flex w-full max-w-[380px] items-center justify-between">
-            <span className="font-mono text-[11px] font-semibold uppercase tracking-[0.22em] text-text-muted">
-              Live Preview
-            </span>
-            <span className="font-mono text-[11px] font-bold tabular-nums text-bull">
-              {STEPS[active].step} / {STEPS[STEPS.length - 1].step}
-            </span>
-          </div>
-
-          {reduce ? (
-            <StepPanelFrame key={active}>{STEP_PANELS[active]}</StepPanelFrame>
-          ) : (
-            <motion.div
-              key={active}
-              initial={{ opacity: 0, y: 16, scale: 0.97 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              transition={{ duration: 0.45, ease: "easeOut" }}
-              className="relative flex w-full justify-center"
-            >
-              <StepPanelFrame>{STEP_PANELS[active]}</StepPanelFrame>
-            </motion.div>
-          )}
-
-          {/* Step indicator dots */}
-          <div className="relative mt-8 flex items-center gap-2.5">
-            {STEPS.map((s, i) => (
-              <span
-                key={s.step}
-                className="h-2 rounded-full transition-all duration-500"
-                style={{
-                  width: active === i ? 24 : 8,
-                  background: active === i ? "rgb(0,212,170)" : "rgba(255,255,255,0.18)",
-                  boxShadow: active === i ? "0 0 10px 2px rgba(0,212,170,0.6)" : "none",
-                }}
-              />
-            ))}
           </div>
         </div>
       </div>
@@ -1666,7 +1673,7 @@ function HowItWorksMobile() {
 
 function HowItWorks() {
   return (
-    <section className="mx-auto max-w-[1200px] px-6 py-[60px] lg:py-[100px]">
+    <section className="mx-auto max-w-[1200px] scroll-mt-[var(--nav-h)] px-6 py-[60px] lg:py-[100px]">
       <Reveal className="mx-auto max-w-[720px] text-center">
         <SectionLabel>How it works</SectionLabel>
         <h2 className="mt-3 text-[28px] font-bold leading-[1.2] sm:text-[40px]">
@@ -1713,7 +1720,7 @@ function FAQ() {
   const [open, setOpen] = useState<number | null>(0);
 
   return (
-    <section className="mx-auto max-w-[1200px] px-6 py-[60px] lg:py-[100px]">
+    <section className="mx-auto max-w-[1200px] scroll-mt-[var(--nav-h)] px-6 py-[60px] lg:py-[100px]">
       <div className="grid gap-12 lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)] lg:gap-20">
         {/* Left: heading + contact */}
         <Reveal>
@@ -1817,7 +1824,7 @@ function Landing() {
       {/* FEATURES */}
       <section
         id="features"
-        className="gradient-mesh mx-auto max-w-[1200px] px-6 py-[60px] lg:py-[100px]"
+        className="gradient-mesh mx-auto max-w-[1200px] scroll-mt-[var(--nav-h)] px-6 py-[60px] lg:py-[100px]"
       >
         <Reveal className="text-center">
           <SectionLabel>Everything you need</SectionLabel>
@@ -1875,7 +1882,7 @@ function Landing() {
       <HowItWorks />
 
       {/* HAQEEQI DAULAT SPOTLIGHT */}
-      <section className="relative overflow-hidden border-y border-border bg-surface-alt">
+      <section className="relative scroll-mt-[var(--nav-h)] overflow-hidden border-y border-border bg-surface-alt">
         <div
           className="pointer-events-none absolute inset-y-0 left-0 w-1/2"
           style={{
@@ -1935,63 +1942,13 @@ function Landing() {
         </div>
       </section>
 
-      {/* SOCIAL PROOF */}
-      <section className="mx-auto max-w-[1200px] px-6 py-[60px] lg:py-[100px]">
-        <Reveal>
-          <h2 className="text-center text-[28px] font-bold leading-[1.2] sm:text-[40px]">
-            Trusted by Pakistani Investors
-          </h2>
-        </Reveal>
-        <div className="mt-12 grid gap-5 lg:grid-cols-3">
-          {TESTIMONIALS.map((t, i) => (
-            <RevealItem key={t.initials} delay={i * 0.1} className="[perspective:1000px]">
-              <Tilt3D max={8} scale={1.03} className="h-full">
-                <div
-                  className="relative h-full overflow-hidden rounded-[16px] border border-white/[0.08] p-6 backdrop-blur-md"
-                  style={{ background: "rgba(17,24,39,0.6)" }}
-                >
-                  <span className="pointer-events-none absolute left-3 top-0 select-none font-serif text-[80px] leading-none text-white opacity-[0.08]">
-                    &ldquo;
-                  </span>
-                  <div className="relative flex items-center gap-3">
-                    <div
-                      className={cn(
-                        "flex h-10 w-10 items-center justify-center rounded-full font-semibold",
-                        t.color,
-                      )}
-                    >
-                      {t.initials}
-                    </div>
-                    <div>
-                      <div className="text-sm font-semibold text-text-primary">{t.name}</div>
-                      <div className="text-xs text-text-muted">{t.role}</div>
-                    </div>
-                  </div>
-                  <div className="relative mt-3 flex gap-0.5 text-warning">
-                    {Array.from({ length: 5 }).map((_, s) => (
-                      <Star key={s} className="h-4 w-4 fill-warning text-warning" />
-                    ))}
-                  </div>
-                  <p className="relative mt-3 text-sm leading-relaxed text-text-secondary">
-                    "{t.quote}"
-                  </p>
-                </div>
-              </Tilt3D>
-            </RevealItem>
-          ))}
-        </div>
-        <Reveal className="mt-16">
-          <div className="rounded-[16px] border border-white/[0.08] bg-surface/40 py-2">
-            <StatsStrip />
-          </div>
-        </Reveal>
-      </section>
+      <TestimonialsSection />
 
       {/* FAQ */}
       <FAQ />
 
       {/* DOWNLOAD CTA */}
-      <section id="download" className="gradient-mesh border-y border-border bg-[#0D1421]">
+      <section id="download" className="gradient-mesh scroll-mt-[var(--nav-h)] border-y border-border bg-[#0D1421]">
         <div className="mx-auto max-w-3xl px-6 py-[60px] text-center lg:py-[100px]">
           <Reveal>
             <h2 className="text-[28px] font-bold leading-[1.2] sm:text-[40px]">
@@ -2026,7 +1983,7 @@ function Landing() {
       {/* ABOUT + CONTACT */}
       <section
         id="about"
-        className="mx-auto max-w-[1200px] scroll-mt-24 px-6 py-[60px] lg:py-[100px]"
+        className="mx-auto max-w-[1200px] scroll-mt-[var(--nav-h)] px-6 py-[60px] lg:py-[100px]"
       >
         <div className="grid gap-12 lg:grid-cols-2 lg:gap-16">
           <Reveal>

@@ -88,8 +88,6 @@ function Dashboard() {
   const [range, setRange] = useState<(typeof RANGES)[number]>("6M");
   const [showAI, setShowAI] = useState(true);
   const months = range === "1M" ? 2 : range === "3M" ? 3 : range === "1Y" ? 6 : 6;
-  console.log("Dashboard profile:", profile);
-  console.log("Dashboard user:", user);
 
   /* Quick-add modal state */
   const [txOpen, setTxOpen] = useState(false);

@@ -1,4 +1,4 @@
-@import "tailwindcss" source(none);
+﻿@import "tailwindcss" source(none);
 @source "../src";
 @import "tw-animate-css";
 
@@ -21,17 +21,17 @@
   --color-popover: #16161f;
   --color-popover-foreground: #ffffff;
 
-  --color-bull: #10b981;
+  --color-bull: #00d4aa;
   --color-bull-foreground: #020617;
   --color-bear: #e5484d;
   --color-warning: #f5a524;
   --color-neutral: #64748b;
   --color-info: #00d4aa;
-  --color-ai: #00d4aa;
+  --color-ai: #7c3aed;
 
   --color-ai-tint: rgba(18, 18, 26, 0.8);
 
-  /* Gold — premium accent (logo IQ, premium badges, savings) */
+  /* Gold â€” premium accent (logo IQ, premium badges, savings) */
   --color-gold: #d4a017;
   --color-gold-foreground: #020617;
   --color-gold-hover: #e3b324;
@@ -225,6 +225,11 @@
 
 :root {
   color-scheme: dark;
+  --nav-h: 72px;
+}
+
+html {
+  scroll-padding-top: 88px;
 }
 
 @layer base {
@@ -244,9 +249,9 @@
   .tabular {
     font-variant-numeric: tabular-nums;
   }
-  /* Accessible gold focus ring on all interactive elements */
+  /* Accessible focus ring on all interactive elements */
   *:focus-visible {
-    outline: 2px solid var(--color-gold);
+    outline: 2px solid var(--color-primary);
     outline-offset: 2px;
   }
 }
@@ -423,7 +428,7 @@
 }
 
 @layer components {
-  /* shimmer loading skeleton — moving diagonal shine */
+  /* shimmer loading skeleton â€” moving diagonal shine */
   .shimmer-skeleton::after {
     content: "";
     position: absolute;
@@ -491,7 +496,7 @@
      Premium glass design language (project-wide)
      ============================================================ */
 
-  /* Clean surface — used by Card and panels everywhere */
+  /* Clean surface â€” used by Card and panels everywhere */
   .glass-card {
     position: relative;
     background: var(--color-surface);
@@ -499,7 +504,7 @@
     box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
   }
 
-  /* Hover lift + brighten — opt-in */
+  /* Hover lift + brighten â€” opt-in */
   .glass-card-hover {
     transition:
       transform 0.2s ease,
@@ -518,7 +523,7 @@
     backdrop-filter: blur(16px) saturate(120%);
   }
 
-  /* Active nav item — subtle bg + left accent bar */
+  /* Active nav item â€” subtle bg + left accent bar */
   .nav-active {
     background: rgba(0, 212, 170, 0.08);
     position: relative;
@@ -550,7 +555,7 @@
      Gold premium accent system (used sparingly for prestige)
      ============================================================ */
 
-  /* Gold-tinted glass card — for premium / featured surfaces */
+  /* Gold-tinted glass card â€” for premium / featured surfaces */
   .glass-gold {
     border-color: rgba(212, 160, 23, 0.28);
     box-shadow:
@@ -564,7 +569,7 @@
     box-shadow: 0 0 30px rgba(212, 160, 23, 0.25);
   }
 
-  /* Shimmering text/pill — for "World First" style badges */
+  /* Shimmering text/pill â€” for "World First" style badges */
   .gold-shimmer {
     background: linear-gradient(
       90deg,
@@ -627,12 +632,12 @@
 }
 
 /* ============================================================
-   Light theme — scoped to .theme-light (applied in-app only).
+   Light theme â€” scoped to .theme-light (applied in-app only).
    Premium, Stripe/Linear-grade. Overrides semantic tokens so the
    landing page and the dark theme stay completely untouched.
    ============================================================ */
 .theme-light {
-  /* Soft, slightly cool-tinted canvas — never pure white */
+  /* Soft, slightly cool-tinted canvas â€” never pure white */
   --color-background: #f4f6fb;
   --color-foreground: #0f172a;
 
@@ -650,7 +655,7 @@
   --color-popover: #ffffff;
   --color-popover-foreground: #0f172a;
 
-  /* Deepened teal — readable & professional on light, not neon */
+  /* Deepened teal â€” readable & professional on light, not neon */
   --color-primary: #0d9488;
   --color-primary-foreground: #ffffff;
   --color-info: #0d9488;
@@ -659,14 +664,14 @@
   --color-ai: #7c3aed;
   --color-ai-tint: #f5f3ff;
 
-  /* Market signals — deepened for contrast on white */
-  --color-bull: #059669;
+  /* Market signals â€” deepened for contrast on white */
+  --color-bull: #0d9488;
   --color-bull-foreground: #ffffff;
   --color-bear: #dc2626;
   --color-warning: #b45309;
   --color-neutral: #64748b;
 
-  /* Gold premium accent — darkened so it reads on white */
+  /* Gold premium accent â€” darkened so it reads on white */
   --color-gold: #a97c12;
   --color-gold-foreground: #ffffff;
   --color-gold-hover: #946b0f;
@@ -680,7 +685,7 @@
   --color-accent-foreground: #0f172a;
   --color-destructive: #dc2626;
 
-  /* Strict text hierarchy — never pure black */
+  /* Strict text hierarchy â€” never pure black */
   --color-text-primary: #0f172a;
   --color-text-secondary: #475569;
   --color-text-muted: #64748b;
@@ -693,7 +698,7 @@
 }
 
 /* ---- Card elevation system (light): TWO standardized styles ----
-   Static info cards (.glass-card alone): flat — visible border, no shadow.
+   Static info cards (.glass-card alone): flat â€” visible border, no shadow.
    Interactive/clickable cards (.glass-card-hover): one soft shadow,
    deepening slightly on hover. Applied app-wide via the shared utilities. */
 .theme-light .glass-card {
@@ -719,7 +724,7 @@
     0 24px 48px -14px rgba(15, 23, 42, 0.1);
 }
 
-/* Gold premium card — warmer shadow on light */
+/* Gold premium card â€” warmer shadow on light */
 .theme-light .glass-gold {
   border-color: rgba(169, 124, 18, 0.28);
   box-shadow:
@@ -752,7 +757,7 @@
   box-shadow: 0 -2px 16px -6px rgba(15, 23, 42, 0.12);
 }
 
-/* Active nav item — deepened teal wash + accent bar */
+/* Active nav item â€” deepened teal wash + accent bar */
 .theme-light .nav-active {
   background: rgba(13, 148, 136, 0.1);
 }
@@ -782,7 +787,7 @@
 .theme-light .border-white\/20 {
   border-color: rgba(15, 23, 42, 0.14);
 }
-/* White elevation fills → subtle slate tints */
+/* White elevation fills â†’ subtle slate tints */
 .theme-light .bg-white\/\[0\.02\],
 .theme-light .bg-white\/\[0\.03\],
 .theme-light .bg-white\/\[0\.04\],
@@ -867,7 +872,7 @@
 
 /* ============================================================
    Warm-tinted surface for the Islamic screens (Halal Screener,
-   Zakat Calculator) — intentional personality in light mode.
+   Zakat Calculator) â€” intentional personality in light mode.
    ============================================================ */
 .theme-light .warm-tint {
   background:
@@ -878,7 +883,7 @@
    Light-mode-only accent calming. Dark theme untouched.
    ============================================================ */
 
-/* Primary CTA accent system — teal is the single primary action color.
+/* Primary CTA accent system â€” teal is the single primary action color.
    Orange stays reserved for warning/attention, purple (--color-ai) for AI.
    .cta-primary normalizes any non-teal primary CTA to teal in light mode. */
 .theme-light .cta-primary {
@@ -903,14 +908,14 @@
   color: var(--color-info) !important;
 }
 
-/* HOLD signal badge — neutral outline, consistent with BUY style */
+/* HOLD signal badge â€” neutral outline, consistent with BUY style */
 .theme-light .signal-hold {
   background: transparent;
   border-color: var(--color-neutral);
   color: var(--color-neutral);
 }
 
-/* Active chart timeframe button — deep navy, reads selected without glowing */
+/* Active chart timeframe button â€” deep navy, reads selected without glowing */
 .theme-light .tf-active {
   background: #1e293b;
   color: #ffffff;
@@ -925,7 +930,7 @@
   fill: var(--color-text-muted);
 }
 
-/* Net savings & savings-rate values use primary text — icon/badge carry color */
+/* Net savings & savings-rate values use primary text â€” icon/badge carry color */
 .theme-light .kpi-value-neutral {
   color: var(--color-text-primary);
 }

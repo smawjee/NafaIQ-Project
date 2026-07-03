@@ -18,6 +18,7 @@ import {
 import { type Candle, fmtNum, sma } from "@/lib/data";
 import { useTheme } from "@/hooks/use-theme";
 import { useLang } from "@/hooks/use-lang";
+import { useId } from "react";
 
 /** Theme-aware chart colors. Dark values are unchanged from the original design. */
 function useChartTheme() {
@@ -236,6 +237,7 @@ export function PriceLineChart({
 }) {
   const ct = useChartTheme();
   const { t } = useLang();
+  const priceLineGradientId = useId();
   const ma20 = maSeries?.ma20 ?? sma(data, 20);
   const ma50 = maSeries?.ma50 ?? sma(data, 50);
   const ma200 = maSeries?.ma200 ?? sma(data, 200);
@@ -256,7 +258,7 @@ export function PriceLineChart({
     <ResponsiveContainer width="100%" height={height >= 9999 ? "100%" : height}>
       <ComposedChart data={enriched} margin={{ top: 10, right: 8, left: 0, bottom: 0 }}>
         <defs>
-          <linearGradient id="priceLineFill" x1="0" y1="0" x2="0" y2="1">
+          <linearGradient id={priceLineGradientId} x1="0" y1="0" x2="0" y2="1">
             <stop offset="0%" stopColor={ct.teal} stopOpacity={ct.light ? 0.18 : 0.32} />
             <stop offset="100%" stopColor={ct.teal} stopOpacity={0} />
           </linearGradient>
@@ -298,7 +300,7 @@ export function PriceLineChart({
           name={t("Price")}
           stroke={ct.teal}
           strokeWidth={2}
-          fill="url(#priceLineFill)"
+          fill={`url(#${priceLineGradientId})`}
           isAnimationActive={false}
         />
         {mas.includes("MA20") && (
@@ -351,11 +353,12 @@ export function PortfolioAreaChart({
 }) {
   const ct = useChartTheme();
   const { t } = useLang();
+  const tealFillGradientId = useId();
   return (
     <ResponsiveContainer width="100%" height={height}>
       <AreaChart data={data} margin={{ top: 10, right: 8, left: 0, bottom: 0 }}>
         <defs>
-          <linearGradient id="tealFill" x1="0" y1="0" x2="0" y2="1">
+          <linearGradient id={tealFillGradientId} x1="0" y1="0" x2="0" y2="1">
             <stop offset="0%" stopColor={ct.teal} stopOpacity={ct.light ? 0.22 : 0.4} />
             <stop offset="100%" stopColor={ct.teal} stopOpacity={0} />
           </linearGradient>
@@ -384,7 +387,7 @@ export function PortfolioAreaChart({
           name={t("Portfolio")}
           stroke={ct.teal}
           strokeWidth={2}
-          fill="url(#tealFill)"
+          fill={`url(#${tealFillGradientId})`}
           isAnimationActive={false}
         />
         {showBenchmark && (

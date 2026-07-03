@@ -65,11 +65,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .eq("id", userId)
       .maybeSingle();
 
-    console.log("========== PROFILE DEBUG ==========");
-    console.log("User ID:", userId);
-    console.log("Profile Data:", data);
-    console.log("Profile Error:", error);
-
     if (data) {
       setProfile(data as Profile);
     }
