@@ -1124,7 +1124,10 @@ function PanelCountUp({
   className?: string;
 }) {
   const reduce = useReducedMotion();
-  const [val, setVal] = useState(reduce ? to : 0);
+  const [val, setVal] = useState(() => {
+    if (typeof window === "undefined") return to;
+    return reduce ? to : 0;
+  });
   useEffect(() => {
     if (reduce) {
       setVal(to);
