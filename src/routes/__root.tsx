@@ -17,6 +17,7 @@ import appCss from "../styles.css?url";
 import { reportNafaIQError } from "../lib/nafaiq-error-reporting";
 import { AppShell } from "../components/AppShell";
 import { AuthProvider, useAuth } from "@/hooks/use-auth";
+import { LandingThemeProvider } from "@/hooks/use-landing-theme";
 import { LearnProvider } from "@/hooks/use-learn";
 import { Toaster } from "@/components/ui/sonner";
 
@@ -239,8 +240,10 @@ function RootComponent() {
       {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
       <AuthProvider>
         <LearnProvider>
-          <AuthGate />
-          <Toaster />
+          <LandingThemeProvider>
+            <AuthGate />
+            <Toaster />
+          </LandingThemeProvider>
         </LearnProvider>
       </AuthProvider>
     </QueryClientProvider>
