@@ -23,11 +23,12 @@ import {
   Wallet,
   Library,
 } from "lucide-react";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Card } from "@/components/Card";
 import { AiGlyph } from "@/components/AiGlyph";
 import { EmojiIcon } from "@/components/icons";
 import { LESSONS, GLOSSARY } from "@/lib/finance-data";
-import { LEARNING_PATHS, LESSON_ID_BY_TITLE, LESSON_CONTENT, FLASHCARDS } from "@/lib/learn-data";
+import { LEARNING_PATHS, LESSON_ID_BY_TITLE, LESSON_CONTENT, FLASHCARDS, lessonId } from "@/lib/learn-data";
 import { useLearn } from "@/hooks/use-learn";
 import { useServerFn } from "@tanstack/react-start";
 import { askTutor } from "@/lib/learn-ai.functions";
@@ -89,7 +90,7 @@ function Learn() {
   const [chatOpen, setChatOpen] = useState(false);
 
   const lessonsDone = useMemo(
-    () => LESSONS.filter((l) => statusOf(LESSON_ID_BY_TITLE[l.title]) === "complete").length,
+    () => LESSONS.filter((l) => statusOf(lessonId(l.title)) === "complete").length,
     [statusOf],
   );
 
@@ -201,7 +202,7 @@ function Learn() {
         <h3 className="mb-3 text-sm font-semibold text-text-primary">{t("Lessons")}</h3>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {LESSONS.map((l) => {
-            const id = LESSON_ID_BY_TITLE[l.title];
+            const id = lessonId(l.title);
             const status = statusOf(id);
             const content = LESSON_CONTENT[id];
             const isVideo = content?.type === "video" && !!content?.videoUrl;
@@ -268,22 +269,30 @@ function Learn() {
             className="w-full bg-transparent text-sm text-text-primary outline-none placeholder:text-text-muted"
           />
         </div>
-        <div className="space-y-2">
+        <Accordion type="multiple" className="space-y-2">
           {terms.map((term) => (
-            <details key={term.en} className="group rounded-[8px] border border-border bg-surface p-3">
-              <summary className="flex cursor-pointer items-center justify-between text-sm font-medium text-text-primary">
-                <span>{t(term.en)}</span>
-                <span className="font-urdu text-base text-text-secondary">{term.ur}</span>
-              </summary>
-              <p className="mt-2 text-xs leading-relaxed text-text-secondary">{t(term.def)}</p>
-            </details>
+            <AccordionItem
+              key={term.en}
+              value={term.en}
+              className="rounded-btn border border-border bg-surface px-3"
+            >
+              <AccordionTrigger className="py-2 text-sm font-medium hover:no-underline">
+                <span className="flex w-full items-center justify-between gap-2">
+                  <span>{t(term.en)}</span>
+                  <span className="font-urdu text-base text-text-secondary">{term.ur}</span>
+                </span>
+              </AccordionTrigger>
+              <AccordionContent className="pb-3">
+                <p className="text-xs leading-relaxed text-text-secondary">{t(term.def)}</p>
+              </AccordionContent>
+            </AccordionItem>
           ))}
-          {terms.length === 0 && (
-            <div className="rounded-[8px] border border-dashed border-border bg-surface p-6 text-center text-sm text-text-muted">
-              {t("No terms found for")} “{search}”
-            </div>
-          )}
-        </div>
+        </Accordion>
+        {terms.length === 0 && (
+          <div className="rounded-btn border border-dashed border-border bg-surface p-6 text-center text-sm text-text-muted">
+            {t("No terms found for")} “{search}”
+          </div>
+        )}
 
       </section>
 

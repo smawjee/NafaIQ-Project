@@ -143,6 +143,12 @@ function RootShell({ children }: { children: ReactNode }) {
     <html lang="en" className="dark">
       <head>
         <HeadContent />
+        <script
+          dangerouslySetInnerHTML={{
+            __html:
+              "(function(){try{var t=localStorage.getItem('nafaiq-landing-theme');if(t==='light')document.documentElement.classList.add('landing-light')}catch(e){}})()",
+          }}
+        />
       </head>
       <body>
         {children}

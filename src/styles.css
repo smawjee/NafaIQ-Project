@@ -27,7 +27,7 @@
   --color-warning: #f5a524;
   --color-neutral: #64748b;
   --color-info: #00d4aa;
-  --color-ai: #7c3aed;
+  --color-ai: #00d4aa;
 
   --color-ai-tint: rgba(18, 18, 26, 0.8);
 
@@ -57,6 +57,9 @@
   --color-ring: #00d4aa;
   --color-brand-gray: #1a1a1a;
 
+  --color-feature-card: rgba(17, 24, 39, 0.6);
+  --color-mobile-card: rgba(17, 24, 39, 0.72);
+
   --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
   --font-display: "Inter", ui-sans-serif, system-ui, sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, monospace;
@@ -77,6 +80,8 @@
   --space-xl: 32px;
   --space-2xl: 48px;
   --space-3xl: 64px;
+
+  --width-app: 1480px;
 
   --animate-flash-up: flash-up 0.6s ease-out;
   --animate-flash-down: flash-down 0.6s ease-out;
@@ -223,9 +228,38 @@
   border-radius: var(--radius-modal);
 }
 
+/* Theme-aware CTA gradient button */
+.landing-cta {
+  background: linear-gradient(135deg, #00d4aa 0%, #00a88a 100%);
+  color: #020617;
+  box-shadow: 0 6px 24px rgba(0, 212, 170, 0.3);
+  transition: box-shadow 0.2s ease;
+}
+.landing-cta:hover {
+  background: linear-gradient(135deg, #00efc0 0%, #00b894 100%);
+  box-shadow: 0 10px 36px rgba(0, 212, 170, 0.5);
+}
+
+.landing-light .landing-cta {
+  background: linear-gradient(135deg, #0a7c6e 0%, #085a4e 100%);
+  color: #ffffff;
+  box-shadow: 0 6px 24px rgba(10, 124, 110, 0.25);
+}
+.landing-light .landing-cta:hover {
+  background: linear-gradient(135deg, #0e8a7a 0%, #096b5c 100%);
+  box-shadow: 0 10px 36px rgba(10, 124, 110, 0.35);
+}
+
 :root {
   color-scheme: dark;
   --nav-h: 72px;
+
+  /* Sticky offset cascade for the lesson page */
+  --header-h: 52px;
+  --topbar-h: 55px;
+  --sticky-panel: 110px;
+  --sticky-rail: 132px;
+  --sticky-section-scroll: 120px;
 }
 
 html {
@@ -985,4 +1019,268 @@ html {
 .font-nastaliq {
   font-family: var(--font-nastaliq);
   line-height: 2.1;
+}
+
+/* ============================================================
+   Landing page light theme — warm cream + deep teal + antique gold.
+   Premium editorial identity, distinct from the app's cool-slate
+   light mode. Scoped to .landing-light so the app's .theme-light
+   and dark defaults remain untouched.
+   ============================================================ */
+.landing-light {
+  /* Canvas — warm cream, never stark white */
+  --color-background: #faf8f3;
+  --color-foreground: #1a2e28;
+
+  /* Surfaces */
+  --color-surface: #ffffff;
+  --color-surface-alt: #ffffff;
+  --color-elevated: #ffffff;
+  --color-border: rgba(12, 31, 26, 0.12);
+  --color-border-hover: rgba(12, 31, 26, 0.18);
+  --color-hover: rgba(12, 31, 26, 0.05);
+  --color-sidebar: rgba(250, 248, 243, 0.92);
+
+  --color-card: #ffffff;
+  --color-card-foreground: #1a2e28;
+  --color-popover: #ffffff;
+  --color-popover-foreground: #1a2e28;
+
+  /* Deeper, more refined teal — not the app's SaaS-bright #0d9488 */
+  --color-primary: #0a7c6e;
+  --color-primary-foreground: #ffffff;
+  --color-info: #0a7c6e;
+
+  /* AI violet — refined, less saturated */
+  --color-ai: #6d3fc4;
+  --color-ai-tint: #f5f0fc;
+
+  /* Market signals — deepened for cream backgrounds */
+  --color-bull: #0a7c6e;
+  --color-bull-foreground: #ffffff;
+  --color-bear: #c5283d;
+  --color-warning: #a86b0c;
+  --color-neutral: #64748b;
+
+  /* Antique gold — premium, not bright SaaS gold */
+  --color-gold: #8a6612;
+  --color-gold-foreground: #ffffff;
+  --color-gold-hover: #73540e;
+  --color-gold-muted: #604808;
+
+  --color-secondary: #f0ece2;
+  --color-secondary-foreground: #0c1f1a;
+  --color-muted: #f0ece2;
+  --color-muted-foreground: #4a5b56;
+  --color-accent: #f0ece2;
+  --color-accent-foreground: #0c1f1a;
+  --color-destructive: #c5283d;
+
+  /* Text — forest tones, never pure black */
+  --color-text-primary: #1a2e28;
+  --color-text-secondary: #4a5b56;
+  --color-text-muted: #7a8984;
+
+  --color-input: rgba(12, 31, 26, 0.12);
+  --color-ring: #0a7c6e;
+
+  --color-feature-card: #ffffff;
+  --color-mobile-card: #ffffff;
+
+  background-color: var(--color-background);
+  color: var(--color-foreground);
+}
+
+/* Landing light: border-white alphas → warm forest alphas */
+.landing-light .border-white\/\[0\.02\],
+.landing-light .border-white\/\[0\.04\],
+.landing-light .border-white\/\[0\.05\],
+.landing-light .border-white\/5,
+.landing-light .border-white\/\[0\.06\],
+.landing-light .border-white\/\[0\.07\],
+.landing-light .border-white\/\[0\.08\],
+.landing-light .border-white\/\[0\.1\],
+.landing-light .border-white\/10 {
+  border-color: rgba(12, 31, 26, 0.08);
+}
+.landing-light .border-white\/12,
+.landing-light .border-white\/\[0\.12\],
+.landing-light .border-white\/15,
+.landing-light .border-white\/\[0\.16\],
+.landing-light .border-white\/\[0\.2\],
+.landing-light .border-white\/20 {
+  border-color: rgba(12, 31, 26, 0.14);
+}
+
+/* Landing light: white bg alphas → warm forest tints */
+.landing-light .bg-white\/\[0\.02\],
+.landing-light .bg-white\/\[0\.03\],
+.landing-light .bg-white\/\[0\.04\],
+.landing-light .bg-white\/\[0\.05\],
+.landing-light .bg-white\/5,
+.landing-light .bg-white\/\[0\.06\],
+.landing-light .bg-white\/10 {
+  background-color: rgba(12, 31, 26, 0.04);
+}
+
+/* Landing light: gradient-mesh — softer warm aurora */
+.landing-light .gradient-mesh {
+  background:
+    radial-gradient(40% 60% at 20% 30%, rgba(10, 124, 110, 0.03), transparent 70%),
+    radial-gradient(40% 60% at 80% 70%, rgba(109, 63, 196, 0.02), transparent 70%),
+    radial-gradient(50% 50% at 50% 50%, rgba(138, 102, 18, 0.02), transparent 70%);
+}
+
+/* Landing light: ambient background — lighter, softer drift */
+.landing-light .ambient-bg {
+  background:
+    radial-gradient(42% 42% at 22% 28%, rgba(10, 124, 110, 0.04), transparent 72%),
+    radial-gradient(38% 38% at 80% 72%, rgba(109, 63, 196, 0.03), transparent 72%),
+    radial-gradient(34% 34% at 60% 18%, rgba(138, 102, 18, 0.025), transparent 70%);
+}
+
+/* Landing light: glass cards → white with warm soft shadow */
+.landing-light .glass-card {
+  background: #ffffff;
+  border-color: rgba(12, 31, 26, 0.08);
+  box-shadow: 0 1px 3px rgba(12, 31, 26, 0.04), 0 8px 24px -8px rgba(12, 31, 26, 0.08);
+}
+.landing-light .glass-card-hover:hover {
+  border-color: rgba(12, 31, 26, 0.12);
+  box-shadow: 0 4px 12px rgba(12, 31, 26, 0.06), 0 14px 40px -10px rgba(12, 31, 26, 0.1);
+}
+
+/* Landing light: gold glass — warm antique tint */
+.landing-light .glass-gold {
+  border-color: rgba(138, 102, 18, 0.28);
+  box-shadow:
+    0 0 0 1px rgba(138, 102, 18, 0.12),
+    0 8px 28px -8px rgba(138, 102, 18, 0.12),
+    0 16px 36px -14px rgba(12, 31, 26, 0.08);
+}
+.landing-light .gold-glow {
+  box-shadow: 0 0 24px rgba(138, 102, 18, 0.18);
+}
+
+/* Landing light: nav chrome — translucent cream */
+.landing-light .glass-chrome {
+  background: rgba(250, 248, 243, 0.88);
+  border-color: rgba(12, 31, 26, 0.08);
+  box-shadow: 0 8px 40px rgba(12, 31, 26, 0.06);
+}
+.landing-light .nav-active {
+  background: rgba(10, 124, 110, 0.08);
+}
+.landing-light .nav-active::before {
+  background: var(--color-primary);
+}
+
+/* Landing light: market strip — deep forest data band */
+.landing-light .market-strip {
+  background: #1a2820;
+  color: #e8e4d8;
+  border-color: rgba(232, 228, 216, 0.08);
+}
+.landing-light .market-strip .market-strip-muted {
+  color: #a89e88;
+}
+
+/* Landing light: focused interactive elements */
+.landing-light input:focus,
+.landing-light select:focus,
+.landing-light textarea:focus {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px rgba(10, 124, 110, 0.16);
+}
+
+/* Landing light: shimmer skeleton keeps dark aesthetic */
+.landing-light .shimmer-line {
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(10, 124, 110, 0) 20%,
+    rgba(10, 124, 110, 0.7) 50%,
+    rgba(10, 124, 110, 0) 80%,
+    transparent 100%
+  );
+}
+
+/* Landing light: reduced motion — respect user preference */
+@media (prefers-reduced-motion: reduce) {
+  .landing-light .ambient-bg {
+    animation: none;
+  }
+}
+
+/* Landing light: softer text shadows for headings */
+.landing-light .text-glow-heading {
+  text-shadow: 0 0 40px rgba(10, 124, 110, 0.15) !important;
+}
+
+/* Landing light: hero gradient — warm teal tint at top, blending to cream */
+.landing-light [style*="radial-gradient(ellipse 80% 60% at 50% 0%"] {
+  background: radial-gradient(ellipse 80% 60% at 50% 0%, rgba(10, 124, 110, 0.14) 0%, #f0ece2 50%, #faf8f3 75%) !important;
+}
+
+/* Landing light: hero mouse-following glows — softened for light bg */
+.landing-light [style*="rgba(0,212,170,0.18"] {
+  background: radial-gradient(circle, rgba(10, 124, 110, 0.08) 0%, transparent 70%) !important;
+}
+.landing-light [style*="rgba(139,92,246,0.14"] {
+  background: radial-gradient(circle, rgba(109, 63, 196, 0.06) 0%, transparent 70%) !important;
+}
+
+/* Landing light: hero bottom fade mask override */
+.landing-light [style*="linear-gradient(to bottom, transparent"] {
+  background: linear-gradient(to bottom, transparent, #faf8f3) !important;
+}
+
+/* Landing light: dark panels (terminal, flip-card, mobile terminal)
+   keep dark backgrounds but surface light text tokens so content is readable */
+.landing-light .dark-surface {
+  --color-text-primary: #ffffff !important;
+  --color-text-secondary: #c8d6e5 !important;
+  --color-text-muted: #8395a7 !important;
+  --color-bull: #00d4aa !important;
+  --color-bull-foreground: #020617 !important;
+  --color-bear: #e5484d !important;
+  --color-warning: #f5a524 !important;
+  --color-primary: #00d4aa !important;
+  --color-primary-foreground: #020617 !important;
+  --color-info: #00d4aa !important;
+  --color-ai: #00d4aa !important;
+  --color-gold: #d4a017 !important;
+  --color-card-foreground: #ffffff !important;
+  color-scheme: dark;
+}
+
+/* Landing light: keep dark panel internal borders white (don't let albedo remap touch them) */
+.landing-light .dark-surface .border-white\/\[0\.06\],
+.landing-light .dark-surface .border-white\/10,
+.landing-light .dark-surface .border-white\/\[0\.08\],
+.landing-light .dark-surface .border-b {
+  border-color: rgba(255, 255, 255, 0.08) !important;
+}
+
+/* Landing light: hero scattered tickers — readable forest tone on cream gradient */
+.landing-light .ticker-fade {
+  color: #1a2e28 !important;
+  opacity: 0.18 !important;
+}
+
+/* Landing light: how-it-works rail inactive dots — visible on cream */
+.landing-light [style*="rgba(255,255,255,0.25)"] {
+  background: rgba(12, 31, 26, 0.12) !important;
+}
+.landing-light [style*="rgba(255,255,255,0.3)"] {
+  border-color: rgba(12, 31, 26, 0.2) !important;
+}
+.landing-light [style*="rgba(255,255,255,0.18)"] {
+  background: rgba(12, 31, 26, 0.1) !important;
+}
+
+/* Landing light: feature card hover shadow — softer on light */
+.landing-light [class*="hover:shadow-\[0_24px_60px"] {
+  box-shadow: 0 12px 40px -8px rgba(10, 124, 110, 0.15) !important;
 }

@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/use-auth";
+import { useLandingTheme } from "@/hooks/use-landing-theme";
 import logo from "@/assets/logo.png";
 
 
@@ -76,6 +77,8 @@ function LogoIcon({ className }: { className?: string }) {
 
 function AuthPage() {
   const { user, loading, signInWithPassword, signUpWithPassword, signInWithGoogle } = useAuth();
+  const { theme } = useLandingTheme();
+  const isLight = theme === "light";
   const navigate = useNavigate();
   const { redirect } = Route.useSearch();
 
@@ -175,13 +178,13 @@ function AuthPage() {
         : 1;
 
   return (
-    <main className="relative flex min-h-screen w-full flex-col overflow-hidden bg-black p-2 transition-all duration-500 selection:bg-primary/30 md:p-4">
+    <main className={`relative flex min-h-screen w-full flex-col overflow-hidden p-2 transition-all duration-500 selection:bg-primary/30 md:p-4 ${isLight ? "bg-background" : "bg-black"}`}>
 
       {/* ---------- Top nav (overlay, spans both columns) ---------- */}
       <nav className="pointer-events-none absolute inset-x-0 top-0 z-20 flex items-center justify-between px-5 py-5 md:px-7 md:py-7">
-        <div className="pointer-events-auto flex items-center gap-2.5">
+        <div className={`pointer-events-auto flex items-center gap-2.5 ${isLight ? "rounded-xl bg-black/15 px-3 py-2 backdrop-blur-sm" : ""}`}>
           <LogoIcon className="h-9 w-9 rounded-[8px] ring-1 ring-bull/30" />
-          <span className="font-display text-2xl font-bold tracking-tight text-text-primary">
+          <span className={`font-display text-2xl font-bold tracking-tight ${isLight ? "text-white" : "text-text-primary"}`}>
             Nafa<span className="text-primary">IQ</span>
           </span>
         </div>
@@ -197,7 +200,7 @@ function AuthPage() {
       {/* ---------- Columns (flush, no gap) ---------- */}
       <div className="relative z-10 flex flex-1 flex-col-reverse overflow-hidden md:flex-row-reverse">
         {/* Form column — solid dark panel, form sits directly inside */}
-        <div className="relative flex flex-1 items-center justify-center overflow-hidden rounded-3xl bg-zinc-950 px-4 py-8 sm:px-8 lg:px-12 md:rounded-l-none md:rounded-r-3xl">
+        <div className={`relative flex flex-1 items-center justify-center overflow-hidden rounded-3xl px-4 py-8 sm:px-8 lg:px-12 md:rounded-l-none md:rounded-r-3xl ${isLight ? "bg-white" : "bg-zinc-950"}`}>
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -429,7 +432,7 @@ function AuthPage() {
 
         </div>
 
-        <AuthVisualPanel currentStep={currentStep} />
+        <AuthVisualPanel currentStep={currentStep} isLight={isLight} />
       </div>
     </main>
 
@@ -439,21 +442,21 @@ function AuthPage() {
 
 /* ---------- Reusable components ---------- */
 
-function AuthVisualPanel({ currentStep }: { currentStep: number }) {
+function AuthVisualPanel({ currentStep, isLight }: { currentStep: number; isLight: boolean }) {
   const steps = [
     { number: 1, text: "Register your identity" },
     { number: 2, text: "Configure your studio" },
     { number: 3, text: "Finalize your profile" },
   ];
   return (
-    <aside className="relative hidden w-[45%] flex-col justify-center overflow-hidden rounded-3xl px-8 py-12 md:flex md:rounded-r-none lg:w-[50%] lg:px-14">
+    <aside className="relative hidden w-[48%] flex-col justify-center overflow-hidden rounded-3xl px-8 py-12 md:flex md:rounded-r-none lg:w-[55%] lg:px-14">
       {/* Left column background image, strictly clipped to column bounds */}
       <img
         src="/hero-bg.webp"
         alt=""
         aria-hidden="true"
         className="pointer-events-none absolute inset-0 z-0 h-full w-full object-cover"
-        style={{ objectPosition: "left center" }}
+        style={{ objectPosition: "center 30%" }}
       />
 
 
@@ -461,8 +464,9 @@ function AuthVisualPanel({ currentStep }: { currentStep: number }) {
       <div
         className="pointer-events-none absolute inset-y-0 left-0 z-0 w-[55%] rounded-3xl"
         style={{
-          background:
-            "linear-gradient(to right, rgba(0,0,0,0.55) 0%, rgba(0,0,0,0.25) 55%, transparent 100%)",
+          background: isLight
+            ? "none"
+            : "linear-gradient(to right, rgba(0,0,0,0.55) 0%, rgba(0,0,0,0.25) 55%, transparent 100%)",
         }}
       />
 
@@ -473,18 +477,16 @@ function AuthVisualPanel({ currentStep }: { currentStep: number }) {
         variants={container}
         initial="hidden"
         animate="show"
-        className="relative z-10 flex h-full w-full max-w-xs flex-col justify-center gap-8"
-      >
+          className={`relative z-10 flex h-full w-full max-w-xs flex-col justify-center gap-8`}
+        >
         <motion.div variants={item} className="space-y-3">
           <h1
-            className="font-display whitespace-nowrap text-4xl font-medium tracking-tight text-text-primary"
-            style={{ textShadow: "0 2px 12px rgba(0,0,0,0.7)" }}
+            className={`font-display whitespace-nowrap text-4xl font-medium tracking-tight ${isLight ? "text-white" : "text-text-primary"}`}
           >
             Join NafaIQ
           </h1>
           <p
-            className="px-1 text-sm leading-relaxed text-text-secondary"
-            style={{ textShadow: "0 1px 8px rgba(0,0,0,0.6)" }}
+            className={`px-1 text-sm leading-relaxed ${isLight ? "text-white/80" : "text-text-secondary"}`}
           >
             Follow these 3 quick phases to activate your space.
           </p>
@@ -499,6 +501,7 @@ function AuthVisualPanel({ currentStep }: { currentStep: number }) {
               state={
                 s.number < currentStep ? "done" : s.number === currentStep ? "active" : "todo"
               }
+              isLight={isLight}
             />
           ))}
         </motion.div>
@@ -513,10 +516,12 @@ function StepItem({
   number,
   text,
   state,
+  isLight,
 }: {
   number: number;
   text: string;
   state: "done" | "active" | "todo";
+  isLight: boolean;
 }) {
   const active = state === "active";
   const done = state === "done";
@@ -527,7 +532,7 @@ function StepItem({
         (active
           ? "border border-primary bg-primary text-primary-foreground"
           : done
-            ? "border border-primary/40 bg-primary/10 text-text-primary"
+            ? `border border-primary/40 bg-primary/10 ${isLight ? "text-white" : "text-text-primary"}`
             : "border border-border bg-surface text-text-primary")
       }
     >
@@ -537,7 +542,7 @@ function StepItem({
           (active
             ? "bg-primary-foreground/20 text-primary-foreground"
             : done
-              ? "bg-primary/25 text-primary"
+              ? `bg-primary/25 ${isLight ? "text-white" : "text-primary"}`
               : "bg-white/15 text-text-secondary")
         }
       >

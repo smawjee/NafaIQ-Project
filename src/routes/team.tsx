@@ -4,6 +4,7 @@ import { ArrowLeft, Linkedin, Twitter, Github } from "lucide-react";
 
 import logo from "@/assets/logo.png";
 import { Reveal, staggerParent, fadeUp, SPRING_UI, EASE } from "@/components/animations";
+import { useLandingTheme } from "@/hooks/use-landing-theme";
 
 export const Route = createFileRoute("/team")({
   head: () => ({
@@ -126,11 +127,13 @@ function SocialLink({
   label,
   icon: Icon,
   hue,
+  isLight,
 }: {
   href: string;
   label: string;
   icon: React.ComponentType<{ className?: string }>;
   hue: number;
+  isLight: boolean;
 }) {
   return (
     <motion.a
@@ -141,7 +144,11 @@ function SocialLink({
       whileHover={{ scale: 1.1, y: -2 }}
       whileTap={{ scale: 0.94 }}
       transition={SPRING_UI}
-      className="flex h-9 w-9 items-center justify-center rounded-full border border-white/[0.08] bg-white/[0.04] text-white/50 backdrop-blur-sm transition-all duration-300 hover:border-white/[0.15] hover:bg-white/[0.08] hover:text-white/90"
+      className={`flex h-9 w-9 items-center justify-center rounded-full border backdrop-blur-sm transition-all duration-300 ${
+        isLight
+          ? "border-[rgba(12,31,26,0.08)] bg-[rgba(12,31,26,0.03)] text-[#4a5b56] hover:border-[rgba(12,31,26,0.15)] hover:bg-[rgba(12,31,26,0.06)] hover:text-[#0c1f1a]"
+          : "border-white/[0.08] bg-white/[0.04] text-white/50 hover:border-white/[0.15] hover:bg-white/[0.08] hover:text-white/90"
+      }`}
       onMouseEnter={(e) => {
         e.currentTarget.style.color = `hsla(${hue}, 60%, 65%, 1)`;
         e.currentTarget.style.borderColor = `hsla(${hue}, 60%, 50%, 0.3)`;
@@ -159,30 +166,44 @@ function SocialLink({
 }
 
 function TeamPage() {
+  const { theme } = useLandingTheme();
+  const isLight = theme === "light";
+
   return (
-    <div className="relative min-h-screen bg-[#060B17]">
-      {/* subtle grid pattern */}
-      <div
-        className="pointer-events-none fixed inset-0"
-        style={{
-          backgroundImage:
-            "linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px)",
-          backgroundSize: "72px 72px",
-        }}
-      />
+    <div
+      className={`relative min-h-screen ${isLight ? "bg-background" : "bg-[#060B17]"}`}
+    >
+      {/* subtle grid pattern — dark only */}
+      {!isLight && (
+        <div
+          className="pointer-events-none fixed inset-0"
+          style={{
+            backgroundImage:
+              "linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px)",
+            backgroundSize: "72px 72px",
+          }}
+        />
+      )}
 
       {/* soft radial background glow */}
       <div
         className="pointer-events-none fixed inset-0"
         style={{
-          background:
-            "radial-gradient(ellipse 70% 50% at 50% 0%, hsla(210, 60%, 30%, 0.12), transparent 70%)",
+          background: isLight
+            ? "radial-gradient(ellipse 70% 50% at 50% 0%, rgba(10,124,110,0.06), transparent 70%)"
+            : "radial-gradient(ellipse 70% 50% at 50% 0%, hsla(210, 60%, 30%, 0.12), transparent 70%)",
         }}
       />
 
       {/* nav bar */}
       <header className="fixed inset-x-0 top-0 z-50 flex justify-center px-4 pt-3 sm:pt-4">
-        <div className="flex h-14 w-full max-w-[760px] items-center gap-3 rounded-full border border-white/[0.08] bg-[#0B1220]/80 px-3 shadow-[0_8px_40px_rgba(0,0,0,0.45)] backdrop-blur-xl backdrop-saturate-150 sm:px-4">
+        <div
+          className={`flex h-14 w-full max-w-[760px] items-center gap-3 rounded-full border px-3 shadow-[0_8px_40px_rgba(0,0,0,0.45)] backdrop-blur-xl backdrop-saturate-150 sm:px-4 ${
+            isLight
+              ? "border-[rgba(12,31,26,0.08)] bg-[rgba(250,248,243,0.88)]"
+              : "border-white/[0.08] bg-[#0B1220]/80"
+          }`}
+        >
           <Link to="/" className="flex shrink-0 items-center gap-2">
             <img
               src={logo}
@@ -191,14 +212,14 @@ function TeamPage() {
               height={26}
               className="rounded-[7px] ring-1 ring-bull/30"
             />
-            <span className="font-display text-lg font-bold tracking-tight text-[#F8FAFC]">
+            <span className="font-display text-lg font-bold tracking-tight text-text-primary">
               Nafa<span className="text-primary">IQ</span>
             </span>
           </Link>
           <div className="ml-auto flex items-center gap-3">
             <Link
               to="/"
-              className="inline-flex items-center gap-1.5 text-[13px] font-medium text-[#94A3B8] transition hover:text-[#F8FAFC]"
+              className="inline-flex items-center gap-1.5 text-[13px] font-medium text-text-muted transition hover:text-text-primary"
             >
               <ArrowLeft className="h-3.5 w-3.5" />
               Back to home
@@ -211,17 +232,17 @@ function TeamPage() {
       <section className="relative mx-auto max-w-[1200px] px-6 pt-32 pb-16 sm:pt-40 sm:pb-20">
         <Reveal>
           <div className="mx-auto max-w-2xl text-center">
-            <span className="inline-block rounded-full border border-emerald-500/20 bg-emerald-500/10 px-4 py-1.5 text-[11px] font-semibold uppercase tracking-[0.15em] text-emerald-400">
+            <span className="inline-block rounded-full border border-primary/20 bg-primary/10 px-4 py-1.5 text-[11px] font-semibold uppercase tracking-[0.15em] text-primary">
               Our Team
             </span>
-            <h1 className="mt-6 text-[32px] font-bold leading-[1.12] tracking-tight text-[#F8FAFC] sm:text-[48px]">
+            <h1 className="mt-6 text-[32px] font-bold leading-[1.12] tracking-tight text-text-primary sm:text-[48px]">
               Built by people who{" "}
               <span className="bg-gradient-to-r from-emerald-400 to-cyan-400 bg-clip-text text-transparent">
                 believe
               </span>{" "}
               in Pakistan&apos;s potential.
             </h1>
-            <p className="mt-5 text-[15px] leading-relaxed text-[#94A3B8]">
+            <p className="mt-5 text-[15px] leading-relaxed text-text-secondary">
               We&apos;re a small, focused team building Pakistan&apos;s Financial Intelligence
               Terminal — combining live PSX data, personal finance, and AI insight into a single
               experience designed for the realities of investing in Pakistan.
@@ -243,9 +264,15 @@ function TeamPage() {
             <motion.article
               key={member.name}
               variants={cardVariants}
-              className="group relative flex flex-col overflow-hidden rounded-[28px] border border-white/[0.08] bg-[#111827]/80 p-9 backdrop-blur-xl"
+              className={`group relative flex flex-col overflow-hidden rounded-[28px] border p-9 backdrop-blur-xl ${
+                isLight
+                  ? "border-[rgba(12,31,26,0.08)] bg-white"
+                  : "border-white/[0.08] bg-[#111827]/80"
+              }`}
               style={{
-                boxShadow: "0 20px 60px rgba(0,0,0,0.45)",
+                boxShadow: isLight
+                  ? "0 2px 12px rgba(12,31,26,0.06)"
+                  : "0 20px 60px rgba(0,0,0,0.45)",
               }}
               whileHover={{
                 y: -8,
@@ -254,9 +281,9 @@ function TeamPage() {
               }}
               onMouseEnter={(e) => {
                 const el = e.currentTarget;
-                el.style.borderColor = `hsla(${member.accent.hue}, 60%, 50%, 0.3)`;
-                el.style.boxShadow = `0 24px 70px rgba(0,0,0,0.55), 0 0 30px hsla(${member.accent.hue}, 60%, 50%, 0.1)`;
-                el.style.background = "rgba(17, 24, 39, 0.95)";
+                el.style.borderColor = `hsla(${member.accent.hue}, 60%, 50%, ${isLight ? 0.5 : 0.3})`;
+                el.style.boxShadow = `0 24px 70px ${isLight ? `rgba(12,31,26,0.12)` : `rgba(0,0,0,0.55)`}, 0 0 30px hsla(${member.accent.hue}, 60%, 50%, 0.1)`;
+                el.style.background = isLight ? "#faf8f3" : "rgba(17, 24, 39, 0.95)";
               }}
               onMouseLeave={(e) => {
                 const el = e.currentTarget;
@@ -278,7 +305,7 @@ function TeamPage() {
                   <Avatar initials={member.initials} accent={member.accent} />
                 </div>
 
-                <h3 className="text-[28px] font-bold leading-tight tracking-tight text-[#F8FAFC]">
+                <h3 className="text-[28px] font-bold leading-tight tracking-tight text-text-primary">
                   {member.name}
                 </h3>
 
@@ -289,9 +316,9 @@ function TeamPage() {
                   {member.role}
                 </p>
 
-                <p className="mt-2 text-[14px] font-medium text-[#94A3B8]">{member.university}</p>
+                <p className="mt-2 text-[14px] font-medium text-text-muted">{member.university}</p>
 
-                <p className="mt-5 max-w-[38ch] text-[15px] leading-[1.7] text-[#CBD5E1]">
+                <p className="mt-5 max-w-[38ch] text-[15px] leading-[1.7] text-text-secondary">
                   {member.bio}
                 </p>
 
@@ -302,18 +329,21 @@ function TeamPage() {
                     label={`${member.name} on LinkedIn`}
                     icon={Linkedin}
                     hue={member.accent.hue}
+                    isLight={isLight}
                   />
                   <SocialLink
                     href={member.socials.github}
                     label={`${member.name} on GitHub`}
                     icon={Github}
                     hue={member.accent.hue}
+                    isLight={isLight}
                   />
                   <SocialLink
                     href={member.socials.twitter}
                     label={`${member.name} on X`}
                     icon={Twitter}
                     hue={member.accent.hue}
+                    isLight={isLight}
                   />
                 </div>
               </div>
@@ -323,10 +353,10 @@ function TeamPage() {
       </section>
 
       {/* footer */}
-      <footer className="border-t border-white/[0.06] bg-[#060B17]">
-        <div className="mx-auto flex max-w-[1200px] flex-col gap-2 px-6 py-5 text-xs text-[#94A3B8] sm:flex-row sm:items-center sm:justify-between">
+      <footer className={`border-t ${isLight ? "border-[rgba(12,31,26,0.08)] bg-[#f0ece2]" : "border-white/[0.06] bg-[#060B17]"}`}>
+        <div className={`mx-auto flex max-w-[1200px] flex-col gap-2 px-6 py-5 text-xs sm:flex-row sm:items-center sm:justify-between ${isLight ? "text-text-muted" : "text-[#94A3B8]"}`}>
           <span>&copy; 2026 NafaIQ &middot; Built in Pakistan</span>
-          <Link to="/" className="text-[#94A3B8] transition hover:text-[#F8FAFC]">
+          <Link to="/" className={`${isLight ? "text-text-muted hover:text-text-primary" : "text-[#94A3B8] hover:text-[#F8FAFC]"} transition`}>
             Back to homepage
           </Link>
         </div>

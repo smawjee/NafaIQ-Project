@@ -1200,3 +1200,13 @@ export function xpForScore(correct: number, total: number): number {
   if (correct >= 1) return 10;
   return 0;
 }
+
+/**
+ * Safely resolve a lesson ID from a canonical English title.
+ * LESSON_ID_BY_TITLE is keyed by English titles only — do NOT pass a
+ * translated string here. The `LESSONS` array in `finance-data.ts`
+ * holds the canonical English titles; use them directly.
+ */
+export function lessonId(title: string): string {
+  return LESSON_ID_BY_TITLE[title];
+}

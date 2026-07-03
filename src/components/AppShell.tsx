@@ -16,8 +16,6 @@ import {
   Settings,
   CreditCard,
   ChevronRight,
-  Sun,
-  Moon,
   PanelLeftClose,
   PanelRightClose,
   PanelLeft,
@@ -32,6 +30,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { useTheme } from "@/hooks/use-theme";
 import { useLang } from "@/hooks/use-lang";
 import { ScrollToTop } from "@/components/ScrollToTop";
+import { ThemeToggle } from "@/components/ThemeToggle";
 
 const NAV = [
   { to: "/app", label: "Dashboard", icon: LayoutDashboard, mobile: "Home" },
@@ -360,25 +359,6 @@ function UserMenu() {
   );
 }
 
-function ThemeToggle() {
-  const { theme, toggleTheme } = useTheme();
-  const { t } = useLang();
-  const isDark = theme === "dark";
-  return (
-    <button
-      onClick={toggleTheme}
-      aria-label={t("Toggle theme")}
-      className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[8px] text-text-secondary transition-colors hover:bg-white/[0.04] hover:text-text-primary"
-    >
-      {isDark ? (
-        <Sun className="h-[18px] w-[18px]" strokeWidth={1.75} />
-      ) : (
-        <Moon className="h-[18px] w-[18px]" strokeWidth={1.75} />
-      )}
-    </button>
-  );
-}
-
 function Header({
   onMenu,
   collapsed,
@@ -389,6 +369,8 @@ function Header({
   onExpand: () => void;
 }) {
   const { t, isUrdu } = useLang();
+  const { theme, toggleTheme } = useTheme();
+  const isDark = theme === "dark";
   return (
     <header
       className={cn(
@@ -440,7 +422,7 @@ function Header({
         >
           <Sparkles className="h-4 w-4" />
         </Link>
-        <ThemeToggle />
+        <ThemeToggle isDark={isDark} onToggle={toggleTheme} />
         <NotificationBell />
         <UserMenu />
       </div>
@@ -587,7 +569,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           onExpand={() => toggleCollapsed(false)}
         />
         <Breadcrumbs />
-        <main className="px-3 pt-4 pb-24 sm:px-5 lg:px-6 lg:pb-8">
+        <main className={cn(
+          "pt-4 pb-24 lg:pb-8",
+          pathname.startsWith("/learn/lesson") ? "px-0" : "px-3 sm:px-5 lg:px-6",
+        )}>
           <PageTransition routeKey={pathname}>{children}</PageTransition>
         </main>
       </div>

@@ -3,6 +3,7 @@ import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { ArrowLeft, ArrowRight, Quote } from "lucide-react";
 import { Reveal } from "@/components/animations";
 import { cn } from "@/lib/utils";
+import { useLandingTheme } from "@/hooks/use-landing-theme";
 
 /* ---------- data shape ---------- */
 export type Testimonial = {
@@ -152,7 +153,7 @@ function TestimonialCard({ t }: { t: Testimonial }) {
       {/* Right: proof metric card — mirrors the Haqeeqi Daolat style */}
       <div className="md:justify-self-end md:w-[260px]">
         <div
-          className="rounded-[12px] border border-white/[0.06] p-5"
+          className="rounded-[12px] border border-white/[0.06] p-5 dark-surface"
           style={{
             background: "rgba(13,19,32,0.8)",
             boxShadow: "inset 0 1px 0 rgba(255,255,255,0.04)",
@@ -213,6 +214,8 @@ export function TestimonialsSection() {
   const reduceMotion = useReducedMotion();
   const regionId = useId();
   const sectionRef = useRef<HTMLElement>(null);
+  const { theme } = useLandingTheme();
+  const isLight = theme === "light";
 
   const count = TESTIMONIALS.length;
   const current = TESTIMONIALS[index];
@@ -261,7 +264,7 @@ export function TestimonialsSection() {
       aria-label="Customer testimonials"
       role="region"
       tabIndex={-1}
-      className="mx-auto max-w-[1040px] scroll-mt-[var(--nav-h)] px-6 py-[60px] lg:py-[100px] focus:outline-none"
+      className="mx-auto max-w-[1040px] scroll-mt-[var(--nav-h)] border-t border-border px-6 py-[60px] lg:py-[100px] focus:outline-none"
     >
       <Reveal className="text-center">
         <h2
@@ -275,13 +278,13 @@ export function TestimonialsSection() {
       <div className="relative mt-10 lg:mt-12">
         <div
           className="relative overflow-hidden rounded-2xl border border-white/[0.06] p-10"
-          style={{ background: "rgba(17,24,39,0.6)" }}
+          style={{ background: isLight ? "#ffffff" : "rgba(17,24,39,0.6)" }}
         >
           {/* Ambient teal glow behind the quote icon — soft, no harsh shadow */}
           <span
             aria-hidden="true"
             className="pointer-events-none absolute left-10 top-10 h-24 w-24 rounded-full opacity-60 blur-3xl"
-            style={{ background: "radial-gradient(circle, rgba(0,212,170,0.25), transparent 70%)" }}
+            style={{ background: isLight ? "radial-gradient(circle, rgba(10,124,110,0.12), transparent 70%)" : "radial-gradient(circle, rgba(0,212,170,0.25), transparent 70%)" }}
           />
 
           {/* Live region — screen readers announce new testimonial on change */}
@@ -325,10 +328,14 @@ export function TestimonialsSection() {
                       "h-2 rounded-full transition-all duration-300 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bull/70",
                       active ? "w-6" : "w-2 hover:bg-white/30",
                     )}
-                    style={{
-                      background: active ? "rgb(0,212,170)" : "rgba(255,255,255,0.18)",
-                      boxShadow: active ? "0 0 10px 2px rgba(0,212,170,0.45)" : "none",
-                    }}
+                      style={{
+                        background: active
+                          ? isLight ? "var(--color-primary)" : "rgb(0,212,170)"
+                          : isLight ? "rgba(12,31,26,0.15)" : "rgba(255,255,255,0.18)",
+                        boxShadow: active
+                          ? isLight ? "0 0 10px 2px rgba(10,124,110,0.35)" : "0 0 10px 2px rgba(0,212,170,0.45)"
+                          : "none",
+                      }}
                   />
                 );
               })}

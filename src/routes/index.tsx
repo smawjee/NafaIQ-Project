@@ -74,7 +74,9 @@ import {
 import { Tilt3D } from "@/components/Tilt3D";
 import { Particles } from "@/components/Particles";
 import { TestimonialsSection } from "@/components/TestimonialsSection";
+import { ThemeToggle } from "@/components/ThemeToggle";
 import { useAuth } from "@/hooks/use-auth";
+import { useLandingTheme } from "@/hooks/use-landing-theme";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -167,7 +169,7 @@ function StoreButtons({ center = false }: { center?: boolean }) {
       <motion.div whileTap={{ scale: 0.96 }} whileHover={{ scale: 1.03 }} transition={SPRING_UI} className={cn(center && "self-center")}>
         <Link
           to="/app"
-          className="inline-flex w-auto items-center gap-2 rounded-[12px] bg-gradient-to-br from-[#00d4aa] to-[#00a88a] px-5 py-2.5 text-bull-foreground shadow-[0_6px_24px_rgba(0,212,170,0.3)] transition hover:shadow-[0_10px_36px_rgba(0,212,170,0.5)]"
+          className="inline-flex w-auto items-center gap-2 rounded-[12px] landing-cta px-5 py-2.5 text-bull-foreground transition"
         >
           <Download className="h-4 w-4 shrink-0" />
           <span className="text-sm font-semibold">Install as Web App — Free</span>
@@ -256,14 +258,14 @@ const FEATURES: {
   {
     Icon: CandlestickChart,
     iconColor: "text-bull",
-    chipBg: "rgba(0,212,170,0.15)",
+    chipBg: "bg-bull/[0.08]",
     title: "PSX Trading Terminal",
     desc: "Candlestick charts, heatmaps, top movers, AI signals — the first Bloomberg-grade PSX terminal on your phone.",
   },
   {
     Icon: ShieldCheck,
     iconColor: "text-warning",
-    chipBg: "rgba(245,158,11,0.15)",
+    chipBg: "bg-warning/[0.1]",
     title: "Haqeeqi Daulat™ Engine",
     desc: "See your REAL wealth after PKR devaluation. Pakistan's first devaluation-adjusted portfolio intelligence.",
     badge: "World First",
@@ -271,28 +273,28 @@ const FEATURES: {
   {
     Icon: Bot,
     iconColor: "text-ai",
-    chipBg: "rgba(59,130,246,0.15)",
+    chipBg: "bg-blue-500/[0.12]",
     title: "AI Financial Advisor",
     desc: "Personalized insights, AI-generated portfolio reports, and a 24/7 finance tutor — powered by Claude AI.",
   },
   {
     Icon: Moon,
     iconColor: "text-bull",
-    chipBg: "rgba(16,185,129,0.15)",
+    chipBg: "bg-bull/[0.08]",
     title: "Built for Muslim Investors",
     desc: "Halal stock screening, Zakat calculator, Islamic savings goals — finance aligned with your values.",
   },
   {
     Icon: Wallet,
     iconColor: "text-ai",
-    chipBg: "rgba(59,130,246,0.15)",
+    chipBg: "bg-blue-500/[0.12]",
     title: "Complete Finance Manager",
     desc: "Track income, expenses, budgets, bills, and goals — all in one place, in Pakistani Rupees.",
   },
   {
     Icon: GraduationCap,
     iconColor: "text-warning",
-    chipBg: "rgba(249,115,22,0.15)",
+    chipBg: "bg-orange-500/[0.12]",
     title: "Financial Education",
     desc: "Beginner to advanced courses in Urdu and English. Earn XP. Build real investing knowledge.",
   },
@@ -479,6 +481,8 @@ function NavSearch() {
 
 function Nav() {
   const { user } = useAuth();
+  const { theme, toggleTheme } = useLandingTheme();
+  const isDark = theme === "dark";
   const [scrolled, setScrolled] = useState(false);
   const [open, setOpen] = useState(false);
   useEffect(() => {
@@ -499,8 +503,8 @@ function Nav() {
         className={cn(
           "flex h-14 items-center gap-3 rounded-full border px-3 transition-all duration-300 sm:gap-4 sm:px-4",
           scrolled
-            ? "w-full max-w-[760px] border-white/[0.08] bg-[#060d1f] shadow-[0_8px_40px_rgba(0,0,0,0.45)] backdrop-blur-xl backdrop-saturate-150"
-            : "w-full max-w-[1120px] border-white/[0.05] bg-[#060d1f]/40 backdrop-blur-md",
+            ? "w-full max-w-[860px] border-white/[0.08] bg-sidebar shadow-[0_8px_40px_rgba(0,0,0,0.45)] backdrop-blur-xl backdrop-saturate-150"
+            : "w-full max-w-[1120px] border-white/[0.05] bg-sidebar/40 backdrop-blur-md",
         )}
       >
         {/* logo */}
@@ -557,6 +561,9 @@ function Nav() {
             </Link>
           )}
 
+          {/* Theme toggle — dark/light for the landing page */}
+          <ThemeToggle isDark={isDark} onToggle={toggleTheme} />
+
           {/* Enter App — dominant CTA, always visible */}
           <Magnetic strength={0.4}>
             <motion.div
@@ -586,7 +593,7 @@ function Nav() {
 
       {/* mobile full-screen drawer */}
       {open && (
-        <div className="fixed inset-0 top-0 z-40 flex flex-col bg-[#060d1f]/98 px-6 pb-8 pt-24 backdrop-blur-xl md:hidden">
+        <div className="fixed inset-0 top-0 z-40 flex flex-col bg-sidebar/98 px-6 pb-8 pt-24 backdrop-blur-xl md:hidden">
           <div className="mb-6">
             <NavSearch />
           </div>
@@ -621,6 +628,12 @@ function Nav() {
                 Log In
               </Link>
             )}
+            <div className="flex items-center justify-between px-4 py-3">
+              <span className="text-base font-medium text-text-secondary">
+                {isDark ? "Dark mode" : "Light mode"}
+              </span>
+              <ThemeToggle isDark={isDark} onToggle={toggleTheme} />
+            </div>
             <div className="flex items-center px-4 py-3">
               <StatusPill />
             </div>
@@ -686,11 +699,14 @@ function ScatteredTicker({
   t: (typeof SCATTERED_TICKERS)[number];
   progress: MotionValue<number>;
 }) {
+  const { theme } = useLandingTheme();
+  const isLight = theme === "light";
   const y = useTransform(progress, [0, 1], [0, -180 * t.depth]);
-  const opacity = useTransform(progress, [0, 0.5, 1], [t.opacity, t.opacity * 1.6, 0]);
+  const baseOpacity = useTransform(progress, [0, 0.5, 1], [t.opacity, t.opacity * 1.6, 0]);
+  const opacity = useTransform(baseOpacity, (v) => (isLight ? v * 2.5 : v));
   return (
     <motion.span
-      className="absolute select-none whitespace-nowrap font-mono text-white will-change-transform"
+      className={`absolute select-none whitespace-nowrap font-mono will-change-transform ${isLight ? "text-[#1a2e28]" : "text-white"}`}
       style={{
         left: t.x,
         top: t.y,
@@ -762,6 +778,8 @@ function Hero() {
   const reduce = useReducedMotion();
   const ref = useRef<HTMLDivElement>(null);
   const { scrollYProgress } = useScroll({ target: ref, offset: ["start start", "end start"] });
+  const { theme } = useLandingTheme();
+  const isLight = theme === "light";
 
   // parallax: gradient shifts as user scrolls (0.3x)
   const bgY = useTransform(scrollYProgress, [0, 1], ["0%", "30%"]);
@@ -790,8 +808,9 @@ function Hero() {
         className="pointer-events-none absolute inset-0 z-0"
         style={{
           y: reduce ? 0 : bgY,
-          background:
-            "radial-gradient(ellipse 80% 60% at 50% 0%, rgba(8,55,55,0.92) 0%, #0F1528 60%)",
+          background: isLight
+            ? "radial-gradient(ellipse 80% 60% at 50% 0%, rgba(10,124,110,0.14) 0%, #f0ece2 50%, #faf8f3 75%)"
+            : "radial-gradient(ellipse 80% 60% at 50% 0%, rgba(8,55,55,0.92) 0%, #0a0a0f 60%)",
         }}
       />
 
@@ -803,7 +822,9 @@ function Hero() {
           top: g1y,
           x: "-50%",
           y: "-50%",
-          background: "radial-gradient(circle, rgba(0,212,170,0.18) 0%, transparent 70%)",
+          background: isLight
+            ? "radial-gradient(circle, rgba(10,124,110,0.08) 0%, transparent 70%)"
+            : "radial-gradient(circle, rgba(0,212,170,0.18) 0%, transparent 70%)",
         }}
       />
       <motion.span
@@ -813,7 +834,9 @@ function Hero() {
           top: g2y,
           x: "-50%",
           y: "-50%",
-          background: "radial-gradient(circle, rgba(139,92,246,0.14) 0%, transparent 70%)",
+          background: isLight
+            ? "radial-gradient(circle, rgba(109,63,196,0.06) 0%, transparent 70%)"
+            : "radial-gradient(circle, rgba(139,92,246,0.14) 0%, transparent 70%)",
         }}
       />
 
@@ -829,7 +852,9 @@ function Hero() {
             height: 600,
             top: -100,
             left: -100,
-            background: "radial-gradient(circle, rgba(0,212,170,0.1) 0%, transparent 70%)",
+            background: isLight
+              ? "radial-gradient(circle, rgba(10,124,110,0.05) 0%, transparent 70%)"
+              : "radial-gradient(circle, rgba(0,212,170,0.1) 0%, transparent 70%)",
             animation: "float1 8s ease-in-out infinite alternate",
           }}
         />
@@ -840,7 +865,9 @@ function Hero() {
             height: 500,
             top: 200,
             right: -50,
-            background: "radial-gradient(circle, rgba(99,102,241,0.08) 0%, transparent 70%)",
+            background: isLight
+              ? "radial-gradient(circle, rgba(109,63,196,0.04) 0%, transparent 70%)"
+              : "radial-gradient(circle, rgba(99,102,241,0.08) 0%, transparent 70%)",
             animation: "float2 10s ease-in-out infinite alternate",
           }}
         />
@@ -850,7 +877,9 @@ function Hero() {
             width: 400,
             height: 400,
             bottom: -80,
-            background: "radial-gradient(circle, rgba(245,158,11,0.06) 0%, transparent 70%)",
+            background: isLight
+              ? "radial-gradient(circle, rgba(168,107,12,0.04) 0%, transparent 70%)"
+              : "radial-gradient(circle, rgba(245,158,11,0.06) 0%, transparent 70%)",
             animation: "float3 12s ease-in-out infinite alternate",
           }}
         />
@@ -868,14 +897,7 @@ function Hero() {
         >
           <Reveal as="span">
             <span
-              className="inline-flex items-center gap-2 rounded-full text-bull"
-              style={{
-                border: "1px solid rgba(0,212,170,0.3)",
-                background: "rgba(0,212,170,0.06)",
-                padding: "6px 16px",
-                fontSize: 12,
-                letterSpacing: "0.08em",
-              }}
+              className="inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/[0.06] px-4 py-1.5 text-xs tracking-[0.08em] text-primary"
             >
               <PkBadge /> Built for the Pakistani Investor
             </span>
@@ -884,7 +906,7 @@ function Hero() {
             <h1 className="font-display mt-6 text-[32px] font-extrabold leading-[1.05] tracking-[-0.02em] sm:text-5xl lg:text-[68px]">
               PSX. Finance. AI.
               <br />
-              <span className="text-bull" style={{ textShadow: "0 0 60px rgba(0,212,170,0.3)" }}>
+              <span className="text-bull text-glow-heading" style={{ textShadow: "0 0 60px rgba(0,212,170,0.3)" }}>
                 One Terminal.
               </span>
             </h1>
@@ -924,7 +946,7 @@ function Hero() {
       {/* bottom fade mask */}
       <div
         className="pointer-events-none absolute bottom-0 left-0 right-0 z-[1] h-[200px]"
-        style={{ background: "linear-gradient(to bottom, transparent, #0F1528)" }}
+        style={{ background: `linear-gradient(to bottom, transparent, ${isLight ? "#faf8f3" : "#0a0a0f"})` }}
       />
     </section>
   );
@@ -956,7 +978,7 @@ function FlipCard() {
       >
         {/* FRONT — PSX return */}
         <div
-          className="absolute inset-0 rounded-[16px] border border-white/10 p-6 [backface-visibility:hidden]"
+          className="absolute inset-0 rounded-[16px] border border-white/10 p-6 [backface-visibility:hidden] dark-surface"
           style={{
             background: "rgba(17,24,39,0.92)",
             boxShadow: "0 40px 80px rgba(0,0,0,0.5), 0 0 60px rgba(0,212,170,0.08)",
@@ -987,7 +1009,7 @@ function FlipCard() {
 
         {/* BACK — USD return */}
         <div
-          className="absolute inset-0 rounded-[16px] border border-warning/30 p-6 [backface-visibility:hidden] [transform:rotateY(180deg)]"
+          className="absolute inset-0 rounded-[16px] border border-warning/30 p-6 [backface-visibility:hidden] [transform:rotateY(180deg)] dark-surface"
           style={{
             background: "rgba(26,17,11,0.95)",
             boxShadow: "0 40px 80px rgba(0,0,0,0.5), 0 0 60px rgba(245,158,11,0.12)",
@@ -1058,7 +1080,7 @@ const STEPS: {
 function StepPanelFrame({ children }: { children: React.ReactNode }) {
   return (
     <div
-      className="relative flex min-h-[300px] w-full max-w-[380px] flex-col rounded-[18px] border border-white/10"
+      className="relative flex min-h-[300px] w-full max-w-[380px] flex-col rounded-[18px] border border-white/10 dark-surface"
       style={{
         background: "linear-gradient(180deg, rgba(20,28,44,0.96) 0%, rgba(13,19,32,0.96) 100%)",
         boxShadow:
@@ -1454,8 +1476,7 @@ function HowItWorksDesktop() {
                       {/* Eyebrow: [icon badge] —— CATEGORY LABEL */}
                       <div className="flex items-center gap-3">
                         <div
-                          className="flex h-12 w-12 items-center justify-center rounded-[12px]"
-                          style={{ background: "rgba(0,212,170,0.15)" }}
+                          className="flex h-12 w-12 items-center justify-center rounded-[12px] bg-bull/[0.08]"
                         >
                           <s.Icon className="h-5 w-5 text-bull" strokeWidth={1.75} />
                         </div>
@@ -1617,7 +1638,7 @@ function HowItWorksMobile() {
                 />
               </span>
 
-              <div className="relative h-full overflow-hidden rounded-[18px] border border-white/[0.08] bg-[rgba(17,24,39,0.72)] p-6 backdrop-blur-md">
+              <div className="relative h-full overflow-hidden rounded-[18px] border border-white/[0.08] p-6 backdrop-blur-md" style={{ background: "var(--color-mobile-card)" }}>
                 {/* Ambient glow behind the card */}
                 <motion.div
                   aria-hidden
@@ -1662,7 +1683,7 @@ function HowItWorksMobile() {
                 </div>
 
                 {/* Live terminal preview panel */}
-                <div className="relative mt-6 rounded-[14px] border border-white/10 bg-[rgba(9,14,26,0.6)] p-4">
+                <div className="relative mt-6 rounded-[14px] border border-white/10 bg-[rgba(9,14,26,0.6)] p-4 dark-surface">
                   {STEP_PANELS[i]}
                 </div>
               </div>
@@ -1676,7 +1697,7 @@ function HowItWorksMobile() {
 
 function HowItWorks() {
   return (
-    <section className="mx-auto max-w-[1200px] scroll-mt-[var(--nav-h)] px-6 py-[60px] lg:py-[100px]">
+    <section className="mx-auto max-w-[1200px] scroll-mt-[var(--nav-h)] border-t border-border px-6 py-[60px] lg:py-[100px]">
       <Reveal className="mx-auto max-w-[720px] text-center">
         <SectionLabel>How it works</SectionLabel>
         <h2 className="mt-3 text-[28px] font-bold leading-[1.2] sm:text-[40px]">
@@ -1723,7 +1744,7 @@ function FAQ() {
   const [open, setOpen] = useState<number | null>(0);
 
   return (
-    <section className="mx-auto max-w-[1200px] scroll-mt-[var(--nav-h)] px-6 py-[60px] lg:py-[100px]">
+    <section className="mx-auto max-w-[1200px] scroll-mt-[var(--nav-h)] border-t border-border px-6 py-[60px] lg:py-[100px]">
       <div className="grid gap-12 lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)] lg:gap-20">
         {/* Left: heading + contact */}
         <Reveal>
@@ -1809,8 +1830,12 @@ function FAQ() {
 }
 
 function Landing() {
+  const { theme } = useLandingTheme();
+  const isLight = theme === "light";
   return (
-    <div className="dot-grid relative isolate min-h-screen bg-background text-text-primary">
+    <div
+      className={`dot-grid relative isolate min-h-screen bg-background text-text-primary${isLight ? " landing-light" : ""}`}
+    >
       {/* Ambient drifting background — behind all content, decorative only */}
       <div className="ambient-bg pointer-events-none fixed inset-0 -z-10" aria-hidden="true" />
 
@@ -1827,7 +1852,7 @@ function Landing() {
       {/* FEATURES */}
       <section
         id="features"
-        className="gradient-mesh mx-auto max-w-[1200px] scroll-mt-[var(--nav-h)] px-6 py-[60px] lg:py-[100px]"
+        className="gradient-mesh mx-auto max-w-[1200px] scroll-mt-[var(--nav-h)] border-t border-border px-6 py-[60px] lg:py-[100px]"
       >
         <Reveal className="text-center">
           <SectionLabel>Everything you need</SectionLabel>
@@ -1848,16 +1873,11 @@ function Landing() {
                       "group relative h-full rounded-[16px] border border-white/[0.08] p-7 backdrop-blur-md transition-shadow duration-[250ms] hover:border-bull/30 hover:shadow-[0_24px_60px_rgba(0,212,170,0.18),0_0_0_1px_rgba(0,212,170,0.18)]",
 
                     )}
-                    style={{ background: "rgba(17,24,39,0.6)" }}
+                    style={{ background: "var(--color-feature-card)" }}
                   >
                     {f.badge && (
                       <span
-                        className="badge-shimmer absolute right-4 top-4 overflow-hidden rounded-full text-[10px] font-semibold text-warning"
-                        style={{
-                          background: "rgba(245,158,11,0.15)",
-                          border: "1px solid rgba(245,158,11,0.3)",
-                          padding: "2px 8px",
-                        }}
+                        className="badge-shimmer absolute right-4 top-4 overflow-hidden rounded-full border border-warning/25 bg-warning/[0.1] px-2 py-0.5 text-[10px] font-semibold text-warning"
                       >
                         {f.badge}
                       </span>
@@ -1866,8 +1886,9 @@ function Landing() {
                       className={cn(
                         "flex h-12 w-12 items-center justify-center rounded-[12px]",
                         f.iconColor,
+                        f.chipBg,
                       )}
-                      style={{ background: f.chipBg, transform: "translateZ(40px)" }}
+                      style={{ transform: "translateZ(40px)" }}
                     >
                       <Icon size={22} strokeWidth={1.75} />
                     </div>
@@ -1896,19 +1917,14 @@ function Landing() {
         <div className="relative mx-auto grid max-w-[1200px] items-center gap-12 px-6 py-[60px] lg:grid-cols-2 lg:py-[100px]">
           <Reveal>
             <span
-              className="badge-shimmer inline-block overflow-hidden rounded-full text-[11px] font-semibold uppercase tracking-[0.15em] text-bull"
-              style={{
-                background: "rgba(0,212,170,0.15)",
-                border: "1px solid rgba(0,212,170,0.3)",
-                padding: "3px 10px",
-              }}
+              className="badge-shimmer inline-block overflow-hidden rounded-full border border-primary/20 bg-primary/[0.08] px-[10px] py-[3px] text-[11px] font-semibold uppercase tracking-[0.15em] text-primary"
             >
               World-first feature
             </span>
             <h2 className="mt-3 text-[28px] font-bold leading-[1.2] sm:text-[40px]">
               The Truth About
               <br />
-              <span className="text-bull" style={{ textShadow: "0 0 60px rgba(0,212,170,0.3)" }}>
+              <span className="text-bull text-glow-heading" style={{ textShadow: "0 0 60px rgba(0,212,170,0.3)" }}>
                 Your PKR Gains
               </span>
             </h2>
@@ -1932,7 +1948,7 @@ function Landing() {
             <Magnetic strength={0.35}>
               <Link
                 to="/app"
-                className="mt-8 inline-flex items-center gap-1.5 rounded-[12px] bg-gradient-to-br from-[#00d4aa] to-[#00a88a] px-5 py-2.5 text-sm font-semibold text-bull-foreground shadow-[0_6px_24px_rgba(0,212,170,0.3)] transition hover:shadow-[0_10px_36px_rgba(0,212,170,0.5)]"
+                className="mt-8 inline-flex items-center gap-1.5 rounded-[12px] landing-cta px-5 py-2.5 text-sm font-semibold text-bull-foreground transition"
               >
                 See Haqeeqi Daulat <ArrowRight className="h-4 w-4" />
               </Link>
@@ -1951,7 +1967,7 @@ function Landing() {
       <FAQ />
 
       {/* DOWNLOAD CTA */}
-      <section id="download" className="gradient-mesh scroll-mt-[var(--nav-h)] border-y border-border bg-[#0D1421]">
+      <section id="download" className="gradient-mesh scroll-mt-[var(--nav-h)] border-y border-border bg-surface-alt">
         <div className="mx-auto max-w-3xl px-6 py-[60px] text-center lg:py-[100px]">
           <Reveal>
             <h2 className="text-[28px] font-bold leading-[1.2] sm:text-[40px]">
@@ -1986,7 +2002,7 @@ function Landing() {
       {/* ABOUT + CONTACT */}
       <section
         id="about"
-        className="mx-auto max-w-[1200px] scroll-mt-[var(--nav-h)] px-6 py-[60px] lg:py-[100px]"
+        className="mx-auto max-w-[1200px] scroll-mt-[var(--nav-h)] border-t border-border px-6 py-[60px] lg:py-[100px]"
       >
         <div className="grid gap-12 lg:grid-cols-2 lg:gap-16">
           <Reveal>
@@ -2003,7 +2019,7 @@ function Landing() {
             <div className="mt-6">
               <Link
                 to="/team"
-                className="inline-flex items-center gap-2 rounded-[12px] bg-gradient-to-br from-[#00d4aa] to-[#00a88a] px-5 py-2.5 text-sm font-semibold text-bull-foreground shadow-[0_6px_24px_rgba(0,212,170,0.3)] transition hover:shadow-[0_10px_36px_rgba(0,212,170,0.5)]"
+                className="inline-flex items-center gap-2 rounded-[12px] landing-cta px-5 py-2.5 text-sm font-semibold text-bull-foreground transition"
               >
                 Our Team
                 <ArrowRight className="h-4 w-4" />
@@ -2036,7 +2052,7 @@ function Landing() {
       </section>
 
       {/* FOOTER */}
-      <footer className="relative bg-[#070B14]">
+      <footer className="relative bg-sidebar">
         <span className="shimmer-line absolute inset-x-0 top-0 h-px" />
         <div className="mx-auto grid max-w-[1200px] gap-10 px-6 py-14 sm:grid-cols-3">
           <div>
