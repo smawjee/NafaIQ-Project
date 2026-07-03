@@ -28,6 +28,7 @@ import { TICKER_ITEMS, STOCKS } from "@/lib/data";
 import { LEARNING_PATHS, LESSON_CONTENT } from "@/lib/learn-data";
 import { useAuth } from "@/hooks/use-auth";
 import { useTheme } from "@/hooks/use-theme";
+import { useLandingTheme } from "@/hooks/use-landing-theme";
 import { useLang } from "@/hooks/use-lang";
 import { ScrollToTop } from "@/components/ScrollToTop";
 import { ThemeToggle } from "@/components/ThemeToggle";
@@ -369,8 +370,14 @@ function Header({
   onExpand: () => void;
 }) {
   const { t, isUrdu } = useLang();
-  const { theme, toggleTheme } = useTheme();
+  const { theme, toggleTheme: toggleApp } = useTheme();
+  const { setTheme: setLandingTheme } = useLandingTheme();
   const isDark = theme === "dark";
+  const toggleTheme = () => {
+    const next = isDark ? "light" : "dark";
+    toggleApp();
+    setLandingTheme(next as "dark" | "light");
+  };
   return (
     <header
       className={cn(
