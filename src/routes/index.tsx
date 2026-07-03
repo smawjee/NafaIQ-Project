@@ -77,7 +77,6 @@ import { TestimonialsSection } from "@/components/TestimonialsSection";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { useAuth } from "@/hooks/use-auth";
 import { useLandingTheme } from "@/hooks/use-landing-theme";
-import { useTheme } from "@/hooks/use-theme";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -482,14 +481,8 @@ function NavSearch() {
 
 function Nav() {
   const { user } = useAuth();
-  const { theme, toggleTheme: toggleLanding } = useLandingTheme();
-  const { setTheme: setAppTheme } = useTheme();
+  const { theme, toggleTheme } = useLandingTheme();
   const isDark = theme === "dark";
-  const toggleTheme = () => {
-    const next = isDark ? "light" : "dark";
-    toggleLanding();
-    setAppTheme(next as "dark" | "light");
-  };
   const [scrolled, setScrolled] = useState(false);
   const [open, setOpen] = useState(false);
   useEffect(() => {

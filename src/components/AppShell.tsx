@@ -27,7 +27,6 @@ import { cn } from "@/lib/utils";
 import { TICKER_ITEMS, STOCKS } from "@/lib/data";
 import { LEARNING_PATHS, LESSON_CONTENT } from "@/lib/learn-data";
 import { useAuth } from "@/hooks/use-auth";
-import { useTheme } from "@/hooks/use-theme";
 import { useLandingTheme } from "@/hooks/use-landing-theme";
 import { useLang } from "@/hooks/use-lang";
 import { ScrollToTop } from "@/components/ScrollToTop";
@@ -370,14 +369,8 @@ function Header({
   onExpand: () => void;
 }) {
   const { t, isUrdu } = useLang();
-  const { theme, toggleTheme: toggleApp } = useTheme();
-  const { setTheme: setLandingTheme } = useLandingTheme();
+  const { theme, toggleTheme } = useLandingTheme();
   const isDark = theme === "dark";
-  const toggleTheme = () => {
-    const next = isDark ? "light" : "dark";
-    toggleApp();
-    setLandingTheme(next as "dark" | "light");
-  };
   return (
     <header
       className={cn(
@@ -547,7 +540,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     }
   }
   const { profile, user, signOut } = useAuth();
-  const { theme } = useTheme();
+  const { theme } = useLandingTheme();
   const { t, isUrdu } = useLang();
   const navigate = useNavigate();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
