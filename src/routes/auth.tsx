@@ -178,7 +178,7 @@ function AuthPage() {
         : 1;
 
   return (
-    <main className={`relative flex min-h-screen w-full flex-col overflow-hidden p-2 transition-all duration-500 selection:bg-primary/30 md:p-4 ${isLight ? "bg-background" : "bg-black"}`}>
+    <main className={`relative flex min-h-screen w-full flex-col overflow-hidden p-2 transition-all duration-500 selection:bg-primary/30 md:p-4 bg-background ${isLight ? "landing-light" : ""}`}>
 
       {/* ---------- Top nav (overlay, spans both columns) ---------- */}
       <nav className="pointer-events-none absolute inset-x-0 top-0 z-20 flex items-center justify-between px-5 py-5 md:px-7 md:py-7">
