@@ -315,7 +315,7 @@ function Learn() {
         >
           <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
           <div
-            className="relative h-[70vh] rounded-t-[16px] border-t border-border bg-sidebar sm:h-[560px] sm:w-[380px] sm:rounded-[16px] sm:border"
+            className="relative h-[55vh] rounded-t-[16px] border-t border-border bg-sidebar sm:h-[560px] sm:w-[380px] sm:rounded-[16px] sm:border"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="mx-auto mt-2 h-1 w-10 rounded-full bg-border sm:hidden" />
@@ -327,7 +327,7 @@ function Learn() {
                 <X className="h-5 w-5 text-text-secondary" />
               </button>
             </div>
-            <div className="h-[calc(70vh-56px)] sm:h-[calc(560px-56px)]">
+            <div className="h-[calc(55vh-56px)] sm:h-[calc(560px-56px)]">
               <HubChatPanel />
             </div>
           </div>
