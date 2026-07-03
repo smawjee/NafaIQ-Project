@@ -381,7 +381,7 @@ function LessonInner({ lesson }: { lesson: LessonContent }) {
         >
           <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
           <div
-            className="relative max-h-[75dvh] w-full rounded-t-card border-t border-border bg-sidebar sm:h-[600px] sm:w-[400px] sm:max-h-none sm:rounded-card sm:border"
+            className="relative h-[70vh] rounded-t-card border-t border-border bg-sidebar sm:h-[600px] sm:w-[400px] sm:rounded-card sm:border"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="mx-auto mt-2 h-1 w-10 rounded-full bg-border sm:hidden" />
@@ -393,7 +393,7 @@ function LessonInner({ lesson }: { lesson: LessonContent }) {
                 <X className="h-5 w-5 text-text-secondary" />
               </button>
             </div>
-            <div className="h-[calc(75dvh-56px)] sm:h-[calc(600px-56px)]">
+            <div className="h-[calc(70vh-56px)] sm:h-[calc(600px-56px)]">
               <ChatPanel lesson={lesson} activeSection={activeSection} embedded />
             </div>
           </div>
