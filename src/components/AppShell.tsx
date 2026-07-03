@@ -554,7 +554,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       dir={isUrdu ? "rtl" : "ltr"}
       className={cn(
         "relative min-h-screen overflow-x-hidden bg-background",
-        theme === "light" && "theme-light",
+        theme === "light" && "theme-light landing-light",
         isUrdu && "font-urdu",
       )}
     >

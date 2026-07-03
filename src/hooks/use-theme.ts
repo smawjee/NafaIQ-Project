@@ -1,46 +1,10 @@
-import { useSyncExternalStore, useCallback } from "react";
-
-export type Theme = "dark" | "light";
-
-const STORAGE_KEY = "nafaiq-app-theme";
-const listeners = new Set<() => void>();
-let current: Theme = readStored();
-
-function readStored(): Theme {
-  if (typeof window === "undefined") return "dark";
-  const v = window.localStorage.getItem(STORAGE_KEY);
-  return v === "light" ? "light" : "dark";
-}
-
-function setStore(theme: Theme) {
-  current = theme;
-  if (typeof window !== "undefined") {
-    window.localStorage.setItem(STORAGE_KEY, theme);
-  }
-  listeners.forEach((l) => l());
-}
-
-function subscribe(cb: () => void) {
-  listeners.add(cb);
-  return () => listeners.delete(cb);
-}
-
 /**
- * App theme (dark/light) shared across components and persisted to localStorage.
- * Scoped to the authenticated app — the landing page stays dark.
+ * App theme (dark/light). Unified with the landing page theme so the
+ * public site, the login page, and the authenticated app all share a
+ * single source of truth and switch in lockstep.
+ *
+ * Storage key: `nafaiq-landing-theme`
+ * Default:     `"dark"`
  */
-export function useTheme() {
-  const theme = useSyncExternalStore(
-    subscribe,
-    () => current,
-    () => "dark" as Theme,
-  );
-
-  const setTheme = useCallback((t: Theme) => setStore(t), []);
-  const toggleTheme = useCallback(
-    () => setStore(current === "dark" ? "light" : "dark"),
-    [],
-  );
-
-  return { theme, setTheme, toggleTheme };
-}
+export { useLandingTheme as useTheme } from "./use-landing-theme";
+export type { LandingTheme as Theme } from "./use-landing-theme";

@@ -1284,3 +1284,43 @@ html {
 .landing-light [class*="hover:shadow-\[0_24px_60px"] {
   box-shadow: 0 12px 40px -8px rgba(10, 124, 110, 0.15) !important;
 }
+
+/* ============================================================
+   Theme switch transitions — smooth 0.3s fade between dark/light.
+   Applied on the root containers and common surface classes so
+   background, text, and border colors all animate in lockstep
+   when .theme-light / .landing-light is toggled on the html element.
+   CSS variables themselves don't transition; the computed properties
+   that consume them do.
+   ============================================================ */
+html,
+body,
+.bg-surface,
+.bg-background,
+.bg-elevated,
+.bg-sidebar,
+.glass-card,
+.glass-chrome,
+.border-border {
+  transition:
+    background-color 0.3s ease,
+    color 0.3s ease,
+    border-color 0.3s ease,
+    box-shadow 0.3s ease,
+    fill 0.3s ease,
+    stroke 0.3s ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html,
+  body,
+  .bg-surface,
+  .bg-background,
+  .bg-elevated,
+  .bg-sidebar,
+  .glass-card,
+  .glass-chrome,
+  .border-border {
+    transition: none;
+  }
+}
