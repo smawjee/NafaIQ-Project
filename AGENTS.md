@@ -4,10 +4,10 @@
 
 | Person | Module | Branch |
 |---|---|---|
-| **Usman** | ML signals, PSX architecture, cross-cutting | `feat/ml-signals` |
-| **Shakir** | Finance module | `feat/finance` |
-| **Tayyab** | Mobile app (React Native) | `feat/mobile` |
-| **Misbah** | TBD | TBD |
+| **Usman** | ML signals, PSX architecture, cross-cutting | `usman` |
+| **Shakir** | Finance module | `shakir` |
+| **Tayyab** | Mobile app (React Native) | `tayyab` |
+| **Misbah** | TBD | `misbah` |
 
 ## Architecture
 
@@ -70,36 +70,32 @@ cd backend && pytest tests/ -v
 ## Git workflow
 
 ```
-main ────────► tagged releases (v0.2.0, v0.3.0)
+main ───────► tagged releases — only merged from dev after testing
   │
-  └── develop ► integration branch — all PRs merge here
+  └── dev    ► integration/testing branch — all PRs merge here
         │
-        ├── feat/ml-signals  (Usman)
-        ├── feat/finance     (Shakir)
-        ├── feat/mobile      (Tayyab)
-        └── feat/<module>    (Misbah)
+        ├── usman    (Usman)
+        ├── shakir   (Shakir)
+        ├── tayyab   (Tayyab)
+        └── misbah   (Misbah)
 ```
 
 ### Branch naming
-```
-feat/<module>     — new features
-fix/<description> — bug fixes
-refactor/<what>   — code restructuring
-chore/<what>      — maintenance
-docs/<what>       — documentation
-```
+Personal branches are used for all work (`usman`, `shakir`, `tayyab`, `misbah`).
+Prefix commit messages for clarity: `feat(scope)`, `fix(scope)`, etc.
 
 ### Commit convention
 ```
 feat(scope): description
 fix(scope): description
-refactor(scope): description
 ```
 
-### Merge strategy
-- Squash-merge feature branches into develop
-- Fast-forward develop into main on releases
-- Delete feature branches after merge
+### Workflow
+1. Each team member commits/pushes to their own branch (`usman`, `shakir`, etc.)
+2. Open a PR from personal branch → `dev`
+3. Team reviews and tests on `dev`
+4. Merge `dev` → `main` via PR (fast-forward, squash allowed)
+5. Delete personal branch after merge (optional — can keep)
 
 ## Supabase
 
