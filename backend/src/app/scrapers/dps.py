@@ -438,8 +438,29 @@ class DPSScraper:
                     vol = int(float(row[2]))
                 except (ValueError, TypeError):
                     pass
+            open_p = close
+            high_p = close
+            low_p = close
+            if len(row) >= 6:
+                try:
+                    open_p = float(row[1])
+                    high_p = float(row[2])
+                    low_p = float(row[3])
+                    close = float(row[4])
+                    if row[5] not in (None, ""):
+                        vol = int(float(row[5]))
+                except (ValueError, TypeError, IndexError):
+                    pass
             d = datetime.fromtimestamp(ts, tz=timezone.utc).date()
-            bars.append(IndexBar(code=code.upper(), date=d, close=close, volume=vol))
+            bars.append(IndexBar(
+                code=code.upper(),
+                date=d,
+                open=open_p,
+                high=high_p,
+                low=low_p,
+                close=close,
+                volume=vol,
+            ))
         return bars
 
 
