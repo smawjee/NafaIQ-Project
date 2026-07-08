@@ -24,6 +24,8 @@ import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/use-auth";
 import { useLang, localizeDigits } from "@/hooks/use-lang";
 import { useFinanceStore, financeActions } from "@/hooks/finance/use-finance-store";
+import { usePortfolioList, useAddHolding, useCreatePortfolio } from "@/hooks/use-portfolio";
+import { useCreateUserAlert } from "@/hooks/use-alerts";
 import { Modal, fieldClass } from "@/components/shared/Modal";
 import { Checkbox } from "@/components/ui/checkbox";
 
@@ -447,6 +449,12 @@ function QuickAddTransactionModal({ open, onClose }: { open: boolean; onClose: (
 /* ---------- Quick-Add Holding Modal ---------- */
 function QuickAddHoldingModal({ open, onClose }: { open: boolean; onClose: () => void }) {
   const { t } = useLang();
+  const { user } = useAuth();
+  const isLoggedIn = !!user;
+  const { data: portfolios } = usePortfolioList();
+  const portfolioId = portfolios?.[0]?.id ?? null;
+  const addHoldingApi = useAddHolding(portfolioId);
+  const createPortfolio = useCreatePortfolio();
   const [ticker, setTicker] = useState("");
   const [shares, setShares] = useState("");
   const [avgCost, setAvgCost] = useState("");
@@ -474,21 +482,42 @@ function QuickAddHoldingModal({ open, onClose }: { open: boolean; onClose: () =>
       return setErr(t("Please enter a valid buy price."));
     const sym = ticker.trim().toUpperCase();
     const stock = STOCKS[sym];
-    // Current price comes from market data when known, otherwise falls back to buy price.
     const cur = stock?.price ?? ac;
-    financeActions.addHolding({
-      ticker: sym,
-      sector: stock?.sector ?? "—",
-      shares: s,
-      avgCost: ac,
-      current: cur,
-      signal: computeSignal(sym, cur, ac),
-    });
-    toast.success(t("Holding added"));
-    setTicker("");
-    setShares("");
-    setAvgCost("");
-    onClose();
+    if (isLoggedIn) {
+      const doAdd = (pid: number) => {
+        addHoldingApi.mutate(
+          { symbol: sym, shares: s, avg_cost: ac },
+          {
+            onSuccess: () => {
+              toast.success(t("Holding added"));
+              setTicker("");
+              setShares("");
+              setAvgCost("");
+              onClose();
+            },
+          },
+        );
+      };
+      if (portfolioId) {
+        doAdd(portfolioId);
+      } else {
+        createPortfolio.mutate("Main", { onSuccess: (p) => doAdd(p.id) });
+      }
+    } else {
+      financeActions.addHolding({
+        ticker: sym,
+        sector: stock?.sector ?? "—",
+        shares: s,
+        avgCost: ac,
+        current: cur,
+        signal: computeSignal(sym, cur, ac),
+      });
+      toast.success(t("Holding added"));
+      setTicker("");
+      setShares("");
+      setAvgCost("");
+      onClose();
+    }
   };
 
   return (
@@ -537,6 +566,9 @@ const ALERT_STOCKS = ["HBL", "ENGRO", "LUCK", "OGDC"];
 
 function QuickAddAlertModal({ open, onClose }: { open: boolean; onClose: () => void }) {
   const { t } = useLang();
+  const { user } = useAuth();
+  const isLoggedIn = !!user;
+  const createUserAlert = useCreateUserAlert();
   const [type, setType] = useState("Stock Price");
   const [stock, setStock] = useState(ALERT_STOCKS[0]);
   const [direction, setDirection] = useState("Above");
@@ -555,7 +587,7 @@ function QuickAddAlertModal({ open, onClose }: { open: boolean; onClose: () => v
     setErr("");
     const ty = ALERT_TYPES.find((x) => x.label === type)!;
     let title = "";
-    let meta = "";
+    let meta: string | Record<string, unknown> = "";
 
     if (type === "Stock Price") {
       const num = Number(price);
@@ -564,31 +596,51 @@ function QuickAddAlertModal({ open, onClose }: { open: boolean; onClose: () => v
         return;
       }
       title = `${stock} ${direction.toLowerCase()} PKR ${num}`;
-      meta = "Created " + new Date().toLocaleString("en-US", { month: "short", day: "numeric" });
+      meta = isLoggedIn ? { symbol: stock, direction: direction.toLowerCase(), price: num } : `Created ${new Date().toLocaleString("en-US", { month: "short", day: "numeric" })}`;
     } else if (type === "Bill Reminder") {
       title = `${bill} — ${timing}`;
-      meta = "Recurring monthly";
+      meta = isLoggedIn ? { bill, timing } : "Recurring monthly";
     } else if (type === "Budget") {
       if (!budgetCat) { setErr(t("Please select a budget category.")); return; }
       title = `${budgetCat} at ${budgetThreshold}% of budget`;
-      meta = "Monthly";
+      meta = isLoggedIn ? { category: budgetCat, threshold: budgetThreshold } : "Monthly";
     } else {
       if (!goal) { setErr(t("Please select a goal.")); return; }
       title = `${goal} ${goalMilestone}% reached`;
-      meta = "One-time";
+      meta = isLoggedIn ? { goal, milestone: goalMilestone } : "One-time";
     }
 
-    const channels = [push && "Push", email && "Email"].filter(Boolean).join(" + ") || "In-app";
-    financeActions.addAlert(
-      { emoji: ty.emoji, title, type: `${type} Alert`, meta, on: true },
-      `New alert created: ${title} (${channels})`,
-    );
-    toast.success(t("Alert created"));
-    setPrice("");
-    setBudgetThreshold("80");
-    setGoalMilestone("50");
-    setErr("");
-    onClose();
+    if (isLoggedIn) {
+      createUserAlert.mutate(
+        {
+          type: type === "Stock Price" ? "stock_price" : type === "Bill Reminder" ? "bill" : type === "Budget" ? "budget" : "goal",
+          title,
+          meta: typeof meta === "object" ? meta : {},
+        },
+        {
+          onSuccess: () => {
+            toast.success(t("Alert created"));
+            setPrice("");
+            setBudgetThreshold("80");
+            setGoalMilestone("50");
+            setErr("");
+            onClose();
+          },
+        },
+      );
+    } else {
+      const channels = [push && "Push", email && "Email"].filter(Boolean).join(" + ") || "In-app";
+      financeActions.addAlert(
+        { emoji: ty.emoji, title, type: `${type} Alert`, meta: typeof meta === "string" ? meta : JSON.stringify(meta), on: true },
+        `New alert created: ${title} (${channels})`,
+      );
+      toast.success(t("Alert created"));
+      setPrice("");
+      setBudgetThreshold("80");
+      setGoalMilestone("50");
+      setErr("");
+      onClose();
+    }
   };
 
   return (
