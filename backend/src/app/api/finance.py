@@ -422,7 +422,8 @@ async def finance_summary(
             """),
             {"uid": user_id, "month": month},
         )
-        rows = {r["transaction_type"]: float(r["total"]) for r in result.mappings().all()}
+        rows_raw = {r["transaction_type"]: float(r["total"]) for r in result.mappings().all()}
+        rows = {k.lower(): v for k, v in rows_raw.items()}
 
         last_result = await conn.execute(
             text("""
@@ -436,7 +437,8 @@ async def finance_summary(
             """),
             {"uid": user_id, "month": last_month},
         )
-        last_rows = {r["transaction_type"]: float(r["total"]) for r in last_result.mappings().all()}
+        last_rows_raw = {r["transaction_type"]: float(r["total"]) for r in last_result.mappings().all()}
+        last_rows = {k.lower(): v for k, v in last_rows_raw.items()}
 
     income = rows.get("income", 0.0)
     expenses = rows.get("expense", 0.0)
@@ -499,7 +501,8 @@ async def finance_income_expense(
         m = r["month"]
         if m not in by_month:
             by_month[m] = {"income": 0.0, "expense": 0.0}
-        by_month[m][r["transaction_type"]] = float(r["total"])
+        txn_type = r["transaction_type"].lower() if r["transaction_type"] else r["transaction_type"]
+        by_month[m][txn_type] = float(r["total"])
 
     series = [
         IncomeExpensePoint(month=m, income=v.get("income", 0.0), expense=v.get("expense", 0.0))
@@ -537,7 +540,7 @@ async def finance_spending_by_category(
                 FROM user_transactions
                 WHERE user_id = :uid
                   AND transaction_type = 'expense'
-                  AND transaction_date >= CURRENT_DATE - (:days || ' days')::interval
+                  AND transaction_date >= CURRENT_DATE - (:days * INTERVAL '1 day')
                 GROUP BY category
                 ORDER BY amount DESC
             """),
