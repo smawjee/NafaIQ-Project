@@ -18,7 +18,7 @@ class NotifPrefsUpdate(BaseModel):
     in_app_alerts: bool | None = None
 
 
-@router.get("/api/notifications/list")
+@router.get("/notifications/list")
 async def list_notifications(
     user: Annotated[dict, Depends(require_user)],
     limit: int = 50,
@@ -51,7 +51,7 @@ async def list_notifications(
     ]
 
 
-@router.patch("/api/notifications/{notification_id}/read")
+@router.patch("/notifications/{notification_id}/read")
 async def mark_read(
     notification_id: int,
     user: Annotated[dict, Depends(require_user)],
@@ -74,7 +74,7 @@ async def mark_read(
     return {"id": notification_id, "read": True}
 
 
-@router.get("/api/notifications/preferences")
+@router.get("/notifications/preferences")
 async def get_prefs(user: Annotated[dict, Depends(require_user)]):
     user_id = user["user_id"]
     engine = get_engine()
@@ -89,7 +89,7 @@ async def get_prefs(user: Annotated[dict, Depends(require_user)]):
     return dict(row)
 
 
-@router.patch("/api/notifications/preferences")
+@router.patch("/notifications/preferences")
 async def update_prefs(
     body: NotifPrefsUpdate,
     user: Annotated[dict, Depends(require_user)],

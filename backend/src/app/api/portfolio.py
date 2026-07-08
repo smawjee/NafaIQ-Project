@@ -29,7 +29,7 @@ class HoldingUpdate(BaseModel):
     purchased_at: str | None = None
 
 
-@router.get("/api/portfolio/list")
+@router.get("/portfolio/list")
 async def list_portfolios(user: Annotated[dict, Depends(require_user)]):
     user_id = user["user_id"]
     engine = get_engine()
@@ -50,7 +50,7 @@ async def list_portfolios(user: Annotated[dict, Depends(require_user)]):
     ]
 
 
-@router.post("/api/portfolio/create")
+@router.post("/portfolio/create")
 async def create_portfolio(
     body: PortfolioCreate,
     user: Annotated[dict, Depends(require_user)],
@@ -70,7 +70,7 @@ async def create_portfolio(
     return {"id": row["id"], "name": row["name"], "created_at": str(row["created_at"])}
 
 
-@router.get("/api/portfolio/{portfolio_id}/holdings")
+@router.get("/portfolio/{portfolio_id}/holdings")
 async def list_holdings(
     portfolio_id: int,
     user: Annotated[dict, Depends(require_user)],
@@ -107,7 +107,7 @@ async def list_holdings(
     ]
 
 
-@router.post("/api/portfolio/{portfolio_id}/holdings")
+@router.post("/portfolio/{portfolio_id}/holdings")
 async def add_holding(
     portfolio_id: int,
     body: HoldingCreate,
@@ -150,7 +150,7 @@ async def add_holding(
     }
 
 
-@router.patch("/api/portfolio/{portfolio_id}/holdings/{holding_id}")
+@router.patch("/portfolio/{portfolio_id}/holdings/{holding_id}")
 async def update_holding(
     portfolio_id: int,
     holding_id: int,
@@ -204,7 +204,7 @@ async def update_holding(
     }
 
 
-@router.delete("/api/portfolio/{portfolio_id}/holdings/{holding_id}")
+@router.delete("/portfolio/{portfolio_id}/holdings/{holding_id}")
 async def delete_holding(
     portfolio_id: int,
     holding_id: int,
@@ -231,7 +231,7 @@ async def delete_holding(
     return {"deleted": holding_id}
 
 
-@router.get("/api/portfolio/{portfolio_id}/value")
+@router.get("/portfolio/{portfolio_id}/value")
 async def portfolio_value(
     portfolio_id: int,
     user: Annotated[dict, Depends(require_user)],
