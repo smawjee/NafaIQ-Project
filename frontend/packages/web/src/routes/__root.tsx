@@ -169,6 +169,8 @@ function Spinner() {
 
 const TARGET_PATHS = new Set(["/", "/app", "/psx", "/portfolio", "/finance", "/learn", "/team"]);
 
+const PUBLIC_APP_ROUTES = new Set(["/portfolio", "/finance", "/learn", "/alerts", "/settings"]);
+
 function PageTransition({ routeKey, children }: { routeKey: string; children: ReactNode }) {
   const reduce = useReducedMotion();
   const isTarget = TARGET_PATHS.has(routeKey);
@@ -201,7 +203,8 @@ function AuthGate() {
   const isUrduQa = pathname === "/urdu-qa";
   const isTeam = pathname === "/team";
   const isPsx = pathname.startsWith("/psx") || pathname.startsWith("/stock");
-  const isPublic = isAuthRoute || isLanding || isPlans || isUrduQa || isTeam;
+  const isPublicAppRoute = PUBLIC_APP_ROUTES.has(pathname);
+  const isPublic = isAuthRoute || isLanding || isPlans || isUrduQa || isTeam || isPublicAppRoute;
 
   useEffect(() => {
     if (loading) return;
@@ -210,8 +213,8 @@ function AuthGate() {
     }
   }, [loading, user, isPublic, isPsx, navigate, pathname]);
 
-  // PSX routes get AppShell without auth requirement
-  if (isPsx) {
+  // PSX & public app routes get AppShell without auth requirement
+  if (isPsx || isPublicAppRoute) {
     return (
       <>
         <AppShell>
