@@ -109,3 +109,37 @@ export function useRemoveHolding(portfolioId: number | null) {
     },
   });
 }
+
+export interface NetworthHolding {
+  symbol: string;
+  shares: number;
+  avg_cost: number;
+  current_price: number | null;
+  market_value: number;
+  cost_basis: number;
+  unrealized_pnl: number;
+  pnl_pct: number;
+  previous_close: number | null;
+  today_pnl: number;
+}
+
+export interface NetworthResponse {
+  total_market_value: number;
+  total_cost_basis: number;
+  total_unrealized_pnl: number;
+  total_unrealized_pnl_pct: number;
+  today_pnl: number;
+  today_pnl_pct: number;
+  portfolio_count: number;
+  holding_count: number;
+  by_holding: NetworthHolding[];
+}
+
+export function usePortfolioNetworth() {
+  return useQuery<NetworthResponse>({
+    queryKey: ["portfolio", "networth"],
+    queryFn: () => userGet<NetworthResponse>("/api/portfolio/networth"),
+    staleTime: 15_000,
+    refetchInterval: 30_000,
+  });
+}
