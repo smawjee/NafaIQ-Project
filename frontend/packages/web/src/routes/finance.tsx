@@ -1179,29 +1179,6 @@ function Goals() {
 
 function FinanceReportModal({ onClose }: { onClose: () => void }) {
   const { t } = useLang();
-  const sections = [
-    {
-      icon: "📈",
-      title: "Income vs Expenses Analysis",
-      body: "Your income has remained stable at PKR 47,500/month while expenses dropped 12% to PKR 18,675. This improved your savings margin significantly. Your highest spending categories are Food & Dining and Transport — consider reviewing dining-out frequency.",
-    },
-    {
-      icon: "💰",
-      title: "Budget Health",
-      body: "3 of 6 budgets are on track. Subscriptions exceeded limit by 8% — review unused services. Groceries and Utilities are within healthy margins. Consider increasing your Savings budget allocation by 10% given the surplus.",
-    },
-    {
-      icon: "🎯",
-      title: "Savings & Goals Progress",
-      body: "You are saving PKR 28,825/month with a 60.7% savings rate — Excellent! Your Emergency Fund goal is 45% complete. Car Down Payment is 32% complete. At this pace, you'll reach both goals within 8 months.",
-    },
-    {
-      icon: "💡",
-      title: "Smart Recommendations",
-      body: "1. Set up auto-transfer of PKR 5,000 to Meezan Savings on salary day\n2. Review 2 subscription services you haven't used in 30 days\n3. Your dining spend is 18% above peer average — try meal prepping twice a week\n4. Consider a high-yield savings account for your emergency fund",
-    },
-  ];
-  const score = 78;
   return (
     <div
       className="fixed inset-0 z-50 flex items-end justify-center sm:items-center"
@@ -1214,39 +1191,19 @@ function FinanceReportModal({ onClose }: { onClose: () => void }) {
       >
         <div className="mb-4 flex items-center justify-between">
           <h3 className="text-base font-semibold text-text-primary">
-            {t("Your Finance Report — June 2025")}
+            {t("AI Finance Report")}
           </h3>
           <button onClick={onClose}>
             <X className="h-5 w-5 text-text-secondary" />
           </button>
         </div>
-        <div className="mb-4 flex items-center justify-center">
-          <div
-            className="relative flex h-28 w-28 items-center justify-center rounded-full"
-            style={{ background: `conic-gradient(#00d4aa ${score * 3.6}deg, #1a2332 0deg)` }}
-          >
-            <div className="flex h-20 w-20 flex-col items-center justify-center rounded-full bg-surface">
-              <span className="font-mono text-2xl font-bold tabular-nums text-bull">{score}</span>
-              <span className="text-[10px] text-text-muted">{t("Health Score")}</span>
-            </div>
-          </div>
-        </div>
-        <div className="space-y-3">
-          {sections.map((s) => (
-            <div key={s.title} className="rounded-[8px] border border-border bg-surface-alt p-3">
-              <div className="flex items-center gap-1.5 text-sm font-semibold text-text-primary">
-                <EmojiIcon emoji={s.icon} size={15} className="text-text-secondary" /> {t(s.title)}
-              </div>
-              <p className="mt-1 whitespace-pre-line text-xs leading-relaxed text-text-secondary">
-                <Typewriter id={`finance-report-${s.title}`} speed={8} text={t(s.body)} />
-              </p>
-            </div>
-          ))}
+        <div className="rounded-[10px] border border-white/[0.08] bg-surface-alt p-4 text-center">
+          <p className="text-sm font-semibold text-text-primary">Coming soon</p>
+          <p className="mt-2 text-xs leading-relaxed text-text-secondary">
+            Real AI insights from your income, expenses, and budgets are coming soon. For now, review your live KPIs on the Overview tab.
+          </p>
         </div>
         <div className="mt-4 mb-6 flex gap-2">
-          <button className="flex-1 rounded-[10px] bg-primary py-2 text-sm font-semibold text-primary-foreground transition-all duration-200 hover:brightness-110">
-            {t("Export as PDF")}
-          </button>
           <button
             onClick={onClose}
             className="flex-1 rounded-[10px] border border-white/[0.08] bg-surface py-2 text-sm font-semibold text-text-primary transition-colors hover:border-white/[0.16]"
