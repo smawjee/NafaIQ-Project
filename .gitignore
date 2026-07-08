@@ -36,6 +36,5 @@ __pycache__/
 .venv/
 venv/
 
-# Archive
-.nafaiq/
-.opencode/
+# Recall (local project context — gitignored)
+recall/
