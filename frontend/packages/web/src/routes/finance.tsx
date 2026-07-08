@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { useAuth } from "@/hooks/use-auth";
 import { useEffect, useRef, useState } from "react";
 import { motion, useInView, useReducedMotion } from "framer-motion";
 import {
@@ -32,7 +33,16 @@ import { formatNumber, formatPKR, formatSignedPKR } from "@/lib/format";
 import { BUDGETS, INCOME_EXPENSE, type Goal } from "@/lib/finance/data";
 import { cn } from "@/lib/utils";
 import { useLang } from "@/hooks/use-lang";
-import { useFinanceStore, financeActions } from "@/hooks/finance/use-finance-store";
+import { useDemo } from "@/hooks/use-demo";
+import { useAppDispatch, useAppSelector } from "@/store/hooks";
+import { selectGoals } from "@/store/finance";
+import { addGoal, contributeToGoal } from "@/store/finance";
+import { useFinanceSummary } from "@/hooks/use-finance-summary";
+import { useFinanceBudgets } from "@/hooks/use-finance-budgets";
+import { useFinanceGoals as useApiFinanceGoals, useCreateGoal as useApiCreateGoal, useContributeGoal as useApiContributeGoal } from "@/hooks/use-finance-goals";
+import { useCreateTransaction, useDeleteTransaction, useFinanceTransactions } from "@/hooks/use-finance-transactions";
+import { useCreateBill, useDeleteBill, useFinanceBills, useMarkBillPaid, type FinanceBill } from "@/hooks/use-finance-bills";
+import { useIncomeExpenseSeries, useSpendingByCategory } from "@/hooks/use-finance-series";
 import { Modal, fieldClass } from "@/components/shared/Modal";
 
 export const Route = createFileRoute("/finance")({
@@ -208,12 +218,78 @@ function KpiLabel({ children }: { children: React.ReactNode }) {
   );
 }
 
+function emptyIncomeExpenseSeries(months = 6) {
+  const now = new Date();
+  return Array.from({ length: months }, (_, index) => {
+    const date = new Date(now.getFullYear(), now.getMonth() - (months - 1 - index), 1);
+    return {
+      month: date.toLocaleString("en-US", { month: "short" }),
+      income: 0,
+      expense: 0,
+    };
+  });
+}
+
 function Overview() {
   const { t } = useLang();
-  const income = useCountUp(47500);
-  const expenses = useCountUp(18675);
-  const savings = useCountUp(28825);
-  const rate = useCountUp(60.7, 1);
+  const { user } = useAuth();
+  const { isDemo } = useDemo();
+  const { data: summary } = useFinanceSummary(undefined, !!user);
+  const { data: seriesData } = useIncomeExpenseSeries(6, !!user);
+  const hasSeries = !!user && !!seriesData && seriesData.series.length > 0;
+  const useShowcaseFinance = isDemo;
+
+  const incomeVal = useShowcaseFinance ? 47500 : (summary?.income ?? 0);
+  const expensesVal = useShowcaseFinance ? 18675 : (summary?.expenses ?? 0);
+  const savingsVal = useShowcaseFinance ? 28825 : (summary?.savings ?? 0);
+  const rateVal = useShowcaseFinance ? 60.7 : (summary?.savings_rate ?? 0);
+  const lastIncomeVal = useShowcaseFinance ? 45000 : (summary?.last_month_income ?? 0);
+  const lastExpenseVal = useShowcaseFinance ? 21200 : (summary?.last_month_expense ?? 0);
+  const lastSavingsVal = useShowcaseFinance ? 24000 : (summary?.last_month_savings ?? 0);
+  const incomeDelta = incomeVal - lastIncomeVal;
+  const expenseDeltaPct = lastExpenseVal > 0 ? ((expensesVal - lastExpenseVal) / lastExpenseVal) * 100 : 0;
+  const savingsDelta = savingsVal - lastSavingsVal;
+  const maxKpiValue = Math.max(incomeVal, expensesVal, Math.abs(savingsVal), 1);
+  const incomeBar = useShowcaseFinance ? 78 : Math.min((incomeVal / maxKpiValue) * 100, 100);
+  const expenseBar = useShowcaseFinance ? 40 : Math.min((expensesVal / maxKpiValue) * 100, 100);
+  const savingsBar = useShowcaseFinance ? 61 : Math.min((Math.max(savingsVal, 0) / maxKpiValue) * 100, 100);
+  const savingsRateBar = useShowcaseFinance ? 60.7 : Math.max(0, Math.min(rateVal, 100));
+  const savingsRateStatus =
+    rateVal >= 50 ? "Excellent" : rateVal >= 20 ? "Healthy" : rateVal > 0 ? "Needs attention" : "No savings yet";
+
+  const income = useCountUp(incomeVal);
+  const expenses = useCountUp(expensesVal);
+  const savings = useCountUp(savingsVal);
+  const rate = useCountUp(rateVal, 1);
+
+  const incomeSpark = hasSeries
+    ? seriesData.series.slice(-3).map((s) => s.income)
+    : !useShowcaseFinance
+      ? [0, 0, 0]
+      : [43000, 45000, 47500];
+  const expenseSpark = hasSeries
+    ? seriesData.series.slice(-3).map((s) => s.expense)
+    : !useShowcaseFinance
+      ? [0, 0, 0]
+      : [22000, 21200, 18675];
+
+  const chartData = hasSeries
+    ? seriesData.series.map((s) => ({ month: s.month, income: s.income, expense: s.expense }))
+    : !useShowcaseFinance
+      ? emptyIncomeExpenseSeries(6)
+      : INCOME_EXPENSE;
+
+  const totalIncome = hasSeries
+    ? Math.round(seriesData.series.reduce((a, b) => a + b.income, 0))
+    : !useShowcaseFinance
+      ? 0
+      : 285000;
+  const totalExpense = hasSeries
+    ? Math.round(seriesData.series.reduce((a, b) => a + b.expense, 0))
+    : !useShowcaseFinance
+      ? 0
+      : 112050;
+  const totalSavings = totalIncome - totalExpense;
 
   return (
     <div className="relative space-y-4">
@@ -232,14 +308,20 @@ function Overview() {
             PKR <span ref={income.ref}>{income.formatted}</span>
           </div>
           <div className="mt-3 h-1 w-full overflow-hidden rounded-full bg-white/5">
-            <AnimatedBar value={78} className="bg-bull" />
+            <AnimatedBar value={incomeBar} className="bg-bull" />
           </div>
           <div className="mt-3 flex items-end justify-between gap-2">
-            <span dir="ltr" className="text-[10px] text-bull/80 sm:text-[11px]">
-              {formatSignedPKR(2500)} {t("vs last month")}
+            <span
+              dir="ltr"
+              className={cn(
+                "text-[10px] sm:text-[11px]",
+                incomeDelta >= 0 ? "text-bull/80" : "text-bear/90",
+              )}
+            >
+              {formatSignedPKR(incomeDelta)} {t("vs last month")}
             </span>
             <div className="w-14 shrink-0">
-              <Sparkline data={[43000, 45000, 47500]} color="#00d4aa" />
+              <Sparkline data={incomeSpark} color="#00d4aa" />
             </div>
           </div>
         </KpiCard>
@@ -254,12 +336,21 @@ function Overview() {
             PKR <span ref={expenses.ref}>{expenses.formatted}</span>
           </div>
           <div className="mt-3 h-1 w-full overflow-hidden rounded-full bg-white/5">
-            <AnimatedBar value={40} className="bg-bear" />
+            <AnimatedBar value={expenseBar} className="bg-bear" />
           </div>
           <div className="mt-3 flex items-end justify-between gap-2">
-            <span dir="ltr" className="text-[10px] text-bear/90 sm:text-[11px]">-12% {t("vs last month")}</span>
+            <span
+              dir="ltr"
+              className={cn(
+                "text-[10px] sm:text-[11px]",
+                expenseDeltaPct <= 0 ? "text-bull/80" : "text-bear/90",
+              )}
+            >
+              {expenseDeltaPct >= 0 ? "+" : ""}
+              {expenseDeltaPct.toFixed(1)}% {t("vs last month")}
+            </span>
             <div className="w-14 shrink-0">
-              <Sparkline data={[22000, 21200, 18675]} color="#e5484d" />
+              <Sparkline data={expenseSpark} color="#e5484d" />
             </div>
           </div>
         </KpiCard>
@@ -274,11 +365,19 @@ function Overview() {
             PKR <span ref={savings.ref}>{savings.formatted}</span>
           </div>
           <div className="mt-3 h-1 w-full overflow-hidden rounded-full bg-white/5">
-            <AnimatedBar value={61} className="bg-ai" />
+            <AnimatedBar value={savingsBar} className="bg-ai" />
           </div>
           <div className="mt-3 flex items-center justify-between gap-2">
             <span className="text-[10px] text-text-muted sm:text-[11px]">{t("Saved this month")}</span>
-            <span dir="ltr" className="text-[10px] text-bull/80 sm:text-[11px]">{formatSignedPKR(4825)}</span>
+            <span
+              dir="ltr"
+              className={cn(
+                "text-[10px] sm:text-[11px]",
+                savingsDelta >= 0 ? "text-bull/80" : "text-bear/90",
+              )}
+            >
+              {formatSignedPKR(savingsDelta)}
+            </span>
           </div>
         </KpiCard>
 
@@ -295,7 +394,7 @@ function Overview() {
             <motion.div
               className="h-full rounded-full bg-warning"
               initial={{ width: 0 }}
-              whileInView={{ width: "60.7%" }}
+              whileInView={{ width: `${savingsRateBar}%` }}
               viewport={{ once: true }}
               transition={{ duration: 1, ease: [0.22, 1, 0.36, 1] }}
             />
@@ -305,9 +404,11 @@ function Overview() {
               className="rounded-full border border-warning/30 px-2 py-0.5 text-[10px] font-semibold text-warning"
               style={{ background: "rgba(245,158,11,0.1)" }}
             >
-              {t("Excellent")}
+              {t(savingsRateStatus)}
             </span>
-            <span className="text-[10px] text-text-muted sm:text-[11px]">{t("Goal: 65%")}</span>
+            <span className="text-[10px] text-text-muted sm:text-[11px]">
+              {useShowcaseFinance ? t("Goal: 65%") : `${t("Goal")}: 65%`}
+            </span>
           </div>
         </KpiCard>
       </div>
@@ -339,11 +440,11 @@ function Overview() {
           </div>
         </div>
         <div className="relative z-10 mt-4">
-          <IncomeExpenseChart data={INCOME_EXPENSE} />
+          <IncomeExpenseChart data={chartData} />
         </div>
         <div dir="ltr" className="relative z-10 mt-3 text-center text-[11px] text-text-muted">
-          {t("6-month totals")}: {t("Income")} {formatPKR(285000)} · {t("Expenses")}{" "}
-          {formatPKR(112050)} · {t("Saved")} {formatPKR(172950)}
+          {t("6-month totals")}: {t("Income")} {formatPKR(totalIncome)} · {t("Expenses")}{" "}
+          {formatPKR(totalExpense)} · {t("Saved")} {formatPKR(totalSavings)}
         </div>
       </motion.div>
     </div>
@@ -364,7 +465,11 @@ const ACCOUNTS = ["HBL Current", "Meezan Debit", "Easypaisa", "Meezan Savings"];
 
 function Transactions() {
   const { t: tr } = useLang();
-  const { transactions } = useFinanceStore();
+  const { user } = useAuth();
+
+  const { data: transactions = [], isLoading } = useFinanceTransactions(!!user);
+  const createTransaction = useCreateTransaction();
+  const deleteTransaction = useDeleteTransaction();
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
 
@@ -380,32 +485,70 @@ function Transactions() {
     const q = query.toLowerCase();
     return (
       !q ||
-      t.merchant.toLowerCase().includes(q) ||
-      t.category.toLowerCase().includes(q) ||
-      t.account.toLowerCase().includes(q)
+      t.merchant?.toLowerCase().includes(q) ||
+      t.category?.toLowerCase().includes(q) ||
+      t.transaction_type?.toLowerCase().includes(q) ||
+      t.source?.toLowerCase().includes(q)
     );
   });
 
   const grouped = filtered.reduce<Record<string, typeof transactions>>((acc, t) => {
-    (acc[t.date] ??= []).push(t);
+    const date = t.transaction_date
+      ? new Date(t.transaction_date).toLocaleDateString("en-US", {
+          month: "long",
+          day: "numeric",
+        })
+      : "No Date";
+
+    (acc[date] ??= []).push(t);
     return acc;
   }, {});
 
-  const submit = () => {
+  const submit = async () => {
     setErr("");
+
+    if (!user) return setErr(tr("Please log in first."));
+
     const num = Number(amount);
+
     if (!merchant.trim()) return setErr(tr("Please enter a merchant name."));
     if (!amount || Number.isNaN(num) || num <= 0) return setErr(tr("Please enter a valid amount."));
-    financeActions.addTransaction({
-      merchant: merchant.trim(),
-      category: kind === "income" ? "Income" : category,
-      account,
-      amount: kind === "income" ? num : -num,
-    });
-    setMerchant("");
-    setAmount("");
-    setKind("expense");
-    setOpen(false);
+
+    try {
+      await createTransaction.mutateAsync({
+        merchant: merchant.trim(),
+        amount: num,
+        category: kind === "income" ? "Income" : category,
+        transaction_type: kind,
+        transaction_date: new Date().toISOString(),
+        source: account || "manual",
+        note: null,
+      });
+
+      setMerchant("");
+      setAmount("");
+      setKind("expense");
+      setCategory(CATEGORIES[0]);
+      setAccount(ACCOUNTS[0]);
+      setOpen(false);
+    } catch (error) {
+      console.error("Add transaction error:", error);
+      setErr(tr("Failed to add transaction."));
+    }
+  };
+
+  const handleDelete = async (id: number) => {
+    if (!user) return;
+
+    const ok = confirm("Delete this transaction?");
+    if (!ok) return;
+
+    try {
+      await deleteTransaction.mutateAsync(id);
+    } catch (error) {
+      console.error("Delete transaction error:", error);
+      alert("Failed to delete transaction.");
+    }
   };
 
   return (
@@ -421,12 +564,31 @@ function Transactions() {
           />
         </div>
       </div>
+
+      {!user && (
+        <Card hover={false} className="text-sm text-text-secondary">
+          {tr("Please log in to view and add transactions.")}
+        </Card>
+      )}
+
+      {isLoading && (
+        <Card hover={false} className="text-sm text-text-secondary">
+          {tr("Loading transactions...")}
+        </Card>
+      )}
+
+      {!isLoading && user && Object.keys(grouped).length === 0 && (
+        <Card hover={false} className="text-sm text-text-secondary">
+          {tr("No transactions yet. Add your first transaction using the plus button.")}
+        </Card>
+      )}
+
       {Object.entries(grouped).map(([date, items]) => (
         <div key={date}>
           <div className="mb-1.5 text-xs font-semibold text-text-muted">{date}</div>
           <Card className="divide-y divide-border/50 p-0" hover={false}>
-            {items.map((t, i) => (
-              <div key={i} className="flex items-center gap-3 px-3 py-2.5">
+            {items.map((t) => (
+              <div key={t.id} className="flex items-center gap-3 px-3 py-2.5">
                 <div
                   className="flex h-9 w-9 items-center justify-center rounded-full text-sm"
                   style={{ background: (CAT_COLOR[t.category] ?? "#6b7280") + "26" }}
@@ -440,18 +602,25 @@ function Transactions() {
                   <div className="text-sm text-text-primary">{t.merchant}</div>
                   <div className="flex items-center gap-1.5 text-[11px] text-text-muted">
                     <span className="rounded-[4px] bg-elevated px-1.5 py-0.5">{tr(t.category)}</span>
-                    {t.account}
+                    {t.source ?? "manual"}
                   </div>
                 </div>
                 <span
                   className={cn(
                     "font-mono text-sm font-medium tabular-nums",
-                    t.amount >= 0 ? "text-bull" : "text-bear",
+                    t.transaction_type === "income" ? "text-bull" : "text-bear",
                   )}
                 >
-                  {t.amount >= 0 ? "+" : "-"}
-                  {fmtPKR(Math.abs(t.amount))}
+                  {t.transaction_type === "income" ? "+" : "-"}
+                  {fmtPKR(Number(t.amount))}
                 </span>
+                <button
+                  type="button"
+                  onClick={() => handleDelete(t.id)}
+                  className="rounded-[6px] border border-bear/40 px-2 py-1 text-xs text-bear hover:bg-bear/10"
+                >
+                  {tr("Delete")}
+                </button>
               </div>
             ))}
           </Card>
@@ -471,6 +640,7 @@ function Transactions() {
             {(["expense", "income"] as const).map((k) => (
               <button
                 key={k}
+                type="button"
                 onClick={() => setKind(k)}
                 className={cn(
                   "flex-1 rounded-[6px] border py-2 text-sm font-medium capitalize transition",
@@ -520,6 +690,7 @@ function Transactions() {
           </select>
           {err && <div className="text-xs text-bear">{err}</div>}
           <button
+            type="button"
             onClick={submit}
             className="w-full rounded-[6px] bg-bull py-2 text-sm font-semibold text-bull-foreground hover:brightness-110"
           >
@@ -534,6 +705,8 @@ function Transactions() {
 
 function Budgets() {
   const { t } = useLang();
+  const { user } = useAuth();
+  const { data: apiBudgets } = useFinanceBudgets(!!user);
   const [offset, setOffset] = useState(0);
   const base = new Date();
   const current = new Date(base.getFullYear(), base.getMonth() + offset, 1);
@@ -541,6 +714,15 @@ function Budgets() {
   const next = new Date(current.getFullYear(), current.getMonth() + 1, 1);
   const shortMonth = (d: Date) => d.toLocaleString("en-US", { month: "short" });
   const longLabel = current.toLocaleString("en-US", { month: "long", year: "numeric" });
+
+  const displayBudgets = user
+    ? (apiBudgets ?? []).map((b) => ({
+        category: b.category,
+        spent: b.spent,
+        limit: b.limit_amount,
+        tip: b.tip,
+      }))
+    : BUDGETS;
 
   return (
     <div className="space-y-4">
@@ -554,8 +736,13 @@ function Budgets() {
         </button>
       </div>
       <div className="grid gap-3 md:grid-cols-2">
-        {BUDGETS.map((b) => {
-          const pct = Math.round((b.spent / b.limit) * 100);
+        {user && displayBudgets.length === 0 && (
+          <Card hover={false} className="text-sm text-text-secondary md:col-span-2">
+            {t("No budgets yet. Add your first budget to start tracking spending.")}
+          </Card>
+        )}
+        {displayBudgets.map((b) => {
+          const pct = b.limit > 0 ? Math.round((b.spent / b.limit) * 100) : 0;
           const over = b.spent > b.limit;
           const color = over
             ? "bg-bear"
@@ -596,63 +783,155 @@ function Budgets() {
 
 function Bills() {
   const { t } = useLang();
-  const { bills } = useFinanceStore();
+  const { user } = useAuth();
+
+  const { data: bills = [], isLoading } = useFinanceBills(!!user);
+  const createBill = useCreateBill();
+  const markBillPaid = useMarkBillPaid();
+  const deleteBill = useDeleteBill();
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
   const [amount, setAmount] = useState("");
   const [due, setDue] = useState("");
   const [err, setErr] = useState("");
+  const [busyBillId, setBusyBillId] = useState<number | null>(null);
 
-  const submit = () => {
+  const getDisplayDue = (bill: FinanceBill) => {
+    if (!bill.due_date) return "—";
+
+    return new Date(`${bill.due_date}T00:00:00`).toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+    });
+  };
+
+  const submit = async () => {
     setErr("");
+
+    if (!user) return setErr(t("Please log in first."));
+
     const num = Number(amount);
+
     if (!name.trim()) return setErr(t("Please enter a bill name."));
     if (!amount || Number.isNaN(num) || num <= 0) return setErr(t("Please enter a valid amount."));
-    financeActions.addBill({
-      name: name.trim(),
-      amount: num,
-      due: due.trim() || "—",
-      status: "UPCOMING",
-    });
-    setName("");
-    setAmount("");
-    setDue("");
-    setOpen(false);
+
+    try {
+      const dueDate = due.trim() || null;
+
+      await createBill.mutateAsync({
+        name: name.trim(),
+        amount: num,
+        due_date: dueDate,
+        status: "UPCOMING",
+      });
+
+      setName("");
+      setAmount("");
+      setDue("");
+      setOpen(false);
+    } catch (error) {
+      console.error("Add bill error:", error);
+      setErr(t("Failed to add bill."));
+    }
+  };
+
+  const handleMarkPaid = async (bill: FinanceBill) => {
+    if (!user) return;
+
+    try {
+      setBusyBillId(bill.id);
+      await markBillPaid.mutateAsync(bill.id);
+    } catch (error) {
+      console.error("Mark bill paid error:", error);
+      alert("Failed to mark bill as paid.");
+    } finally {
+      setBusyBillId(null);
+    }
+  };
+
+  const handleDelete = async (bill: FinanceBill) => {
+    if (!user) return;
+
+    const ok = confirm(`Delete ${bill.name}?`);
+    if (!ok) return;
+
+    try {
+      setBusyBillId(bill.id);
+      await deleteBill.mutateAsync(bill.id);
+    } catch (error) {
+      console.error("Delete bill error:", error);
+      alert("Failed to delete bill.");
+    } finally {
+      setBusyBillId(null);
+    }
   };
 
   return (
     <div className="space-y-3">
+      {!user && (
+        <Card hover={false} className="text-sm text-text-secondary">
+          {t("Please log in to view and add bills.")}
+        </Card>
+      )}
+
+      {isLoading && (
+        <Card hover={false} className="text-sm text-text-secondary">
+          {t("Loading bills...")}
+        </Card>
+      )}
+
+      {!isLoading && user && bills.length === 0 && (
+        <Card hover={false} className="text-sm text-text-secondary">
+          {t("No bills yet. Add your first bill below.")}
+        </Card>
+      )}
+
       {bills.map((b) => (
-        <Card key={b.name} className="flex items-center gap-3">
+        <Card key={b.id} className="flex items-center gap-3">
           <div className="flex h-10 w-10 items-center justify-center rounded-full bg-elevated text-sm font-bold text-text-secondary">
             {b.name[0]}
           </div>
           <div className="flex-1">
             <div className="text-sm font-medium text-text-primary">{t(b.name)}</div>
-            <div className="text-[11px] text-text-muted">{t("Due")} {b.due}</div>
+            <div className="text-[11px] text-text-muted">
+              {t("Due")} {getDisplayDue(b)}
+            </div>
           </div>
           <span className="font-mono text-sm font-medium tabular-nums text-text-primary">
-            {fmtPKR(b.amount)}
+            {fmtPKR(Number(b.amount))}
           </span>
           <span
             className={cn(
               "rounded-[4px] px-2 py-0.5 text-[10px] font-semibold",
               b.status === "DUE SOON"
                 ? "bg-warning/20 text-warning"
-                : "bg-elevated text-text-secondary",
+                : b.status === "PAID"
+                  ? "bg-bull/20 text-bull"
+                  : "bg-elevated text-text-secondary",
             )}
           >
             {t(b.status)}
           </span>
           <button
-            onClick={() => financeActions.markBillPaid(b.name)}
+            type="button"
+            disabled={busyBillId === b.id || b.status === "PAID"}
+            onClick={() => handleMarkPaid(b)}
             title={t("Mark as paid")}
-            className="flex h-8 w-8 items-center justify-center rounded-full border border-bull text-bull hover:bg-bull/10"
+            className="flex h-8 w-8 items-center justify-center rounded-full border border-bull text-bull hover:bg-bull/10 disabled:cursor-not-allowed disabled:opacity-50"
           >
             <Check className="h-4 w-4" />
           </button>
+          <button
+            type="button"
+            disabled={busyBillId === b.id}
+            onClick={() => handleDelete(b)}
+            className="rounded-[6px] border border-bear/40 px-2 py-1 text-xs text-bear hover:bg-bear/10 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {t("Delete")}
+          </button>
         </Card>
       ))}
+
       <button
         onClick={() => setOpen(true)}
         className="flex w-full items-center justify-center gap-1.5 rounded-[6px] border border-dashed border-border py-3 text-sm font-medium text-text-secondary hover:border-bull hover:text-bull"
@@ -679,11 +958,12 @@ function Bills() {
           <input
             value={due}
             onChange={(e) => setDue(e.target.value)}
-            placeholder={t("Due date (e.g. Jun 25)")}
+            type="date"
             className={fieldClass}
           />
           {err && <div className="text-xs text-bear">{err}</div>}
           <button
+            type="button"
             onClick={submit}
             className="w-full rounded-[6px] bg-bull py-2 text-sm font-semibold text-bull-foreground hover:brightness-110"
           >
@@ -697,7 +977,13 @@ function Bills() {
 
 function Goals() {
   const { t } = useLang();
-  const { goals } = useFinanceStore();
+  const { user } = useAuth();
+  const { isDemo } = useDemo();
+  const dispatch = useAppDispatch();
+  const storeGoals = useAppSelector(selectGoals);
+  const { data: apiGoals } = useApiFinanceGoals(!!user && !isDemo);
+  const createGoalApi = useApiCreateGoal();
+  const contributeGoalApi = useApiContributeGoal();
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
   const [target, setTarget] = useState("");
@@ -708,22 +994,44 @@ function Goals() {
   const [contribAmount, setContribAmount] = useState("");
   const [contribErr, setContribErr] = useState("");
 
+  const displayGoals: Goal[] = user && !isDemo
+    ? (apiGoals ?? []).map((g) => ({
+        emoji: g.emoji || "🎯",
+        name: g.name,
+        target: g.target,
+        saved: g.saved,
+        color: (g.color === "warning" ? "warning" : "bull") as "warning" | "bull",
+        ai: g.ai_tip || "",
+        date: g.target_date || undefined,
+      }))
+    : storeGoals;
+
   const submit = () => {
     setErr("");
     const num = Number(target);
     if (!name.trim()) return setErr(t("Please enter a goal name."));
     if (!target || Number.isNaN(num) || num <= 0)
       return setErr(t("Please enter a valid target amount."));
-    const goal: Goal = {
-      emoji: "🎯",
-      name: name.trim(),
-      target: num,
-      saved: 0,
-      color: "bull",
-      date: date ? format(date, "MMM d, yyyy") : undefined,
-      ai: t("New goal created. Start contributing to track your progress."),
-    };
-    financeActions.addGoal(goal);
+    if (user && !isDemo) {
+      createGoalApi.mutate({
+        name: name.trim(),
+        target: num,
+        emoji: "🎯",
+        color: "bull",
+        target_date: date ? date.toISOString() : undefined,
+      });
+    } else {
+      const goal: Goal = {
+        emoji: "🎯",
+        name: name.trim(),
+        target: num,
+        saved: 0,
+        color: "bull",
+        date: date ? format(date, "MMM d, yyyy") : undefined,
+        ai: t("New goal created. Start contributing to track your progress."),
+      };
+      dispatch(addGoal(goal));
+    }
     setName("");
     setTarget("");
     setDate(undefined);
@@ -741,7 +1049,14 @@ function Goals() {
     const num = Number(contribAmount);
     if (!contribAmount || Number.isNaN(num) || num <= 0)
       return setContribErr(t("Please enter a valid amount."));
-    if (contribGoal) financeActions.contributeToGoal(contribGoal, num);
+    if (contribGoal) {
+      if (user && !isDemo && apiGoals) {
+        const goal = apiGoals.find((g) => g.name === contribGoal);
+        if (goal) contributeGoalApi.mutate({ id: goal.id, amount: num });
+      } else {
+        dispatch(contributeToGoal({ name: contribGoal, amount: num }));
+      }
+    }
     setContribGoal(null);
     setContribAmount("");
   };
@@ -749,8 +1064,13 @@ function Goals() {
 
   return (
     <div className="grid gap-4 md:grid-cols-2">
-      {goals.map((g) => {
-        const pct = Math.round((g.saved / g.target) * 100);
+      {user && displayGoals.length === 0 && (
+        <Card hover={false} className="text-sm text-text-secondary md:col-span-2">
+          {t("No goals yet. Add your first savings goal to start tracking progress.")}
+        </Card>
+      )}
+      {displayGoals.map((g) => {
+        const pct = g.target > 0 ? Math.round((g.saved / g.target) * 100) : 0;
         return (
           <Card key={g.name}>
             <div className="flex items-center gap-2">
@@ -875,29 +1195,6 @@ function Goals() {
 
 function FinanceReportModal({ onClose }: { onClose: () => void }) {
   const { t } = useLang();
-  const sections = [
-    {
-      icon: "📈",
-      title: "Income vs Expenses Analysis",
-      body: "Your income has remained stable at PKR 47,500/month while expenses dropped 12% to PKR 18,675. This improved your savings margin significantly. Your highest spending categories are Food & Dining and Transport — consider reviewing dining-out frequency.",
-    },
-    {
-      icon: "💰",
-      title: "Budget Health",
-      body: "3 of 6 budgets are on track. Subscriptions exceeded limit by 8% — review unused services. Groceries and Utilities are within healthy margins. Consider increasing your Savings budget allocation by 10% given the surplus.",
-    },
-    {
-      icon: "🎯",
-      title: "Savings & Goals Progress",
-      body: "You are saving PKR 28,825/month with a 60.7% savings rate — Excellent! Your Emergency Fund goal is 45% complete. Car Down Payment is 32% complete. At this pace, you'll reach both goals within 8 months.",
-    },
-    {
-      icon: "💡",
-      title: "Smart Recommendations",
-      body: "1. Set up auto-transfer of PKR 5,000 to Meezan Savings on salary day\n2. Review 2 subscription services you haven't used in 30 days\n3. Your dining spend is 18% above peer average — try meal prepping twice a week\n4. Consider a high-yield savings account for your emergency fund",
-    },
-  ];
-  const score = 78;
   return (
     <div
       className="fixed inset-0 z-50 flex items-end justify-center sm:items-center"
@@ -910,39 +1207,19 @@ function FinanceReportModal({ onClose }: { onClose: () => void }) {
       >
         <div className="mb-4 flex items-center justify-between">
           <h3 className="text-base font-semibold text-text-primary">
-            {t("Your Finance Report — June 2025")}
+            {t("AI Finance Report")}
           </h3>
           <button onClick={onClose}>
             <X className="h-5 w-5 text-text-secondary" />
           </button>
         </div>
-        <div className="mb-4 flex items-center justify-center">
-          <div
-            className="relative flex h-28 w-28 items-center justify-center rounded-full"
-            style={{ background: `conic-gradient(#00d4aa ${score * 3.6}deg, #1a2332 0deg)` }}
-          >
-            <div className="flex h-20 w-20 flex-col items-center justify-center rounded-full bg-surface">
-              <span className="font-mono text-2xl font-bold tabular-nums text-bull">{score}</span>
-              <span className="text-[10px] text-text-muted">{t("Health Score")}</span>
-            </div>
-          </div>
-        </div>
-        <div className="space-y-3">
-          {sections.map((s) => (
-            <div key={s.title} className="rounded-[8px] border border-border bg-surface-alt p-3">
-              <div className="flex items-center gap-1.5 text-sm font-semibold text-text-primary">
-                <EmojiIcon emoji={s.icon} size={15} className="text-text-secondary" /> {t(s.title)}
-              </div>
-              <p className="mt-1 whitespace-pre-line text-xs leading-relaxed text-text-secondary">
-                <Typewriter id={`finance-report-${s.title}`} speed={8} text={t(s.body)} />
-              </p>
-            </div>
-          ))}
+        <div className="rounded-[10px] border border-white/[0.08] bg-surface-alt p-4 text-center">
+          <p className="text-sm font-semibold text-text-primary">Coming soon</p>
+          <p className="mt-2 text-xs leading-relaxed text-text-secondary">
+            Real AI insights from your income, expenses, and budgets are coming soon. For now, review your live KPIs on the Overview tab.
+          </p>
         </div>
         <div className="mt-4 mb-6 flex gap-2">
-          <button className="flex-1 rounded-[10px] bg-primary py-2 text-sm font-semibold text-primary-foreground transition-all duration-200 hover:brightness-110">
-            {t("Export as PDF")}
-          </button>
           <button
             onClick={onClose}
             className="flex-1 rounded-[10px] border border-white/[0.08] bg-surface py-2 text-sm font-semibold text-text-primary transition-colors hover:border-white/[0.16]"

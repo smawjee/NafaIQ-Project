@@ -17,13 +17,10 @@ export function useWatchlist() {
         .from("user_watchlist")
         .select("symbol")
         .order("added_at", { ascending: false });
-      if (data) {
-        setSymbols(data.map((r) => r.symbol));
-      } else {
-        setSymbols(["HBL", "ENGRO", "LUCK", "OGDC"]);
-      }
+      setSymbols((data ?? []).map((r) => r.symbol));
     } catch {
-      setSymbols(["HBL", "ENGRO", "LUCK", "OGDC"]);
+      const { data: session } = await supabase.auth.getSession();
+      setSymbols(session?.session ? [] : ["HBL", "ENGRO", "LUCK", "OGDC"]);
     }
     setLoading(false);
   }, []);

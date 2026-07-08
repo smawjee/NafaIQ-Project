@@ -10,6 +10,7 @@ import {
   Scripts,
 } from "@tanstack/react-router";
 import { useEffect, type ReactNode } from "react";
+import { Provider } from "react-redux";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { Loader2 } from "lucide-react";
 
@@ -20,6 +21,7 @@ import { AuthProvider, useAuth } from "@/hooks/use-auth";
 import { LandingThemeProvider } from "@/hooks/use-landing-theme";
 import { LearnProvider } from "@/hooks/learn/use-learn";
 import { Toaster } from "@/components/ui/sonner";
+import { store } from "../store";
 
 function NotFoundComponent() {
   return (
@@ -169,6 +171,8 @@ function Spinner() {
 
 const TARGET_PATHS = new Set(["/", "/app", "/psx", "/portfolio", "/finance", "/learn", "/team"]);
 
+const PUBLIC_APP_ROUTES = new Set(["/portfolio", "/finance", "/learn", "/alerts", "/settings"]);
+
 function PageTransition({ routeKey, children }: { routeKey: string; children: ReactNode }) {
   const reduce = useReducedMotion();
   const isTarget = TARGET_PATHS.has(routeKey);
@@ -201,7 +205,8 @@ function AuthGate() {
   const isUrduQa = pathname === "/urdu-qa";
   const isTeam = pathname === "/team";
   const isPsx = pathname.startsWith("/psx") || pathname.startsWith("/stock");
-  const isPublic = isAuthRoute || isLanding || isPlans || isUrduQa || isTeam;
+  const isPublicAppRoute = PUBLIC_APP_ROUTES.has(pathname);
+  const isPublic = isAuthRoute || isLanding || isPlans || isUrduQa || isTeam || isPublicAppRoute;
 
   useEffect(() => {
     if (loading) return;
@@ -210,8 +215,8 @@ function AuthGate() {
     }
   }, [loading, user, isPublic, isPsx, navigate, pathname]);
 
-  // PSX routes get AppShell without auth requirement
-  if (isPsx) {
+  // PSX & public app routes get AppShell without auth requirement
+  if (isPsx || isPublicAppRoute) {
     return (
       <>
         <AppShell>
@@ -251,16 +256,18 @@ function RootComponent() {
   const { queryClient } = Route.useRouteContext();
 
   return (
-    <QueryClientProvider client={queryClient}>
-      {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
-      <AuthProvider>
-        <LearnProvider>
-          <LandingThemeProvider>
-            <AuthGate />
-            <Toaster />
-          </LandingThemeProvider>
-        </LearnProvider>
-      </AuthProvider>
-    </QueryClientProvider>
+    <Provider store={store}>
+      <QueryClientProvider client={queryClient}>
+        {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
+        <AuthProvider>
+          <LearnProvider>
+            <LandingThemeProvider>
+              <AuthGate />
+              <Toaster />
+            </LandingThemeProvider>
+          </LearnProvider>
+        </AuthProvider>
+      </QueryClientProvider>
+    </Provider>
   );
 }

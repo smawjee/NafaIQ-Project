@@ -1,10 +1,12 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { Check, Minus, Star, ArrowRight, ArrowLeft } from "lucide-react";
 import { cn } from "@/lib/utils";
 import logo from "@/assets/logo.png";
 import { useLang } from "@/hooks/use-lang";
 import { useAuth } from "@/hooks/use-auth";
+import { usePlan, useUpgradePlan } from "@/hooks/use-plan";
+import { toast } from "sonner";
 
 export const Route = createFileRoute("/plans")({
   head: () => ({
@@ -102,6 +104,9 @@ function PlansPage() {
   const [billing, setBilling] = useState<Billing>("monthly");
   const { t } = useLang();
   const { user } = useAuth();
+  const { plan } = usePlan();
+  const upgrade = useUpgradePlan();
+  const navigate = useNavigate();
   const isLoggedIn = !!user;
   const backTo = isLoggedIn ? "/app" : "/";
 
@@ -201,7 +206,32 @@ function PlansPage() {
                 <div className="mt-1 text-[11px] text-gold">{t("Billed annually — 20% off")}</div>
               )}
 
-              {tier.ctaTo ? (
+              {tier.id === "pro" ? (
+                <button
+                  onClick={async () => {
+                    if (!isLoggedIn) {
+                      navigate({ to: "/auth", search: { redirect: "/plans" } });
+                      return;
+                    }
+                    try {
+                      await upgrade.mutateAsync("Pro");
+                      toast.success("You are now on the Pro plan!");
+                      navigate({ to: "/app" });
+                    } catch {
+                      toast.error("Failed to upgrade plan");
+                    }
+                  }}
+                  disabled={plan === "Pro" || plan === "Premium" || upgrade.isPending}
+                  className={cn(
+                    "mt-6 flex items-center justify-center rounded-[10px] px-4 py-2.5 text-sm font-semibold transition",
+                    tier.highlight
+                      ? "bg-bull text-bull-foreground hover:bg-[#00efc0] disabled:opacity-60"
+                      : "border border-white/[0.1] bg-surface text-text-primary hover:border-white/[0.2]",
+                  )}
+                >
+                  {plan === "Pro" || plan === "Premium" ? "Current Plan" : t(tier.cta)}
+                </button>
+              ) : tier.ctaTo ? (
                 <Link
                   to={tier.ctaTo}
                   className={cn(
