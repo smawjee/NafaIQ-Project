@@ -185,7 +185,7 @@ async def job_refresh_fundamentals():
 async def job_refresh_index_eod():
     log.info("job:refresh_index_eod:start")
     db = get_supabase()
-    for code in ("KSE100", "KSE30", "ALLSHR"):
+    for code in ("KSE100", "KSE30", "KMI30", "ALLSHR"):
         try:
             bars = await dps.fetch_index_eod(code)
             if bars:
@@ -193,6 +193,9 @@ async def job_refresh_index_eod():
                     {
                         "code": b.code,
                         "date": b.date.isoformat(),
+                        "open": b.open or 0,
+                        "high": b.high or 0,
+                        "low": b.low or 0,
                         "close": b.close,
                         "volume": b.volume,
                     }
