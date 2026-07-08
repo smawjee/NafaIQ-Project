@@ -35,6 +35,10 @@ __pycache__/
 *.pyo
 .venv/
 venv/
+*.egg-info/
+
+# Lockfiles
+pnpm-lock.yaml
 
 # Recall (local project context — gitignored)
 recall/
