@@ -1,18 +1,4 @@
-import {
-  getFinanceTransactions,
-  addFinanceTransaction,
-  deleteFinanceTransaction,
-} from "@/lib/finance/financeTransactions";
-
-import {
-  addFinanceBill,
-  deleteFinanceBill,
-  getFinanceBills,
-  markFinanceBillPaid,
-  type FinanceBill,
-} from "@/lib/finance/financeBills";
 import { createFileRoute } from "@tanstack/react-router";
-import { useAuth } from "@/hooks/use-auth";
 import { useEffect, useRef, useState } from "react";
 import { motion, useInView, useReducedMotion } from "framer-motion";
 import {
@@ -378,12 +364,9 @@ const ACCOUNTS = ["HBL Current", "Meezan Debit", "Easypaisa", "Meezan Savings"];
 
 function Transactions() {
   const { t: tr } = useLang();
-  const { user } = useAuth();
-
-  const [transactions, setTransactions] = useState<any[]>([]);
+  const { transactions } = useFinanceStore();
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
-  const [loading, setLoading] = useState(false);
 
   // add form
   const [merchant, setMerchant] = useState("");
@@ -393,100 +376,36 @@ function Transactions() {
   const [account, setAccount] = useState(ACCOUNTS[0]);
   const [err, setErr] = useState("");
 
-  async function loadTransactions() {
-    if (!user) {
-      setTransactions([]);
-      return;
-    }
-
-    try {
-      setLoading(true);
-      const data = await getFinanceTransactions(user.id);
-      setTransactions(data ?? []);
-    } catch (error) {
-      console.error("Load transactions error:", error);
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  useEffect(() => {
-    loadTransactions();
-  }, [user]);
-
   const filtered = transactions.filter((t) => {
     const q = query.toLowerCase();
     return (
       !q ||
-      t.merchant?.toLowerCase().includes(q) ||
-      t.category?.toLowerCase().includes(q) ||
-      t.transaction_type?.toLowerCase().includes(q) ||
-      t.source?.toLowerCase().includes(q)
+      t.merchant.toLowerCase().includes(q) ||
+      t.category.toLowerCase().includes(q) ||
+      t.account.toLowerCase().includes(q)
     );
   });
 
   const grouped = filtered.reduce<Record<string, typeof transactions>>((acc, t) => {
-    const date = t.transaction_date
-      ? new Date(t.transaction_date).toLocaleDateString("en-US", {
-          month: "long",
-          day: "numeric",
-        })
-      : "No Date";
-
-    (acc[date] ??= []).push(t);
+    (acc[t.date] ??= []).push(t);
     return acc;
   }, {});
 
-  const submit = async () => {
+  const submit = () => {
     setErr("");
-
-    if (!user) return setErr(tr("Please log in first."));
-
     const num = Number(amount);
-
     if (!merchant.trim()) return setErr(tr("Please enter a merchant name."));
     if (!amount || Number.isNaN(num) || num <= 0) return setErr(tr("Please enter a valid amount."));
-
-    try {
-      await addFinanceTransaction(user.id, {
-        merchant: merchant.trim(),
-        amount: kind === "income" ? num : -num,
-        category: kind === "income" ? "Income" : category,
-        transaction_type: kind === "income" ? "Income" : "Expense",
-        transaction_date: new Date().toISOString(),
-        currency: "PKR",
-        source: account || "manual",
-        email_subject: null,
-        raw_text: null,
-      });
-
-      await loadTransactions();
-
-      setMerchant("");
-      setAmount("");
-      setKind("expense");
-      setCategory(CATEGORIES[0]);
-      setAccount(ACCOUNTS[0]);
-      setOpen(false);
-    } catch (error) {
-      console.error("Add transaction error:", error);
-      setErr(tr("Failed to add transaction."));
-    }
-  };
-
-  const handleDelete = async (id: string) => {
-    if (!user) return;
-
-    const ok = confirm("Delete this transaction?");
-    if (!ok) return;
-
-    try {
-      await deleteFinanceTransaction(id, user.id);
-      await loadTransactions();
-    } catch (error) {
-      console.error("Delete transaction error:", error);
-      alert("Failed to delete transaction.");
-    }
+    financeActions.addTransaction({
+      merchant: merchant.trim(),
+      category: kind === "income" ? "Income" : category,
+      account,
+      amount: kind === "income" ? num : -num,
+    });
+    setMerchant("");
+    setAmount("");
+    setKind("expense");
+    setOpen(false);
   };
 
   return (
@@ -502,31 +421,12 @@ function Transactions() {
           />
         </div>
       </div>
-
-      {!user && (
-        <Card hover={false} className="text-sm text-text-secondary">
-          {tr("Please log in to view and add transactions.")}
-        </Card>
-      )}
-
-      {loading && (
-        <Card hover={false} className="text-sm text-text-secondary">
-          {tr("Loading transactions...")}
-        </Card>
-      )}
-
-      {!loading && user && Object.keys(grouped).length === 0 && (
-        <Card hover={false} className="text-sm text-text-secondary">
-          {tr("No transactions yet. Add your first transaction using the plus button.")}
-        </Card>
-      )}
-
       {Object.entries(grouped).map(([date, items]) => (
         <div key={date}>
           <div className="mb-1.5 text-xs font-semibold text-text-muted">{date}</div>
           <Card className="divide-y divide-border/50 p-0" hover={false}>
-            {items.map((t) => (
-              <div key={t.id} className="flex items-center gap-3 px-3 py-2.5">
+            {items.map((t, i) => (
+              <div key={i} className="flex items-center gap-3 px-3 py-2.5">
                 <div
                   className="flex h-9 w-9 items-center justify-center rounded-full text-sm"
                   style={{ background: (CAT_COLOR[t.category] ?? "#6b7280") + "26" }}
@@ -540,25 +440,18 @@ function Transactions() {
                   <div className="text-sm text-text-primary">{t.merchant}</div>
                   <div className="flex items-center gap-1.5 text-[11px] text-text-muted">
                     <span className="rounded-[4px] bg-elevated px-1.5 py-0.5">{tr(t.category)}</span>
-                    {t.source ?? "manual"}
+                    {t.account}
                   </div>
                 </div>
                 <span
                   className={cn(
                     "font-mono text-sm font-medium tabular-nums",
-                    Number(t.amount) >= 0 ? "text-bull" : "text-bear",
+                    t.amount >= 0 ? "text-bull" : "text-bear",
                   )}
                 >
-                  {Number(t.amount) >= 0 ? "+" : "-"}
-                  {fmtPKR(Math.abs(Number(t.amount)))}
+                  {t.amount >= 0 ? "+" : "-"}
+                  {fmtPKR(Math.abs(t.amount))}
                 </span>
-                <button
-                  type="button"
-                  onClick={() => handleDelete(t.id)}
-                  className="rounded-[6px] border border-bear/40 px-2 py-1 text-xs text-bear hover:bg-bear/10"
-                >
-                  {tr("Delete")}
-                </button>
               </div>
             ))}
           </Card>
@@ -578,7 +471,6 @@ function Transactions() {
             {(["expense", "income"] as const).map((k) => (
               <button
                 key={k}
-                type="button"
                 onClick={() => setKind(k)}
                 className={cn(
                   "flex-1 rounded-[6px] border py-2 text-sm font-medium capitalize transition",
@@ -628,7 +520,6 @@ function Transactions() {
           </select>
           {err && <div className="text-xs text-bear">{err}</div>}
           <button
-            type="button"
             onClick={submit}
             className="w-full rounded-[6px] bg-bull py-2 text-sm font-semibold text-bull-foreground hover:brightness-110"
           >
@@ -705,186 +596,63 @@ function Budgets() {
 
 function Bills() {
   const { t } = useLang();
-  const { user } = useAuth();
-
-  const [bills, setBills] = useState<FinanceBill[]>([]);
+  const { bills } = useFinanceStore();
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
   const [amount, setAmount] = useState("");
   const [due, setDue] = useState("");
   const [err, setErr] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [busyBillId, setBusyBillId] = useState<string | null>(null);
 
-  async function loadBills() {
-    if (!user) {
-      setBills([]);
-      return;
-    }
-
-    try {
-      setLoading(true);
-      const data = await getFinanceBills(user.id);
-      setBills(data ?? []);
-    } catch (error) {
-      console.error("Load bills error:", error);
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  useEffect(() => {
-    loadBills();
-  }, [user]);
-
-  const getDisplayDue = (bill: FinanceBill) => {
-    if (bill.due_label) return bill.due_label;
-    if (!bill.due_date) return "—";
-
-    return new Date(`${bill.due_date}T00:00:00`).toLocaleDateString("en-US", {
-      month: "short",
-      day: "numeric",
-    });
-  };
-
-  const submit = async () => {
+  const submit = () => {
     setErr("");
-
-    if (!user) return setErr(t("Please log in first."));
-
     const num = Number(amount);
-
     if (!name.trim()) return setErr(t("Please enter a bill name."));
     if (!amount || Number.isNaN(num) || num <= 0) return setErr(t("Please enter a valid amount."));
-
-    try {
-      const dueDate = due.trim() || null;
-
-      await addFinanceBill(user.id, {
-        name: name.trim(),
-        amount: num,
-        currency: "PKR",
-        due_date: dueDate,
-        due_label: dueDate
-          ? new Date(`${dueDate}T00:00:00`).toLocaleDateString("en-US", {
-              month: "short",
-              day: "numeric",
-            })
-          : null,
-        status: "UPCOMING",
-      });
-
-      await loadBills();
-
-      setName("");
-      setAmount("");
-      setDue("");
-      setOpen(false);
-    } catch (error) {
-      console.error("Add bill error:", error);
-      setErr(t("Failed to add bill."));
-    }
-  };
-
-  const handleMarkPaid = async (bill: FinanceBill) => {
-    if (!user) return;
-
-    try {
-      setBusyBillId(bill.id);
-      await markFinanceBillPaid(bill.id, user.id);
-      await loadBills();
-    } catch (error) {
-      console.error("Mark bill paid error:", error);
-      alert("Failed to mark bill as paid.");
-    } finally {
-      setBusyBillId(null);
-    }
-  };
-
-  const handleDelete = async (bill: FinanceBill) => {
-    if (!user) return;
-
-    const ok = confirm(`Delete ${bill.name}?`);
-    if (!ok) return;
-
-    try {
-      setBusyBillId(bill.id);
-      await deleteFinanceBill(bill.id, user.id);
-      await loadBills();
-    } catch (error) {
-      console.error("Delete bill error:", error);
-      alert("Failed to delete bill.");
-    } finally {
-      setBusyBillId(null);
-    }
+    financeActions.addBill({
+      name: name.trim(),
+      amount: num,
+      due: due.trim() || "—",
+      status: "UPCOMING",
+    });
+    setName("");
+    setAmount("");
+    setDue("");
+    setOpen(false);
   };
 
   return (
     <div className="space-y-3">
-      {!user && (
-        <Card hover={false} className="text-sm text-text-secondary">
-          {t("Please log in to view and add bills.")}
-        </Card>
-      )}
-
-      {loading && (
-        <Card hover={false} className="text-sm text-text-secondary">
-          {t("Loading bills...")}
-        </Card>
-      )}
-
-      {!loading && user && bills.length === 0 && (
-        <Card hover={false} className="text-sm text-text-secondary">
-          {t("No bills yet. Add your first bill below.")}
-        </Card>
-      )}
-
       {bills.map((b) => (
-        <Card key={b.id} className="flex items-center gap-3">
+        <Card key={b.name} className="flex items-center gap-3">
           <div className="flex h-10 w-10 items-center justify-center rounded-full bg-elevated text-sm font-bold text-text-secondary">
             {b.name[0]}
           </div>
           <div className="flex-1">
             <div className="text-sm font-medium text-text-primary">{t(b.name)}</div>
-            <div className="text-[11px] text-text-muted">
-              {t("Due")} {getDisplayDue(b)}
-            </div>
+            <div className="text-[11px] text-text-muted">{t("Due")} {b.due}</div>
           </div>
           <span className="font-mono text-sm font-medium tabular-nums text-text-primary">
-            {fmtPKR(Number(b.amount))}
+            {fmtPKR(b.amount)}
           </span>
           <span
             className={cn(
               "rounded-[4px] px-2 py-0.5 text-[10px] font-semibold",
               b.status === "DUE SOON"
                 ? "bg-warning/20 text-warning"
-                : b.status === "PAID"
-                  ? "bg-bull/20 text-bull"
-                  : "bg-elevated text-text-secondary",
+                : "bg-elevated text-text-secondary",
             )}
           >
             {t(b.status)}
           </span>
           <button
-            type="button"
-            disabled={busyBillId === b.id || b.status === "PAID"}
-            onClick={() => handleMarkPaid(b)}
+            onClick={() => financeActions.markBillPaid(b.name)}
             title={t("Mark as paid")}
-            className="flex h-8 w-8 items-center justify-center rounded-full border border-bull text-bull hover:bg-bull/10 disabled:cursor-not-allowed disabled:opacity-50"
+            className="flex h-8 w-8 items-center justify-center rounded-full border border-bull text-bull hover:bg-bull/10"
           >
             <Check className="h-4 w-4" />
           </button>
-          <button
-            type="button"
-            disabled={busyBillId === b.id}
-            onClick={() => handleDelete(b)}
-            className="rounded-[6px] border border-bear/40 px-2 py-1 text-xs text-bear hover:bg-bear/10 disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            {t("Delete")}
-          </button>
         </Card>
       ))}
-
       <button
         onClick={() => setOpen(true)}
         className="flex w-full items-center justify-center gap-1.5 rounded-[6px] border border-dashed border-border py-3 text-sm font-medium text-text-secondary hover:border-bull hover:text-bull"
@@ -911,12 +679,11 @@ function Bills() {
           <input
             value={due}
             onChange={(e) => setDue(e.target.value)}
-            type="date"
+            placeholder={t("Due date (e.g. Jun 25)")}
             className={fieldClass}
           />
           {err && <div className="text-xs text-bear">{err}</div>}
           <button
-            type="button"
             onClick={submit}
             className="w-full rounded-[6px] bg-bull py-2 text-sm font-semibold text-bull-foreground hover:brightness-110"
           >
