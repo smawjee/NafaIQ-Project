@@ -24,10 +24,8 @@ export interface PriceAlert {
   created_at: string;
 }
 
-// Supabase types don't include user_alerts/in_app_notifications yet (just migrated).
-// Using `as any` for the table reference until types.ts is regenerated.
-const userAlertsTable = "user_alerts" as any;
-const priceAlertsTable = "price_alerts" as any;
+const userAlertsTable = "user_alerts" as const;
+const priceAlertsTable = "price_alerts" as const;
 
 export function useUserAlerts() {
   const { user } = useAuth();
@@ -73,7 +71,7 @@ export function useCreateUserAlert() {
       if (!user) throw new Error("Not authenticated");
       const { data, error } = await supabase
         .from(userAlertsTable)
-        .insert({ ...alert, user_id: user.id, meta: alert.meta ?? {} })
+        .insert({ ...alert, user_id: user.id, meta: (alert.meta ?? {}) as never })
         .select()
         .single();
       if (error) throw error;
