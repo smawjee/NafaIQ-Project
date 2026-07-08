@@ -38,7 +38,7 @@ export function useNotifications() {
       .channel("user-notifications")
       .on(
         "postgres_changes",
-        { event: "INSERT", schema: "public", table: "in_app_notifications", filter: `user_id=eq.${user.id}` },
+        { event: "INSERT", schema: "public", table: "in_app_notifications" as any, filter: `user_id=eq.${user.id}` },
         () => {
           qc.invalidateQueries({ queryKey: ["notifications"] });
         }

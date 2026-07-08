@@ -22,6 +22,8 @@ import { cn } from "@/lib/utils";
 import { EmojiIcon } from "@/components/icons/icons";
 import { useLang } from "@/hooks/use-lang";
 import { useFinanceStore, financeActions } from "@/hooks/finance/use-finance-store";
+import { useAuth } from "@/hooks/use-auth";
+import { usePortfolioList, useHoldings, usePortfolioValue, useAddHolding, useUpdateHolding, useRemoveHolding, useCreatePortfolio } from "@/hooks/use-portfolio";
 import { Modal, fieldClass } from "@/components/shared/Modal";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
 
@@ -270,7 +272,30 @@ function computeSignal(ticker: string, current: number, avgCost: number): Signal
 
 function Portfolio() {
   const { t } = useLang();
-  const { holdings } = useFinanceStore();
+  const { user } = useAuth();
+  const { holdings: localHoldings } = useFinanceStore();
+  const { data: portfolios } = usePortfolioList();
+  const portfolioId = portfolios?.[0]?.id ?? null;
+  const { data: apiHoldings } = useHoldings(portfolioId);
+  const { data: portfolioValue } = usePortfolioValue(portfolioId);
+  const addHoldingApi = useAddHolding(portfolioId);
+  const updateHoldingApi = useUpdateHolding(portfolioId);
+  const removeHoldingApi = useRemoveHolding(portfolioId);
+  const createPortfolio = useCreatePortfolio();
+
+  // For logged-in users: use API data. For anonymous: use localStorage.
+  const isLoggedIn = !!user;
+  const holdings: Holding[] = isLoggedIn && apiHoldings
+    ? apiHoldings.map((h) => ({
+        ticker: h.symbol,
+        sector: STOCKS[h.symbol]?.sector ?? "Other",
+        shares: h.shares,
+        avgCost: h.avg_cost,
+        current: portfolioValue?.holdings.find((v) => v.id === h.id)?.current_price ?? h.avg_cost,
+        signal: (STOCKS[h.symbol]?.signal ?? computeSignal(h.symbol, h.avg_cost, h.avg_cost)) as Signal,
+      }))
+    : localHoldings;
+
   const [range, setRange] = useState<(typeof RANGES)[number]>("6M");
   const [reportState, setReportState] = useState<"idle" | "loading" | "open">("idle");
   const n = range === "1M" ? 2 : range === "3M" ? 3 : range === "6M" ? 6 : 12;
@@ -310,7 +335,11 @@ function Portfolio() {
   }
 
   function remove(idx: number) {
-    financeActions.removeHolding(idx);
+    if (isLoggedIn && apiHoldings) {
+      removeHoldingApi.mutate(apiHoldings[idx].id);
+    } else {
+      financeActions.removeHolding(idx);
+    }
   }
 
   function saveHolding() {
@@ -334,10 +363,27 @@ function Portfolio() {
       current: cur,
       signal,
     };
-    if (editIdx == null) {
-      financeActions.addHolding(entry);
+    if (isLoggedIn) {
+      if (editIdx == null) {
+        // Auto-create default portfolio if user has none
+        if (!portfolioId) {
+          createPortfolio.mutate("Main", {
+            onSuccess: (p) => {
+              addHoldingApi.mutate({ symbol: entry.ticker, shares: entry.shares, avg_cost: entry.avgCost });
+            },
+          });
+        } else {
+          addHoldingApi.mutate({ symbol: entry.ticker, shares: entry.shares, avg_cost: entry.avgCost });
+        }
+      } else if (apiHoldings) {
+        updateHoldingApi.mutate({ holdingId: apiHoldings[editIdx].id, shares: entry.shares, avg_cost: entry.avgCost });
+      }
     } else {
-      financeActions.updateHolding(editIdx, entry);
+      if (editIdx == null) {
+        financeActions.addHolding(entry);
+      } else {
+        financeActions.updateHolding(editIdx, entry);
+      }
     }
     setFormOpen(false);
   }
@@ -354,14 +400,14 @@ function Portfolio() {
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         <StatCard
           label="Portfolio Value"
-          value={<CountUpNumber value={858054} prefix="PKR " />}
-          sub={`${t("Total Invested")} ${fmtPKR(761190)}`}
+          value={<CountUpNumber value={isLoggedIn && portfolioValue ? portfolioValue.totals.market_value : 858054} prefix="PKR " />}
+          sub={`${t("Total Invested")} ${fmtPKR(isLoggedIn && portfolioValue ? portfolioValue.totals.cost_basis : 761190)}`}
         />
-        <StatCard label="Total Invested" value={<CountUpNumber value={761190} prefix="PKR " />} />
+        <StatCard label="Total Invested" value={<CountUpNumber value={isLoggedIn && portfolioValue ? portfolioValue.totals.cost_basis : 761190} prefix="PKR " />} />
         <StatCard
           label="Total Gain"
-          value={<CountUpNumber value={96864} prefix="+PKR " />}
-          sub="+12.73%"
+          value={<CountUpNumber value={isLoggedIn && portfolioValue ? portfolioValue.totals.unrealized_pnl : 96864} prefix="+PKR " />}
+          sub={isLoggedIn && portfolioValue ? `${portfolioValue.totals.pnl_pct >= 0 ? "+" : ""}${portfolioValue.totals.pnl_pct.toFixed(2)}%` : "+12.73%"}
           subColor="text-bull"
         />
         <StatCard
@@ -471,7 +517,7 @@ function Portfolio() {
                 const isSell = h.signal === "SELL" || h.signal === "STRONG SELL";
                 return (
                   <tr
-                    key={`${h.ticker}-${idx}`}
+                    key={`${h.ticker}-${isLoggedIn && apiHoldings ? apiHoldings[idx].id : idx}`}
                     className={cn(
                       "border-b border-border/50",
                       isSell && "border-s-2 border-s-bear bg-bear/[0.04]",
