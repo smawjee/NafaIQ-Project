@@ -24,7 +24,10 @@ import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/use-auth";
 import { useDemo } from "@/hooks/use-demo";
 import { useLang, localizeDigits } from "@/hooks/use-lang";
-import { useFinanceStore, financeActions } from "@/hooks/finance/use-finance-store";
+import { useAppDispatch } from "@/store/hooks";
+import { addTransaction } from "@/store/finance";
+import { addHolding } from "@/store/portfolio";
+import { addAlert } from "@/store/alerts";
 import { usePortfolioList, useAddHolding, useCreatePortfolio, usePortfolioHistory, usePortfolioNetworth } from "@/hooks/use-portfolio";
 import { useCreateUserAlert } from "@/hooks/use-alerts";
 import { useFinanceSummary } from "@/hooks/use-finance-summary";
@@ -103,7 +106,7 @@ function Dashboard() {
   const { isDemo } = useDemo();
   const { t } = useLang();
   const { theme } = useTheme();
-  const useShowcaseDashboard = !user || isDemo;
+  const useShowcaseDashboard = isDemo;
   const firstName = (profile?.display_name || user?.email?.split("@")[0] || "Investor").split(
     " ",
   )[0];
@@ -244,7 +247,7 @@ function Dashboard() {
       )}
 
       {/* Metric cards — Net Worth primary, rest secondary */}
-      {user && networth && networth.holding_count === 0 ? (
+      {user && !isDemo && networth && networth.holding_count === 0 ? (
         <div className="rounded-[14px] border border-white/[0.06] bg-surface p-5 text-center">
           <h2 className="text-lg font-semibold text-text-primary">{t("Welcome to NafaIQ!")}</h2>
           <p className="mt-2 max-w-md mx-auto text-sm leading-relaxed text-text-secondary">
@@ -511,6 +514,8 @@ const TX_ACCOUNTS = ["HBL Current", "Meezan Debit", "Easypaisa", "Meezan Savings
 function QuickAddTransactionModal({ open, onClose }: { open: boolean; onClose: () => void }) {
   const { t } = useLang();
   const { user } = useAuth();
+  const { isDemo } = useDemo();
+  const dispatch = useAppDispatch();
   const createTransaction = useCreateTransaction();
   const [kind, setKind] = useState<"expense" | "income">("expense");
   const [merchant, setMerchant] = useState("");
@@ -525,7 +530,7 @@ function QuickAddTransactionModal({ open, onClose }: { open: boolean; onClose: (
     if (!merchant.trim()) return setErr(t("Please enter a merchant name."));
     if (!amount || Number.isNaN(num) || num <= 0) return setErr(t("Please enter a valid amount."));
     try {
-      if (user) {
+      if (user && !isDemo) {
         await createTransaction.mutateAsync({
           merchant: merchant.trim(),
           category: kind === "income" ? "Income" : category,
@@ -535,12 +540,12 @@ function QuickAddTransactionModal({ open, onClose }: { open: boolean; onClose: (
           transaction_date: new Date().toISOString(),
         });
       } else {
-        financeActions.addTransaction({
+        dispatch(addTransaction({
           merchant: merchant.trim(),
           category: kind === "income" ? "Income" : category,
           account,
           amount: kind === "income" ? num : -num,
-        });
+        }));
       }
       toast.success(t("Transaction added"));
       setMerchant("");
@@ -622,7 +627,9 @@ function QuickAddTransactionModal({ open, onClose }: { open: boolean; onClose: (
 function QuickAddHoldingModal({ open, onClose }: { open: boolean; onClose: () => void }) {
   const { t } = useLang();
   const { user } = useAuth();
-  const isLoggedIn = !!user;
+  const { isDemo } = useDemo();
+  const dispatch = useAppDispatch();
+  const isLoggedIn = !!user && !isDemo;
   const { data: portfolios } = usePortfolioList();
   const portfolioId = portfolios?.[0]?.id ?? null;
   const addHoldingApi = useAddHolding(portfolioId);
@@ -676,14 +683,14 @@ function QuickAddHoldingModal({ open, onClose }: { open: boolean; onClose: () =>
         createPortfolio.mutate("Main", { onSuccess: (p) => doAdd(p.id) });
       }
     } else {
-      financeActions.addHolding({
+      dispatch(addHolding({
         ticker: sym,
         sector: stock?.sector ?? "—",
         shares: s,
         avgCost: ac,
         current: cur,
         signal: computeSignal(sym, cur, ac),
-      });
+      }));
       toast.success(t("Holding added"));
       setTicker("");
       setShares("");
@@ -739,7 +746,9 @@ const ALERT_STOCKS = ["HBL", "ENGRO", "LUCK", "OGDC"];
 function QuickAddAlertModal({ open, onClose }: { open: boolean; onClose: () => void }) {
   const { t } = useLang();
   const { user } = useAuth();
-  const isLoggedIn = !!user;
+  const { isDemo } = useDemo();
+  const dispatch = useAppDispatch();
+  const isLoggedIn = !!user && !isDemo;
   const createUserAlert = useCreateUserAlert();
   const [type, setType] = useState("Stock Price");
   const [stock, setStock] = useState(ALERT_STOCKS[0]);
@@ -802,10 +811,10 @@ function QuickAddAlertModal({ open, onClose }: { open: boolean; onClose: () => v
       );
     } else {
       const channels = [push && "Push", email && "Email"].filter(Boolean).join(" + ") || "In-app";
-      financeActions.addAlert(
-        { emoji: ty.emoji, title, type: `${type} Alert`, meta: typeof meta === "string" ? meta : JSON.stringify(meta), on: true },
-        `New alert created: ${title} (${channels})`,
-      );
+      dispatch(addAlert({
+        alert: { emoji: ty.emoji, title, type: `${type} Alert`, meta: typeof meta === "string" ? meta : JSON.stringify(meta), on: true },
+        notifMsg: `New alert created: ${title} (${channels})`,
+      }));
       toast.success(t("Alert created"));
       setPrice("");
       setBudgetThreshold("80");

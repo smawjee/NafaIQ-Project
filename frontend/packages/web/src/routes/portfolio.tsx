@@ -21,9 +21,11 @@ import { STOCKS, fmtPKR, fmtNum, type Holding, type Signal } from "@/lib/data";
 import { cn } from "@/lib/utils";
 import { EmojiIcon } from "@/components/icons/icons";
 import { useLang } from "@/hooks/use-lang";
-import { useFinanceStore, financeActions } from "@/hooks/finance/use-finance-store";
 import { useAuth } from "@/hooks/use-auth";
 import { useDemo } from "@/hooks/use-demo";
+import { useAppDispatch, useAppSelector } from "@/store/hooks";
+import { selectHoldings } from "@/store/portfolio";
+import { addHolding, updateHolding, removeHolding } from "@/store/portfolio";
 import { usePortfolioList, useHoldings, usePortfolioValue, useAddHolding, useUpdateHolding, useRemoveHolding, useCreatePortfolio, usePortfolioNetworth, usePortfolioHistory } from "@/hooks/use-portfolio";
 import { usePsxSymbols } from "@/hooks/psx/use-psx";
 import { Modal, fieldClass } from "@/components/shared/Modal";
@@ -286,7 +288,8 @@ function Portfolio() {
   const { t } = useLang();
   const { user } = useAuth();
   const { isDemo } = useDemo();
-  const { holdings: localHoldings } = useFinanceStore();
+  const dispatch = useAppDispatch();
+  const localHoldings = useAppSelector(selectHoldings);
   const { data: portfolios } = usePortfolioList();
   const portfolioId = portfolios?.[0]?.id ?? null;
   const { data: apiHoldings } = useHoldings(portfolioId);
@@ -299,7 +302,7 @@ function Portfolio() {
   const createPortfolio = useCreatePortfolio();
 
   const isLoggedIn = !!user;
-  const useDemoPortfolio = !isLoggedIn || isDemo;
+  const useDemoPortfolio = isDemo;
   const apiPortfolioHoldings: Holding[] = (apiHoldings ?? []).map((h) => ({
         ticker: h.symbol,
         sector: STOCKS[h.symbol]?.sector ?? "Other",
@@ -397,7 +400,7 @@ function Portfolio() {
     if (!useDemoPortfolio && apiHoldings?.[idx]) {
       removeHoldingApi.mutate(apiHoldings[idx].id);
     } else {
-      financeActions.removeHolding(idx);
+      dispatch(removeHolding(idx));
     }
   }
 
@@ -439,9 +442,9 @@ function Portfolio() {
       }
     } else {
       if (editIdx == null) {
-        financeActions.addHolding(entry);
+        dispatch(addHolding(entry));
       } else {
-        financeActions.updateHolding(editIdx, entry);
+        dispatch(updateHolding({ index: editIdx, holding: entry }));
       }
     }
     setFormOpen(false);
