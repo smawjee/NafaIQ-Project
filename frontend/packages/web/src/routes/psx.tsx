@@ -134,7 +134,7 @@ export default function PSX() {
 
   const { data: snapshot } = usePsxLiveMarket();
   usePsxRealtime();
-  const { data: ohlcvData } = usePsxHistory(sym === "KSE-100" ? undefined : sym);
+  const { data: ohlcvData } = usePsxHistory(sym === "KSE-100" ? "KSE100" : sym);
   const { data: sectorData } = usePsxSectors();
   const { data: symbolsData } = usePsxSymbols();
   const { data: kse100Data } = usePsxIndexData("KSE100");
@@ -173,13 +173,16 @@ export default function PSX() {
   const visibleCount = tfDays(tf);
 
   const full = useMemo(() => {
-    if (sym === "KSE-100" && kse100Data && kse100Data.length > 0) {
+    if (sym === "KSE-100" && ohlcvData && ohlcvData.length > 0) {
+      return ohlcvData.slice(-250);
+    }
+    if (kse100Data && kse100Data.length > 0) {
       return kse100Data.map((b) => ({
         date: b.date,
         t: new Date(b.date).getTime(),
-        open: b.close,
-        high: b.close,
-        low: b.close,
+        open: b.open ?? b.close,
+        high: b.high ?? b.close,
+        low: b.low ?? b.close,
         close: b.close,
         volume: b.volume ?? 0,
       }));
