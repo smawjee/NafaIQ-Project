@@ -520,6 +520,276 @@ export type Database = {
         }
         Relationships: []
       }
+      user_alerts: {
+        Row: {
+          created_at: string | null
+          enabled: boolean | null
+          id: number
+          meta: Json | null
+          title: string
+          triggered_at: string | null
+          type: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          enabled?: boolean | null
+          id?: number
+          meta?: Json | null
+          title: string
+          triggered_at?: string | null
+          type: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          enabled?: boolean | null
+          id?: number
+          meta?: Json | null
+          title?: string
+          triggered_at?: string | null
+          type?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      in_app_notifications: {
+        Row: {
+          body: string
+          created_at: string | null
+          id: number
+          kind: string
+          link: string | null
+          read: boolean | null
+          title: string
+          user_id: string
+        }
+        Insert: {
+          body: string
+          created_at?: string | null
+          id?: number
+          kind: string
+          link?: string | null
+          read?: boolean | null
+          title: string
+          user_id: string
+        }
+        Update: {
+          body?: string
+          created_at?: string | null
+          id?: number
+          kind?: string
+          link?: string | null
+          read?: boolean | null
+          title?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      user_notification_prefs: {
+        Row: {
+          email_alerts: boolean | null
+          in_app_alerts: boolean | null
+          push_alerts: boolean | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          email_alerts?: boolean | null
+          in_app_alerts?: boolean | null
+          push_alerts?: boolean | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          email_alerts?: boolean | null
+          in_app_alerts?: boolean | null
+          push_alerts?: boolean | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      user_transactions: {
+        Row: {
+          amount: number
+          category: string
+          created_at: string | null
+          currency: string | null
+          id: number
+          merchant: string
+          note: string | null
+          source: string | null
+          transaction_date: string | null
+          transaction_type: string
+          user_id: string
+        }
+        Insert: {
+          amount: number
+          category: string
+          created_at?: string | null
+          currency?: string | null
+          id?: number
+          merchant: string
+          note?: string | null
+          source?: string | null
+          transaction_date?: string | null
+          transaction_type: string
+          user_id: string
+        }
+        Update: {
+          amount?: number
+          category?: string
+          created_at?: string | null
+          currency?: string | null
+          id?: number
+          merchant?: string
+          note?: string | null
+          source?: string | null
+          transaction_date?: string | null
+          transaction_type?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      user_goals: {
+        Row: {
+          ai_tip: string | null
+          color: string | null
+          created_at: string | null
+          emoji: string | null
+          id: number
+          name: string
+          saved: number | null
+          target: number
+          target_date: string | null
+          user_id: string
+        }
+        Insert: {
+          ai_tip?: string | null
+          color?: string | null
+          created_at?: string | null
+          emoji?: string | null
+          id?: number
+          name: string
+          saved?: number | null
+          target: number
+          target_date?: string | null
+          user_id: string
+        }
+        Update: {
+          ai_tip?: string | null
+          color?: string | null
+          created_at?: string | null
+          emoji?: string | null
+          id?: number
+          name?: string
+          saved?: number | null
+          target?: number
+          target_date?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      user_budgets: {
+        Row: {
+          category: string
+          created_at: string | null
+          id: number
+          limit_amount: number | null
+          period: string | null
+          spent: number | null
+          tip: string | null
+          user_id: string
+        }
+        Insert: {
+          category: string
+          created_at?: string | null
+          id?: number
+          limit_amount?: number | null
+          period?: string | null
+          spent?: number | null
+          tip?: string | null
+          user_id: string
+        }
+        Update: {
+          category?: string
+          created_at?: string | null
+          id?: number
+          limit_amount?: number | null
+          period?: string | null
+          spent?: number | null
+          tip?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      user_bills: {
+        Row: {
+          amount: number
+          created_at: string | null
+          currency: string | null
+          due_date: string | null
+          id: number
+          name: string
+          paid_at: string | null
+          recurring: boolean | null
+          status: string | null
+          user_id: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string | null
+          currency?: string | null
+          due_date?: string | null
+          id?: number
+          name: string
+          paid_at?: string | null
+          recurring?: boolean | null
+          status?: string | null
+          user_id: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string | null
+          currency?: string | null
+          due_date?: string | null
+          id?: number
+          name?: string
+          paid_at?: string | null
+          recurring?: boolean | null
+          status?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      user_settings: {
+        Row: {
+          currency: string | null
+          language: string | null
+          monthly_income: number | null
+          plan: string | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          currency?: string | null
+          language?: string | null
+          monthly_income?: number | null
+          plan?: string | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          currency?: string | null
+          language?: string | null
+          monthly_income?: number | null
+          plan?: string | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
