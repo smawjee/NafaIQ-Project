@@ -49,6 +49,14 @@ class Settings(BaseSettings):
     # API authentication — shared bearer token for Python API
     psx_api_token: str = ""
 
+    # Supabase JWT secret — for validating user session tokens on /api/portfolio/* and /api/notifications/*
+    # Get from Supabase Dashboard > Settings > API > JWT Secret
+    supabase_jwt_secret: str = ""
+
+    # Resend (email delivery for alert notifications)
+    resend_api_key: str = ""
+    resend_from_email: str = "alerts@nafaiq.app"
+
     ahletrade_base_url: str = "http://feed.ahletrade.com/HTTPFeedServer/FeedFetcher"
     dps_base_url: str = "https://dps.psx.com.pk"
     log_level: str = "INFO"
