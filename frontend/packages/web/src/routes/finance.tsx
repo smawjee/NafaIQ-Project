@@ -34,7 +34,9 @@ import { BUDGETS, INCOME_EXPENSE, type Goal } from "@/lib/finance/data";
 import { cn } from "@/lib/utils";
 import { useLang } from "@/hooks/use-lang";
 import { useDemo } from "@/hooks/use-demo";
-import { useFinanceStore, financeActions } from "@/hooks/finance/use-finance-store";
+import { useAppDispatch, useAppSelector } from "@/store/hooks";
+import { selectGoals } from "@/store/finance";
+import { addGoal, contributeToGoal } from "@/store/finance";
 import { useFinanceSummary } from "@/hooks/use-finance-summary";
 import { useFinanceBudgets } from "@/hooks/use-finance-budgets";
 import { useFinanceGoals as useApiFinanceGoals, useCreateGoal as useApiCreateGoal, useContributeGoal as useApiContributeGoal } from "@/hooks/use-finance-goals";
@@ -235,7 +237,7 @@ function Overview() {
   const { data: summary } = useFinanceSummary(undefined, !!user);
   const { data: seriesData } = useIncomeExpenseSeries(6, !!user);
   const hasSeries = !!user && !!seriesData && seriesData.series.length > 0;
-  const useShowcaseFinance = !user || isDemo;
+  const useShowcaseFinance = isDemo;
 
   const incomeVal = useShowcaseFinance ? 47500 : (summary?.income ?? 0);
   const expensesVal = useShowcaseFinance ? 18675 : (summary?.expenses ?? 0);
@@ -976,8 +978,10 @@ function Bills() {
 function Goals() {
   const { t } = useLang();
   const { user } = useAuth();
-  const { goals: storeGoals } = useFinanceStore();
-  const { data: apiGoals } = useApiFinanceGoals(!!user);
+  const { isDemo } = useDemo();
+  const dispatch = useAppDispatch();
+  const storeGoals = useAppSelector(selectGoals);
+  const { data: apiGoals } = useApiFinanceGoals(!!user && !isDemo);
   const createGoalApi = useApiCreateGoal();
   const contributeGoalApi = useApiContributeGoal();
   const [open, setOpen] = useState(false);
@@ -990,7 +994,7 @@ function Goals() {
   const [contribAmount, setContribAmount] = useState("");
   const [contribErr, setContribErr] = useState("");
 
-  const displayGoals: Goal[] = user
+  const displayGoals: Goal[] = user && !isDemo
     ? (apiGoals ?? []).map((g) => ({
         emoji: g.emoji || "🎯",
         name: g.name,
@@ -1008,7 +1012,7 @@ function Goals() {
     if (!name.trim()) return setErr(t("Please enter a goal name."));
     if (!target || Number.isNaN(num) || num <= 0)
       return setErr(t("Please enter a valid target amount."));
-    if (user) {
+    if (user && !isDemo) {
       createGoalApi.mutate({
         name: name.trim(),
         target: num,
@@ -1026,7 +1030,7 @@ function Goals() {
         date: date ? format(date, "MMM d, yyyy") : undefined,
         ai: t("New goal created. Start contributing to track your progress."),
       };
-      financeActions.addGoal(goal);
+      dispatch(addGoal(goal));
     }
     setName("");
     setTarget("");
@@ -1046,11 +1050,11 @@ function Goals() {
     if (!contribAmount || Number.isNaN(num) || num <= 0)
       return setContribErr(t("Please enter a valid amount."));
     if (contribGoal) {
-      if (user && apiGoals) {
+      if (user && !isDemo && apiGoals) {
         const goal = apiGoals.find((g) => g.name === contribGoal);
         if (goal) contributeGoalApi.mutate({ id: goal.id, amount: num });
       } else {
-        financeActions.contributeToGoal(contribGoal, num);
+        dispatch(contributeToGoal({ name: contribGoal, amount: num }));
       }
     }
     setContribGoal(null);

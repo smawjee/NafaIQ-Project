@@ -10,6 +10,7 @@ import {
   Scripts,
 } from "@tanstack/react-router";
 import { useEffect, type ReactNode } from "react";
+import { Provider } from "react-redux";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { Loader2 } from "lucide-react";
 
@@ -20,6 +21,7 @@ import { AuthProvider, useAuth } from "@/hooks/use-auth";
 import { LandingThemeProvider } from "@/hooks/use-landing-theme";
 import { LearnProvider } from "@/hooks/learn/use-learn";
 import { Toaster } from "@/components/ui/sonner";
+import { store } from "../store";
 
 function NotFoundComponent() {
   return (
@@ -254,16 +256,18 @@ function RootComponent() {
   const { queryClient } = Route.useRouteContext();
 
   return (
-    <QueryClientProvider client={queryClient}>
-      {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
-      <AuthProvider>
-        <LearnProvider>
-          <LandingThemeProvider>
-            <AuthGate />
-            <Toaster />
-          </LandingThemeProvider>
-        </LearnProvider>
-      </AuthProvider>
-    </QueryClientProvider>
+    <Provider store={store}>
+      <QueryClientProvider client={queryClient}>
+        {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
+        <AuthProvider>
+          <LearnProvider>
+            <LandingThemeProvider>
+              <AuthGate />
+              <Toaster />
+            </LandingThemeProvider>
+          </LearnProvider>
+        </AuthProvider>
+      </QueryClientProvider>
+    </Provider>
   );
 }

@@ -7,8 +7,11 @@ import { EmojiIcon } from "@/components/icons/icons";
 import { Checkbox } from "@/components/ui/checkbox";
 import { cn } from "@/lib/utils";
 import { useLang } from "@/hooks/use-lang";
-import { useFinanceStore, financeActions } from "@/hooks/finance/use-finance-store";
 import { useAuth } from "@/hooks/use-auth";
+import { useDemo } from "@/hooks/use-demo";
+import { useAppDispatch, useAppSelector } from "@/store/hooks";
+import { selectAlerts, selectNotifications } from "@/store/alerts";
+import { addAlert, toggleAlert, removeAlert } from "@/store/alerts";
 import { useUserAlerts, usePriceAlerts, useCreateUserAlert, useToggleUserAlert, useRemoveUserAlert } from "@/hooks/use-alerts";
 import { useNotifications } from "@/hooks/use-notifications";
 import { BUDGETS, GOALS, BILLS } from "@/lib/finance/data";
@@ -38,9 +41,12 @@ const STOCKS = ["HBL", "ENGRO", "LUCK", "OGDC"];
 function Alerts() {
   const { t } = useLang();
   const { user } = useAuth();
-  const isLoggedIn = !!user;
+  const { isDemo } = useDemo();
+  const dispatch = useAppDispatch();
+  const isLoggedIn = !!user && !isDemo;
 
-  const { alerts: localAlerts, notifications: localNotifications } = useFinanceStore();
+  const localAlerts = useAppSelector(selectAlerts);
+  const localNotifications = useAppSelector(selectNotifications);
   const { data: userAlerts } = useUserAlerts();
   const { data: priceAlerts } = usePriceAlerts();
   const { data: apiNotifications } = useNotifications();
@@ -48,9 +54,6 @@ function Alerts() {
   const toggleUserAlert = useToggleUserAlert();
   const removeUserAlert = useRemoveUserAlert();
 
-  // For logged-in users: use API data. For anonymous: use localStorage.
-  const localAlertsTyped: typeof localAlerts = localAlerts;
-  const localNotificationsTyped: typeof localNotifications = localNotifications;
 
   const [type, setType] = useState("Stock Price");
 
@@ -105,8 +108,10 @@ function Alerts() {
       });
     } else {
       const channels = [push && "Push", email && "Email"].filter(Boolean).join(" + ") || "In-app";
-      const alert = { emoji: ty.emoji, title, type: `${type} Alert`, meta: JSON.stringify(meta), on: true };
-      financeActions.addAlert(alert, `New alert created: ${title} (${channels})`);
+      dispatch(addAlert({
+        alert: { emoji: ty.emoji, title, type: `${type} Alert`, meta: JSON.stringify(meta), on: true },
+        notifMsg: `New alert created: ${title} (${channels})`,
+      }));
     }
     setPrice("");
     setBudgetThreshold("80");
@@ -154,7 +159,7 @@ function Alerts() {
                 <Trash2 className="h-4 w-4" />
               </button>
             </Card>
-          )) : !isLoggedIn && localAlertsTyped.map((a, i) => (
+          )) : !isLoggedIn && localAlerts.map((a, i) => (
             <Card key={i} className="flex items-center gap-3">
               <span className={cn(
                 "flex h-9 w-9 items-center justify-center rounded-[8px] border border-white/[0.06] bg-elevated text-text-secondary",
@@ -169,7 +174,7 @@ function Alerts() {
                 </div>
               </div>
               <button
-                onClick={() => financeActions.toggleAlert(i)}
+                onClick={() => dispatch(toggleAlert(i))}
                 className={cn(
                   "relative h-5 w-9 rounded-full transition",
                   a.on ? "bg-bull" : "bg-elevated border border-white/20",
@@ -388,7 +393,7 @@ function Alerts() {
               </div>
               {!n.read && <span className="h-2 w-2 shrink-0 rounded-full bg-bull" />}
             </div>
-          )) : !isLoggedIn && localNotificationsTyped.map((n, i) => (
+          )) : !isLoggedIn && localNotifications.map((n, i) => (
             <div key={i} className="flex items-center gap-3 px-3 py-3">
               <span className={cn(
                 "flex h-8 w-8 items-center justify-center rounded-[8px] border border-white/[0.06] bg-elevated text-text-secondary",
@@ -414,7 +419,7 @@ function Alerts() {
             if (isLoggedIn && userAlerts) {
               removeUserAlert.mutate(userAlerts[confirmIdx].id);
             } else {
-              financeActions.removeAlert(confirmIdx);
+              dispatch(removeAlert(confirmIdx));
             }
           }
           setConfirmIdx(null);
