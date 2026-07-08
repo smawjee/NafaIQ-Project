@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import {
   Sparkles,
   Loader2,
@@ -21,7 +21,13 @@ import { STOCKS, fmtPKR, fmtNum, type Holding, type Signal } from "@/lib/data";
 import { cn } from "@/lib/utils";
 import { EmojiIcon } from "@/components/icons/icons";
 import { useLang } from "@/hooks/use-lang";
-import { useFinanceStore, financeActions } from "@/hooks/finance/use-finance-store";
+import { useAuth } from "@/hooks/use-auth";
+import { useDemo } from "@/hooks/use-demo";
+import { useAppDispatch, useAppSelector } from "@/store/hooks";
+import { selectHoldings } from "@/store/portfolio";
+import { addHolding, updateHolding, removeHolding } from "@/store/portfolio";
+import { usePortfolioList, useHoldings, usePortfolioValue, useAddHolding, useUpdateHolding, useRemoveHolding, useCreatePortfolio, usePortfolioNetworth, usePortfolioHistory } from "@/hooks/use-portfolio";
+import { usePsxSymbols } from "@/hooks/psx/use-psx";
 import { Modal, fieldClass } from "@/components/shared/Modal";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
 
@@ -55,6 +61,16 @@ function series(n: number) {
       benchmark: Math.round(base * (1 + 0.095 * f)),
     };
   });
+}
+
+function relativeBenchmarkDiff(data: { value: number; benchmark: number }[]) {
+  if (data.length < 2) return null;
+  const first = data[0];
+  const last = data[data.length - 1];
+  if (!first || !last || first.value <= 0 || first.benchmark <= 0) return null;
+  const portfolioPct = ((last.value - first.value) / first.value) * 100;
+  const benchmarkPct = ((last.benchmark - first.benchmark) / first.benchmark) * 100;
+  return portfolioPct - benchmarkPct;
 }
 
 const SECTOR_ALLOC = [
@@ -270,10 +286,81 @@ function computeSignal(ticker: string, current: number, avgCost: number): Signal
 
 function Portfolio() {
   const { t } = useLang();
-  const { holdings } = useFinanceStore();
+  const { user } = useAuth();
+  const { isDemo } = useDemo();
+  const dispatch = useAppDispatch();
+  const localHoldings = useAppSelector(selectHoldings);
+  const { data: portfolios } = usePortfolioList();
+  const portfolioId = portfolios?.[0]?.id ?? null;
+  const { data: apiHoldings } = useHoldings(portfolioId);
+  const { data: portfolioValue } = usePortfolioValue(portfolioId);
+  const { data: networth } = usePortfolioNetworth(!!user);
+  const { data: symbols } = usePsxSymbols();
+  const addHoldingApi = useAddHolding(portfolioId);
+  const updateHoldingApi = useUpdateHolding(portfolioId);
+  const removeHoldingApi = useRemoveHolding(portfolioId);
+  const createPortfolio = useCreatePortfolio();
+
+  const isLoggedIn = !!user;
+  const useDemoPortfolio = isDemo;
+  const apiPortfolioHoldings: Holding[] = (apiHoldings ?? []).map((h) => ({
+        ticker: h.symbol,
+        sector: STOCKS[h.symbol]?.sector ?? "Other",
+        shares: h.shares,
+        avgCost: h.avg_cost,
+        current: portfolioValue?.holdings.find((v) => v.id === h.id)?.current_price ?? h.avg_cost,
+        signal: (STOCKS[h.symbol]?.signal ?? computeSignal(h.symbol, h.avg_cost, h.avg_cost)) as Signal,
+      }));
+  const holdings: Holding[] = useDemoPortfolio ? localHoldings : apiPortfolioHoldings;
+
+  const sectorAllocData = useMemo(() => {
+    if (useDemoPortfolio) return SECTOR_ALLOC;
+    if (!holdings.length || !symbols) return [];
+    const sectorMap = new Map((symbols ?? []).map((s) => [s.symbol, s.sector ?? "Other"]));
+    const totals = new Map<string, number>();
+    for (const h of holdings) {
+      const sector = sectorMap.get(h.ticker) ?? "Other";
+      const value = (h.current || h.avgCost) * h.shares;
+      totals.set(sector, (totals.get(sector) ?? 0) + value);
+    }
+    const grand = Array.from(totals.values()).reduce((a, b) => a + b, 0);
+    if (grand <= 0) return [];
+    const palette = ["#00d4aa", "#3b82f6", "#f59e0b", "#8b5cf6", "#6b7280", "#ec4899", "#10b981"];
+    return Array.from(totals.entries())
+      .sort((a, b) => b[1] - a[1])
+      .map(([name, value], i) => ({
+        name,
+        value: Math.round((value / grand) * 100),
+        color: palette[i % palette.length],
+      }));
+  }, [useDemoPortfolio, holdings, symbols]);
+
+  const stockAllocData = useMemo(() => {
+    if (useDemoPortfolio) return STOCK_ALLOC;
+    if (!holdings.length) return [];
+    const total = holdings.reduce((a, h) => a + (h.current || h.avgCost) * h.shares, 0);
+    if (total <= 0) return [];
+    const palette = ["#00d4aa", "#3b82f6", "#f59e0b", "#8b5cf6", "#6b7280", "#ec4899", "#10b981"];
+    return holdings
+      .map((h, i) => ({
+        name: h.ticker,
+        value: Math.round(((h.current || h.avgCost) * h.shares / total) * 100),
+        color: palette[i % palette.length],
+      }))
+      .sort((a, b) => b.value - a.value);
+  }, [useDemoPortfolio, holdings]);
+
   const [range, setRange] = useState<(typeof RANGES)[number]>("6M");
   const [reportState, setReportState] = useState<"idle" | "loading" | "open">("idle");
   const n = range === "1M" ? 2 : range === "3M" ? 3 : range === "6M" ? 6 : 12;
+  const historyDays = range === "1M" ? 30 : range === "3M" ? 90 : range === "1Y" ? 365 : 180;
+  const shouldUseUserPerformance = isLoggedIn && !isDemo;
+  const { data: portfolioHistory, isLoading: portfolioHistoryLoading } = usePortfolioHistory(
+    historyDays,
+    shouldUseUserPerformance,
+  );
+  const performanceData = shouldUseUserPerformance ? (portfolioHistory?.points ?? []) : series(n);
+  const benchmarkDiff = shouldUseUserPerformance ? relativeBenchmarkDiff(performanceData) : 3.2;
 
   const [formOpen, setFormOpen] = useState(false);
   const [editIdx, setEditIdx] = useState<number | null>(null);
@@ -310,7 +397,11 @@ function Portfolio() {
   }
 
   function remove(idx: number) {
-    financeActions.removeHolding(idx);
+    if (!useDemoPortfolio && apiHoldings?.[idx]) {
+      removeHoldingApi.mutate(apiHoldings[idx].id);
+    } else {
+      dispatch(removeHolding(idx));
+    }
   }
 
   function saveHolding() {
@@ -334,10 +425,27 @@ function Portfolio() {
       current: cur,
       signal,
     };
-    if (editIdx == null) {
-      financeActions.addHolding(entry);
+    if (!useDemoPortfolio) {
+      if (editIdx == null) {
+        // Auto-create default portfolio if user has none
+        if (!portfolioId) {
+          createPortfolio.mutate("Main", {
+            onSuccess: (p) => {
+              addHoldingApi.mutate({ symbol: entry.ticker, shares: entry.shares, avg_cost: entry.avgCost });
+            },
+          });
+        } else {
+          addHoldingApi.mutate({ symbol: entry.ticker, shares: entry.shares, avg_cost: entry.avgCost });
+        }
+      } else if (apiHoldings?.[editIdx]) {
+        updateHoldingApi.mutate({ holdingId: apiHoldings[editIdx].id, shares: entry.shares, avg_cost: entry.avgCost });
+      }
     } else {
-      financeActions.updateHolding(editIdx, entry);
+      if (editIdx == null) {
+        dispatch(addHolding(entry));
+      } else {
+        dispatch(updateHolding({ index: editIdx, holding: entry }));
+      }
     }
     setFormOpen(false);
   }
@@ -354,20 +462,20 @@ function Portfolio() {
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         <StatCard
           label="Portfolio Value"
-          value={<CountUpNumber value={858054} prefix="PKR " />}
-          sub={`${t("Total Invested")} ${fmtPKR(761190)}`}
+          value={<CountUpNumber value={isLoggedIn ? (portfolioValue?.totals.market_value ?? networth?.total_market_value ?? 0) : 858054} prefix="PKR " />}
+          sub={`${t("Total Invested")} ${fmtPKR(isLoggedIn ? (portfolioValue?.totals.cost_basis ?? networth?.total_cost_basis ?? 0) : 761190)}`}
         />
-        <StatCard label="Total Invested" value={<CountUpNumber value={761190} prefix="PKR " />} />
+        <StatCard label="Total Invested" value={<CountUpNumber value={isLoggedIn ? (portfolioValue?.totals.cost_basis ?? networth?.total_cost_basis ?? 0) : 761190} prefix="PKR " />} />
         <StatCard
           label="Total Gain"
-          value={<CountUpNumber value={96864} prefix="+PKR " />}
-          sub="+12.73%"
+          value={<CountUpNumber value={isLoggedIn ? (portfolioValue?.totals.unrealized_pnl ?? networth?.total_unrealized_pnl ?? 0) : 96864} prefix={isLoggedIn && (portfolioValue?.totals.unrealized_pnl ?? networth?.total_unrealized_pnl ?? 0) >= 0 ? "+PKR " : "PKR "} />}
+          sub={isLoggedIn && portfolioValue ? `${portfolioValue.totals.pnl_pct >= 0 ? "+" : ""}${portfolioValue.totals.pnl_pct.toFixed(2)}%` : isLoggedIn && networth ? `${networth.total_unrealized_pnl_pct >= 0 ? "+" : ""}${networth.total_unrealized_pnl_pct.toFixed(2)}%` : isLoggedIn ? "0.00%" : "+12.73%"}
           subColor="text-bull"
         />
         <StatCard
           label="Today's P/L"
-          value={<CountUpNumber value={17480} prefix="+PKR " />}
-          sub="+1.42%"
+          value={<CountUpNumber value={isLoggedIn ? Math.round(networth?.today_pnl ?? 0) : 17480} prefix={isLoggedIn && (networth?.today_pnl ?? 0) >= 0 ? "+PKR " : "PKR "} />}
+          sub={isLoggedIn && networth ? `${networth.today_pnl_pct >= 0 ? "+" : ""}${networth.today_pnl_pct.toFixed(2)}%` : isLoggedIn ? "0.00%" : "+1.42%"}
           subColor="text-bull"
         />
       </div>
@@ -375,8 +483,23 @@ function Portfolio() {
       <Card>
         <div className="mb-3 flex items-center justify-between">
           <div>
-        <h3 className="text-sm font-semibold text-text-primary">{t("Performance vs KSE-100")}</h3>
-            <span className="text-xs text-bull">{t("Outperforming benchmark by +3.2%")}</span>
+            <h3 className="text-sm font-semibold text-text-primary">{t("Performance vs KSE-100")}</h3>
+            <span
+              className={cn(
+                "text-xs",
+                benchmarkDiff == null
+                  ? "text-text-muted"
+                  : benchmarkDiff >= 0
+                    ? "text-bull"
+                    : "text-bear",
+              )}
+            >
+              {shouldUseUserPerformance
+                ? benchmarkDiff == null
+                  ? t("Add holdings to compare performance with KSE-100")
+                  : `${benchmarkDiff >= 0 ? t("Outperforming") : t("Underperforming")} ${t("benchmark by")} ${benchmarkDiff >= 0 ? "+" : ""}${benchmarkDiff.toFixed(2)}%`
+                : t("Outperforming benchmark by +3.2%")}
+            </span>
           </div>
           <div className="flex gap-1">
             {RANGES.map((r) => (
@@ -395,7 +518,17 @@ function Portfolio() {
             ))}
           </div>
         </div>
-        <PortfolioAreaChart data={series(n)} height={280} />
+        {shouldUseUserPerformance && portfolioHistoryLoading ? (
+          <div className="flex h-[280px] items-center justify-center text-sm text-text-secondary">
+            {t("Loading portfolio history...")}
+          </div>
+        ) : shouldUseUserPerformance && performanceData.length === 0 ? (
+          <div className="flex h-[280px] items-center justify-center rounded-[8px] border border-dashed border-border text-center text-sm text-text-secondary">
+            {t("No portfolio history yet. Add holdings to build your performance chart.")}
+          </div>
+        ) : (
+          <PortfolioAreaChart data={performanceData} height={280} />
+        )}
       </Card>
 
       <HaqeeqiDaulat />
@@ -403,27 +536,43 @@ function Portfolio() {
       <div className="grid gap-4 md:grid-cols-2">
         <Card>
           <h3 className="mb-2 text-sm font-semibold text-text-primary">{t("Allocation by Sector")}</h3>
-          <DonutChart data={SECTOR_ALLOC} centerValue="4 sectors" />
-          <div className="mt-2 grid grid-cols-2 gap-1 text-xs">
-            {SECTOR_ALLOC.map((s) => (
-              <span key={s.name} className="flex items-center gap-1.5 text-text-secondary">
-                <span className="h-2 w-2 rounded-full" style={{ background: s.color }} />
-                {t(s.name)} {s.value}%
-              </span>
-            ))}
-          </div>
+          {!useDemoPortfolio && sectorAllocData.length === 0 ? (
+            <div className="flex h-[220px] items-center justify-center rounded-[8px] border border-dashed border-border text-center text-sm text-text-secondary">
+              {t("No sector allocation yet. Add holdings to see your portfolio mix.")}
+            </div>
+          ) : (
+            <>
+              <DonutChart data={sectorAllocData} centerValue={`${sectorAllocData.length} sectors`} />
+              <div className="mt-2 grid grid-cols-2 gap-1 text-xs">
+                {sectorAllocData.map((s) => (
+                  <span key={s.name} className="flex items-center gap-1.5 text-text-secondary">
+                    <span className="h-2 w-2 rounded-full" style={{ background: s.color }} />
+                    {t(s.name)} {s.value}%
+                  </span>
+                ))}
+              </div>
+            </>
+          )}
         </Card>
         <Card>
           <h3 className="mb-2 text-sm font-semibold text-text-primary">{t("Allocation by Stock")}</h3>
-          <DonutChart data={STOCK_ALLOC} centerValue="5 stocks" />
-          <div className="mt-2 grid grid-cols-2 gap-1 text-xs">
-            {STOCK_ALLOC.map((s) => (
-              <span key={s.name} className="flex items-center gap-1.5 text-text-secondary">
-                <span className="h-2 w-2 rounded-full" style={{ background: s.color }} />
-                {t(s.name)} {s.value}%
-              </span>
-            ))}
-          </div>
+          {!useDemoPortfolio && stockAllocData.length === 0 ? (
+            <div className="flex h-[220px] items-center justify-center rounded-[8px] border border-dashed border-border text-center text-sm text-text-secondary">
+              {t("No stock allocation yet. Add holdings to see your stock weights.")}
+            </div>
+          ) : (
+            <>
+              <DonutChart data={stockAllocData} centerValue={`${stockAllocData.length} stocks`} />
+              <div className="mt-2 grid grid-cols-2 gap-1 text-xs">
+                {stockAllocData.map((s) => (
+                  <span key={s.name} className="flex items-center gap-1.5 text-text-secondary">
+                    <span className="h-2 w-2 rounded-full" style={{ background: s.color }} />
+                    {t(s.name)} {s.value}%
+                  </span>
+                ))}
+              </div>
+            </>
+          )}
         </Card>
       </div>
 
@@ -471,7 +620,7 @@ function Portfolio() {
                 const isSell = h.signal === "SELL" || h.signal === "STRONG SELL";
                 return (
                   <tr
-                    key={`${h.ticker}-${idx}`}
+                    key={`${h.ticker}-${!useDemoPortfolio && apiHoldings?.[idx] ? apiHoldings[idx].id : idx}`}
                     className={cn(
                       "border-b border-border/50",
                       isSell && "border-s-2 border-s-bear bg-bear/[0.04]",
@@ -631,29 +780,6 @@ function Portfolio() {
 
 function ReportModal({ onClose }: { onClose: () => void }) {
   const { t } = useLang();
-  const sections = [
-    {
-      icon: "📊",
-      title: "Diversification Analysis",
-      body: "Your portfolio is moderately diversified across 4 sectors. However, Oil & Gas represents 34% of your holdings which increases sector concentration risk. Consider adding a Tech or FMCG stock to balance exposure.",
-    },
-    {
-      icon: "⚠️",
-      title: "Risk Assessment",
-      body: "Medium risk profile. FFC is showing a SELL signal with RSI at 38 — consider reviewing this position. LUCK (HOLD) is underperforming vs sector avg.",
-    },
-    {
-      icon: "💡",
-      title: "Opportunities",
-      body: "HBL and UBL in the Banking sector are both showing Strong Buy signals. Your existing HBL position is +20.4% — consider whether to take partial profits.",
-    },
-    {
-      icon: "🎯",
-      title: "Suggested Actions",
-      body: "1. Review FFC position (SELL signal active)\n2. Consider reducing Oil & Gas concentration below 25%\n3. HBL approaching resistance at 150 — set a price alert",
-    },
-  ];
-  const score = 74;
   return (
     <div
       className="fixed inset-0 z-50 flex items-end justify-center sm:items-center"
@@ -666,39 +792,19 @@ function ReportModal({ onClose }: { onClose: () => void }) {
       >
         <div className="mb-4 flex items-center justify-between">
           <h3 className="text-base font-semibold text-text-primary">
-            {t("Your Portfolio Report — June 2025")}
+            {t("AI Portfolio Report")}
           </h3>
           <button onClick={onClose}>
             <X className="h-5 w-5 text-text-secondary" />
           </button>
         </div>
-        <div className="mb-4 flex items-center justify-center">
-          <div
-            className="relative flex h-28 w-28 items-center justify-center rounded-full"
-            style={{ background: `conic-gradient(#00d4aa ${score * 3.6}deg, #1a2332 0deg)` }}
-          >
-            <div className="flex h-20 w-20 flex-col items-center justify-center rounded-full bg-surface">
-              <span className="font-mono text-2xl font-bold tabular-nums text-bull">{score}</span>
-              <span className="text-[10px] text-text-muted">{t("Health Score")}</span>
-            </div>
-          </div>
-        </div>
-        <div className="space-y-3">
-          {sections.map((s) => (
-            <div key={s.title} className="rounded-[8px] border border-border bg-surface-alt p-3">
-              <div className="flex items-center gap-1.5 text-sm font-semibold text-text-primary">
-                <EmojiIcon emoji={s.icon} size={15} className="text-text-secondary" /> {t(s.title)}
-              </div>
-              <p className="mt-1 whitespace-pre-line text-xs leading-relaxed text-text-secondary">
-                <Typewriter id={`portfolio-report-${s.title}`} speed={8} text={t(s.body)} />
-              </p>
-            </div>
-          ))}
+        <div className="rounded-[10px] border border-white/[0.08] bg-surface-alt p-4 text-center">
+          <p className="text-sm font-semibold text-text-primary">Coming soon</p>
+          <p className="mt-2 text-xs leading-relaxed text-text-secondary">
+            Real AI insights from your portfolio holdings are coming soon. For now, review your live KPIs and allocation breakdown above.
+          </p>
         </div>
         <div className="mt-4 mb-6 flex gap-2">
-          <button className="flex-1 rounded-[10px] bg-primary py-2 text-sm font-semibold text-primary-foreground transition-all duration-200 hover:brightness-110">
-            {t("Export as PDF")}
-          </button>
           <button
             onClick={onClose}
             className="flex-1 rounded-[10px] border border-white/[0.08] bg-surface py-2 text-sm font-semibold text-text-primary transition-colors hover:border-white/[0.16]"

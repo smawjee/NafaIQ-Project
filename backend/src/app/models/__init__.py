@@ -83,6 +83,9 @@ class DividendEvent(BaseModel):
 class IndexBar(BaseModel):
     code: str
     date: date
+    open: Optional[float] = None
+    high: Optional[float] = None
+    low: Optional[float] = None
     close: float
     volume: Optional[int] = None
 

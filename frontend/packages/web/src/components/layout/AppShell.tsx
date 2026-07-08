@@ -28,7 +28,9 @@ import { TICKER_ITEMS, STOCKS } from "@/lib/data";
 import { LEARNING_PATHS, LESSON_CONTENT } from "@/lib/learn/data";
 import { useAuth } from "@/hooks/use-auth";
 import { useLandingTheme } from "@/hooks/use-landing-theme";
+import { DemoBanner } from "@/components/demo/DemoBanner";
 import { useLang } from "@/hooks/use-lang";
+import { useNotifications, useMarkNotificationRead } from "@/hooks/use-notifications";
 import { ScrollToTop } from "@/components/shared/ScrollToTop";
 import { ThemeToggle } from "@/components/shared/ThemeToggle";
 
@@ -225,6 +227,10 @@ function StockSearch() {
 
 function NotificationBell() {
   const { t } = useLang();
+  const { user } = useAuth();
+  const isLoggedIn = !!user;
+  const { data: apiNotifications } = useNotifications();
+  const markRead = useMarkNotificationRead();
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -234,6 +240,20 @@ function NotificationBell() {
     document.addEventListener("mousedown", onClick);
     return () => document.removeEventListener("mousedown", onClick);
   }, []);
+
+  const display = isLoggedIn && apiNotifications ? apiNotifications : null;
+  const unreadCount = display ? display.filter((n) => !n.read).length : NOTIFICATIONS.length;
+  const items = display
+    ? display.slice(0, 10).map((n) => ({
+        id: String(n.id),
+        title: n.title,
+        time: new Date(n.created_at).toLocaleString("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" }),
+        tone: n.kind === "price_alert" ? "bull" : "warning",
+        read: n.read,
+        link: n.link,
+      }))
+    : NOTIFICATIONS.map((n) => ({ ...n, link: null as string | null }));
+
   return (
     <div ref={ref} className="relative shrink-0">
       <button
@@ -242,9 +262,11 @@ function NotificationBell() {
         aria-label={t("Notifications")}
       >
         <Bell className="h-[18px] w-[18px]" strokeWidth={1.75} />
-        <span className="absolute -top-1.5 -end-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-bear text-[9px] font-bold text-white">
-          {NOTIFICATIONS.length}
-        </span>
+        {unreadCount > 0 && (
+          <span className="absolute -top-1.5 -end-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-bear px-1 text-[9px] font-bold text-white">
+            {unreadCount}
+          </span>
+        )}
       </button>
       {open && (
         <div
@@ -266,10 +288,21 @@ function NotificationBell() {
             </Link>
           </div>
           <ul className="max-h-72 overflow-y-auto">
-            {NOTIFICATIONS.map((n) => (
+            {items.length === 0 ? (
+              <li className="px-4 py-6 text-center text-[12px] text-text-muted">
+                {t("No notifications")}
+              </li>
+            ) : items.map((n) => (
               <li
                 key={n.id}
-                className="flex items-start gap-2.5 px-4 py-3 transition-colors hover:bg-white/[0.03]"
+                onClick={() => {
+                  if (isLoggedIn && display) {
+                    const orig = display.find((x) => String(x.id) === n.id);
+                    if (orig && !orig.read) markRead.mutate(orig.id);
+                    if (n.link) window.location.href = n.link;
+                  }
+                }}
+                className="flex items-start gap-2.5 px-4 py-3 transition-colors hover:bg-white/[0.03] cursor-pointer"
               >
                 <span
                   className={cn(
@@ -569,6 +602,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           onExpand={() => toggleCollapsed(false)}
         />
         <Breadcrumbs />
+        <DemoBanner />
         <main className={cn(
           "pt-4 pb-24 lg:pb-8",
           pathname.startsWith("/learn/lesson") ? "px-0" : "px-3 sm:px-5 lg:px-6",

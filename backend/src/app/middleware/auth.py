@@ -14,6 +14,18 @@ PUBLIC_PATHS = {
     "/redoc",
 }
 
+# User-authenticated paths — validated by require_user dependency, not the API token
+USER_PATHS_PREFIXES = (
+    "/api/portfolio",
+    "/api/notifications",
+    "/api/alerts",
+    "/api/finance",
+)
+
+
+def _is_user_path(path: str) -> bool:
+    return any(path.startswith(prefix) for prefix in USER_PATHS_PREFIXES)
+
 
 class BearerTokenMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
@@ -22,6 +34,9 @@ class BearerTokenMiddleware(BaseHTTPMiddleware):
         if not request.url.path.startswith("/api/"):
             return await call_next(request)
         if request.url.path in PUBLIC_PATHS:
+            return await call_next(request)
+        # User paths: pass through; require_user dependency validates JWT
+        if _is_user_path(request.url.path):
             return await call_next(request)
         if not settings.psx_api_token:
             return JSONResponse(
