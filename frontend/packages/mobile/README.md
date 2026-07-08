@@ -21,9 +21,9 @@ http://<host>:8000/api/market/snapshot
 http://<host>:8000/api/finance/transactions
 ```
 
-Use the shared types from `packages/shared-types/`:
+Use the shared types from `packages/shared/`:
 ```ts
-import type { MarketSnapshotItem } from "@nafaiq/shared-types";
+import type { MarketSnapshotItem } from "@nafaiq/shared";
 ```
 
 ## Auth

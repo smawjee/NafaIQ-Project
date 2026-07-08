@@ -1,12 +1,22 @@
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+pnpm-debug.log*
+lerna-debug.log*
+
 # Dependencies
 node_modules/
 .pnpm-store/
 
 # Build outputs
 dist/
+dist-ssr
 .output/
+.vinxi/
 .tanstack/
-.wrangler/
+.nitro/
 
 # Environment (NEVER commit .env files)
 .env
@@ -18,6 +28,18 @@ dist/
 *.key
 credentials.json
 
+# OpenCode agent config
+.opencode/
+
+# NafaIQ project metadata
+.nafaiq/
+
+# Supabase CLI local cache
+supabase/.temp/
+
+# Cloudflare / Wrangler
+.dev.vars
+
 # IDE
 .vscode/
 .idea/
@@ -25,6 +47,11 @@ credentials.json
 # OS
 .DS_Store
 Thumbs.db
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
 
 # Turborepo
 .turbo/
@@ -37,8 +64,8 @@ __pycache__/
 venv/
 *.egg-info/
 
-# Lockfiles
-pnpm-lock.yaml
+# Dev server log
+dev-server.log
 
 # Recall (local project context — gitignored)
 recall/
