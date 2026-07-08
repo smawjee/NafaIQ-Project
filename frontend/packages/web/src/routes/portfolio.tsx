@@ -279,7 +279,7 @@ function Portfolio() {
   const portfolioId = portfolios?.[0]?.id ?? null;
   const { data: apiHoldings } = useHoldings(portfolioId);
   const { data: portfolioValue } = usePortfolioValue(portfolioId);
-  const { data: networth } = usePortfolioNetworth();
+  const { data: networth } = usePortfolioNetworth(!!user);
   const { data: symbols } = usePsxSymbols();
   const addHoldingApi = useAddHolding(portfolioId);
   const updateHoldingApi = useUpdateHolding(portfolioId);

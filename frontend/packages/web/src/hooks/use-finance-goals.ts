@@ -14,10 +14,11 @@ export interface FinanceGoal {
   created_at: string | null;
 }
 
-export function useFinanceGoals() {
+export function useFinanceGoals(enabled: boolean = true) {
   return useQuery<FinanceGoal[]>({
     queryKey: ["finance", "goals"],
     queryFn: () => userGet<FinanceGoal[]>("/api/finance/goals"),
+    enabled,
     staleTime: 60_000,
   });
 }

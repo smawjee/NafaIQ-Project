@@ -12,13 +12,14 @@ export interface FinanceSummary {
   last_month_savings: number;
 }
 
-export function useFinanceSummary(month?: string) {
+export function useFinanceSummary(month?: string, enabled: boolean = true) {
   return useQuery<FinanceSummary>({
     queryKey: ["finance", "summary", month ?? "current"],
     queryFn: () => {
       const qs = month ? `?month=${month}` : "";
       return userGet<FinanceSummary>(`/api/finance/summary${qs}`);
     },
+    enabled,
     staleTime: 60_000,
   });
 }

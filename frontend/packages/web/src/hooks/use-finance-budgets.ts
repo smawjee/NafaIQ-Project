@@ -12,10 +12,11 @@ export interface FinanceBudget {
   created_at: string | null;
 }
 
-export function useFinanceBudgets() {
+export function useFinanceBudgets(enabled: boolean = true) {
   return useQuery<FinanceBudget[]>({
     queryKey: ["finance", "budgets"],
     queryFn: () => userGet<FinanceBudget[]>("/api/finance/budgets"),
+    enabled,
     staleTime: 60_000,
   });
 }
