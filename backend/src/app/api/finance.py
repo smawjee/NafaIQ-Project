@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import datetime, timedelta
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -375,3 +376,182 @@ async def update_settings(body: SettingsUpdate, user: Annotated[dict, Depends(re
                 params,
             )
     return {"ok": True}
+
+
+class FinanceSummaryResponse(BaseModel):
+    month: str
+    income: float
+    expenses: float
+    savings: float
+    savings_rate: float
+    last_month_income: float
+    last_month_expense: float
+    last_month_savings: float
+
+
+@router.get("/finance/summary")
+async def finance_summary(
+    month: str | None = None,
+    user: Annotated[dict, Depends(require_user)] = ...,
+):
+    """Aggregate income, expenses, and savings for a given month.
+
+    If `month` is None, uses the current month. Format: YYYY-MM.
+    """
+    user_id = user["user_id"]
+    if month is None:
+        month = datetime.utcnow().strftime("%Y-%m")
+    year_s, m_s = month.split("-")
+    year_i, m_i = int(year_s), int(m_s)
+
+    last_month_date = (datetime(year_i, m_i, 1) - timedelta(days=1))
+    last_year_i, last_m_i = last_month_date.year, last_month_date.month
+    last_month = f"{last_year_i:04d}-{last_m_i:02d}"
+
+    engine = get_engine()
+    async with engine.connect() as conn:
+        result = await conn.execute(
+            text("""
+                SELECT
+                    transaction_type,
+                    COALESCE(SUM(amount), 0)::numeric AS total
+                FROM user_transactions
+                WHERE user_id = :uid
+                  AND DATE_TRUNC('month', transaction_date) = DATE_TRUNC('month', TO_DATE(:month, 'YYYY-MM'))
+                GROUP BY transaction_type
+            """),
+            {"uid": user_id, "month": month},
+        )
+        rows = {r["transaction_type"]: float(r["total"]) for r in result.mappings().all()}
+
+        last_result = await conn.execute(
+            text("""
+                SELECT
+                    transaction_type,
+                    COALESCE(SUM(amount), 0)::numeric AS total
+                FROM user_transactions
+                WHERE user_id = :uid
+                  AND DATE_TRUNC('month', transaction_date) = DATE_TRUNC('month', TO_DATE(:month, 'YYYY-MM'))
+                GROUP BY transaction_type
+            """),
+            {"uid": user_id, "month": last_month},
+        )
+        last_rows = {r["transaction_type"]: float(r["total"]) for r in last_result.mappings().all()}
+
+    income = rows.get("income", 0.0)
+    expenses = rows.get("expense", 0.0)
+    savings = income - expenses
+    savings_rate = round((savings / income) * 100, 1) if income > 0 else 0.0
+
+    last_income = last_rows.get("income", 0.0)
+    last_expense = last_rows.get("expense", 0.0)
+
+    return FinanceSummaryResponse(
+        month=month,
+        income=income,
+        expenses=expenses,
+        savings=savings,
+        savings_rate=savings_rate,
+        last_month_income=last_income,
+        last_month_expense=last_expense,
+        last_month_savings=last_income - last_expense,
+    )
+
+
+class IncomeExpensePoint(BaseModel):
+    month: str
+    income: float
+    expense: float
+
+
+class IncomeExpenseResponse(BaseModel):
+    months: int
+    series: list[IncomeExpensePoint]
+
+
+@router.get("/finance/income-expense")
+async def finance_income_expense(
+    months: int = 6,
+    user: Annotated[dict, Depends(require_user)] = ...,
+):
+    """Return the last N months of income/expense series, ordered ASC by month."""
+    user_id = user["user_id"]
+    engine = get_engine()
+    async with engine.connect() as conn:
+        result = await conn.execute(
+            text("""
+                SELECT
+                    TO_CHAR(DATE_TRUNC('month', transaction_date), 'YYYY-MM') AS month,
+                    transaction_type,
+                    COALESCE(SUM(amount), 0)::numeric AS total
+                FROM user_transactions
+                WHERE user_id = :uid
+                  AND transaction_date >= DATE_TRUNC('month', CURRENT_DATE) - (:months - 1) * INTERVAL '1 month'
+                GROUP BY 1, transaction_type
+                ORDER BY 1 ASC
+            """),
+            {"uid": user_id, "months": months},
+        )
+        rows = result.mappings().all()
+
+    by_month: dict[str, dict[str, float]] = {}
+    for r in rows:
+        m = r["month"]
+        if m not in by_month:
+            by_month[m] = {"income": 0.0, "expense": 0.0}
+        by_month[m][r["transaction_type"]] = float(r["total"])
+
+    series = [
+        IncomeExpensePoint(month=m, income=v.get("income", 0.0), expense=v.get("expense", 0.0))
+        for m, v in by_month.items()
+    ]
+    return IncomeExpenseResponse(months=months, series=series)
+
+
+class SpendingCategory(BaseModel):
+    category: str
+    amount: float
+    pct: float
+
+
+class SpendingByCategoryResponse(BaseModel):
+    days: int
+    total: float
+    categories: list[SpendingCategory]
+
+
+@router.get("/finance/spending-by-category")
+async def finance_spending_by_category(
+    days: int = 30,
+    user: Annotated[dict, Depends(require_user)] = ...,
+):
+    """Aggregate spending by category for the last N days, ordered by amount DESC."""
+    user_id = user["user_id"]
+    engine = get_engine()
+    async with engine.connect() as conn:
+        result = await conn.execute(
+            text("""
+                SELECT
+                    category,
+                    COALESCE(SUM(amount), 0)::numeric AS amount
+                FROM user_transactions
+                WHERE user_id = :uid
+                  AND transaction_type = 'expense'
+                  AND transaction_date >= CURRENT_DATE - (:days || ' days')::interval
+                GROUP BY category
+                ORDER BY amount DESC
+            """),
+            {"uid": user_id, "days": days},
+        )
+        rows = result.mappings().all()
+
+    total = sum(float(r["amount"]) for r in rows)
+    categories = [
+        SpendingCategory(
+            category=r["category"],
+            amount=float(r["amount"]),
+            pct=round((float(r["amount"]) / total) * 100, 1) if total > 0 else 0.0,
+        )
+        for r in rows
+    ]
+    return SpendingByCategoryResponse(days=days, total=total, categories=categories)
