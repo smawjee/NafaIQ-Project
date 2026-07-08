@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/use-auth";
+import { useDemo } from "@/hooks/use-demo";
 import { useLandingTheme } from "@/hooks/use-landing-theme";
 import logo from "@/assets/logo.png";
 
@@ -77,6 +78,7 @@ function LogoIcon({ className }: { className?: string }) {
 
 function AuthPage() {
   const { user, loading, signInWithPassword, signUpWithPassword, signInWithGoogle } = useAuth();
+  const { signInAsDemo } = useDemo();
   const { theme } = useLandingTheme();
   const isLight = theme === "light";
   const navigate = useNavigate();
@@ -425,6 +427,23 @@ function AuthPage() {
                       .
                     </p>
                   )}
+                  <div className="relative flex items-center pt-2">
+                    <div className="flex-1 border-t border-border" />
+                    <span className="px-3 text-xs font-medium text-text-muted">or</span>
+                    <div className="flex-1 border-t border-border" />
+                  </div>
+                  <button
+                    onClick={async () => {
+                      try {
+                        await signInAsDemo();
+                      } catch {
+                        toast.error("Demo account not configured on this instance");
+                      }
+                    }}
+                    className="group mt-1 flex h-11 w-full items-center justify-center gap-2 rounded-xl border border-border bg-surface text-sm font-medium text-text-secondary transition-all duration-200 hover:border-white/[0.12] hover:text-text-primary active:scale-[0.98]"
+                  >
+                    Try Demo
+                  </button>
                 </div>
               </div>
             )}
