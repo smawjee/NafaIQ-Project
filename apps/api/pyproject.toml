@@ -1,0 +1,39 @@
+# NafaIQ PSX API — Python FastAPI microservice
+# python -m pip install -e .
+
+[project]
+name = "nafaiq-psx-api"
+version = "0.1.0"
+description = "PSX market data API for NafaIQ — scrapes DPS, polls AhleTrade, caches in Supabase"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.34",
+    "httpx>=0.28",
+    "beautifulsoup4>=4.13",
+    "lxml>=5.3",
+    "pandas>=2.2",
+    "numpy>=2.2",
+    "supabase>=2.14",
+    "pydantic>=2.10",
+    "pydantic-settings>=2.7",
+    "structlog>=24.4",
+    "apscheduler>=3.11",
+    "python-dotenv>=1.0",
+    "scikit-learn>=1.6",
+    "joblib>=1.4",
+    "sqlalchemy[asyncio]>=2.0",
+    "slowapi>=0.1.9",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.3",
+    "pytest-asyncio>=0.25",
+    "httpx-sse>=0.4",
+]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]

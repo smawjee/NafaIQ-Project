@@ -1,0 +1,1326 @@
+﻿@import "tailwindcss" source(none);
+@source "../src";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme {
+  --color-background: #0a0a0f;
+  --color-foreground: #ffffff;
+
+  --color-surface: rgba(18, 18, 26, 0.8);
+  --color-surface-alt: #101018;
+  --color-elevated: #16161f;
+  --color-border: rgba(255, 255, 255, 0.06);
+  --color-border-hover: rgba(255, 255, 255, 0.12);
+  --color-hover: rgba(255, 255, 255, 0.04);
+  --color-sidebar: #08080d;
+
+  --color-card: rgba(18, 18, 26, 0.8);
+  --color-card-foreground: #ffffff;
+  --color-popover: #16161f;
+  --color-popover-foreground: #ffffff;
+
+  --color-bull: #00d4aa;
+  --color-bull-foreground: #020617;
+  --color-bear: #e5484d;
+  --color-warning: #f5a524;
+  --color-neutral: #64748b;
+  --color-info: #00d4aa;
+  --color-ai: #00d4aa;
+
+  --color-ai-tint: rgba(18, 18, 26, 0.8);
+
+  /* Gold â€” premium accent (logo IQ, premium badges, savings) */
+  --color-gold: #d4a017;
+  --color-gold-foreground: #020617;
+  --color-gold-hover: #e3b324;
+  --color-gold-muted: #b8881a;
+
+  --color-primary: #00d4aa;
+  --color-primary-foreground: #020617;
+
+  --color-secondary: #16161f;
+  --color-secondary-foreground: #ffffff;
+  --color-muted: #16161f;
+  --color-muted-foreground: #94a3b8;
+  --color-accent: #16161f;
+  --color-accent-foreground: #ffffff;
+  --color-destructive: #e5484d;
+  --color-destructive-foreground: #ffffff;
+
+  --color-text-primary: #ffffff;
+  --color-text-secondary: #b0c4de;
+  --color-text-muted: #64748b;
+
+  --color-input: rgba(255, 255, 255, 0.08);
+  --color-ring: #00d4aa;
+  --color-brand-gray: #1a1a1a;
+
+  --color-feature-card: rgba(17, 24, 39, 0.6);
+  --color-mobile-card: rgba(17, 24, 39, 0.72);
+
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, monospace;
+  --font-urdu: "Noto Naskh Arabic", "Noto Nastaliq Urdu", serif;
+  --font-nastaliq: "Noto Nastaliq Urdu", serif;
+
+  --radius-badge: 4px;
+  --radius-btn: 8px;
+  --radius-card: 14px;
+  --radius-modal: 14px;
+
+  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.3);
+
+  --space-xs: 4px;
+  --space-sm: 8px;
+  --space-md: 16px;
+  --space-lg: 24px;
+  --space-xl: 32px;
+  --space-2xl: 48px;
+  --space-3xl: 64px;
+
+  --width-app: 1480px;
+
+  --animate-flash-up: flash-up 0.6s ease-out;
+  --animate-flash-down: flash-down 0.6s ease-out;
+  --animate-ticker: ticker 40s linear infinite;
+  --animate-page-in: page-in 0.25s ease-out;
+  --animate-shimmer: shimmer 1.5s ease-in-out infinite;
+
+  @keyframes flash-up {
+    0% {
+      background-color: rgba(0, 212, 170, 0.25);
+    }
+    100% {
+      background-color: transparent;
+    }
+  }
+  @keyframes flash-down {
+    0% {
+      background-color: rgba(229, 72, 77, 0.25);
+    }
+    100% {
+      background-color: transparent;
+    }
+  }
+  @keyframes ticker {
+    0% {
+      transform: translateX(0);
+    }
+    100% {
+      transform: translateX(-50%);
+    }
+  }
+  @keyframes page-in {
+    0% {
+      opacity: 0;
+      transform: translateY(8px);
+    }
+    100% {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+  @keyframes shimmer {
+    0%,
+    100% {
+      background-color: #1a2332;
+    }
+    50% {
+      background-color: #1f2d40;
+    }
+  }
+  @keyframes bob {
+    0%,
+    100% {
+      transform: translateY(0);
+    }
+    50% {
+      transform: translateY(-6px);
+    }
+  }
+  @keyframes matrix-fall {
+    0% {
+      transform: translateY(-60%);
+    }
+    100% {
+      transform: translateY(100vh);
+    }
+  }
+  @keyframes float1 {
+    from {
+      transform: translate(0, 0);
+    }
+    to {
+      transform: translate(40px, 30px);
+    }
+  }
+  @keyframes float2 {
+    from {
+      transform: translate(0, 0);
+    }
+    to {
+      transform: translate(-30px, 20px);
+    }
+  }
+  @keyframes float3 {
+    from {
+      transform: translate(0, 0);
+    }
+    to {
+      transform: translate(20px, -25px);
+    }
+  }
+  @keyframes floatCard1 {
+    from {
+      transform: perspective(500px) rotateY(8deg) rotateX(-4deg) translateZ(20px) translateY(0);
+    }
+    to {
+      transform: perspective(500px) rotateY(8deg) rotateX(-4deg) translateZ(20px) translateY(-8px);
+    }
+  }
+  @keyframes floatCard2 {
+    from {
+      transform: perspective(500px) rotateY(-6deg) rotateX(3deg) translateZ(20px) translateY(0);
+    }
+    to {
+      transform: perspective(500px) rotateY(-6deg) rotateX(3deg) translateZ(20px) translateY(-6px);
+    }
+  }
+  @keyframes spin-border {
+    to {
+      transform: rotate(360deg);
+    }
+  }
+  @keyframes tickerBreath {
+    0% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.6;
+    }
+    100% {
+      opacity: 1;
+    }
+  }
+  @keyframes badge-shimmer {
+    0% {
+      transform: translateX(-150%);
+    }
+    100% {
+      transform: translateX(150%);
+    }
+  }
+}
+
+@utility rounded-badge {
+  border-radius: var(--radius-badge);
+}
+@utility rounded-btn {
+  border-radius: var(--radius-btn);
+}
+@utility rounded-card {
+  border-radius: var(--radius-card);
+}
+@utility rounded-modal {
+  border-radius: var(--radius-modal);
+}
+
+/* Theme-aware CTA gradient button */
+.landing-cta {
+  background: linear-gradient(135deg, #00d4aa 0%, #00a88a 100%);
+  color: #020617;
+  box-shadow: 0 6px 24px rgba(0, 212, 170, 0.3);
+  transition: box-shadow 0.2s ease;
+}
+.landing-cta:hover {
+  background: linear-gradient(135deg, #00efc0 0%, #00b894 100%);
+  box-shadow: 0 10px 36px rgba(0, 212, 170, 0.5);
+}
+
+.landing-light .landing-cta {
+  background: linear-gradient(135deg, #0a7c6e 0%, #085a4e 100%);
+  color: #ffffff;
+  box-shadow: 0 6px 24px rgba(10, 124, 110, 0.25);
+}
+.landing-light .landing-cta:hover {
+  background: linear-gradient(135deg, #0e8a7a 0%, #096b5c 100%);
+  box-shadow: 0 10px 36px rgba(10, 124, 110, 0.35);
+}
+
+:root {
+  color-scheme: dark;
+  --nav-h: 72px;
+
+  /* Sticky offset cascade for the lesson page */
+  --header-h: 52px;
+  --topbar-h: 55px;
+  --sticky-panel: 110px;
+  --sticky-rail: 132px;
+  --sticky-section-scroll: 120px;
+}
+
+html {
+  scroll-padding-top: 88px;
+}
+
+@layer base {
+  * {
+    border-color: var(--color-border);
+  }
+  html {
+    background-color: var(--color-background);
+  }
+  body {
+    background-color: var(--color-background);
+    color: var(--color-foreground);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+  }
+  .font-mono,
+  .tabular {
+    font-variant-numeric: tabular-nums;
+  }
+  /* Accessible focus ring on all interactive elements */
+  *:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+  }
+}
+
+@utility tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
+
+@utility scrollbar-none {
+  scrollbar-width: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+@utility safe-bottom {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+@utility safe-top {
+  padding-top: env(safe-area-inset-top);
+}
+
+@layer components {
+  .reveal {
+    opacity: 0;
+    transform: translateY(24px);
+    transition:
+      opacity 0.6s ease,
+      transform 0.6s ease;
+  }
+  .reveal.is-visible {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  .dot-grid {
+    background-image: radial-gradient(circle, rgba(255, 255, 255, 0.04) 1px, transparent 1px);
+    background-size: 32px 32px;
+  }
+
+  /* Card 2 spinning gold border */
+  .spin-border {
+    position: relative;
+  }
+  .spin-border::before {
+    content: "";
+    position: absolute;
+    inset: -1px;
+    border-radius: 16px;
+    padding: 1px;
+    background: conic-gradient(
+      from 0deg,
+      transparent 0deg,
+      rgba(245, 158, 11, 0.6) 80deg,
+      transparent 160deg
+    );
+    -webkit-mask:
+      linear-gradient(#000 0 0) content-box,
+      linear-gradient(#000 0 0);
+    mask:
+      linear-gradient(#000 0 0) content-box,
+      linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+    animation: spin-border 6s linear infinite;
+    pointer-events: none;
+  }
+
+  /* subtle shimmer sweep for "World First" badges */
+  .badge-shimmer {
+    position: relative;
+    isolation: isolate;
+  }
+  .badge-shimmer::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+      100deg,
+      transparent 30%,
+      rgba(255, 255, 255, 0.45) 50%,
+      transparent 70%
+    );
+    transform: translateX(-150%);
+    animation: badge-shimmer 3.2s ease-in-out infinite;
+    pointer-events: none;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .badge-shimmer::after {
+      animation: none;
+    }
+  }
+}
+
+@layer components {
+  /* Learn Hub: lesson transitions */
+  .learn-fade-in {
+    animation: learn-fade-in 0.35s ease-out;
+  }
+  @keyframes learn-fade-in {
+    from {
+      opacity: 0;
+      transform: translateY(8px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  /* Flashcard flip */
+  .flip-card {
+    perspective: 1200px;
+  }
+  .flip-inner {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+    transform-style: preserve-3d;
+  }
+  .flip-inner.flipped {
+    transform: rotateY(180deg);
+  }
+  .flip-face {
+    position: absolute;
+    inset: 0;
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+  }
+  .flip-back {
+    transform: rotateY(180deg);
+  }
+
+  /* Confetti */
+  @keyframes confetti-fall {
+    0% {
+      transform: translateY(-20vh) rotate(0deg);
+      opacity: 1;
+    }
+    100% {
+      transform: translateY(110vh) rotate(720deg);
+      opacity: 0;
+    }
+  }
+  .confetti-piece {
+    position: absolute;
+    top: 0;
+    width: 8px;
+    height: 14px;
+    animation: confetti-fall linear forwards;
+  }
+}
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.001ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.001ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}
+
+@layer components {
+  /* shimmer loading skeleton â€” moving diagonal shine */
+  .shimmer-skeleton::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    transform: translateX(-100%);
+    background: linear-gradient(
+      105deg,
+      transparent 0%,
+      rgba(255, 255, 255, 0) 30%,
+      rgba(255, 255, 255, 0.08) 50%,
+      rgba(255, 255, 255, 0) 70%,
+      transparent 100%
+    );
+    animation: shimmer-sweep 2.5s ease-in-out infinite;
+  }
+  @keyframes shimmer-sweep {
+    100% {
+      transform: translateX(100%);
+    }
+  }
+
+  /* animated shimmer line (footer / dividers) */
+  .shimmer-line {
+    background: linear-gradient(
+      90deg,
+      transparent 0%,
+      rgba(0, 212, 170, 0) 20%,
+      rgba(0, 212, 170, 0.9) 50%,
+      rgba(0, 212, 170, 0) 80%,
+      transparent 100%
+    );
+    background-size: 200% 100%;
+    animation: shimmer-slide 4s linear infinite;
+  }
+  @keyframes shimmer-slide {
+    0% {
+      background-position: 200% 0;
+    }
+    100% {
+      background-position: -200% 0;
+    }
+  }
+
+  /* subtle animated gradient mesh for section backgrounds */
+  .gradient-mesh {
+    background:
+      radial-gradient(40% 60% at 20% 30%, rgba(0, 212, 170, 0.06), transparent 70%),
+      radial-gradient(40% 60% at 80% 70%, rgba(139, 92, 246, 0.05), transparent 70%),
+      radial-gradient(50% 50% at 50% 50%, rgba(245, 158, 11, 0.03), transparent 70%);
+    background-size: 200% 200%;
+    animation: mesh-shift 18s ease-in-out infinite alternate;
+  }
+  @keyframes mesh-shift {
+    0% {
+      background-position: 0% 0%;
+    }
+    100% {
+      background-position: 100% 100%;
+    }
+  }
+}
+
+@layer components {
+  /* ============================================================
+     Premium glass design language (project-wide)
+     ============================================================ */
+
+  /* Clean surface â€” used by Card and panels everywhere */
+  .glass-card {
+    position: relative;
+    background: var(--color-surface);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+  }
+
+  /* Hover lift + brighten â€” opt-in */
+  .glass-card-hover {
+    transition:
+      transform 0.2s ease,
+      border-color 0.2s ease,
+      box-shadow 0.2s ease;
+  }
+  .glass-card-hover:hover {
+    transform: translateY(-2px);
+    border-color: rgba(255, 255, 255, 0.12);
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.35);
+  }
+
+  /* Chrome (sidebar / header / nav) */
+  .glass-chrome {
+    background: color-mix(in oklab, var(--color-sidebar) 88%, transparent);
+    backdrop-filter: blur(16px) saturate(120%);
+  }
+
+  /* Active nav item â€” subtle bg + left accent bar */
+  .nav-active {
+    background: rgba(0, 212, 170, 0.08);
+    position: relative;
+  }
+  .nav-active::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    height: 60%;
+    width: 2px;
+    border-radius: 0 2px 2px 0;
+    background: var(--color-primary);
+  }
+
+  /* Reusable ambient glow blobs for section backgrounds */
+  .ambient-glow {
+    position: absolute;
+    border-radius: 9999px;
+    filter: blur(100px);
+    pointer-events: none;
+    z-index: 0;
+  }
+}
+
+@layer components {
+  /* ============================================================
+     Gold premium accent system (used sparingly for prestige)
+     ============================================================ */
+
+  /* Gold-tinted glass card â€” for premium / featured surfaces */
+  .glass-gold {
+    border-color: rgba(212, 160, 23, 0.28);
+    box-shadow:
+      0 8px 30px rgba(0, 0, 0, 0.45),
+      0 0 24px rgba(212, 160, 23, 0.08),
+      inset 0 1px 0 0 rgba(255, 255, 255, 0.05);
+  }
+
+  /* Gold glow halo (CTA / featured badge) */
+  .gold-glow {
+    box-shadow: 0 0 30px rgba(212, 160, 23, 0.25);
+  }
+
+  /* Shimmering text/pill â€” for "World First" style badges */
+  .gold-shimmer {
+    background: linear-gradient(
+      90deg,
+      rgba(212, 160, 23, 0.55) 0%,
+      rgba(245, 220, 140, 1) 45%,
+      rgba(212, 160, 23, 0.55) 90%
+    );
+    background-size: 200% 100%;
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    animation: gold-shimmer-slide 3.5s linear infinite;
+  }
+  @keyframes gold-shimmer-slide {
+    0% {
+      background-position: 200% 0;
+    }
+    100% {
+      background-position: -200% 0;
+    }
+  }
+
+  /* Gold left-accent for the most important card (e.g. Net Worth) */
+  .accent-gold-left {
+    border-left: 2px solid var(--color-gold);
+  }
+
+  /* Display headings helper */
+  .font-display {
+    font-family: var(--font-display);
+    letter-spacing: -0.01em;
+  }
+
+  /* Page-wide ambient background: very slow, subtle drifting glow.
+     Sits behind all content (negative z-index), no interaction, no layout
+     shift. GPU-composited transform only. */
+  .ambient-bg {
+    background:
+      radial-gradient(42% 42% at 22% 28%, rgba(0, 212, 170, 0.06), transparent 72%),
+      radial-gradient(38% 38% at 80% 72%, rgba(59, 130, 246, 0.05), transparent 72%),
+      radial-gradient(34% 34% at 60% 18%, rgba(212, 160, 23, 0.035), transparent 70%);
+    background-repeat: no-repeat;
+    will-change: transform;
+    transform: translate3d(-3%, -2%, 0) scale(1.12);
+    animation: ambient-drift 18s ease-in-out infinite alternate;
+  }
+  @keyframes ambient-drift {
+    0% {
+      transform: translate3d(-3%, -2%, 0) scale(1.12);
+    }
+    100% {
+      transform: translate3d(3%, 2%, 0) scale(1.12);
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .ambient-bg {
+      animation: none;
+    }
+  }
+}
+
+/* ============================================================
+   Light theme â€” scoped to .theme-light (applied in-app only).
+   Premium, Stripe/Linear-grade. Overrides semantic tokens so the
+   landing page and the dark theme stay completely untouched.
+   ============================================================ */
+.theme-light {
+  /* Soft, slightly cool-tinted canvas â€” never pure white */
+  --color-background: #f4f6fb;
+  --color-foreground: #0f172a;
+
+  /* Surfaces */
+  --color-surface: #ffffff;
+  --color-surface-alt: #eef2f8;
+  --color-elevated: #ffffff;
+  --color-border: rgba(15, 23, 42, 0.08);
+  --color-border-hover: rgba(15, 23, 42, 0.14);
+  --color-hover: rgba(15, 23, 42, 0.045);
+  --color-sidebar: #ffffff;
+
+  --color-card: #ffffff;
+  --color-card-foreground: #0f172a;
+  --color-popover: #ffffff;
+  --color-popover-foreground: #0f172a;
+
+  /* Deepened teal â€” readable & professional on light, not neon */
+  --color-primary: #0d9488;
+  --color-primary-foreground: #ffffff;
+  --color-info: #0d9488;
+
+  /* AI + Learn keep a distinct violet accent in light mode */
+  --color-ai: #7c3aed;
+  --color-ai-tint: #f5f3ff;
+
+  /* Market signals â€” deepened for contrast on white */
+  --color-bull: #0d9488;
+  --color-bull-foreground: #ffffff;
+  --color-bear: #dc2626;
+  --color-warning: #b45309;
+  --color-neutral: #64748b;
+
+  /* Gold premium accent â€” darkened so it reads on white */
+  --color-gold: #a97c12;
+  --color-gold-foreground: #ffffff;
+  --color-gold-hover: #946b0f;
+  --color-gold-muted: #8a6510;
+
+  --color-secondary: #eef2f8;
+  --color-secondary-foreground: #0f172a;
+  --color-muted: #eef2f8;
+  --color-muted-foreground: #475569;
+  --color-accent: #eef2f8;
+  --color-accent-foreground: #0f172a;
+  --color-destructive: #dc2626;
+
+  /* Strict text hierarchy â€” never pure black */
+  --color-text-primary: #0f172a;
+  --color-text-secondary: #475569;
+  --color-text-muted: #64748b;
+
+  --color-input: rgba(15, 23, 42, 0.12);
+  --color-ring: #0d9488;
+
+  background-color: var(--color-background);
+  color: var(--color-foreground);
+}
+
+/* ---- Card elevation system (light): TWO standardized styles ----
+   Static info cards (.glass-card alone): flat â€” visible border, no shadow.
+   Interactive/clickable cards (.glass-card-hover): one soft shadow,
+   deepening slightly on hover. Applied app-wide via the shared utilities. */
+.theme-light .glass-card {
+  background: var(--color-surface);
+  border-color: rgba(15, 23, 42, 0.08);
+  box-shadow: none;
+}
+/* Interactive cards opt into soft elevation at rest */
+.theme-light .glass-card-hover {
+  border-color: transparent;
+  box-shadow:
+    0 0 0 1px rgba(15, 23, 42, 0.04),
+    0 1px 2px rgba(15, 23, 42, 0.04),
+    0 4px 12px -2px rgba(15, 23, 42, 0.06),
+    0 14px 32px -10px rgba(15, 23, 42, 0.06);
+}
+.theme-light .glass-card-hover:hover {
+  border-color: transparent;
+  box-shadow:
+    0 0 0 1px rgba(15, 23, 42, 0.05),
+    0 2px 4px rgba(15, 23, 42, 0.05),
+    0 10px 24px -4px rgba(15, 23, 42, 0.1),
+    0 24px 48px -14px rgba(15, 23, 42, 0.1);
+}
+
+/* Gold premium card â€” warmer shadow on light */
+.theme-light .glass-gold {
+  border-color: rgba(169, 124, 18, 0.28);
+  box-shadow:
+    0 0 0 1px rgba(169, 124, 18, 0.18),
+    0 10px 28px -8px rgba(169, 124, 18, 0.18),
+    0 18px 40px -16px rgba(15, 23, 42, 0.1);
+}
+.theme-light .gold-glow {
+  box-shadow: 0 0 24px rgba(169, 124, 18, 0.22);
+}
+
+/* ---- Chrome: sidebar reads as a distinct elevated layer ---- */
+.theme-light .glass-chrome {
+  background: color-mix(in oklab, #ffffff 86%, transparent);
+  backdrop-filter: blur(16px) saturate(120%);
+}
+.theme-light aside.glass-chrome {
+  background: #ffffff;
+  border-right: 1px solid rgba(15, 23, 42, 0.06);
+  box-shadow:
+    1px 0 0 rgba(15, 23, 42, 0.02),
+    6px 0 24px -8px rgba(15, 23, 42, 0.1);
+}
+.theme-light header.glass-chrome {
+  border-bottom: 1px solid rgba(15, 23, 42, 0.07);
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.03);
+}
+.theme-light nav.glass-chrome {
+  border-top: 1px solid rgba(15, 23, 42, 0.07);
+  box-shadow: 0 -2px 16px -6px rgba(15, 23, 42, 0.12);
+}
+
+/* Active nav item â€” deepened teal wash + accent bar */
+.theme-light .nav-active {
+  background: rgba(13, 148, 136, 0.1);
+}
+.theme-light .nav-active::before {
+  background: var(--color-primary);
+}
+
+/* ---- Remap dark-mode white alphas to light slate alphas ---- */
+/* Subtle borders */
+.theme-light .border-white\/\[0\.02\],
+.theme-light .border-white\/\[0\.04\],
+.theme-light .border-white\/\[0\.05\],
+.theme-light .border-white\/5,
+.theme-light .border-white\/\[0\.06\],
+.theme-light .border-white\/\[0\.07\],
+.theme-light .border-white\/\[0\.08\],
+.theme-light .border-white\/\[0\.1\],
+.theme-light .border-white\/10 {
+  border-color: rgba(15, 23, 42, 0.08);
+}
+/* Stronger emphasis borders */
+.theme-light .border-white\/12,
+.theme-light .border-white\/\[0\.12\],
+.theme-light .border-white\/15,
+.theme-light .border-white\/\[0\.16\],
+.theme-light .border-white\/\[0\.2\],
+.theme-light .border-white\/20 {
+  border-color: rgba(15, 23, 42, 0.14);
+}
+/* White elevation fills â†’ subtle slate tints */
+.theme-light .bg-white\/\[0\.02\],
+.theme-light .bg-white\/\[0\.03\],
+.theme-light .bg-white\/\[0\.04\],
+.theme-light .bg-white\/\[0\.05\],
+.theme-light .bg-white\/5,
+.theme-light .bg-white\/\[0\.06\],
+.theme-light .bg-white\/10 {
+  background-color: rgba(15, 23, 42, 0.04);
+}
+.theme-light .divide-white\/\[0\.08\] > :not([hidden]) ~ :not([hidden]) {
+  border-color: rgba(15, 23, 42, 0.08);
+}
+
+/* ---- Intentional interactive states on form controls ---- */
+.theme-light input:focus,
+.theme-light select:focus,
+.theme-light textarea:focus {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px rgba(13, 148, 136, 0.16);
+}
+
+/* ---- Form controls: consistent custom checkbox (light theme) ---- */
+.theme-light [role="checkbox"] {
+  appearance: none;
+  -webkit-appearance: none;
+  background-color: var(--color-surface);
+  border: 1.5px solid var(--color-primary);
+  box-shadow: none;
+  transition:
+    background-color 0.15s ease,
+    border-color 0.15s ease;
+}
+.theme-light [role="checkbox"][data-state="checked"] {
+  background-color: var(--color-primary);
+  border-color: var(--color-primary);
+  color: var(--color-primary-foreground);
+}
+.theme-light [role="checkbox"]:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(13, 148, 136, 0.16);
+}
+
+.theme-light :disabled,
+.theme-light [aria-disabled="true"],
+.theme-light [data-disabled] {
+  opacity: 0.5;
+}
+
+/* ---- Ambient background: lighten the glow blobs for light bg ---- */
+.theme-light .ambient-bg {
+  background:
+    radial-gradient(42% 42% at 22% 28%, rgba(13, 148, 136, 0.07), transparent 72%),
+    radial-gradient(38% 38% at 80% 72%, rgba(59, 130, 246, 0.06), transparent 72%),
+    radial-gradient(34% 34% at 60% 18%, rgba(169, 124, 18, 0.05), transparent 70%);
+}
+
+/* ============================================================
+   Market data strip (PSX live ticker). Dark by default;
+   light theme flips to a light surface with dark text.
+   ============================================================ */
+.market-strip {
+  background: #0b1120;
+  color: #e2e8f0;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.12);
+}
+.market-strip .market-strip-muted {
+  color: #94a3b8;
+}
+
+/* Light theme ticker override */
+.theme-light .market-strip {
+  background: var(--color-surface-alt);
+  color: var(--color-text-primary);
+  border: 1px solid var(--color-border);
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.06);
+}
+.theme-light .market-strip .market-strip-muted {
+  color: var(--color-text-muted);
+}
+
+/* ============================================================
+   Warm-tinted surface for the Islamic screens (Halal Screener,
+   Zakat Calculator) â€” intentional personality in light mode.
+   ============================================================ */
+.theme-light .warm-tint {
+  background:
+    radial-gradient(60% 80% at 50% 0%, rgba(169, 124, 18, 0.06), transparent 70%), #faf7f0;
+}
+
+/* ============================================================
+   Light-mode-only accent calming. Dark theme untouched.
+   ============================================================ */
+
+/* Primary CTA accent system â€” teal is the single primary action color.
+   Orange stays reserved for warning/attention, purple (--color-ai) for AI.
+   .cta-primary normalizes any non-teal primary CTA to teal in light mode. */
+.theme-light .cta-primary {
+  background: var(--color-primary);
+  color: var(--color-primary-foreground);
+}
+.theme-light .cta-primary:hover {
+  background: color-mix(in oklab, var(--color-primary) 88%, #000);
+}
+
+/* ---- Semantic icon badge system (light theme only) ---- */
+.theme-light .badge-positive {
+  background: rgba(5, 150, 105, 0.12) !important;
+  color: var(--color-bull) !important;
+}
+.theme-light .badge-negative {
+  background: rgba(220, 38, 38, 0.12) !important;
+  color: var(--color-bear) !important;
+}
+.theme-light .badge-neutral {
+  background: rgba(13, 148, 136, 0.12) !important;
+  color: var(--color-info) !important;
+}
+
+/* HOLD signal badge â€” neutral outline, consistent with BUY style */
+.theme-light .signal-hold {
+  background: transparent;
+  border-color: var(--color-neutral);
+  color: var(--color-neutral);
+}
+
+/* Active chart timeframe button â€” deep navy, reads selected without glowing */
+.theme-light .tf-active {
+  background: #1e293b;
+  color: #ffffff;
+}
+
+/* Watchlist symbols read as bold primary text, not neon teal */
+.theme-light .wl-symbol {
+  color: var(--color-text-primary);
+}
+.theme-light .wl-star {
+  color: var(--color-text-muted);
+  fill: var(--color-text-muted);
+}
+
+/* Net savings & savings-rate values use primary text â€” icon/badge carry color */
+.theme-light .kpi-value-neutral {
+  color: var(--color-text-primary);
+}
+
+/* Urdu readability: Naskh body with generous line-height + word spacing.
+   Nastaliq stays only for decorative display headings via .font-nastaliq.
+
+   Naskh x-height is smaller than Latin at the same font-size, so Urdu looks
+   tiny. font-size-adjust inherits to every child and scales glyphs up to a
+   consistent apparent size relative to each element's own font-size.
+
+   Values are tuned per breakpoint so Urdu never feels cramped: on small
+   screens glyphs are scaled up the most with the most breathing room, easing
+   off as viewport width grows. */
+.font-urdu {
+  font-size-adjust: 0.66;
+  line-height: 2.05;
+  letter-spacing: 0.01em;
+  word-spacing: 0.08em;
+}
+
+/* sm */
+@media (min-width: 640px) {
+  .font-urdu {
+    font-size-adjust: 0.64;
+    line-height: 2;
+    letter-spacing: 0.005em;
+    word-spacing: 0.06em;
+  }
+}
+
+/* lg */
+@media (min-width: 1024px) {
+  .font-urdu {
+    font-size-adjust: 0.62;
+    line-height: 1.95;
+    letter-spacing: 0;
+    word-spacing: 0.05em;
+  }
+}
+
+/* xl */
+@media (min-width: 1280px) {
+  .font-urdu {
+    font-size-adjust: 0.6;
+    line-height: 1.9;
+    letter-spacing: 0;
+    word-spacing: 0.04em;
+  }
+}
+
+.font-nastaliq {
+  font-family: var(--font-nastaliq);
+  line-height: 2.1;
+}
+
+/* ============================================================
+   Landing page light theme — warm cream + deep teal + antique gold.
+   Premium editorial identity, distinct from the app's cool-slate
+   light mode. Scoped to .landing-light so the app's .theme-light
+   and dark defaults remain untouched.
+   ============================================================ */
+.landing-light {
+  /* Canvas — warm cream, never stark white */
+  --color-background: #faf8f3;
+  --color-foreground: #1a2e28;
+
+  /* Surfaces */
+  --color-surface: #ffffff;
+  --color-surface-alt: #ffffff;
+  --color-elevated: #ffffff;
+  --color-border: rgba(12, 31, 26, 0.12);
+  --color-border-hover: rgba(12, 31, 26, 0.18);
+  --color-hover: rgba(12, 31, 26, 0.05);
+  --color-sidebar: rgba(250, 248, 243, 0.92);
+
+  --color-card: #ffffff;
+  --color-card-foreground: #1a2e28;
+  --color-popover: #ffffff;
+  --color-popover-foreground: #1a2e28;
+
+  /* Deeper, more refined teal — not the app's SaaS-bright #0d9488 */
+  --color-primary: #0a7c6e;
+  --color-primary-foreground: #ffffff;
+  --color-info: #0a7c6e;
+
+  /* AI violet — refined, less saturated */
+  --color-ai: #6d3fc4;
+  --color-ai-tint: #f5f0fc;
+
+  /* Market signals — deepened for cream backgrounds */
+  --color-bull: #0a7c6e;
+  --color-bull-foreground: #ffffff;
+  --color-bear: #c5283d;
+  --color-warning: #a86b0c;
+  --color-neutral: #64748b;
+
+  /* Antique gold — premium, not bright SaaS gold */
+  --color-gold: #8a6612;
+  --color-gold-foreground: #ffffff;
+  --color-gold-hover: #73540e;
+  --color-gold-muted: #604808;
+
+  --color-secondary: #f0ece2;
+  --color-secondary-foreground: #0c1f1a;
+  --color-muted: #f0ece2;
+  --color-muted-foreground: #4a5b56;
+  --color-accent: #f0ece2;
+  --color-accent-foreground: #0c1f1a;
+  --color-destructive: #c5283d;
+
+  /* Text — forest tones, never pure black */
+  --color-text-primary: #1a2e28;
+  --color-text-secondary: #4a5b56;
+  --color-text-muted: #7a8984;
+
+  --color-input: rgba(12, 31, 26, 0.12);
+  --color-ring: #0a7c6e;
+
+  --color-feature-card: #ffffff;
+  --color-mobile-card: #ffffff;
+
+  background-color: var(--color-background);
+  color: var(--color-foreground);
+}
+
+/* Landing light: border-white alphas → warm forest alphas */
+.landing-light .border-white\/\[0\.02\],
+.landing-light .border-white\/\[0\.04\],
+.landing-light .border-white\/\[0\.05\],
+.landing-light .border-white\/5,
+.landing-light .border-white\/\[0\.06\],
+.landing-light .border-white\/\[0\.07\],
+.landing-light .border-white\/\[0\.08\],
+.landing-light .border-white\/\[0\.1\],
+.landing-light .border-white\/10 {
+  border-color: rgba(12, 31, 26, 0.08);
+}
+.landing-light .border-white\/12,
+.landing-light .border-white\/\[0\.12\],
+.landing-light .border-white\/15,
+.landing-light .border-white\/\[0\.16\],
+.landing-light .border-white\/\[0\.2\],
+.landing-light .border-white\/20 {
+  border-color: rgba(12, 31, 26, 0.14);
+}
+
+/* Landing light: white bg alphas → warm forest tints */
+.landing-light .bg-white\/\[0\.02\],
+.landing-light .bg-white\/\[0\.03\],
+.landing-light .bg-white\/\[0\.04\],
+.landing-light .bg-white\/\[0\.05\],
+.landing-light .bg-white\/5,
+.landing-light .bg-white\/\[0\.06\],
+.landing-light .bg-white\/10 {
+  background-color: rgba(12, 31, 26, 0.04);
+}
+
+/* Landing light: gradient-mesh — softer warm aurora */
+.landing-light .gradient-mesh {
+  background:
+    radial-gradient(40% 60% at 20% 30%, rgba(10, 124, 110, 0.03), transparent 70%),
+    radial-gradient(40% 60% at 80% 70%, rgba(109, 63, 196, 0.02), transparent 70%),
+    radial-gradient(50% 50% at 50% 50%, rgba(138, 102, 18, 0.02), transparent 70%);
+}
+
+/* Landing light: ambient background — lighter, softer drift */
+.landing-light .ambient-bg {
+  background:
+    radial-gradient(42% 42% at 22% 28%, rgba(10, 124, 110, 0.04), transparent 72%),
+    radial-gradient(38% 38% at 80% 72%, rgba(109, 63, 196, 0.03), transparent 72%),
+    radial-gradient(34% 34% at 60% 18%, rgba(138, 102, 18, 0.025), transparent 70%);
+}
+
+/* Landing light: glass cards → white with warm soft shadow */
+.landing-light .glass-card {
+  background: #ffffff;
+  border-color: rgba(12, 31, 26, 0.08);
+  box-shadow: 0 1px 3px rgba(12, 31, 26, 0.04), 0 8px 24px -8px rgba(12, 31, 26, 0.08);
+}
+.landing-light .glass-card-hover:hover {
+  border-color: rgba(12, 31, 26, 0.12);
+  box-shadow: 0 4px 12px rgba(12, 31, 26, 0.06), 0 14px 40px -10px rgba(12, 31, 26, 0.1);
+}
+
+/* Landing light: gold glass — warm antique tint */
+.landing-light .glass-gold {
+  border-color: rgba(138, 102, 18, 0.28);
+  box-shadow:
+    0 0 0 1px rgba(138, 102, 18, 0.12),
+    0 8px 28px -8px rgba(138, 102, 18, 0.12),
+    0 16px 36px -14px rgba(12, 31, 26, 0.08);
+}
+.landing-light .gold-glow {
+  box-shadow: 0 0 24px rgba(138, 102, 18, 0.18);
+}
+
+/* Landing light: nav chrome — translucent cream */
+.landing-light .glass-chrome {
+  background: rgba(250, 248, 243, 0.88);
+  border-color: rgba(12, 31, 26, 0.08);
+  box-shadow: 0 8px 40px rgba(12, 31, 26, 0.06);
+}
+.landing-light .nav-active {
+  background: rgba(10, 124, 110, 0.08);
+}
+.landing-light .nav-active::before {
+  background: var(--color-primary);
+}
+
+/* Landing light: market strip — deep forest data band */
+.landing-light .market-strip {
+  background: #1a2820;
+  color: #e8e4d8;
+  border-color: rgba(232, 228, 216, 0.08);
+}
+.landing-light .market-strip .market-strip-muted {
+  color: #a89e88;
+}
+
+/* Landing light: focused interactive elements */
+.landing-light input:focus,
+.landing-light select:focus,
+.landing-light textarea:focus {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px rgba(10, 124, 110, 0.16);
+}
+
+/* Landing light: shimmer skeleton keeps dark aesthetic */
+.landing-light .shimmer-line {
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(10, 124, 110, 0) 20%,
+    rgba(10, 124, 110, 0.7) 50%,
+    rgba(10, 124, 110, 0) 80%,
+    transparent 100%
+  );
+}
+
+/* Landing light: reduced motion — respect user preference */
+@media (prefers-reduced-motion: reduce) {
+  .landing-light .ambient-bg {
+    animation: none;
+  }
+}
+
+/* Landing light: softer text shadows for headings */
+.landing-light .text-glow-heading {
+  text-shadow: 0 0 40px rgba(10, 124, 110, 0.15) !important;
+}
+
+/* Landing light: hero gradient — warm teal tint at top, blending to cream */
+.landing-light [style*="radial-gradient(ellipse 80% 60% at 50% 0%"] {
+  background: radial-gradient(ellipse 80% 60% at 50% 0%, rgba(10, 124, 110, 0.14) 0%, #f0ece2 50%, #faf8f3 75%) !important;
+}
+
+/* Landing light: hero mouse-following glows — softened for light bg */
+.landing-light [style*="rgba(0,212,170,0.18"] {
+  background: radial-gradient(circle, rgba(10, 124, 110, 0.08) 0%, transparent 70%) !important;
+}
+.landing-light [style*="rgba(139,92,246,0.14"] {
+  background: radial-gradient(circle, rgba(109, 63, 196, 0.06) 0%, transparent 70%) !important;
+}
+
+/* Landing light: hero bottom fade mask override */
+.landing-light [style*="linear-gradient(to bottom, transparent"] {
+  background: linear-gradient(to bottom, transparent, #faf8f3) !important;
+}
+
+/* Landing light: dark panels (terminal, flip-card, mobile terminal)
+   keep dark backgrounds but surface light text tokens so content is readable */
+.landing-light .dark-surface {
+  --color-text-primary: #ffffff !important;
+  --color-text-secondary: #c8d6e5 !important;
+  --color-text-muted: #8395a7 !important;
+  --color-bull: #00d4aa !important;
+  --color-bull-foreground: #020617 !important;
+  --color-bear: #e5484d !important;
+  --color-warning: #f5a524 !important;
+  --color-primary: #00d4aa !important;
+  --color-primary-foreground: #020617 !important;
+  --color-info: #00d4aa !important;
+  --color-ai: #00d4aa !important;
+  --color-gold: #d4a017 !important;
+  --color-card-foreground: #ffffff !important;
+  color-scheme: dark;
+}
+
+/* Landing light: keep dark panel internal borders white (don't let albedo remap touch them) */
+.landing-light .dark-surface .border-white\/\[0\.06\],
+.landing-light .dark-surface .border-white\/10,
+.landing-light .dark-surface .border-white\/\[0\.08\],
+.landing-light .dark-surface .border-b {
+  border-color: rgba(255, 255, 255, 0.08) !important;
+}
+
+/* Landing light: hero scattered tickers — readable forest tone on cream gradient */
+.landing-light .ticker-fade {
+  color: #1a2e28 !important;
+  opacity: 0.18 !important;
+}
+
+/* Landing light: how-it-works rail inactive dots — visible on cream */
+.landing-light [style*="rgba(255,255,255,0.25)"] {
+  background: rgba(12, 31, 26, 0.12) !important;
+}
+.landing-light [style*="rgba(255,255,255,0.3)"] {
+  border-color: rgba(12, 31, 26, 0.2) !important;
+}
+.landing-light [style*="rgba(255,255,255,0.18)"] {
+  background: rgba(12, 31, 26, 0.1) !important;
+}
+
+/* Landing light: feature card hover shadow — softer on light */
+.landing-light [class*="hover:shadow-\[0_24px_60px"] {
+  box-shadow: 0 12px 40px -8px rgba(10, 124, 110, 0.15) !important;
+}
+
+/* ============================================================
+   Theme switch transitions — smooth 0.3s fade between dark/light.
+   Applied on the root containers and common surface classes so
+   background, text, and border colors all animate in lockstep
+   when .theme-light / .landing-light is toggled on the html element.
+   CSS variables themselves don't transition; the computed properties
+   that consume them do.
+   ============================================================ */
+html,
+body,
+.bg-surface,
+.bg-background,
+.bg-elevated,
+.bg-sidebar,
+.glass-card,
+.glass-chrome,
+.border-border {
+  transition:
+    background-color 0.3s ease,
+    color 0.3s ease,
+    border-color 0.3s ease,
+    box-shadow 0.3s ease,
+    fill 0.3s ease,
+    stroke 0.3s ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html,
+  body,
+  .bg-surface,
+  .bg-background,
+  .bg-elevated,
+  .bg-sidebar,
+  .glass-card,
+  .glass-chrome,
+  .border-border {
+    transition: none;
+  }
+}

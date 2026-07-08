@@ -1,0 +1,41 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Build outputs
+dist/
+.output/
+.tanstack/
+.wrangler/
+
+# Environment (NEVER commit .env files)
+.env
+.env.*
+!.env.example
+
+# Secrets
+*.pem
+*.key
+credentials.json
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Turborepo
+.turbo/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+
+# Archive
+.nafaiq/
+.opencode/
