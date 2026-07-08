@@ -128,6 +128,8 @@ export default function PSX() {
   const [signalFilter, setSignalFilter] = useState<string>("All");
   const [sectorFilter, setSectorFilter] = useState<string>("All");
   const [searchFilter, setSearchFilter] = useState("");
+  const [screenerPage, setScreenerPage] = useState(1);
+  const [showAllSectors, setShowAllSectors] = useState(false);
   const watchlist = useWatchlist();
   const [addOpen, setAddOpen] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -264,6 +266,15 @@ export default function PSX() {
   }, [moverTab, marketMovers]);
 
   const screened = screenRows.filter((s) => signalFilter === "All" || s.signal === signalFilter);
+  const screenerPageSize = 8;
+  const screenerPageCount = Math.max(1, Math.ceil(screened.length / screenerPageSize));
+  const currentScreenerPage = Math.min(screenerPage, screenerPageCount);
+  const visibleScreened = screened.slice(
+    (currentScreenerPage - 1) * screenerPageSize,
+    currentScreenerPage * screenerPageSize,
+  );
+  const screenerStart = screened.length === 0 ? 0 : (currentScreenerPage - 1) * screenerPageSize + 1;
+  const screenerEnd = Math.min(currentScreenerPage * screenerPageSize, screened.length);
 
   const sectorRows = useMemo(() => {
     if (sectorData && sectorData.length > 0) {
@@ -275,6 +286,11 @@ export default function PSX() {
     }
     return SECTORS.map((s) => ({ name: s.name, pct: s.pct, volume: 0 }));
   }, [sectorData]);
+  const heatmapRows = showAllSectors ? sectorRows : sectorRows.slice(0, 12);
+
+  useEffect(() => {
+    setScreenerPage(1);
+  }, [searchFilter, sectorFilter, signalFilter]);
 
   if (loading) {
     return (
@@ -446,6 +462,37 @@ export default function PSX() {
 
           {/* Stock Screener */}
           <Card>
+            <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <h3 className="text-sm font-semibold text-text-primary">{t("Stock Screener")}</h3>
+                <p className="text-[11px] text-text-muted">
+                  {screened.length > 0
+                    ? `${t("Showing")} ${screenerStart}-${screenerEnd} ${t("of")} ${screened.length}`
+                    : t("No stocks match the selected filters.")}
+                </p>
+              </div>
+              <div className="flex items-center gap-1 text-xs text-text-secondary">
+                <button
+                  type="button"
+                  disabled={currentScreenerPage <= 1}
+                  onClick={() => setScreenerPage((p) => Math.max(1, p - 1))}
+                  className="rounded-[6px] border border-border px-2 py-1 hover:bg-hover disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  {t("Prev")}
+                </button>
+                <span className="min-w-12 text-center font-mono tabular-nums">
+                  {currentScreenerPage}/{screenerPageCount}
+                </span>
+                <button
+                  type="button"
+                  disabled={currentScreenerPage >= screenerPageCount}
+                  onClick={() => setScreenerPage((p) => Math.min(screenerPageCount, p + 1))}
+                  className="rounded-[6px] border border-border px-2 py-1 hover:bg-hover disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  {t("Next")}
+                </button>
+              </div>
+            </div>
             <div className="mb-3 flex items-center gap-2">
               <Filter className="h-4 w-4 text-text-secondary" />
               <input
@@ -511,7 +558,7 @@ export default function PSX() {
                   </tr>
                 </thead>
                 <tbody>
-                  {screened.map((s, i) => (
+                  {visibleScreened.map((s, i) => (
                     <tr
                       key={s.ticker}
                       className={cn("cursor-pointer hover:bg-hover", i % 2 ? "bg-surface-alt" : "")}
@@ -686,18 +733,43 @@ export default function PSX() {
           </Card>
 
           <Card>
-            <h3 className="mb-2 text-sm font-semibold text-text-primary">{t("Sector Heatmap")}</h3>
-            <div className="grid grid-cols-3 gap-1.5">
-              {sectorRows.map((s) => {
+            <div className="mb-3 flex items-center justify-between gap-3">
+              <div>
+                <h3 className="text-sm font-semibold text-text-primary">{t("Sector Heatmap")}</h3>
+                <p className="text-[11px] text-text-muted">
+                  {showAllSectors
+                    ? `${t("Showing all sectors")} (${sectorRows.length})`
+                    : `${t("Top sectors")} (${Math.min(heatmapRows.length, sectorRows.length)} ${t("of")} ${sectorRows.length})`}
+                </p>
+              </div>
+              {sectorRows.length > 12 && (
+                <button
+                  type="button"
+                  onClick={() => setShowAllSectors((v) => !v)}
+                  className="shrink-0 rounded-[6px] border border-border px-2 py-1 text-xs font-medium text-text-secondary hover:bg-hover hover:text-text-primary"
+                >
+                  {showAllSectors ? t("Show less") : t("Show all")}
+                </button>
+              )}
+            </div>
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+              {heatmapRows.map((s) => {
                 const up = s.pct >= 0;
                 const intensity = Math.min(Math.abs(s.pct) / 2.6, 1);
                 const bg = up
                   ? `rgba(0,212,170,${0.15 + intensity * 0.55})`
                   : `rgba(229,72,77,${0.15 + intensity * 0.55})`;
                 return (
-                  <div key={s.name} className="rounded-[6px] p-2" style={{ background: bg }}>
-                    <div className="text-[10px] text-text-primary/90">{t(s.name)}</div>
-                    <div className="font-mono text-sm font-bold tabular-nums text-text-primary">
+                  <div
+                    key={s.name}
+                    className="flex min-h-[76px] flex-col justify-between rounded-[8px] border border-white/[0.04] p-2.5"
+                    style={{ background: bg }}
+                    title={`${s.name}: ${up ? "+" : ""}${s.pct.toFixed(1)}%`}
+                  >
+                    <div className="line-clamp-2 text-[11px] font-semibold leading-snug text-text-primary/90">
+                      {t(s.name)}
+                    </div>
+                    <div className="font-mono text-lg font-bold tabular-nums text-text-primary">
                       {up ? "+" : ""}
                       {s.pct.toFixed(1)}%
                     </div>

@@ -329,6 +329,18 @@ class NetworthResponse(BaseModel):
     by_holding: list[NetworthHolding]
 
 
+class PortfolioHistoryPoint(BaseModel):
+    date: str
+    label: str
+    value: float
+    benchmark: float
+
+
+class PortfolioHistoryResponse(BaseModel):
+    days: int
+    points: list[PortfolioHistoryPoint]
+
+
 @router.get("/portfolio/networth")
 async def portfolio_networth(
     user: Annotated[dict, Depends(require_user)],
@@ -426,4 +438,81 @@ async def portfolio_networth(
         portfolio_count=portfolio_count,
         holding_count=len(by_holding),
         by_holding=by_holding,
+    )
+
+
+@router.get("/portfolio/history")
+async def portfolio_history(
+    user: Annotated[dict, Depends(require_user)],
+    days: int = 180,
+):
+    """Historical portfolio value based on current holdings and PSX closes.
+
+    The app does not yet store full portfolio transaction lots, so this values
+    the user's current holdings across historical daily closes. KSE-100 is
+    normalized to the first portfolio value in the returned range so the chart
+    compares relative movement on the same scale.
+    """
+    user_id = user["user_id"]
+    bounded_days = max(7, min(days, 365))
+    engine = get_engine()
+    async with engine.connect() as conn:
+        result = await conn.execute(
+            text("""
+                WITH portfolio_values AS (
+                    SELECT
+                        o.date,
+                        COALESCE(SUM(h.shares * o.close), 0)::numeric AS value
+                    FROM psx_holdings h
+                    JOIN psx_portfolios p
+                      ON p.id = h.portfolio_id
+                     AND p.user_id = :uid
+                    JOIN psx_ohlcv o
+                      ON o.symbol = h.symbol
+                    WHERE o.date >= CURRENT_DATE - (:days * INTERVAL '1 day')
+                      AND (h.purchased_at IS NULL OR o.date >= h.purchased_at)
+                    GROUP BY o.date
+                ),
+                joined AS (
+                    SELECT
+                        pv.date,
+                        pv.value,
+                        idx.close AS index_close,
+                        FIRST_VALUE(pv.value) OVER (ORDER BY pv.date ASC) AS first_value,
+                        FIRST_VALUE(idx.close) OVER (ORDER BY pv.date ASC) AS first_index_close
+                    FROM portfolio_values pv
+                    LEFT JOIN psx_index_eod idx
+                      ON idx.code = 'KSE100'
+                     AND idx.date = pv.date
+                    WHERE pv.value > 0
+                )
+                SELECT
+                    date,
+                    value,
+                    CASE
+                        WHEN first_value > 0
+                         AND first_index_close IS NOT NULL
+                         AND first_index_close <> 0
+                         AND index_close IS NOT NULL
+                        THEN (index_close / first_index_close) * first_value
+                        ELSE value
+                    END::numeric AS benchmark
+                FROM joined
+                ORDER BY date ASC
+            """),
+            {"uid": user_id, "days": bounded_days},
+        )
+        rows = result.mappings().all()
+
+    return PortfolioHistoryResponse(
+        days=bounded_days,
+        points=[
+            PortfolioHistoryPoint(
+                date=str(r["date"]),
+                label=r["date"].strftime("%b %d") if hasattr(r["date"], "strftime") else str(r["date"]),
+                value=float(r["value"]),
+                benchmark=float(r["benchmark"]),
+            )
+            for r in rows
+        ],
     )
