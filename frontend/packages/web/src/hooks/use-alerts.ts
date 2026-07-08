@@ -24,6 +24,11 @@ export interface PriceAlert {
   created_at: string;
 }
 
+// Supabase types don't include user_alerts/in_app_notifications yet (just migrated).
+// Using `as any` for the table reference until types.ts is regenerated.
+const userAlertsTable = "user_alerts" as any;
+const priceAlertsTable = "price_alerts" as any;
+
 export function useUserAlerts() {
   const { user } = useAuth();
   return useQuery<UserAlert[]>({
@@ -31,11 +36,11 @@ export function useUserAlerts() {
     queryFn: async () => {
       if (!user) return [];
       const { data, error } = await supabase
-        .from("user_alerts")
+        .from(userAlertsTable)
         .select("*")
         .order("created_at", { ascending: false });
       if (error) throw error;
-      return (data ?? []) as UserAlert[];
+      return (data ?? []) as unknown as UserAlert[];
     },
     enabled: !!user,
     staleTime: 30_000,
@@ -49,11 +54,11 @@ export function usePriceAlerts() {
     queryFn: async () => {
       if (!user) return [];
       const { data, error } = await supabase
-        .from("price_alerts")
+        .from(priceAlertsTable)
         .select("*")
         .order("created_at", { ascending: false });
       if (error) throw error;
-      return (data ?? []) as PriceAlert[];
+      return (data ?? []) as unknown as PriceAlert[];
     },
     enabled: !!user,
     staleTime: 30_000,
@@ -67,7 +72,7 @@ export function useCreateUserAlert() {
     mutationFn: async (alert: { type: UserAlert["type"]; title: string; meta?: Record<string, unknown> }) => {
       if (!user) throw new Error("Not authenticated");
       const { data, error } = await supabase
-        .from("user_alerts")
+        .from(userAlertsTable)
         .insert({ ...alert, user_id: user.id, meta: alert.meta ?? {} })
         .select()
         .single();
@@ -87,7 +92,7 @@ export function useToggleUserAlert() {
     mutationFn: async ({ id, enabled }: { id: number; enabled: boolean }) => {
       if (!user) throw new Error("Not authenticated");
       const { error } = await supabase
-        .from("user_alerts")
+        .from(userAlertsTable)
         .update({ enabled })
         .eq("id", id)
         .eq("user_id", user.id);
@@ -106,7 +111,7 @@ export function useRemoveUserAlert() {
     mutationFn: async (id: number) => {
       if (!user) throw new Error("Not authenticated");
       const { error } = await supabase
-        .from("user_alerts")
+        .from(userAlertsTable)
         .delete()
         .eq("id", id)
         .eq("user_id", user.id);
