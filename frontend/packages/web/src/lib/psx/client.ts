@@ -28,6 +28,67 @@ async function get<T>(path: string): Promise<T> {
   return res.json() as Promise<T>;
 }
 
+// === User-authenticated requests (use Supabase session JWT) ===
+async function getSupabaseSession() {
+  const { supabase } = await import("@/integrations/supabase/client");
+  const { data } = await supabase.auth.getSession();
+  return data.session;
+}
+
+async function userGet<T>(path: string): Promise<T> {
+  const session = await getSupabaseSession();
+  if (!session) throw new Error("Not authenticated");
+  const headers: Record<string, string> = {
+    Authorization: `Bearer ${session.access_token}`,
+  };
+  const res = await fetch(`${BASE}${path}`, { headers });
+  if (!res.ok) throw new Error(`${path}: ${res.status} ${res.statusText}`);
+  return res.json() as Promise<T>;
+}
+
+async function userPost<T>(path: string, body: unknown): Promise<T> {
+  const session = await getSupabaseSession();
+  if (!session) throw new Error("Not authenticated");
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+    Authorization: `Bearer ${session.access_token}`,
+  };
+  const res = await fetch(`${BASE}${path}`, {
+    method: "POST",
+    headers,
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw new Error(`${path}: ${res.status} ${res.statusText}`);
+  return res.json() as Promise<T>;
+}
+
+async function userPatch<T>(path: string, body: unknown): Promise<T> {
+  const session = await getSupabaseSession();
+  if (!session) throw new Error("Not authenticated");
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+    Authorization: `Bearer ${session.access_token}`,
+  };
+  const res = await fetch(`${BASE}${path}`, {
+    method: "PATCH",
+    headers,
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw new Error(`${path}: ${res.status} ${res.statusText}`);
+  return res.json() as Promise<T>;
+}
+
+async function userDelete<T>(path: string): Promise<T> {
+  const session = await getSupabaseSession();
+  if (!session) throw new Error("Not authenticated");
+  const headers: Record<string, string> = {
+    Authorization: `Bearer ${session.access_token}`,
+  };
+  const res = await fetch(`${BASE}${path}`, { method: "DELETE", headers });
+  if (!res.ok) throw new Error(`${path}: ${res.status} ${res.statusText}`);
+  return res.json() as Promise<T>;
+}
+
 async function post<T>(path: string, body: unknown): Promise<T> {
   const headers: Record<string, string> = { "Content-Type": "application/json" };
   if (TOKEN) headers["Authorization"] = `Bearer ${TOKEN}`;
@@ -111,3 +172,6 @@ export function fetchSignal(symbol: string): Promise<ApiSignal> {
 export function fetchBatchSignals(limit = 50): Promise<BatchSignalsResponse> {
   return post<BatchSignalsResponse>("/api/signals/batch", { limit });
 }
+
+// === User-authenticated request exports ===
+export { userGet, userPost, userPatch, userDelete };
