@@ -205,3 +205,33 @@ async def sector_averages():
             }
             for row in rows
         ]
+
+
+@router.get("/market/history-coverage")
+async def history_coverage():
+    """Report days of historical OHLCV data per symbol. Used to verify 20-day guarantee."""
+    await ensure_reflected()
+    factory = get_session_factory()
+    async with factory() as session:
+        ohlcv = get_table("psx_ohlcv")
+        stmt = (
+            select(
+                ohlcv.c.symbol,
+                func.count().label("days_available"),
+                func.min(ohlcv.c.date).label("oldest_date"),
+                func.max(ohlcv.c.date).label("newest_date"),
+            )
+            .group_by(ohlcv.c.symbol)
+            .order_by(ohlcv.c.symbol)
+        )
+        result = await session.execute(stmt)
+        rows = result.all()
+    return [
+        {
+            "symbol": r.symbol,
+            "days_available": r.days_available,
+            "oldest_date": str(r.oldest_date) if r.oldest_date else None,
+            "newest_date": str(r.newest_date) if r.newest_date else None,
+        }
+        for r in rows
+    ]
