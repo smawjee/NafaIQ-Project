@@ -1,5 +1,8 @@
 # NafaIQ Monorepo — Project Guide
 
+> Primary workspace: `D:\NafaIQ-Monorepo`
+> Do NOT use `C:\Users\LENOVO\nafaiq-monorepo` (stale clone)
+
 ## Team
 
 | Person | Module | Branch |
