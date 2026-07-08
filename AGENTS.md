@@ -11,41 +11,48 @@
 
 ## Architecture
 
-Monorepo with Turborepo + pnpm workspaces. Shared backend (Python FastAPI)
-serves both the PWA and the mobile app through the same REST API.
+Monorepo with Turborepo + pnpm workspaces.
+Separated frontend and backend per mentor's specification.
 
 ```
-apps/
-├── pwa/          # TanStack Start + React 19 PWA
-├── mobile/       # React Native (Tayyab)
-└── api/          # Python FastAPI — shared backend
-packages/
-└── shared-types/ # API contract types (TypeScript)
-supabase/          # Database migrations (shared)
-recall/            # Architecture docs and plans
+frontend/
+└── packages/
+    ├── web/      # React 19 + TanStack Start PWA
+    ├── mobile/   # React Native app (Tayyab)
+    └── shared/   # Shared types, utils, hooks
+
+backend/           # Python FastAPI (shared by both web and mobile)
+├── src/app/       # Application code
+├── tests/         # Python tests (pytest)
+├── database/
+│   └── migrations/ # Supabase SQL migrations
+└── pyproject.toml # Python dependencies
 ```
 
 ## Data flow
 
 ```
-  PWA ──────┐
-             ├──► Python API ──► Supabase Postgres
-  Mobile ───┘        │
-                     └──► Supabase REST (PostgREST)
+  Web PWA ───────┐
+                  ├──► Python FastAPI ──► Supabase Postgres
+  Mobile App ────┘        │
+                          └──► Supabase REST (PostgREST)
 ```
 
 ## Getting started
 
 ```bash
-# Install all dependencies
+# Install all JS dependencies
 pnpm install
-cd apps/api && pip install -e ".[dev]"
 
-# Start PWA dev server
-pnpm run dev                    # from root (or cd apps/pwa && pnpm dev)
+# Install Python dependencies
+cd backend
+pip install -e ".[dev]"
+
+# Start web dev server
+pnpm run dev                    # from root (or cd frontend/packages/web && pnpm dev)
 
 # Start Python API
-cd apps/api && python -m uvicorn app.main:app --reload --port 8000
+cd backend && python -m uvicorn src.app.main:app --reload --port 8000
 
 # Typecheck
 pnpm run typecheck
@@ -57,7 +64,7 @@ pnpm run lint
 pnpm run format
 
 # API tests
-cd apps/api && pytest tests/ -v
+cd backend && pytest tests/ -v
 ```
 
 ## Git workflow
@@ -78,6 +85,8 @@ main ────────► tagged releases (v0.2.0, v0.3.0)
 feat/<module>     — new features
 fix/<description> — bug fixes
 refactor/<what>   — code restructuring
+chore/<what>      — maintenance
+docs/<what>       — documentation
 ```
 
 ### Commit convention
@@ -85,8 +94,6 @@ refactor/<what>   — code restructuring
 feat(scope): description
 fix(scope): description
 refactor(scope): description
-chore(scope): description
-docs(scope): description
 ```
 
 ### Merge strategy
@@ -99,13 +106,13 @@ docs(scope): description
 - Project ref: `gmonfgxmjgzipnbhgimv`
 - Regenerate types after schema change:
   ```bash
-  npx supabase gen types typescript --project-id gmonfgxmjgzipnbhgimv --schema public > apps/pwa/src/integrations/supabase/types.ts
+  npx supabase gen types typescript --project-id gmonfgxmjgzipnbhgimv --schema public > frontend/packages/web/src/integrations/supabase/types.ts
   ```
-- Migrations: `supabase/migrations/` — run via Supabase Dashboard SQL Editor
+- Migrations: `backend/database/migrations/` — run via Supabase Dashboard SQL Editor
 
 ## Environment variables
 
-### apps/pwa/.env
+### frontend/packages/web/.env
 ```
 VITE_SUPABASE_URL=https://gmonfgxmjgzipnbhgimv.supabase.co
 VITE_SUPABASE_ANON_KEY=<anon-key>
@@ -113,7 +120,7 @@ VITE_PSX_API_URL=http://localhost:8000
 VITE_PSX_API_TOKEN=<api-token>
 ```
 
-### apps/api/.env
+### backend/.env
 ```
 SUPABASE_URL=https://gmonfgxmjgzipnbhgimv.supabase.co
 SUPABASE_SECRET_KEY=<sb_secret_key>
@@ -130,6 +137,6 @@ PSX_API_TOKEN=<api-token>
 Always read `recall/` before starting any task:
 - `recall/progress.md` — current phase status
 - `recall/project.md` — architecture overview
-- `recall/explaination.md` — decision log
+- `recall/explaination.md` — decision log (40+ entries)
 - `recall/plan.md` — PSX data sources
-- `recall/Complete Project Plan.md` — master plan
+- `recall/Complete Project Plan.md` — master implementation plan

@@ -7,14 +7,13 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 def _env_files() -> list[str]:
-    """Look for .env in: cwd, services/psx-api/ (relative to repo root), and the script dir."""
+    """Look for .env in: cwd, backend/, and repo root."""
     candidates = []
     cwd = Path.cwd()
     candidates.append(str(cwd / ".env"))
-    psx_dir = Path(__file__).resolve().parent.parent.parent
-    candidates.append(str(psx_dir / ".env"))
-    repo_root = psx_dir.parent
-    candidates.append(str(repo_root / ".env"))
+    backend_dir = Path(__file__).resolve().parent.parent.parent.parent
+    candidates.append(str(backend_dir / ".env"))
+    candidates.append(str(backend_dir.parent / ".env"))
     return [p for p in candidates if os.path.isfile(p)]
 
 
