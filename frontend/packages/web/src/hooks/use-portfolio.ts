@@ -135,6 +135,18 @@ export interface NetworthResponse {
   by_holding: NetworthHolding[];
 }
 
+export interface PortfolioHistoryPoint {
+  date: string;
+  label: string;
+  value: number;
+  benchmark: number;
+}
+
+export interface PortfolioHistoryResponse {
+  days: number;
+  points: PortfolioHistoryPoint[];
+}
+
 export function usePortfolioNetworth(enabled: boolean = true) {
   return useQuery<NetworthResponse>({
     queryKey: ["portfolio", "networth"],
@@ -142,5 +154,14 @@ export function usePortfolioNetworth(enabled: boolean = true) {
     enabled,
     staleTime: 15_000,
     refetchInterval: 30_000,
+  });
+}
+
+export function usePortfolioHistory(days: number = 180, enabled: boolean = true) {
+  return useQuery<PortfolioHistoryResponse>({
+    queryKey: ["portfolio", "history", days],
+    queryFn: () => userGet<PortfolioHistoryResponse>(`/api/portfolio/history?days=${days}`),
+    enabled,
+    staleTime: 60_000,
   });
 }

@@ -1,16 +1,3 @@
-import {
-  getFinanceTransactions,
-  addFinanceTransaction,
-  deleteFinanceTransaction,
-} from "@/lib/finance/financeTransactions";
-
-import {
-  addFinanceBill,
-  deleteFinanceBill,
-  getFinanceBills,
-  markFinanceBillPaid,
-  type FinanceBill,
-} from "@/lib/finance/financeBills";
 import { createFileRoute } from "@tanstack/react-router";
 import { useAuth } from "@/hooks/use-auth";
 import { useEffect, useRef, useState } from "react";
@@ -46,10 +33,13 @@ import { formatNumber, formatPKR, formatSignedPKR } from "@/lib/format";
 import { BUDGETS, INCOME_EXPENSE, type Goal } from "@/lib/finance/data";
 import { cn } from "@/lib/utils";
 import { useLang } from "@/hooks/use-lang";
+import { useDemo } from "@/hooks/use-demo";
 import { useFinanceStore, financeActions } from "@/hooks/finance/use-finance-store";
 import { useFinanceSummary } from "@/hooks/use-finance-summary";
-import { useFinanceBudgets, useCreateBudget, useUpdateBudget, useDeleteBudget } from "@/hooks/use-finance-budgets";
-import { useFinanceGoals as useApiFinanceGoals, useCreateGoal as useApiCreateGoal, useContributeGoal as useApiContributeGoal, useDeleteGoal as useApiDeleteGoal } from "@/hooks/use-finance-goals";
+import { useFinanceBudgets } from "@/hooks/use-finance-budgets";
+import { useFinanceGoals as useApiFinanceGoals, useCreateGoal as useApiCreateGoal, useContributeGoal as useApiContributeGoal } from "@/hooks/use-finance-goals";
+import { useCreateTransaction, useDeleteTransaction, useFinanceTransactions } from "@/hooks/use-finance-transactions";
+import { useCreateBill, useDeleteBill, useFinanceBills, useMarkBillPaid, type FinanceBill } from "@/hooks/use-finance-bills";
 import { useIncomeExpenseSeries, useSpendingByCategory } from "@/hooks/use-finance-series";
 import { Modal, fieldClass } from "@/components/shared/Modal";
 
@@ -226,39 +216,77 @@ function KpiLabel({ children }: { children: React.ReactNode }) {
   );
 }
 
+function emptyIncomeExpenseSeries(months = 6) {
+  const now = new Date();
+  return Array.from({ length: months }, (_, index) => {
+    const date = new Date(now.getFullYear(), now.getMonth() - (months - 1 - index), 1);
+    return {
+      month: date.toLocaleString("en-US", { month: "short" }),
+      income: 0,
+      expense: 0,
+    };
+  });
+}
+
 function Overview() {
   const { t } = useLang();
   const { user } = useAuth();
+  const { isDemo } = useDemo();
   const { data: summary } = useFinanceSummary(undefined, !!user);
   const { data: seriesData } = useIncomeExpenseSeries(6, !!user);
+  const hasSeries = !!user && !!seriesData && seriesData.series.length > 0;
+  const useShowcaseFinance = !user || isDemo;
 
-  const incomeVal = user && summary ? summary.income : 47500;
-  const expensesVal = user && summary ? summary.expenses : 18675;
-  const savingsVal = user && summary ? summary.savings : 28825;
-  const rateVal = user && summary ? summary.savings_rate : 60.7;
+  const incomeVal = useShowcaseFinance ? 47500 : (summary?.income ?? 0);
+  const expensesVal = useShowcaseFinance ? 18675 : (summary?.expenses ?? 0);
+  const savingsVal = useShowcaseFinance ? 28825 : (summary?.savings ?? 0);
+  const rateVal = useShowcaseFinance ? 60.7 : (summary?.savings_rate ?? 0);
+  const lastIncomeVal = useShowcaseFinance ? 45000 : (summary?.last_month_income ?? 0);
+  const lastExpenseVal = useShowcaseFinance ? 21200 : (summary?.last_month_expense ?? 0);
+  const lastSavingsVal = useShowcaseFinance ? 24000 : (summary?.last_month_savings ?? 0);
+  const incomeDelta = incomeVal - lastIncomeVal;
+  const expenseDeltaPct = lastExpenseVal > 0 ? ((expensesVal - lastExpenseVal) / lastExpenseVal) * 100 : 0;
+  const savingsDelta = savingsVal - lastSavingsVal;
+  const maxKpiValue = Math.max(incomeVal, expensesVal, Math.abs(savingsVal), 1);
+  const incomeBar = useShowcaseFinance ? 78 : Math.min((incomeVal / maxKpiValue) * 100, 100);
+  const expenseBar = useShowcaseFinance ? 40 : Math.min((expensesVal / maxKpiValue) * 100, 100);
+  const savingsBar = useShowcaseFinance ? 61 : Math.min((Math.max(savingsVal, 0) / maxKpiValue) * 100, 100);
+  const savingsRateBar = useShowcaseFinance ? 60.7 : Math.max(0, Math.min(rateVal, 100));
+  const savingsRateStatus =
+    rateVal >= 50 ? "Excellent" : rateVal >= 20 ? "Healthy" : rateVal > 0 ? "Needs attention" : "No savings yet";
 
   const income = useCountUp(incomeVal);
   const expenses = useCountUp(expensesVal);
   const savings = useCountUp(savingsVal);
   const rate = useCountUp(rateVal, 1);
 
-  const incomeSpark = user && seriesData && seriesData.series.length > 0
+  const incomeSpark = hasSeries
     ? seriesData.series.slice(-3).map((s) => s.income)
-    : [43000, 45000, 47500];
-  const expenseSpark = user && seriesData && seriesData.series.length > 0
+    : !useShowcaseFinance
+      ? [0, 0, 0]
+      : [43000, 45000, 47500];
+  const expenseSpark = hasSeries
     ? seriesData.series.slice(-3).map((s) => s.expense)
-    : [22000, 21200, 18675];
+    : !useShowcaseFinance
+      ? [0, 0, 0]
+      : [22000, 21200, 18675];
 
-  const chartData = user && seriesData && seriesData.series.length > 0
+  const chartData = hasSeries
     ? seriesData.series.map((s) => ({ month: s.month, income: s.income, expense: s.expense }))
-    : INCOME_EXPENSE;
+    : !useShowcaseFinance
+      ? emptyIncomeExpenseSeries(6)
+      : INCOME_EXPENSE;
 
-  const totalIncome = user && seriesData && seriesData.series.length > 0
+  const totalIncome = hasSeries
     ? Math.round(seriesData.series.reduce((a, b) => a + b.income, 0))
-    : 285000;
-  const totalExpense = user && seriesData && seriesData.series.length > 0
+    : !useShowcaseFinance
+      ? 0
+      : 285000;
+  const totalExpense = hasSeries
     ? Math.round(seriesData.series.reduce((a, b) => a + b.expense, 0))
-    : 112050;
+    : !useShowcaseFinance
+      ? 0
+      : 112050;
   const totalSavings = totalIncome - totalExpense;
 
   return (
@@ -278,11 +306,17 @@ function Overview() {
             PKR <span ref={income.ref}>{income.formatted}</span>
           </div>
           <div className="mt-3 h-1 w-full overflow-hidden rounded-full bg-white/5">
-            <AnimatedBar value={78} className="bg-bull" />
+            <AnimatedBar value={incomeBar} className="bg-bull" />
           </div>
           <div className="mt-3 flex items-end justify-between gap-2">
-            <span dir="ltr" className="text-[10px] text-bull/80 sm:text-[11px]">
-              {formatSignedPKR(2500)} {t("vs last month")}
+            <span
+              dir="ltr"
+              className={cn(
+                "text-[10px] sm:text-[11px]",
+                incomeDelta >= 0 ? "text-bull/80" : "text-bear/90",
+              )}
+            >
+              {formatSignedPKR(incomeDelta)} {t("vs last month")}
             </span>
             <div className="w-14 shrink-0">
               <Sparkline data={incomeSpark} color="#00d4aa" />
@@ -300,10 +334,19 @@ function Overview() {
             PKR <span ref={expenses.ref}>{expenses.formatted}</span>
           </div>
           <div className="mt-3 h-1 w-full overflow-hidden rounded-full bg-white/5">
-            <AnimatedBar value={40} className="bg-bear" />
+            <AnimatedBar value={expenseBar} className="bg-bear" />
           </div>
           <div className="mt-3 flex items-end justify-between gap-2">
-            <span dir="ltr" className="text-[10px] text-bear/90 sm:text-[11px]">-12% {t("vs last month")}</span>
+            <span
+              dir="ltr"
+              className={cn(
+                "text-[10px] sm:text-[11px]",
+                expenseDeltaPct <= 0 ? "text-bull/80" : "text-bear/90",
+              )}
+            >
+              {expenseDeltaPct >= 0 ? "+" : ""}
+              {expenseDeltaPct.toFixed(1)}% {t("vs last month")}
+            </span>
             <div className="w-14 shrink-0">
               <Sparkline data={expenseSpark} color="#e5484d" />
             </div>
@@ -320,11 +363,19 @@ function Overview() {
             PKR <span ref={savings.ref}>{savings.formatted}</span>
           </div>
           <div className="mt-3 h-1 w-full overflow-hidden rounded-full bg-white/5">
-            <AnimatedBar value={61} className="bg-ai" />
+            <AnimatedBar value={savingsBar} className="bg-ai" />
           </div>
           <div className="mt-3 flex items-center justify-between gap-2">
             <span className="text-[10px] text-text-muted sm:text-[11px]">{t("Saved this month")}</span>
-            <span dir="ltr" className="text-[10px] text-bull/80 sm:text-[11px]">{formatSignedPKR(4825)}</span>
+            <span
+              dir="ltr"
+              className={cn(
+                "text-[10px] sm:text-[11px]",
+                savingsDelta >= 0 ? "text-bull/80" : "text-bear/90",
+              )}
+            >
+              {formatSignedPKR(savingsDelta)}
+            </span>
           </div>
         </KpiCard>
 
@@ -341,7 +392,7 @@ function Overview() {
             <motion.div
               className="h-full rounded-full bg-warning"
               initial={{ width: 0 }}
-              whileInView={{ width: "60.7%" }}
+              whileInView={{ width: `${savingsRateBar}%` }}
               viewport={{ once: true }}
               transition={{ duration: 1, ease: [0.22, 1, 0.36, 1] }}
             />
@@ -351,9 +402,11 @@ function Overview() {
               className="rounded-full border border-warning/30 px-2 py-0.5 text-[10px] font-semibold text-warning"
               style={{ background: "rgba(245,158,11,0.1)" }}
             >
-              {t("Excellent")}
+              {t(savingsRateStatus)}
             </span>
-            <span className="text-[10px] text-text-muted sm:text-[11px]">{t("Goal: 65%")}</span>
+            <span className="text-[10px] text-text-muted sm:text-[11px]">
+              {useShowcaseFinance ? t("Goal: 65%") : `${t("Goal")}: 65%`}
+            </span>
           </div>
         </KpiCard>
       </div>
@@ -412,10 +465,11 @@ function Transactions() {
   const { t: tr } = useLang();
   const { user } = useAuth();
 
-  const [transactions, setTransactions] = useState<any[]>([]);
+  const { data: transactions = [], isLoading } = useFinanceTransactions(!!user);
+  const createTransaction = useCreateTransaction();
+  const deleteTransaction = useDeleteTransaction();
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
-  const [loading, setLoading] = useState(false);
 
   // add form
   const [merchant, setMerchant] = useState("");
@@ -424,27 +478,6 @@ function Transactions() {
   const [category, setCategory] = useState(CATEGORIES[0]);
   const [account, setAccount] = useState(ACCOUNTS[0]);
   const [err, setErr] = useState("");
-
-  async function loadTransactions() {
-    if (!user) {
-      setTransactions([]);
-      return;
-    }
-
-    try {
-      setLoading(true);
-      const data = await getFinanceTransactions(user.id);
-      setTransactions(data ?? []);
-    } catch (error) {
-      console.error("Load transactions error:", error);
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  useEffect(() => {
-    loadTransactions();
-  }, [user]);
 
   const filtered = transactions.filter((t) => {
     const q = query.toLowerCase();
@@ -480,19 +513,15 @@ function Transactions() {
     if (!amount || Number.isNaN(num) || num <= 0) return setErr(tr("Please enter a valid amount."));
 
     try {
-      await addFinanceTransaction(user.id, {
+      await createTransaction.mutateAsync({
         merchant: merchant.trim(),
-        amount: kind === "income" ? num : -num,
+        amount: num,
         category: kind === "income" ? "Income" : category,
-        transaction_type: kind === "income" ? "Income" : "Expense",
+        transaction_type: kind,
         transaction_date: new Date().toISOString(),
-        currency: "PKR",
         source: account || "manual",
-        email_subject: null,
-        raw_text: null,
+        note: null,
       });
-
-      await loadTransactions();
 
       setMerchant("");
       setAmount("");
@@ -506,15 +535,14 @@ function Transactions() {
     }
   };
 
-  const handleDelete = async (id: string) => {
+  const handleDelete = async (id: number) => {
     if (!user) return;
 
     const ok = confirm("Delete this transaction?");
     if (!ok) return;
 
     try {
-      await deleteFinanceTransaction(id, user.id);
-      await loadTransactions();
+      await deleteTransaction.mutateAsync(id);
     } catch (error) {
       console.error("Delete transaction error:", error);
       alert("Failed to delete transaction.");
@@ -541,13 +569,13 @@ function Transactions() {
         </Card>
       )}
 
-      {loading && (
+      {isLoading && (
         <Card hover={false} className="text-sm text-text-secondary">
           {tr("Loading transactions...")}
         </Card>
       )}
 
-      {!loading && user && Object.keys(grouped).length === 0 && (
+      {!isLoading && user && Object.keys(grouped).length === 0 && (
         <Card hover={false} className="text-sm text-text-secondary">
           {tr("No transactions yet. Add your first transaction using the plus button.")}
         </Card>
@@ -578,11 +606,11 @@ function Transactions() {
                 <span
                   className={cn(
                     "font-mono text-sm font-medium tabular-nums",
-                    Number(t.amount) >= 0 ? "text-bull" : "text-bear",
+                    t.transaction_type === "income" ? "text-bull" : "text-bear",
                   )}
                 >
-                  {Number(t.amount) >= 0 ? "+" : "-"}
-                  {fmtPKR(Math.abs(Number(t.amount)))}
+                  {t.transaction_type === "income" ? "+" : "-"}
+                  {fmtPKR(Number(t.amount))}
                 </span>
                 <button
                   type="button"
@@ -685,8 +713,13 @@ function Budgets() {
   const shortMonth = (d: Date) => d.toLocaleString("en-US", { month: "short" });
   const longLabel = current.toLocaleString("en-US", { month: "long", year: "numeric" });
 
-  const displayBudgets = user && apiBudgets && apiBudgets.length > 0
-    ? apiBudgets.map((b) => ({ category: b.category, spent: b.spent, limit: b.limit_amount, tip: b.tip }))
+  const displayBudgets = user
+    ? (apiBudgets ?? []).map((b) => ({
+        category: b.category,
+        spent: b.spent,
+        limit: b.limit_amount,
+        tip: b.tip,
+      }))
     : BUDGETS;
 
   return (
@@ -701,8 +734,13 @@ function Budgets() {
         </button>
       </div>
       <div className="grid gap-3 md:grid-cols-2">
+        {user && displayBudgets.length === 0 && (
+          <Card hover={false} className="text-sm text-text-secondary md:col-span-2">
+            {t("No budgets yet. Add your first budget to start tracking spending.")}
+          </Card>
+        )}
         {displayBudgets.map((b) => {
-          const pct = Math.round((b.spent / b.limit) * 100);
+          const pct = b.limit > 0 ? Math.round((b.spent / b.limit) * 100) : 0;
           const over = b.spent > b.limit;
           const color = over
             ? "bg-bear"
@@ -745,38 +783,18 @@ function Bills() {
   const { t } = useLang();
   const { user } = useAuth();
 
-  const [bills, setBills] = useState<FinanceBill[]>([]);
+  const { data: bills = [], isLoading } = useFinanceBills(!!user);
+  const createBill = useCreateBill();
+  const markBillPaid = useMarkBillPaid();
+  const deleteBill = useDeleteBill();
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
   const [amount, setAmount] = useState("");
   const [due, setDue] = useState("");
   const [err, setErr] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [busyBillId, setBusyBillId] = useState<string | null>(null);
-
-  async function loadBills() {
-    if (!user) {
-      setBills([]);
-      return;
-    }
-
-    try {
-      setLoading(true);
-      const data = await getFinanceBills(user.id);
-      setBills(data ?? []);
-    } catch (error) {
-      console.error("Load bills error:", error);
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  useEffect(() => {
-    loadBills();
-  }, [user]);
+  const [busyBillId, setBusyBillId] = useState<number | null>(null);
 
   const getDisplayDue = (bill: FinanceBill) => {
-    if (bill.due_label) return bill.due_label;
     if (!bill.due_date) return "—";
 
     return new Date(`${bill.due_date}T00:00:00`).toLocaleDateString("en-US", {
@@ -798,21 +816,12 @@ function Bills() {
     try {
       const dueDate = due.trim() || null;
 
-      await addFinanceBill(user.id, {
+      await createBill.mutateAsync({
         name: name.trim(),
         amount: num,
-        currency: "PKR",
         due_date: dueDate,
-        due_label: dueDate
-          ? new Date(`${dueDate}T00:00:00`).toLocaleDateString("en-US", {
-              month: "short",
-              day: "numeric",
-            })
-          : null,
         status: "UPCOMING",
       });
-
-      await loadBills();
 
       setName("");
       setAmount("");
@@ -829,8 +838,7 @@ function Bills() {
 
     try {
       setBusyBillId(bill.id);
-      await markFinanceBillPaid(bill.id, user.id);
-      await loadBills();
+      await markBillPaid.mutateAsync(bill.id);
     } catch (error) {
       console.error("Mark bill paid error:", error);
       alert("Failed to mark bill as paid.");
@@ -847,8 +855,7 @@ function Bills() {
 
     try {
       setBusyBillId(bill.id);
-      await deleteFinanceBill(bill.id, user.id);
-      await loadBills();
+      await deleteBill.mutateAsync(bill.id);
     } catch (error) {
       console.error("Delete bill error:", error);
       alert("Failed to delete bill.");
@@ -865,13 +872,13 @@ function Bills() {
         </Card>
       )}
 
-      {loading && (
+      {isLoading && (
         <Card hover={false} className="text-sm text-text-secondary">
           {t("Loading bills...")}
         </Card>
       )}
 
-      {!loading && user && bills.length === 0 && (
+      {!isLoading && user && bills.length === 0 && (
         <Card hover={false} className="text-sm text-text-secondary">
           {t("No bills yet. Add your first bill below.")}
         </Card>
@@ -983,8 +990,8 @@ function Goals() {
   const [contribAmount, setContribAmount] = useState("");
   const [contribErr, setContribErr] = useState("");
 
-  const displayGoals: Goal[] = user && apiGoals && apiGoals.length > 0
-    ? apiGoals.map((g) => ({
+  const displayGoals: Goal[] = user
+    ? (apiGoals ?? []).map((g) => ({
         emoji: g.emoji || "🎯",
         name: g.name,
         target: g.target,
@@ -1053,8 +1060,13 @@ function Goals() {
 
   return (
     <div className="grid gap-4 md:grid-cols-2">
+      {user && displayGoals.length === 0 && (
+        <Card hover={false} className="text-sm text-text-secondary md:col-span-2">
+          {t("No goals yet. Add your first savings goal to start tracking progress.")}
+        </Card>
+      )}
       {displayGoals.map((g) => {
-        const pct = Math.round((g.saved / g.target) * 100);
+        const pct = g.target > 0 ? Math.round((g.saved / g.target) * 100) : 0;
         return (
           <Card key={g.name}>
             <div className="flex items-center gap-2">
