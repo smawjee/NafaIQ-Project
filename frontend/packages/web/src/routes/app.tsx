@@ -24,8 +24,12 @@ import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/use-auth";
 import { useLang, localizeDigits } from "@/hooks/use-lang";
 import { useFinanceStore, financeActions } from "@/hooks/finance/use-finance-store";
-import { usePortfolioList, useAddHolding, useCreatePortfolio } from "@/hooks/use-portfolio";
+import { usePortfolioList, useAddHolding, useCreatePortfolio, usePortfolioNetworth } from "@/hooks/use-portfolio";
 import { useCreateUserAlert } from "@/hooks/use-alerts";
+import { useFinanceSummary } from "@/hooks/use-finance-summary";
+import { useFinanceGoals } from "@/hooks/use-finance-goals";
+import { useSpendingByCategory } from "@/hooks/use-finance-series";
+import { useWatchlist } from "@/hooks/psx/use-watchlist";
 import { Modal, fieldClass } from "@/components/shared/Modal";
 import { Checkbox } from "@/components/ui/checkbox";
 
@@ -95,6 +99,13 @@ function Dashboard() {
   const [txOpen, setTxOpen] = useState(false);
   const [holdingOpen, setHoldingOpen] = useState(false);
   const [alertOpen, setAlertOpen] = useState(false);
+
+  /* Real user data hooks (only active when logged in) */
+  const { data: networth } = usePortfolioNetworth();
+  const { data: financeSummary } = useFinanceSummary();
+  const { data: spendingByCat } = useSpendingByCategory(30);
+  const { data: userGoals } = useFinanceGoals();
+  const { symbols: userWatchlist } = useWatchlist();
 
   return (
     <div className="mx-auto max-w-7xl space-y-8">
@@ -186,29 +197,33 @@ function Dashboard() {
         <Card className="lg:col-span-6">
           <div className="text-[13px] font-medium text-text-secondary">{t("Total Net Worth")}</div>
           <div className="mt-3 font-mono text-4xl font-bold tabular-nums text-text-primary">
-            <CountUpNumber value={4280500} prefix="PKR " />
+            <CountUpNumber value={user && networth ? networth.total_market_value : 4280500} prefix="PKR " />
           </div>
           <div className="mt-2 font-mono text-sm tabular-nums text-bull">
-            +PKR 56,000 (+1.32%) this month
+            {user && networth
+              ? `${networth.today_pnl >= 0 ? "+" : ""}PKR ${Math.round(networth.today_pnl).toLocaleString()} (${networth.today_pnl_pct >= 0 ? "+" : ""}${networth.today_pnl_pct}%) today`
+              : "+PKR 56,000 (+1.32%) this month"}
           </div>
         </Card>
         <div className="grid grid-cols-1 gap-6 sm:grid-cols-3 lg:col-span-6">
           <StatCard
             label="Portfolio Value"
-            value={<CountUpNumber value={858054} prefix="PKR " />}
-            sub="+12.73% YTD"
+            value={<CountUpNumber value={user && networth ? networth.total_market_value : 858054} prefix="PKR " />}
+            sub={user && networth ? `${networth.total_unrealized_pnl_pct >= 0 ? "+" : ""}${networth.total_unrealized_pnl_pct}% all time` : "+12.73% YTD"}
             subColor="text-bull"
           />
           <StatCard
             label="Monthly Spending"
-            value={<CountUpNumber value={112050} prefix="PKR " />}
-            sub="-12% vs May"
+            value={<CountUpNumber value={user && financeSummary ? financeSummary.expenses : 112050} prefix="PKR " />}
+            sub={user && financeSummary && financeSummary.last_month_expense > 0
+              ? `${Math.round(((financeSummary.expenses - financeSummary.last_month_expense) / financeSummary.last_month_expense) * 100)}% vs last month`
+              : "-12% vs May"}
             subColor="text-bull"
           />
           <StatCard
             label="Today's PSX P/L"
-            value={<CountUpNumber value={17480} prefix="+" />}
-            sub="+1.42%"
+            value={<CountUpNumber value={user && networth ? Math.round(networth.today_pnl) : 17480} prefix={user && networth ? (networth.today_pnl >= 0 ? "+" : "") : "+"} />}
+            sub={user && networth ? `${networth.today_pnl_pct >= 0 ? "+" : ""}${networth.today_pnl_pct}%` : "+1.42%"}
             subColor="text-bull"
           />
         </div>
@@ -250,23 +265,51 @@ function Dashboard() {
         </Card>
         <Card className="lg:col-span-2">
           <h3 className="mb-3 text-sm font-semibold text-text-primary">{t("Spending Breakdown")}</h3>
-          <DonutChart data={SPENDING} centerValue={localizeDigits("132,000")} centerLabel="PKR total" />
-          <div className="mt-2 grid grid-cols-2 gap-1.5 text-xs">
-            {SPENDING.map((s, i) => (
-              <span key={s.name} className="flex items-center gap-1.5 text-text-secondary">
-                <span
-                  className="h-2 w-2 rounded-full"
-                  style={{
-                    background:
-                      theme === "light"
-                        ? DONUT_LIGHT_PALETTE[i % DONUT_LIGHT_PALETTE.length]
-                        : s.color,
-                  }}
-                />
-                {t(s.name)} {localizeDigits(`${s.value}%`)}
-              </span>
-            ))}
-          </div>
+          {user && spendingByCat && spendingByCat.categories.length > 0 ? (
+            <>
+              <DonutChart
+                data={spendingByCat.categories.slice(0, 5).map((c, i) => ({
+                  name: c.category,
+                  value: c.pct,
+                  amount: c.amount,
+                  color: DONUT_LIGHT_PALETTE[i % DONUT_LIGHT_PALETTE.length],
+                }))}
+                centerValue={localizeDigits(Math.round(spendingByCat.total).toLocaleString())}
+                centerLabel="PKR total"
+              />
+              <div className="mt-2 grid grid-cols-2 gap-1.5 text-xs">
+                {spendingByCat.categories.slice(0, 5).map((c, i) => (
+                  <span key={c.category} className="flex items-center gap-1.5 text-text-secondary">
+                    <span
+                      className="h-2 w-2 rounded-full"
+                      style={{ background: DONUT_LIGHT_PALETTE[i % DONUT_LIGHT_PALETTE.length] }}
+                    />
+                    {t(c.category)} {localizeDigits(`${c.pct}%`)}
+                  </span>
+                ))}
+              </div>
+            </>
+          ) : (
+            <>
+              <DonutChart data={SPENDING} centerValue={localizeDigits("132,000")} centerLabel="PKR total" />
+              <div className="mt-2 grid grid-cols-2 gap-1.5 text-xs">
+                {SPENDING.map((s, i) => (
+                  <span key={s.name} className="flex items-center gap-1.5 text-text-secondary">
+                    <span
+                      className="h-2 w-2 rounded-full"
+                      style={{
+                        background:
+                          theme === "light"
+                            ? DONUT_LIGHT_PALETTE[i % DONUT_LIGHT_PALETTE.length]
+                            : s.color,
+                      }}
+                    />
+                    {t(s.name)} {localizeDigits(`${s.value}%`)}
+                  </span>
+                ))}
+              </div>
+            </>
+          )}
         </Card>
       </div>
 
@@ -274,8 +317,9 @@ function Dashboard() {
       <section>
         <h3 className="mb-3 text-sm font-semibold text-text-primary">{t("Watchlist")}</h3>
         <div className="scrollbar-none flex gap-3 overflow-x-auto pb-1">
-          {WATCHLIST.map((tk) => {
+          {(user && userWatchlist.length > 0 ? userWatchlist : WATCHLIST).map((tk) => {
             const s = STOCKS[tk];
+            if (!s) return null;
             const spark = generateOHLCV(s.seed, s.start, s.price, 7).map((c) => c.close);
             return (
               <Link
@@ -305,7 +349,17 @@ function Dashboard() {
       <section>
         <h3 className="mb-3 text-sm font-semibold text-text-primary">{t("Savings Goals")}</h3>
         <div className="scrollbar-none flex gap-4 overflow-x-auto py-3 lg:grid lg:grid-cols-3">
-          {GOALS.slice(0, 3).map((g) => {
+          {(user && userGoals && userGoals.length > 0
+            ? userGoals.slice(0, 3).map((g) => ({
+                emoji: g.emoji || "",
+                name: g.name,
+                saved: g.saved,
+                target: g.target,
+                color: (g.color === "warning" ? "warning" : "bull") as "warning" | "bull",
+                ai: g.ai_tip || "",
+              }))
+            : GOALS.slice(0, 3)
+          ).map((g) => {
             const pct = Math.round((g.saved / g.target) * 100);
             return (
               <Card key={g.name} className="w-[280px] shrink-0 lg:w-auto">
