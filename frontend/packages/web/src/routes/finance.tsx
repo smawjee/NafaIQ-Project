@@ -47,6 +47,10 @@ import { BUDGETS, INCOME_EXPENSE, type Goal } from "@/lib/finance/data";
 import { cn } from "@/lib/utils";
 import { useLang } from "@/hooks/use-lang";
 import { useFinanceStore, financeActions } from "@/hooks/finance/use-finance-store";
+import { useFinanceSummary } from "@/hooks/use-finance-summary";
+import { useFinanceBudgets, useCreateBudget, useUpdateBudget, useDeleteBudget } from "@/hooks/use-finance-budgets";
+import { useFinanceGoals as useApiFinanceGoals, useCreateGoal as useApiCreateGoal, useContributeGoal as useApiContributeGoal, useDeleteGoal as useApiDeleteGoal } from "@/hooks/use-finance-goals";
+import { useIncomeExpenseSeries, useSpendingByCategory } from "@/hooks/use-finance-series";
 import { Modal, fieldClass } from "@/components/shared/Modal";
 
 export const Route = createFileRoute("/finance")({
@@ -224,10 +228,38 @@ function KpiLabel({ children }: { children: React.ReactNode }) {
 
 function Overview() {
   const { t } = useLang();
-  const income = useCountUp(47500);
-  const expenses = useCountUp(18675);
-  const savings = useCountUp(28825);
-  const rate = useCountUp(60.7, 1);
+  const { user } = useAuth();
+  const { data: summary } = useFinanceSummary();
+  const { data: seriesData } = useIncomeExpenseSeries(6);
+
+  const incomeVal = user && summary ? summary.income : 47500;
+  const expensesVal = user && summary ? summary.expenses : 18675;
+  const savingsVal = user && summary ? summary.savings : 28825;
+  const rateVal = user && summary ? summary.savings_rate : 60.7;
+
+  const income = useCountUp(incomeVal);
+  const expenses = useCountUp(expensesVal);
+  const savings = useCountUp(savingsVal);
+  const rate = useCountUp(rateVal, 1);
+
+  const incomeSpark = user && seriesData && seriesData.series.length > 0
+    ? seriesData.series.slice(-3).map((s) => s.income)
+    : [43000, 45000, 47500];
+  const expenseSpark = user && seriesData && seriesData.series.length > 0
+    ? seriesData.series.slice(-3).map((s) => s.expense)
+    : [22000, 21200, 18675];
+
+  const chartData = user && seriesData && seriesData.series.length > 0
+    ? seriesData.series.map((s) => ({ month: s.month, income: s.income, expense: s.expense }))
+    : INCOME_EXPENSE;
+
+  const totalIncome = user && seriesData && seriesData.series.length > 0
+    ? Math.round(seriesData.series.reduce((a, b) => a + b.income, 0))
+    : 285000;
+  const totalExpense = user && seriesData && seriesData.series.length > 0
+    ? Math.round(seriesData.series.reduce((a, b) => a + b.expense, 0))
+    : 112050;
+  const totalSavings = totalIncome - totalExpense;
 
   return (
     <div className="relative space-y-4">
@@ -253,7 +285,7 @@ function Overview() {
               {formatSignedPKR(2500)} {t("vs last month")}
             </span>
             <div className="w-14 shrink-0">
-              <Sparkline data={[43000, 45000, 47500]} color="#00d4aa" />
+              <Sparkline data={incomeSpark} color="#00d4aa" />
             </div>
           </div>
         </KpiCard>
@@ -273,7 +305,7 @@ function Overview() {
           <div className="mt-3 flex items-end justify-between gap-2">
             <span dir="ltr" className="text-[10px] text-bear/90 sm:text-[11px]">-12% {t("vs last month")}</span>
             <div className="w-14 shrink-0">
-              <Sparkline data={[22000, 21200, 18675]} color="#e5484d" />
+              <Sparkline data={expenseSpark} color="#e5484d" />
             </div>
           </div>
         </KpiCard>
@@ -353,11 +385,11 @@ function Overview() {
           </div>
         </div>
         <div className="relative z-10 mt-4">
-          <IncomeExpenseChart data={INCOME_EXPENSE} />
+          <IncomeExpenseChart data={chartData} />
         </div>
         <div dir="ltr" className="relative z-10 mt-3 text-center text-[11px] text-text-muted">
-          {t("6-month totals")}: {t("Income")} {formatPKR(285000)} · {t("Expenses")}{" "}
-          {formatPKR(112050)} · {t("Saved")} {formatPKR(172950)}
+          {t("6-month totals")}: {t("Income")} {formatPKR(totalIncome)} · {t("Expenses")}{" "}
+          {formatPKR(totalExpense)} · {t("Saved")} {formatPKR(totalSavings)}
         </div>
       </motion.div>
     </div>
