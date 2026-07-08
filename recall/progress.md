@@ -1,7 +1,7 @@
 # NafaIQ — Progress Tracker
 
 > **Always read this file first** before starting any task. Update after completing work.
-> **Last updated:** 2026-07-08 (Phase 2: auth + rate limit + health/db + env vars — complete)
+> **Last updated:** 2026-07-08 (Monorepo structure per mentor's spec — pushed to develop)
 
 ---
 
