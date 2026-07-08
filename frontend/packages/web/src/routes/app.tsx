@@ -193,6 +193,34 @@ function Dashboard() {
       )}
 
       {/* Metric cards — Net Worth primary, rest secondary */}
+      {user && networth && networth.holding_count === 0 ? (
+        <div className="rounded-[14px] border border-white/[0.06] bg-surface p-5 text-center">
+          <h2 className="text-lg font-semibold text-text-primary">{t("Welcome to NafaIQ!")}</h2>
+          <p className="mt-2 max-w-md mx-auto text-sm leading-relaxed text-text-secondary">
+            {t("Add your first holding, transaction, or goal to get started with real insights.")}
+          </p>
+          <div className="mt-4 flex flex-wrap justify-center gap-3">
+            <button
+              onClick={() => setHoldingOpen(true)}
+              className="rounded-lg bg-primary px-3.5 py-2 text-[13px] font-semibold text-primary-foreground transition hover:brightness-110"
+            >
+              {t("Add Holding")}
+            </button>
+            <button
+              onClick={() => setTxOpen(true)}
+              className="rounded-lg border border-white/[0.08] bg-surface px-3.5 py-2 text-[13px] font-semibold text-text-primary transition hover:border-white/[0.16]"
+            >
+              {t("Add Transaction")}
+            </button>
+            <Link
+              to="/psx"
+              className="rounded-lg border border-white/[0.08] bg-surface px-3.5 py-2 text-[13px] font-semibold text-text-primary transition hover:border-white/[0.16]"
+            >
+              {t("Explore PSX")}
+            </Link>
+          </div>
+        </div>
+      ) : (
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
         <Card className="lg:col-span-6">
           <div className="text-[13px] font-medium text-text-secondary">{t("Total Net Worth")}</div>
@@ -228,6 +256,7 @@ function Dashboard() {
           />
         </div>
       </div>
+      )}
 
       {/* Charts */}
       <div className="grid gap-4 lg:grid-cols-5">
