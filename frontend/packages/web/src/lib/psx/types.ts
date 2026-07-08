@@ -64,6 +64,9 @@ export interface ApiDividendEvent {
 export interface ApiIndexBar {
   code: string;
   date: string;
+  open: number | null;
+  high: number | null;
+  low: number | null;
   close: number;
   volume: number | null;
 }
