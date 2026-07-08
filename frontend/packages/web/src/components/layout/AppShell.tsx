@@ -28,6 +28,7 @@ import { TICKER_ITEMS, STOCKS } from "@/lib/data";
 import { LEARNING_PATHS, LESSON_CONTENT } from "@/lib/learn/data";
 import { useAuth } from "@/hooks/use-auth";
 import { useLandingTheme } from "@/hooks/use-landing-theme";
+import { DemoBanner } from "@/components/demo/DemoBanner";
 import { useLang } from "@/hooks/use-lang";
 import { useNotifications, useMarkNotificationRead } from "@/hooks/use-notifications";
 import { ScrollToTop } from "@/components/shared/ScrollToTop";
@@ -601,6 +602,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           onExpand={() => toggleCollapsed(false)}
         />
         <Breadcrumbs />
+        <DemoBanner />
         <main className={cn(
           "pt-4 pb-24 lg:pb-8",
           pathname.startsWith("/learn/lesson") ? "px-0" : "px-3 sm:px-5 lg:px-6",

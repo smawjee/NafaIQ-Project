@@ -76,6 +76,7 @@ import { Particles } from "@/components/landing/Particles";
 import { TestimonialsSection } from "@/components/landing/TestimonialsSection";
 import { ThemeToggle } from "@/components/shared/ThemeToggle";
 import { useAuth } from "@/hooks/use-auth";
+import { useDemo } from "@/hooks/use-demo";
 import { useLandingTheme } from "@/hooks/use-landing-theme";
 
 export const Route = createFileRoute("/")({
@@ -481,7 +482,8 @@ function NavSearch() {
 
 function Nav() {
   const { user } = useAuth();
-  const { theme, toggleTheme } = useLandingTheme();
+  const { signInAsDemo } = useDemo();
+    const { theme, toggleTheme } = useLandingTheme();
   const isDark = theme === "dark";
   const [scrolled, setScrolled] = useState(false);
   const [open, setOpen] = useState(false);
@@ -579,6 +581,30 @@ function Nav() {
               </Link>
             </motion.div>
           </Magnetic>
+
+          {/* Try Demo — secondary CTA */}
+          {!user && (
+            <Magnetic strength={0.3}>
+              <motion.div
+                whileHover={{ scale: 1.04 }}
+                whileTap={{ scale: 0.96 }}
+                transition={SPRING_UI}
+              >
+                <button
+                  onClick={async () => {
+                    try {
+                      await signInAsDemo();
+                    } catch {
+                      toast.error("Demo account not configured");
+                    }
+                  }}
+                  className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-full border border-white/[0.12] bg-surface/60 px-4 py-2 text-sm font-medium text-text-secondary backdrop-blur-sm transition hover:border-white/[0.24] hover:text-text-primary"
+                >
+                  Try Demo
+                </button>
+              </motion.div>
+            </Magnetic>
+          )}
 
           {/* hamburger */}
           <button
