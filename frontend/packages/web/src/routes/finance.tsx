@@ -675,6 +675,8 @@ function Transactions() {
 
 function Budgets() {
   const { t } = useLang();
+  const { user } = useAuth();
+  const { data: apiBudgets } = useFinanceBudgets();
   const [offset, setOffset] = useState(0);
   const base = new Date();
   const current = new Date(base.getFullYear(), base.getMonth() + offset, 1);
@@ -682,6 +684,10 @@ function Budgets() {
   const next = new Date(current.getFullYear(), current.getMonth() + 1, 1);
   const shortMonth = (d: Date) => d.toLocaleString("en-US", { month: "short" });
   const longLabel = current.toLocaleString("en-US", { month: "long", year: "numeric" });
+
+  const displayBudgets = user && apiBudgets && apiBudgets.length > 0
+    ? apiBudgets.map((b) => ({ category: b.category, spent: b.spent, limit: b.limit_amount, tip: b.tip }))
+    : BUDGETS;
 
   return (
     <div className="space-y-4">
@@ -695,7 +701,7 @@ function Budgets() {
         </button>
       </div>
       <div className="grid gap-3 md:grid-cols-2">
-        {BUDGETS.map((b) => {
+        {displayBudgets.map((b) => {
           const pct = Math.round((b.spent / b.limit) * 100);
           const over = b.spent > b.limit;
           const color = over
@@ -962,7 +968,11 @@ function Bills() {
 
 function Goals() {
   const { t } = useLang();
-  const { goals } = useFinanceStore();
+  const { user } = useAuth();
+  const { goals: storeGoals } = useFinanceStore();
+  const { data: apiGoals } = useApiFinanceGoals();
+  const createGoalApi = useApiCreateGoal();
+  const contributeGoalApi = useApiContributeGoal();
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
   const [target, setTarget] = useState("");
@@ -973,22 +983,44 @@ function Goals() {
   const [contribAmount, setContribAmount] = useState("");
   const [contribErr, setContribErr] = useState("");
 
+  const displayGoals: Goal[] = user && apiGoals && apiGoals.length > 0
+    ? apiGoals.map((g) => ({
+        emoji: g.emoji || "🎯",
+        name: g.name,
+        target: g.target,
+        saved: g.saved,
+        color: (g.color === "warning" ? "warning" : "bull") as "warning" | "bull",
+        ai: g.ai_tip || "",
+        date: g.target_date || undefined,
+      }))
+    : storeGoals;
+
   const submit = () => {
     setErr("");
     const num = Number(target);
     if (!name.trim()) return setErr(t("Please enter a goal name."));
     if (!target || Number.isNaN(num) || num <= 0)
       return setErr(t("Please enter a valid target amount."));
-    const goal: Goal = {
-      emoji: "🎯",
-      name: name.trim(),
-      target: num,
-      saved: 0,
-      color: "bull",
-      date: date ? format(date, "MMM d, yyyy") : undefined,
-      ai: t("New goal created. Start contributing to track your progress."),
-    };
-    financeActions.addGoal(goal);
+    if (user) {
+      createGoalApi.mutate({
+        name: name.trim(),
+        target: num,
+        emoji: "🎯",
+        color: "bull",
+        target_date: date ? date.toISOString() : undefined,
+      });
+    } else {
+      const goal: Goal = {
+        emoji: "🎯",
+        name: name.trim(),
+        target: num,
+        saved: 0,
+        color: "bull",
+        date: date ? format(date, "MMM d, yyyy") : undefined,
+        ai: t("New goal created. Start contributing to track your progress."),
+      };
+      financeActions.addGoal(goal);
+    }
     setName("");
     setTarget("");
     setDate(undefined);
@@ -1006,7 +1038,14 @@ function Goals() {
     const num = Number(contribAmount);
     if (!contribAmount || Number.isNaN(num) || num <= 0)
       return setContribErr(t("Please enter a valid amount."));
-    if (contribGoal) financeActions.contributeToGoal(contribGoal, num);
+    if (contribGoal) {
+      if (user && apiGoals) {
+        const goal = apiGoals.find((g) => g.name === contribGoal);
+        if (goal) contributeGoalApi.mutate({ id: goal.id, amount: num });
+      } else {
+        financeActions.contributeToGoal(contribGoal, num);
+      }
+    }
     setContribGoal(null);
     setContribAmount("");
   };
@@ -1014,7 +1053,7 @@ function Goals() {
 
   return (
     <div className="grid gap-4 md:grid-cols-2">
-      {goals.map((g) => {
+      {displayGoals.map((g) => {
         const pct = Math.round((g.saved / g.target) * 100);
         return (
           <Card key={g.name}>
