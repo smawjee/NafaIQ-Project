@@ -302,3 +302,128 @@ async def portfolio_value(
         "holdings": holdings,
         "totals": totals,
     }
+
+
+class NetworthHolding(BaseModel):
+    symbol: str
+    shares: int
+    avg_cost: float
+    current_price: float | None
+    market_value: float
+    cost_basis: float
+    unrealized_pnl: float
+    pnl_pct: float
+    previous_close: float | None
+    today_pnl: float
+
+
+class NetworthResponse(BaseModel):
+    total_market_value: float
+    total_cost_basis: float
+    total_unrealized_pnl: float
+    total_unrealized_pnl_pct: float
+    today_pnl: float
+    today_pnl_pct: float
+    portfolio_count: int
+    holding_count: int
+    by_holding: list[NetworthHolding]
+
+
+@router.get("/portfolio/networth")
+async def portfolio_networth(
+    user: Annotated[dict, Depends(require_user)],
+):
+    """Sum totals across all user portfolios with today's P/L from previous close."""
+    user_id = user["user_id"]
+    engine = get_engine()
+    async with engine.connect() as conn:
+        result = await conn.execute(
+            text("""
+                WITH prev_close AS (
+                    SELECT DISTINCT ON (symbol) symbol, close AS previous_close
+                    FROM psx_ohlcv
+                    WHERE date < CURRENT_DATE
+                    ORDER BY symbol, date DESC
+                )
+                SELECT
+                    h.id, h.symbol, h.shares, h.avg_cost,
+                    s.price AS current_price,
+                    (h.shares * COALESCE(s.price, 0))::numeric AS market_value,
+                    (h.shares * h.avg_cost)::numeric AS cost_basis,
+                    (h.shares * COALESCE(s.price, 0) - h.shares * h.avg_cost)::numeric AS unrealized_pnl,
+                    CASE WHEN (h.shares * h.avg_cost) > 0 AND s.price IS NOT NULL
+                        THEN ROUND(
+                            ((h.shares * s.price - h.shares * h.avg_cost) / (h.shares * h.avg_cost)) * 100,
+                            2
+                        )
+                        ELSE 0
+                    END AS pnl_pct,
+                    pc.previous_close AS previous_close,
+                    CASE
+                        WHEN s.price IS NOT NULL AND pc.previous_close IS NOT NULL
+                        THEN ((s.price - pc.previous_close) * h.shares)::numeric
+                        ELSE 0
+                    END AS today_pnl
+                FROM psx_holdings h
+                JOIN psx_portfolios p ON p.id = h.portfolio_id AND p.user_id = :uid
+                LEFT JOIN psx_market_snapshot s ON s.symbol = h.symbol
+                LEFT JOIN prev_close pc ON pc.symbol = h.symbol
+                ORDER BY h.symbol ASC
+            """),
+            {"uid": user_id},
+        )
+        rows = result.mappings().all()
+
+        count_result = await conn.execute(
+            text("SELECT COUNT(*) AS c FROM psx_portfolios WHERE user_id = :uid"),
+            {"uid": user_id},
+        )
+        portfolio_count = count_result.scalar() or 0
+
+    by_holding = [
+        NetworthHolding(
+            symbol=r["symbol"],
+            shares=r["shares"],
+            avg_cost=float(r["avg_cost"]),
+            current_price=float(r["current_price"]) if r["current_price"] else None,
+            market_value=float(r["market_value"]),
+            cost_basis=float(r["cost_basis"]),
+            unrealized_pnl=float(r["unrealized_pnl"]),
+            pnl_pct=float(r["pnl_pct"]),
+            previous_close=float(r["previous_close"]) if r["previous_close"] else None,
+            today_pnl=float(r["today_pnl"]),
+        )
+        for r in rows
+    ]
+
+    total_market_value = sum(h.market_value for h in by_holding)
+    total_cost_basis = sum(h.cost_basis for h in by_holding)
+    total_unrealized_pnl = sum(h.unrealized_pnl for h in by_holding)
+    total_unrealized_pnl_pct = (
+        round((total_unrealized_pnl / total_cost_basis) * 100, 2)
+        if total_cost_basis > 0
+        else 0.0
+    )
+    today_pnl = sum(h.today_pnl for h in by_holding)
+    prev_value = sum(
+        (h.previous_close or 0) * h.shares
+        for h in by_holding
+        if h.previous_close is not None
+    )
+    today_pnl_pct = (
+        round((today_pnl / prev_value) * 100, 2)
+        if prev_value > 0
+        else 0.0
+    )
+
+    return NetworthResponse(
+        total_market_value=total_market_value,
+        total_cost_basis=total_cost_basis,
+        total_unrealized_pnl=total_unrealized_pnl,
+        total_unrealized_pnl_pct=total_unrealized_pnl_pct,
+        today_pnl=today_pnl,
+        today_pnl_pct=today_pnl_pct,
+        portfolio_count=portfolio_count,
+        holding_count=len(by_holding),
+        by_holding=by_holding,
+    )
