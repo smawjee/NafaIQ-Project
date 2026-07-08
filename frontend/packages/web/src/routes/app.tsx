@@ -101,10 +101,10 @@ function Dashboard() {
   const [alertOpen, setAlertOpen] = useState(false);
 
   /* Real user data hooks (only active when logged in) */
-  const { data: networth } = usePortfolioNetworth();
-  const { data: financeSummary } = useFinanceSummary();
-  const { data: spendingByCat } = useSpendingByCategory(30);
-  const { data: userGoals } = useFinanceGoals();
+  const { data: networth } = usePortfolioNetworth(!!user);
+  const { data: financeSummary } = useFinanceSummary(undefined, !!user);
+  const { data: spendingByCat } = useSpendingByCategory(30, !!user);
+  const { data: userGoals } = useFinanceGoals(!!user);
   const { symbols: userWatchlist } = useWatchlist();
 
   return (

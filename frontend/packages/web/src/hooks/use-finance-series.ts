@@ -24,18 +24,20 @@ export interface SpendingByCategoryResponse {
   categories: SpendingCategory[];
 }
 
-export function useIncomeExpenseSeries(months: number = 6) {
+export function useIncomeExpenseSeries(months: number = 6, enabled: boolean = true) {
   return useQuery<IncomeExpenseResponse>({
     queryKey: ["finance", "income-expense", months],
     queryFn: () => userGet<IncomeExpenseResponse>(`/api/finance/income-expense?months=${months}`),
+    enabled,
     staleTime: 60_000,
   });
 }
 
-export function useSpendingByCategory(days: number = 30) {
+export function useSpendingByCategory(days: number = 30, enabled: boolean = true) {
   return useQuery<SpendingByCategoryResponse>({
     queryKey: ["finance", "spending-by-category", days],
     queryFn: () => userGet<SpendingByCategoryResponse>(`/api/finance/spending-by-category?days=${days}`),
+    enabled,
     staleTime: 60_000,
   });
 }

@@ -229,8 +229,8 @@ function KpiLabel({ children }: { children: React.ReactNode }) {
 function Overview() {
   const { t } = useLang();
   const { user } = useAuth();
-  const { data: summary } = useFinanceSummary();
-  const { data: seriesData } = useIncomeExpenseSeries(6);
+  const { data: summary } = useFinanceSummary(undefined, !!user);
+  const { data: seriesData } = useIncomeExpenseSeries(6, !!user);
 
   const incomeVal = user && summary ? summary.income : 47500;
   const expensesVal = user && summary ? summary.expenses : 18675;
@@ -676,7 +676,7 @@ function Transactions() {
 function Budgets() {
   const { t } = useLang();
   const { user } = useAuth();
-  const { data: apiBudgets } = useFinanceBudgets();
+  const { data: apiBudgets } = useFinanceBudgets(!!user);
   const [offset, setOffset] = useState(0);
   const base = new Date();
   const current = new Date(base.getFullYear(), base.getMonth() + offset, 1);
@@ -970,7 +970,7 @@ function Goals() {
   const { t } = useLang();
   const { user } = useAuth();
   const { goals: storeGoals } = useFinanceStore();
-  const { data: apiGoals } = useApiFinanceGoals();
+  const { data: apiGoals } = useApiFinanceGoals(!!user);
   const createGoalApi = useApiCreateGoal();
   const contributeGoalApi = useApiContributeGoal();
   const [open, setOpen] = useState(false);

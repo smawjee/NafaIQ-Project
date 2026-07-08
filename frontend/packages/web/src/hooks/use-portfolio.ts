@@ -135,10 +135,11 @@ export interface NetworthResponse {
   by_holding: NetworthHolding[];
 }
 
-export function usePortfolioNetworth() {
+export function usePortfolioNetworth(enabled: boolean = true) {
   return useQuery<NetworthResponse>({
     queryKey: ["portfolio", "networth"],
     queryFn: () => userGet<NetworthResponse>("/api/portfolio/networth"),
+    enabled,
     staleTime: 15_000,
     refetchInterval: 30_000,
   });
