@@ -8,7 +8,18 @@ from fastapi.middleware.cors import CORSMiddleware
 import structlog
 
 from app.config import settings
-from app.api import health, market, signals, portfolio, notifications, finance
+from app.api import (
+    health,
+    market,
+    signals,
+    portfolio,
+    notifications,
+    finance,
+    portfolio_extended,
+    finance_extended,
+    alerts,
+    market_v2,
+)
 from app.jobs.scheduler import init_scheduler, shutdown_scheduler
 from app.middleware.auth import BearerTokenMiddleware
 from app.middleware.rate_limit import limiter
@@ -106,3 +117,7 @@ app.include_router(signals.router, prefix="/api")
 app.include_router(portfolio.router, prefix="/api")
 app.include_router(notifications.router, prefix="/api")
 app.include_router(finance.router, prefix="/api")
+app.include_router(portfolio_extended.router, prefix="/api")
+app.include_router(finance_extended.router, prefix="/api")
+app.include_router(alerts.router, prefix="/api")
+app.include_router(market_v2.router, prefix="/api")

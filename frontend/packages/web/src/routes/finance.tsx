@@ -30,19 +30,20 @@ import { IncomeExpenseChart, Sparkline } from "@/components/charts/charts";
 import { Typewriter } from "@/components/shared/Typewriter";
 import { fmtPKR } from "@/lib/data";
 import { formatNumber, formatPKR, formatSignedPKR } from "@/lib/format";
-import { BUDGETS, INCOME_EXPENSE, type Goal } from "@/lib/finance/data";
+import { BUDGETS as DUMMY_BUDGETS, INCOME_EXPENSE, type Goal } from "@/lib/finance/data";
 import { cn } from "@/lib/utils";
 import { useLang } from "@/hooks/use-lang";
 import { useDemo } from "@/hooks/use-demo";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
-import { selectGoals } from "@/store/finance";
-import { addGoal, contributeToGoal } from "@/store/finance";
+import { selectTransactions, selectBills, selectGoals } from "@/store/finance";
+import { addTransaction, removeTransaction, addBill, markBillPaid as reduxMarkBillPaid, removeBill, addGoal, contributeToGoal } from "@/store/finance";
 import { useFinanceSummary } from "@/hooks/use-finance-summary";
 import { useFinanceBudgets } from "@/hooks/use-finance-budgets";
 import { useFinanceGoals as useApiFinanceGoals, useCreateGoal as useApiCreateGoal, useContributeGoal as useApiContributeGoal } from "@/hooks/use-finance-goals";
 import { useCreateTransaction, useDeleteTransaction, useFinanceTransactions } from "@/hooks/use-finance-transactions";
 import { useCreateBill, useDeleteBill, useFinanceBills, useMarkBillPaid, type FinanceBill } from "@/hooks/use-finance-bills";
 import { useIncomeExpenseSeries, useSpendingByCategory } from "@/hooks/use-finance-series";
+import { useZakatSettings, useZakatHistory, useCalculateZakat } from "@/hooks/use-zakat";
 import { Modal, fieldClass } from "@/components/shared/Modal";
 
 export const Route = createFileRoute("/finance")({
@@ -466,8 +467,11 @@ const ACCOUNTS = ["HBL Current", "Meezan Debit", "Easypaisa", "Meezan Savings"];
 function Transactions() {
   const { t: tr } = useLang();
   const { user } = useAuth();
+  const { isDemo } = useDemo();
+  const dispatch = useAppDispatch();
+  const storeTransactions = useAppSelector(selectTransactions);
 
-  const { data: transactions = [], isLoading } = useFinanceTransactions(!!user);
+  const { data: apiTransactions = [], isLoading } = useFinanceTransactions(!!user && !isDemo);
   const createTransaction = useCreateTransaction();
   const deleteTransaction = useDeleteTransaction();
   const [query, setQuery] = useState("");
@@ -480,6 +484,21 @@ function Transactions() {
   const [category, setCategory] = useState(CATEGORIES[0]);
   const [account, setAccount] = useState(ACCOUNTS[0]);
   const [err, setErr] = useState("");
+
+  const transactions = isDemo
+    ? storeTransactions.map((t, i) => ({
+        id: -i - 1,
+        merchant: t.merchant,
+        amount: Math.abs(t.amount),
+        currency: "PKR",
+        transaction_type: t.amount >= 0 ? "income" : "expense",
+        category: t.category,
+        transaction_date: t.date,
+        source: t.account,
+        note: null,
+        created_at: "",
+      }))
+    : apiTransactions;
 
   const filtered = transactions.filter((t) => {
     const q = query.toLowerCase();
@@ -507,7 +526,7 @@ function Transactions() {
   const submit = async () => {
     setErr("");
 
-    if (!user) return setErr(tr("Please log in first."));
+    if (!user && !isDemo) return setErr(tr("Please log in first."));
 
     const num = Number(amount);
 
@@ -515,15 +534,24 @@ function Transactions() {
     if (!amount || Number.isNaN(num) || num <= 0) return setErr(tr("Please enter a valid amount."));
 
     try {
-      await createTransaction.mutateAsync({
-        merchant: merchant.trim(),
-        amount: num,
-        category: kind === "income" ? "Income" : category,
-        transaction_type: kind,
-        transaction_date: new Date().toISOString(),
-        source: account || "manual",
-        note: null,
-      });
+      if (isDemo) {
+        dispatch(addTransaction({
+          merchant: merchant.trim(),
+          category: kind === "income" ? "Income" : category,
+          account,
+          amount: kind === "income" ? num : -num,
+        }));
+      } else {
+        await createTransaction.mutateAsync({
+          merchant: merchant.trim(),
+          amount: num,
+          category: kind === "income" ? "Income" : category,
+          transaction_type: kind,
+          transaction_date: new Date().toISOString(),
+          source: account || "manual",
+          note: null,
+        });
+      }
 
       setMerchant("");
       setAmount("");
@@ -538,13 +566,18 @@ function Transactions() {
   };
 
   const handleDelete = async (id: number) => {
-    if (!user) return;
+    if (!user && !isDemo) return;
 
     const ok = confirm("Delete this transaction?");
     if (!ok) return;
 
     try {
-      await deleteTransaction.mutateAsync(id);
+      if (isDemo) {
+        const idx = storeTransactions.findIndex((_, i) => -i - 1 === id);
+        if (idx >= 0) dispatch(removeTransaction(idx));
+      } else {
+        await deleteTransaction.mutateAsync(id);
+      }
     } catch (error) {
       console.error("Delete transaction error:", error);
       alert("Failed to delete transaction.");
@@ -565,7 +598,7 @@ function Transactions() {
         </div>
       </div>
 
-      {!user && (
+      {!user && !isDemo && (
         <Card hover={false} className="text-sm text-text-secondary">
           {tr("Please log in to view and add transactions.")}
         </Card>
@@ -577,7 +610,7 @@ function Transactions() {
         </Card>
       )}
 
-      {!isLoading && user && Object.keys(grouped).length === 0 && (
+      {!isLoading && user && !isDemo && Object.keys(grouped).length === 0 && (
         <Card hover={false} className="text-sm text-text-secondary">
           {tr("No transactions yet. Add your first transaction using the plus button.")}
         </Card>
@@ -706,7 +739,8 @@ function Transactions() {
 function Budgets() {
   const { t } = useLang();
   const { user } = useAuth();
-  const { data: apiBudgets } = useFinanceBudgets(!!user);
+  const { isDemo } = useDemo();
+  const { data: apiBudgets } = useFinanceBudgets(!!user && !isDemo);
   const [offset, setOffset] = useState(0);
   const base = new Date();
   const current = new Date(base.getFullYear(), base.getMonth() + offset, 1);
@@ -715,14 +749,14 @@ function Budgets() {
   const shortMonth = (d: Date) => d.toLocaleString("en-US", { month: "short" });
   const longLabel = current.toLocaleString("en-US", { month: "long", year: "numeric" });
 
-  const displayBudgets = user
+  const displayBudgets = user && !isDemo
     ? (apiBudgets ?? []).map((b) => ({
         category: b.category,
         spent: b.spent,
         limit: b.limit_amount,
         tip: b.tip,
       }))
-    : BUDGETS;
+    : DUMMY_BUDGETS;
 
   return (
     <div className="space-y-4">
@@ -784,8 +818,11 @@ function Budgets() {
 function Bills() {
   const { t } = useLang();
   const { user } = useAuth();
+  const { isDemo } = useDemo();
+  const dispatch = useAppDispatch();
+  const storeBills = useAppSelector(selectBills);
 
-  const { data: bills = [], isLoading } = useFinanceBills(!!user);
+  const { data: apiBills = [], isLoading } = useFinanceBills(!!user && !isDemo);
   const createBill = useCreateBill();
   const markBillPaid = useMarkBillPaid();
   const deleteBill = useDeleteBill();
@@ -795,6 +832,21 @@ function Bills() {
   const [due, setDue] = useState("");
   const [err, setErr] = useState("");
   const [busyBillId, setBusyBillId] = useState<number | null>(null);
+
+  const bills = isDemo
+    ? storeBills.map((b, i) => ({
+        id: -i - 1,
+        user_id: "",
+        name: b.name,
+        amount: b.amount,
+        currency: "PKR",
+        due_date: b.due,
+        status: b.status,
+        recurring: false,
+        paid_at: null,
+        created_at: "",
+      }))
+    : apiBills;
 
   const getDisplayDue = (bill: FinanceBill) => {
     if (!bill.due_date) return "—";
@@ -808,7 +860,7 @@ function Bills() {
   const submit = async () => {
     setErr("");
 
-    if (!user) return setErr(t("Please log in first."));
+    if (!user && !isDemo) return setErr(t("Please log in first."));
 
     const num = Number(amount);
 
@@ -816,14 +868,17 @@ function Bills() {
     if (!amount || Number.isNaN(num) || num <= 0) return setErr(t("Please enter a valid amount."));
 
     try {
-      const dueDate = due.trim() || null;
-
-      await createBill.mutateAsync({
-        name: name.trim(),
-        amount: num,
-        due_date: dueDate,
-        status: "UPCOMING",
-      });
+      if (isDemo) {
+        dispatch(addBill({ name: name.trim(), amount: num, due: due.trim() || "Upcoming", status: "UPCOMING" }));
+      } else {
+        const dueDate = due.trim() || null;
+        await createBill.mutateAsync({
+          name: name.trim(),
+          amount: num,
+          due_date: dueDate,
+          status: "UPCOMING",
+        });
+      }
 
       setName("");
       setAmount("");
@@ -836,11 +891,15 @@ function Bills() {
   };
 
   const handleMarkPaid = async (bill: FinanceBill) => {
-    if (!user) return;
+    if (!user && !isDemo) return;
 
     try {
       setBusyBillId(bill.id);
-      await markBillPaid.mutateAsync(bill.id);
+      if (isDemo) {
+        dispatch(reduxMarkBillPaid(bill.name));
+      } else {
+        await markBillPaid.mutateAsync(bill.id);
+      }
     } catch (error) {
       console.error("Mark bill paid error:", error);
       alert("Failed to mark bill as paid.");
@@ -850,14 +909,19 @@ function Bills() {
   };
 
   const handleDelete = async (bill: FinanceBill) => {
-    if (!user) return;
+    if (!user && !isDemo) return;
 
     const ok = confirm(`Delete ${bill.name}?`);
     if (!ok) return;
 
     try {
       setBusyBillId(bill.id);
-      await deleteBill.mutateAsync(bill.id);
+      if (isDemo) {
+        const idx = storeBills.findIndex((_, i) => -i - 1 === bill.id);
+        if (idx >= 0) dispatch(removeBill(idx));
+      } else {
+        await deleteBill.mutateAsync(bill.id);
+      }
     } catch (error) {
       console.error("Delete bill error:", error);
       alert("Failed to delete bill.");
@@ -868,7 +932,7 @@ function Bills() {
 
   return (
     <div className="space-y-3">
-      {!user && (
+      {!user && !isDemo && (
         <Card hover={false} className="text-sm text-text-secondary">
           {t("Please log in to view and add bills.")}
         </Card>
@@ -880,12 +944,11 @@ function Bills() {
         </Card>
       )}
 
-      {!isLoading && user && bills.length === 0 && (
+      {!isLoading && user && !isDemo && bills.length === 0 && (
         <Card hover={false} className="text-sm text-text-secondary">
           {t("No bills yet. Add your first bill below.")}
         </Card>
       )}
-
       {bills.map((b) => (
         <Card key={b.id} className="flex items-center gap-3">
           <div className="flex h-10 w-10 items-center justify-center rounded-full bg-elevated text-sm font-bold text-text-secondary">
@@ -1294,15 +1357,39 @@ function ZakatNumberInput({
 
 function Zakat() {
   const { t } = useLang();
+  const { user } = useAuth();
+  const { isDemo } = useDemo();
   const [values, setValues] = useState<Record<string, number>>({ ...ZAKAT_DEFAULTS });
+  const settings = useZakatSettings(!!user && !isDemo);
+  const history = useZakatHistory(20, !!user && !isDemo);
+  const calculate = useCalculateZakat();
 
   const set = (key: string, n: number) => setValues((v) => ({ ...v, [key]: n }));
 
   const totalAssets = ASSET_LINES.reduce((s, l) => s + (values[l.key] || 0), 0);
   const totalLiabilities = LIABILITY_LINES.reduce((s, l) => s + (values[l.key] || 0), 0);
   const zakatableWealth = Math.max(totalAssets - totalLiabilities, 0);
-  const aboveNisab = zakatableWealth >= NISAB;
+  const nisabValue = settings.data?.nisab_value_pkr || NISAB;
+  const aboveNisab = zakatableWealth >= nisabValue;
   const zakatDue = aboveNisab ? Math.round(zakatableWealth * ZAKAT_RATE) : 0;
+
+  const saveRecord = async () => {
+    if (!user || isDemo) return;
+    const islamicYear = new Date().getFullYear().toString();
+    try {
+      await calculate.mutateAsync({
+        islamic_year: islamicYear,
+        total_assets_pkr: totalAssets,
+        total_deductions_pkr: totalLiabilities,
+        nisab_value_pkr: nisabValue,
+        rate_pct: 2.5,
+        save: true,
+        breakdown: values,
+      });
+    } catch {
+      // surface via react-query state
+    }
+  };
 
   const exportPdf = () => {
     if (typeof window === "undefined") return;
@@ -1404,7 +1491,7 @@ function Zakat() {
             {t("Nisab Threshold")}
           </div>
           <div className="mt-1 font-mono text-2xl font-bold tabular-nums text-gold">
-            <CountUpNumber value={NISAB} prefix="PKR " preserveValue />
+            <CountUpNumber value={nisabValue} prefix="PKR " preserveValue />
           </div>
           <div
             className={cn(
@@ -1435,6 +1522,35 @@ function Zakat() {
             <FileDown className="h-4 w-4" />
             {t("Export as PDF")}
           </button>
+          {user && !isDemo ? (
+            <button
+              onClick={saveRecord}
+              disabled={calculate.isPending}
+              className="mt-2 flex w-full items-center justify-center gap-2 rounded-[10px] border border-bull/40 bg-bull/10 py-2.5 text-sm font-semibold text-bull transition hover:bg-bull/15 disabled:opacity-50"
+            >
+              {t(calculate.isPending ? "Saving..." : "Save this year's record")}
+            </button>
+          ) : null}
+          {history.data && history.data.length > 0 ? (
+            <div className="mt-4 border-t border-white/[0.06] pt-3 text-left">
+              <div className="text-[11px] font-semibold uppercase tracking-wide text-text-muted">
+                {t("History")}
+              </div>
+              <ul className="mt-2 space-y-1.5">
+                {history.data.slice(0, 3).map((r) => (
+                  <li
+                    key={r.id}
+                    className="flex items-center justify-between text-[11px] text-text-secondary"
+                  >
+                    <span>{r.islamic_year}</span>
+                    <span className="font-mono tabular-nums">
+                      PKR {Math.round(r.zakat_due_pkr).toLocaleString()}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
           <p className="mt-3 text-[10px] italic leading-relaxed text-text-muted">
             {t(
               "Estimates for guidance only. Nisab and rulings vary by scholar — consult a qualified authority.",

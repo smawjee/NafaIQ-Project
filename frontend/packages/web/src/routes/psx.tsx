@@ -17,6 +17,7 @@ import { Typewriter } from "@/components/shared/Typewriter";
 import { Change } from "@/components/charts/Change";
 import { SignalBadge } from "@/components/charts/SignalBadge";
 import { CandlestickChart, PriceLineChart, Sparkline } from "@/components/charts/charts";
+import { ErrorBoundary } from "@/components/shared/ErrorBoundary";
 import {
   INDICES,
   STOCKS,
@@ -35,6 +36,7 @@ import {
   usePsxSectors,
   usePsxSymbols,
   usePsxIndexData,
+  usePsxBatchSignals,
   useMarketTickers,
   useMarketMovers,
   useIndexCards,
@@ -140,6 +142,7 @@ export default function PSX() {
   const { data: sectorData } = usePsxSectors();
   const { data: symbolsData } = usePsxSymbols();
   const { data: kse100Data } = usePsxIndexData("KSE100");
+  const { data: batchSignals } = usePsxBatchSignals(50);
   const marketMovers = useMarketMovers(
     moverTab === "Gainers" ? "gainers" : moverTab === "Losers" ? "losers" : "volume",
     6,
@@ -220,12 +223,18 @@ export default function PSX() {
       }
     }
     if (snapshot && snapshot.length > 0) {
+      const signalMap = new Map<string, Signal>();
+      if (batchSignals?.signals) {
+        for (const s of batchSignals.signals) {
+          if (s.signal) signalMap.set(s.symbol, s.signal as Signal);
+        }
+      }
       let rows = snapshot.map((s) => ({
         ticker: s.symbol,
         sector: sectorMap.get(s.symbol) ?? "—",
         price: s.price ?? 0,
         changePct: s.change_pct ?? 0,
-        signal: "HOLD" as Signal,
+        signal: signalMap.get(s.symbol) ?? ("HOLD" as Signal),
         rsi: 50,
         volume: fmtNum(s.volume, 1),
         marketCap: "—",
@@ -244,12 +253,18 @@ export default function PSX() {
 
   const movers = useMemo(() => {
     if (marketMovers.length > 0) {
+      const signalMap = new Map<string, Signal>();
+      if (batchSignals?.signals) {
+        for (const s of batchSignals.signals) {
+          if (s.signal) signalMap.set(s.symbol, s.signal as Signal);
+        }
+      }
       return marketMovers.map((m) => ({
         ticker: m.symbol,
         sector: m.sector,
         price: m.price,
         changePct: m.changePct,
-        signal: "HOLD" as Signal,
+        signal: signalMap.get(m.symbol) ?? ("HOLD" as Signal),
         rsi: 50,
         volume: fmtNum(m.volume, 1),
         marketCap: "—",
@@ -658,7 +673,13 @@ export default function PSX() {
             </div>
             <div className="space-y-1">
               {watchlist.symbols.map((tk) => {
-                const s = STOCKS[tk];
+                const fallback = STOCKS[tk];
+                const live = snapshot?.find((row) => row.symbol === tk);
+                const livePrice = live?.price ?? fallback?.price ?? 0;
+                const liveChangePct = live?.change_pct ?? fallback?.changePct ?? 0;
+                const liveName = symbolsData?.find((s) => s.symbol === tk)?.name ?? fallback?.name ?? tk;
+                const signalForSymbol =
+                  batchSignals?.signals?.find((s: { symbol: string }) => s.symbol === tk)?.signal ?? fallback?.signal ?? "HOLD";
                 return (
                   <div
                     key={tk}
@@ -678,15 +699,15 @@ export default function PSX() {
                     >
                       <div className="flex-1">
                         <div className="wl-symbol text-sm font-semibold text-bull">{tk}</div>
-                        <div className="text-[10px] text-text-muted">{t(s.name)}</div>
+                        <div className="text-[10px] text-text-muted">{t(liveName)}</div>
                       </div>
                       <div className="text-right">
                         <div className="font-mono text-sm tabular-nums text-text-primary">
-                          {fmtNum(s.price)}
+                          {fmtNum(livePrice)}
                         </div>
-                        <Change pct={s.changePct} />
+                        <Change pct={liveChangePct} />
                       </div>
-                      <SignalBadge signal={s.signal} />
+                      <SignalBadge signal={signalForSymbol as Signal} />
                     </Link>
                   </div>
                 );
