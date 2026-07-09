@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import datetime, timezone
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -417,8 +418,11 @@ async def portfolio_history(
                      AND p.user_id = :uid
                     JOIN psx_ohlcv o
                       ON o.symbol = h.symbol
+                    -- Chart shows the value of the CURRENT portfolio across
+                    -- historical closes (no purchased_at filter: a holding
+                    -- bought today would otherwise have zero bars until the
+                    -- nightly OHLCV backfill -> empty chart).
                     WHERE o.date >= CURRENT_DATE - (:days * INTERVAL '1 day')
-                      AND (h.purchased_at IS NULL OR o.date >= h.purchased_at)
                     GROUP BY o.date
                 ),
                 joined AS (
@@ -452,18 +456,57 @@ async def portfolio_history(
         )
         rows = result.mappings().all()
 
-    return PortfolioHistoryResponse(
-        days=bounded_days,
-        points=[
-            PortfolioHistoryPoint(
-                date=str(r["date"]),
-                label=r["date"].strftime("%b %d") if hasattr(r["date"], "strftime") else str(r["date"]),
-                value=float(r["value"]),
-                benchmark=float(r["benchmark"]),
+        # Append a live "today" point from the market snapshot when today's EOD
+        # bar hasn't been ingested yet (nightly backfill), so a freshly bought
+        # portfolio charts immediately instead of showing an empty state.
+        last_date = rows[-1]["date"] if rows else None
+        today_row = None
+        if last_date is None or str(last_date) < str(datetime.now(timezone.utc).date()):
+            live = await conn.execute(
+                text("""
+                    SELECT SUM(
+                        h.shares * COALESCE(s.price, lc.eod_close, h.avg_cost)
+                    )::numeric AS value
+                    FROM psx_holdings h
+                    JOIN psx_portfolios p ON p.id = h.portfolio_id AND p.user_id = :uid
+                    LEFT JOIN psx_market_snapshot s ON s.symbol = h.symbol
+                    LEFT JOIN LATERAL (
+                        SELECT close AS eod_close FROM psx_ohlcv
+                        WHERE symbol = h.symbol ORDER BY date DESC LIMIT 1
+                    ) lc ON TRUE
+                """),
+                {"uid": user_id},
             )
-            for r in rows
-        ],
-    )
+            live_value = live.scalar()
+            if live_value and float(live_value) > 0:
+                today = datetime.now(timezone.utc).date()
+                today_row = {
+                    "date": today,
+                    "value": float(live_value),
+                    # carry the last benchmark forward so the overlay stays continuous
+                    "benchmark": float(rows[-1]["benchmark"]) if rows else float(live_value),
+                }
+
+    points = [
+        PortfolioHistoryPoint(
+            date=str(r["date"]),
+            label=r["date"].strftime("%b %d") if hasattr(r["date"], "strftime") else str(r["date"]),
+            value=float(r["value"]),
+            benchmark=float(r["benchmark"]),
+        )
+        for r in rows
+    ]
+    if today_row is not None:
+        points.append(
+            PortfolioHistoryPoint(
+                date=str(today_row["date"]),
+                label=today_row["date"].strftime("%b %d"),
+                value=today_row["value"],
+                benchmark=today_row["benchmark"],
+            )
+        )
+
+    return PortfolioHistoryResponse(days=bounded_days, points=points)
 
 
 @router.get("/watchlist")
