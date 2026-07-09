@@ -8,6 +8,7 @@ import type {
   ApiDividendEvent,
   ApiIndexBar,
   ApiSectorDataItem,
+  ApiHeatmapResponse,
   ApiIndicatorPayload,
   ApiSignal,
   BatchSignalsResponse,
@@ -147,6 +148,10 @@ export function fetchIndexData(code: string): Promise<ApiIndexBar[]> {
 
 export function fetchSectors(): Promise<ApiSectorDataItem[]> {
   return get<ApiSectorDataItem[]>("/api/sectors");
+}
+
+export function fetchHeatmap(): Promise<ApiHeatmapResponse> {
+  return get<ApiHeatmapResponse>("/api/market/heatmap");
 }
 
 export function fetchIndicators(

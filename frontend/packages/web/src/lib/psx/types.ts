@@ -78,6 +78,23 @@ export interface ApiSectorDataItem {
   value: number | null;
 }
 
+export interface ApiHeatmapStockItem {
+  symbol: string;
+  name: string;
+  sector: string;
+  close: number;
+  change_pct: number;
+  volume: number;
+  market_cap: number | null;
+}
+
+export interface ApiHeatmapResponse {
+  source: string;
+  sectors: ApiSectorDataItem[];
+  stocks: ApiHeatmapStockItem[];
+  count: number;
+}
+
 export interface ApiIndicatorPayload {
   symbol: string;
   indicators: Record<string, number | null>;
