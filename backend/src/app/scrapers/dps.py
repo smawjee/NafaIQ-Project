@@ -254,7 +254,12 @@ class DPSScraper:
         )
 
     async def fetch_fundamentals(self, symbol: str) -> FundamentalsData:
-        html = await self._get(f"/company/{symbol.upper()}")
+        sym = symbol.upper()
+        html_task = asyncio.create_task(self._get(f"/company/{sym}"))
+        payouts_task = asyncio.create_task(self.fetch_payouts(sym))
+        html = await html_task
+        payouts = await payouts_task
+
         soup = BeautifulSoup(html, "lxml")
         text = soup.get_text(" ", strip=True)
 
@@ -262,10 +267,12 @@ class DPSScraper:
             m = re.search(rf"{label}[^0-9\-]*(-?\d+(?:\.\d+)?)", text, re.I)
             return float(m.group(1)) if m else None
 
+        # ── P/E ──
         pe = find(r"P/E\s*Ratio\s*\(TTM\)")
         if pe is None:
             pe = find(r"P\s*/\s*E")
 
+        # ── EPS (table first, then regex) ──
         eps = None
         for table in soup.find_all("table"):
             for tr in (table.find("tbody") or table).find_all("tr"):
@@ -276,16 +283,46 @@ class DPSScraper:
             if eps is not None:
                 break
         if eps is None:
-            eps = find(r"EPS\b")
+            m = re.search(r"EPS\s+(-?\d+\.\d+)", text, re.I)
+            if m:
+                eps = _f(m.group(1))
+            else:
+                m = re.search(r"EPS\s+(-?\d+)", text, re.I)
+                if m:
+                    val = _f(m.group(1))
+                    if val is not None and val < 1000:
+                        eps = val
+
+        # ── Price ──
+        price = None
+        price_div = soup.find("div", class_="quote__close")
+        if price_div:
+            price = _f(price_div.get_text(strip=True).lstrip("Rs."))
+
+        # ── Div yield & Payout from payout data ──
+        div_yield = None
+        payout = None
+        ttm_cutoff = date.today().replace(year=date.today().year - 1)
+        ttm_div = sum(
+            d.per_share for d in payouts
+            if d.payout_type == "cash"
+            and d.announcement_date is not None
+            and d.announcement_date >= ttm_cutoff
+            and d.per_share is not None
+        )
+        if ttm_div and price:
+            div_yield = round((ttm_div / price) * 100, 2)
+        if ttm_div and eps:
+            payout = round((ttm_div / eps) * 100, 2)
 
         return FundamentalsData(
-            symbol=symbol.upper(),
+            symbol=sym,
             eps=eps,
             pe=pe,
-            pb=find(r"P\s*/\s*B"),
-            div_yield=find(r"Dividend\s*Yield"),
-            payout=find(r"Payout\s*Ratio"),
-            roe=find(r"ROE\b"),
+            pb=None,
+            div_yield=div_yield,
+            payout=payout,
+            roe=None,
         )
 
     # ---------- announcements ----------
