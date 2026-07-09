@@ -86,7 +86,7 @@ def _serialize_goal(row: Any) -> dict[str, Any]:
         "saved": float(row["saved"]),
         "color": row["color"],
         "ai_tip": row["ai_tip"],
-        "target_date": str(row["target_date"]) if row["target_date"] else None,
+        "target_date": str(row["target_date"])[:10] if row["target_date"] else None,
         "created_at": str(row["created_at"]),
     }
 
@@ -224,7 +224,9 @@ async def create_goal(uid: str, body: GoalCreate, user: dict) -> dict[str, Any]:
                 saved=body.saved,
                 color=body.color,
                 ai_tip=body.ai_tip,
-                target_date=_as_date(body.target_date),
+                # target_date is timestamptz in the live schema: store midnight
+                # UTC of the chosen date so the calendar date never shifts.
+                target_date=_as_timestamp(body.target_date),
             )
             .returning(goals),
         )
