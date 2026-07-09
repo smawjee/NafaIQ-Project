@@ -41,6 +41,19 @@ Bottom line: **the app builds, typechecks, lints, tests, boots, and serves real 
 - **Supabase type regen + any migrations** — token-gated. Awaiting `SUPABASE_ACCESS_TOKEN` to run `npx supabase gen types typescript --project-id gmonfgxmjgzipnbhgimv --schema public` (the `--project-id` path uses the Platform API, no Docker needed) and to apply future migrations via CLI.
 - **KSE-100 index OHLC = 0 for old rows** — DEFERRED (cosmetic). The "Performance vs KSE-100" chart uses the `close` line, not candlesticks, so the zero OHL values do not affect the benchmark. Revisit only if the index is ever shown as candlesticks.
 
+## Portfolio calculation bug fixes (2026-07-09)
+
+Reported symptom: Portfolio Value PKR 0 while Total Invested PKR 191,808, Gain -100%, Today's P/L 0. Root cause diagnosed from live data: holdings joined to a NULL market price -> market_value = shares*0 = 0.
+
+Three distinct bugs found + fixed (verified live 11/11 as a real user):
+1. **No price fallback.** Value/networth/allocation queries read `psx_market_snapshot` only. Real symbols not in today's snapshot (e.g. ENGRO - in the profile reference, priced only in OHLCV) showed as 0. FIX: resolve current price = live snapshot -> latest OHLCV close, and fall market value back to cost basis when a symbol is entirely unpriceable (so it reads flat/0% instead of -100%). Applied in `api/portfolio.py` (portfolio_value + networth) and `services/portfolio.py` (value_for_portfolio + networth, which drive allocation).
+2. **No symbol validation.** Users could add non-existent tickers ("DF", "DSDS"). FIX: new `app/services/symbols.py::require_known_symbol` validates against psx_profile ∪ snapshot ∪ ohlcv; wired into both add-holding endpoints. Unknown symbols now return 400.
+3. **Holding purchase not in personal finance.** A buy wrote `stock_transactions` but not `user_transactions`, so it never appeared in the Finance feed. FIX: `create_stock_transaction` now also inserts a `user_transactions` row (buy=expense, sell=income, category 'Investment', source 'stock_trade'). Note: buys count toward monthly expenses/savings-rate; can be excluded by filtering category='Investment' if desired.
+
+Verified: HBL priced from live snapshot; ENGRO priced from EOD (not 0); DF rejected 400; networth total value > 0 and unrealized not -100%; 2 Investment expense txns created; allocation includes ENGRO. Backend 34 passed/1 skip.
+
+Outstanding data note: existing holdings "DF" (portfolio 6) and "DSDS" (portfolio 3) are invalid tickers (test data). They now display at cost (0% gain) instead of -100%, but should be deleted. ENGRO (portfolio 2) now prices correctly from EOD.
+
 ## Live per-user flow + calculation verification (2026-07-09)
 
 Tested as a REAL disposable user (created via Supabase admin, deleted after — cascade-clean). Demo user is intentionally frontend-only (dummy data, local CRUD, never DB), so it was excluded. **13/13 checks passed:**
