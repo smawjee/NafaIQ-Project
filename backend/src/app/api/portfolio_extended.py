@@ -1,7 +1,7 @@
 """User-scoped portfolio extensions: allocation, performance, stock transactions."""
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Annotated, Any, Optional
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -158,7 +158,7 @@ async def create_stock_transaction(
         if not own.first():
             raise HTTPException(404, "Portfolio not found")
 
-        executed = body.executed_at or datetime.utcnow()
+        executed = body.executed_at or datetime.now(timezone.utc)
         row = await session.execute(
             text(
                 "INSERT INTO stock_transactions "

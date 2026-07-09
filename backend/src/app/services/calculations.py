@@ -8,7 +8,7 @@ Naming convention: every function returns a typed dict; inputs are typed.
 """
 from __future__ import annotations
 
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 from typing import Any, Optional
 
 
@@ -290,7 +290,7 @@ def zakat_estimate(
 
 
 def month_string(d: Optional[datetime] = None) -> str:
-    d = d or datetime.utcnow()
+    d = d or datetime.now(timezone.utc)
     return f"{d.year:04d}-{d.month:02d}"
 
 
