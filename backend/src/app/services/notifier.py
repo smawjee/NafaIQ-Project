@@ -96,7 +96,9 @@ async def fire_alert(
     """Fire an alert: in-app notification + email (if user prefs allow)."""
     prefs = await get_notification_prefs(user_id)
     if prefs.get("in_app_alerts", True):
-        await create_in_app_notification(user_id, alert_type, title, body, link)
+        # in_app_notifications.kind uses "price_alert" (alert_type is "stock_price")
+        kind = "price_alert" if alert_type == "stock_price" else alert_type
+        await create_in_app_notification(user_id, kind, title, body, link)
     if prefs.get("email_alerts", False):
         email = await get_user_email(user_id)
         if email:
