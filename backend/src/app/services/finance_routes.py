@@ -1,14 +1,20 @@
+"""Finance service: business logic for transactions, goals, budgets, bills,
+settings, summary and series. All DB access is delegated to
+app.repositories.finance_repo; this module holds no SQL.
+
+(Filename kept as finance_routes.py to avoid churn; imported as the finance
+service by app.api.finance and app.api.finance_sync.)
+"""
 from __future__ import annotations
 
 from datetime import date, datetime, timedelta, timezone
 from typing import Any, Optional
 
 from fastapi import HTTPException
-from sqlalchemy import delete, insert, select, text, update
 
-from app.db.orm import get_table
-from app.db.sqlalchemy import ensure_reflected, get_engine
-from app.models.finance import (
+from app.repositories import finance_repo as repo
+from app.repositories.base import begin, connect
+from app.schemas.finance import (
     BillCreate,
     BillUpdate,
     BudgetCreate,
@@ -23,12 +29,10 @@ from app.models.finance import (
     TransactionCreate,
     TransactionUpdate,
 )
-from app.services.permissions import enforce_count_limit, limit_for
+from app.services.permissions import check_count_limit, limit_for
 
 
-async def _table(name: str):
-    await ensure_reflected()
-    return get_table(name)
+# ---------- validation / coercion helpers (business rules) ----------
 
 
 def _transaction_type(value: str) -> str:
@@ -61,81 +65,16 @@ def _as_timestamp(value: Any) -> Optional[datetime]:
     return dt
 
 
-def _serialize_transaction(row: Any) -> dict[str, Any]:
-    return {
-        "id": row["id"],
-        "merchant": row["merchant"],
-        "amount": float(row["amount"]),
-        "currency": row["currency"],
-        "transaction_type": row["transaction_type"],
-        "category": row["category"],
-        "transaction_date": str(row["transaction_date"]),
-        "source": row["source"],
-        "note": row["note"],
-        "created_at": str(row["created_at"]),
-    }
-
-
-def _serialize_goal(row: Any) -> dict[str, Any]:
-    return {
-        "id": row["id"],
-        "user_id": str(row["user_id"]),
-        "emoji": row["emoji"],
-        "name": row["name"],
-        "target": float(row["target"]),
-        "saved": float(row["saved"]),
-        "color": row["color"],
-        "ai_tip": row["ai_tip"],
-        "target_date": str(row["target_date"])[:10] if row["target_date"] else None,
-        "created_at": str(row["created_at"]),
-    }
-
-
-def _serialize_budget(row: Any) -> dict[str, Any]:
-    return {
-        "id": row["id"],
-        "user_id": str(row["user_id"]),
-        "category": row["category"],
-        "spent": float(row["spent"]),
-        "limit_amount": float(row["limit_amount"]),
-        "period": row["period"],
-        "tip": row["tip"],
-        "created_at": str(row["created_at"]),
-    }
-
-
-def _serialize_bill(row: Any) -> dict[str, Any]:
-    return {
-        "id": row["id"],
-        "user_id": str(row["user_id"]),
-        "name": row["name"],
-        "amount": float(row["amount"]),
-        "currency": row["currency"],
-        "due_date": str(row["due_date"]) if row["due_date"] else None,
-        "status": row["status"],
-        "recurring": row["recurring"],
-        "paid_at": str(row["paid_at"]) if row["paid_at"] else None,
-        "created_at": str(row["created_at"]),
-    }
+# ---------- transactions ----------
 
 
 async def list_transactions(uid: str, limit: int = 100) -> list[dict[str, Any]]:
-    txns = await _table("user_transactions")
-    engine = get_engine()
-    async with engine.connect() as conn:
-        result = await conn.execute(
-            select(txns)
-            .where(txns.c.user_id == uid)
-            .order_by(txns.c.transaction_date.desc())
-            .limit(max(1, min(limit, 500))),
-        )
-        rows = result.mappings().all()
-    return [_serialize_transaction(r) for r in rows]
+    async with connect() as conn:
+        return await repo.list_transactions(conn, uid, limit)
 
 
 async def create_transaction(uid: str, body: TransactionCreate) -> dict[str, Any]:
-    txns = await _table("user_transactions")
-    values = {
+    values: dict[str, Any] = {
         "user_id": uid,
         "merchant": body.merchant.strip(),
         "amount": abs(body.amount),
@@ -146,236 +85,149 @@ async def create_transaction(uid: str, body: TransactionCreate) -> dict[str, Any
     }
     if body.transaction_date is not None:
         values["transaction_date"] = _as_timestamp(body.transaction_date)
-    engine = get_engine()
-    async with engine.begin() as conn:
-        result = await conn.execute(insert(txns).values(**values).returning(txns))
-        row = result.mappings().first()
-    return _serialize_transaction(row)
+    async with begin() as conn:
+        return await repo.insert_transaction(conn, values)
 
 
 async def update_transaction(uid: str, txn_id: int, body: TransactionUpdate) -> dict[str, Any]:
     values = body.model_dump(exclude_unset=True)
-    if "transaction_type" in values and values["transaction_type"] is not None:
+    if values.get("transaction_type") is not None:
         values["transaction_type"] = _transaction_type(values["transaction_type"])
-    if "amount" in values and values["amount"] is not None:
+    if values.get("amount") is not None:
         values["amount"] = abs(values["amount"])
     if "transaction_date" in values:
         values["transaction_date"] = _as_timestamp(values["transaction_date"])
     if not values:
         raise HTTPException(400, "No fields to update")
-    txns = await _table("user_transactions")
-    engine = get_engine()
-    async with engine.begin() as conn:
-        result = await conn.execute(
-            update(txns)
-            .where(txns.c.id == txn_id, txns.c.user_id == uid)
-            .values(**values)
-            .returning(txns),
-        )
-        row = result.mappings().first()
+    async with begin() as conn:
+        row = await repo.update_transaction(conn, uid, txn_id, values)
     if not row:
         raise HTTPException(404, "Transaction not found")
-    return _serialize_transaction(row)
+    return row
 
 
 async def delete_transaction(uid: str, txn_id: int) -> dict[str, int]:
-    txns = await _table("user_transactions")
-    engine = get_engine()
-    async with engine.begin() as conn:
-        result = await conn.execute(
-            delete(txns).where(txns.c.id == txn_id, txns.c.user_id == uid).returning(txns.c.id),
-        )
-        row = result.first()
-    if not row:
+    async with begin() as conn:
+        deleted = await repo.delete_transaction(conn, uid, txn_id)
+    if deleted is None:
         raise HTTPException(404, "Transaction not found")
     return {"deleted": txn_id}
 
 
+# ---------- goals ----------
+
+
 async def list_goals(uid: str) -> list[dict[str, Any]]:
-    goals = await _table("user_goals")
-    engine = get_engine()
-    async with engine.connect() as conn:
-        result = await conn.execute(
-            select(goals).where(goals.c.user_id == uid).order_by(goals.c.created_at.desc()),
-        )
-        rows = result.mappings().all()
-    return [_serialize_goal(r) for r in rows]
+    async with connect() as conn:
+        return await repo.list_goals(conn, uid)
 
 
 async def create_goal(uid: str, body: GoalCreate, user: dict) -> dict[str, Any]:
-    goals = await _table("user_goals")
-    engine = get_engine()
-    async with engine.begin() as conn:
-        await enforce_count_limit(
+    async with begin() as conn:
+        current = await repo.count_goals(conn, uid)
+        check_count_limit(user, feature_key="max_goals", current=current, label="Savings goals")
+        return await repo.insert_goal(
             conn,
-            user,
-            feature_key="max_goals",
-            count_sql="SELECT COUNT(*) FROM user_goals WHERE user_id = :uid",
-            params={"uid": uid},
-            label="Savings goals",
-        )
-        result = await conn.execute(
-            insert(goals)
-            .values(
-                user_id=uid,
-                emoji=body.emoji,
-                name=body.name.strip(),
-                target=body.target,
-                saved=body.saved,
-                color=body.color,
-                ai_tip=body.ai_tip,
+            {
+                "user_id": uid,
+                "emoji": body.emoji,
+                "name": body.name.strip(),
+                "target": body.target,
+                "saved": body.saved,
+                "color": body.color,
+                "ai_tip": body.ai_tip,
                 # target_date is timestamptz in the live schema: store midnight
                 # UTC of the chosen date so the calendar date never shifts.
-                target_date=_as_timestamp(body.target_date),
-            )
-            .returning(goals),
+                "target_date": _as_timestamp(body.target_date),
+            },
         )
-        row = result.mappings().first()
-    return _serialize_goal(row)
 
 
 async def contribute_goal(uid: str, goal_id: int, amount: float) -> dict[str, Any]:
     if amount <= 0:
         raise HTTPException(400, "Contribution amount must be positive")
-    goals = await _table("user_goals")
-    engine = get_engine()
-    async with engine.begin() as conn:
-        result = await conn.execute(
-            update(goals)
-            .where(goals.c.id == goal_id, goals.c.user_id == uid)
-            .values(saved=text("LEAST(saved + :amount, target)"))
-            .returning(goals),
-            {"amount": amount},
-        )
-        row = result.mappings().first()
+    async with begin() as conn:
+        row = await repo.contribute_goal(conn, uid, goal_id, amount)
     if not row:
         raise HTTPException(404, "Goal not found")
-    return _serialize_goal(row)
+    return row
 
 
 async def delete_goal(uid: str, goal_id: int) -> dict[str, int]:
-    goals = await _table("user_goals")
-    engine = get_engine()
-    async with engine.begin() as conn:
-        result = await conn.execute(
-            delete(goals).where(goals.c.id == goal_id, goals.c.user_id == uid).returning(goals.c.id),
-        )
-        row = result.first()
-    if not row:
+    async with begin() as conn:
+        deleted = await repo.delete_goal(conn, uid, goal_id)
+    if deleted is None:
         raise HTTPException(404, "Goal not found")
     return {"deleted": goal_id}
 
 
+# ---------- budgets ----------
+
+
 async def list_budgets(uid: str) -> list[dict[str, Any]]:
-    budgets = await _table("user_budgets")
-    engine = get_engine()
-    async with engine.connect() as conn:
-        result = await conn.execute(
-            select(budgets).where(budgets.c.user_id == uid).order_by(budgets.c.category),
-        )
-        rows = result.mappings().all()
-    return [_serialize_budget(r) for r in rows]
+    async with connect() as conn:
+        return await repo.list_budgets(conn, uid)
 
 
 async def create_budget(uid: str, body: BudgetCreate, user: dict) -> dict[str, Any]:
-    budgets = await _table("user_budgets")
-    engine = get_engine()
-    async with engine.begin() as conn:
-        await enforce_count_limit(
+    async with begin() as conn:
+        current = await repo.count_budgets(conn, uid)
+        check_count_limit(user, feature_key="max_budgets", current=current, label="Budgets")
+        return await repo.insert_budget(
             conn,
-            user,
-            feature_key="max_budgets",
-            count_sql="SELECT COUNT(*) FROM user_budgets WHERE user_id = :uid",
-            params={"uid": uid},
-            label="Budgets",
+            {
+                "user_id": uid,
+                "category": body.category.strip(),
+                "spent": body.spent,
+                "limit_amount": body.limit_amount,
+                "period": body.period,
+                "tip": body.tip,
+            },
         )
-        result = await conn.execute(
-            insert(budgets)
-            .values(
-                user_id=uid,
-                category=body.category.strip(),
-                spent=body.spent,
-                limit_amount=body.limit_amount,
-                period=body.period,
-                tip=body.tip,
-            )
-            .returning(budgets),
-        )
-        row = result.mappings().first()
-    return _serialize_budget(row)
 
 
 async def update_budget(uid: str, budget_id: int, body: BudgetUpdate) -> dict[str, Any]:
     values = body.model_dump(exclude_unset=True)
     if not values:
         raise HTTPException(400, "No fields to update")
-    budgets = await _table("user_budgets")
-    engine = get_engine()
-    async with engine.begin() as conn:
-        result = await conn.execute(
-            update(budgets)
-            .where(budgets.c.id == budget_id, budgets.c.user_id == uid)
-            .values(**values)
-            .returning(budgets),
-        )
-        row = result.mappings().first()
+    async with begin() as conn:
+        row = await repo.update_budget(conn, uid, budget_id, values)
     if not row:
         raise HTTPException(404, "Budget not found")
-    return _serialize_budget(row)
+    return row
 
 
 async def delete_budget(uid: str, budget_id: int) -> dict[str, int]:
-    budgets = await _table("user_budgets")
-    engine = get_engine()
-    async with engine.begin() as conn:
-        result = await conn.execute(
-            delete(budgets).where(budgets.c.id == budget_id, budgets.c.user_id == uid).returning(budgets.c.id),
-        )
-        row = result.first()
-    if not row:
+    async with begin() as conn:
+        deleted = await repo.delete_budget(conn, uid, budget_id)
+    if deleted is None:
         raise HTTPException(404, "Budget not found")
     return {"deleted": budget_id}
 
 
+# ---------- bills ----------
+
+
 async def list_bills(uid: str) -> list[dict[str, Any]]:
-    bills = await _table("user_bills")
-    engine = get_engine()
-    async with engine.connect() as conn:
-        result = await conn.execute(
-            select(bills)
-            .where(bills.c.user_id == uid)
-            .order_by(bills.c.due_date.asc().nulls_last(), bills.c.created_at.desc()),
-        )
-        rows = result.mappings().all()
-    return [_serialize_bill(r) for r in rows]
+    async with connect() as conn:
+        return await repo.list_bills(conn, uid)
 
 
 async def create_bill(uid: str, body: BillCreate, user: dict) -> dict[str, Any]:
-    bills = await _table("user_bills")
-    engine = get_engine()
-    async with engine.begin() as conn:
-        await enforce_count_limit(
+    async with begin() as conn:
+        current = await repo.count_bills(conn, uid)
+        check_count_limit(user, feature_key="max_bills", current=current, label="Bills")
+        return await repo.insert_bill(
             conn,
-            user,
-            feature_key="max_bills",
-            count_sql="SELECT COUNT(*) FROM user_bills WHERE user_id = :uid",
-            params={"uid": uid},
-            label="Bills",
+            {
+                "user_id": uid,
+                "name": body.name.strip(),
+                "amount": body.amount,
+                "due_date": _as_date(body.due_date),
+                "status": body.status,
+                "recurring": body.recurring,
+            },
         )
-        result = await conn.execute(
-            insert(bills)
-            .values(
-                user_id=uid,
-                name=body.name.strip(),
-                amount=body.amount,
-                due_date=_as_date(body.due_date),
-                status=body.status,
-                recurring=body.recurring,
-            )
-            .returning(bills),
-        )
-        row = result.mappings().first()
-    return _serialize_bill(row)
 
 
 async def update_bill(uid: str, bill_id: int, body: BillUpdate) -> dict[str, Any]:
@@ -384,128 +236,66 @@ async def update_bill(uid: str, bill_id: int, body: BillUpdate) -> dict[str, Any
         values["due_date"] = _as_date(values["due_date"])
     if not values:
         raise HTTPException(400, "No fields to update")
-    bills = await _table("user_bills")
-    engine = get_engine()
-    async with engine.begin() as conn:
-        result = await conn.execute(
-            update(bills)
-            .where(bills.c.id == bill_id, bills.c.user_id == uid)
-            .values(**values)
-            .returning(bills),
-        )
-        row = result.mappings().first()
+    async with begin() as conn:
+        row = await repo.update_bill(conn, uid, bill_id, values)
     if not row:
         raise HTTPException(404, "Bill not found")
-    return _serialize_bill(row)
+    return row
 
 
 async def mark_bill_paid(uid: str, bill_id: int) -> dict[str, Any]:
-    bills = await _table("user_bills")
-    engine = get_engine()
-    async with engine.begin() as conn:
-        result = await conn.execute(
-            update(bills)
-            .where(bills.c.id == bill_id, bills.c.user_id == uid)
-            .values(status="PAID", paid_at=text("now()"))
-            .returning(bills),
-        )
-        row = result.mappings().first()
+    async with begin() as conn:
+        row = await repo.mark_bill_paid(conn, uid, bill_id)
     if not row:
         raise HTTPException(404, "Bill not found")
-    return _serialize_bill(row)
+    return row
 
 
 async def delete_bill(uid: str, bill_id: int) -> dict[str, int]:
-    bills = await _table("user_bills")
-    engine = get_engine()
-    async with engine.begin() as conn:
-        result = await conn.execute(
-            delete(bills).where(bills.c.id == bill_id, bills.c.user_id == uid).returning(bills.c.id),
-        )
-        row = result.first()
-    if not row:
+    async with begin() as conn:
+        deleted = await repo.delete_bill(conn, uid, bill_id)
+    if deleted is None:
         raise HTTPException(404, "Bill not found")
     return {"deleted": bill_id}
 
 
+# ---------- settings ----------
+
+
 async def get_settings(uid: str) -> dict[str, Any]:
-    engine = get_engine()
-    async with engine.connect() as conn:
-        result = await conn.execute(
-            text("SELECT monthly_income, currency, language, plan FROM user_settings WHERE user_id = :uid"),
-            {"uid": uid},
-        )
-        row = result.mappings().first()
+    async with connect() as conn:
+        row = await repo.get_settings_row(conn, uid)
     if not row:
         return {"monthly_income": 0, "currency": "PKR", "language": "en", "plan": "Free"}
-    return {"monthly_income": float(row["monthly_income"]), "currency": row["currency"], "language": row["language"], "plan": row["plan"]}
+    return row
 
 
 async def update_settings(uid: str, body: SettingsUpdate) -> dict[str, Any]:
-    sets = []
-    params: dict[str, Any] = {"uid": uid, "income": None, "cur": None, "lang": None, "plan": None}
-    if body.monthly_income is not None:
-        sets.append("monthly_income = :income")
-        params["income"] = body.monthly_income
-    if body.currency is not None:
-        sets.append("currency = :cur")
-        params["cur"] = body.currency
-    if body.language is not None:
-        sets.append("language = :lang")
-        params["lang"] = body.language
-    if sets:
-        sets.append("updated_at = now()")
-        update_clause = ", ".join(sets)
-        engine = get_engine()
-        async with engine.begin() as conn:
-            await conn.execute(
-                text(
-                    f"INSERT INTO user_settings (user_id, monthly_income, currency, language, plan) "
-                    f"VALUES (:uid, COALESCE(:income, 0), COALESCE(:cur, 'PKR'), COALESCE(:lang, 'en'), COALESCE(:plan, 'Free')) "
-                    f"ON CONFLICT (user_id) DO UPDATE SET {update_clause}"
-                ),
-                params,
-            )
+    async with begin() as conn:
+        await repo.upsert_settings(
+            conn,
+            uid,
+            monthly_income=body.monthly_income,
+            currency=body.currency,
+            language=body.language,
+        )
     return {"ok": True}
+
+
+# ---------- summary / series ----------
 
 
 async def summary(uid: str, month: str | None = None) -> FinanceSummaryResponse:
     if month is None:
         month = datetime.now(timezone.utc).strftime("%Y-%m")
-    year_s, m_s = month.split("-")
-    year_i, m_i = int(year_s), int(m_s)
+    year_i, m_i = (int(p) for p in month.split("-"))
     last_month_date = datetime(year_i, m_i, 1) - timedelta(days=1)
     last_month = f"{last_month_date.year:04d}-{last_month_date.month:02d}"
-    engine = get_engine()
-    async with engine.connect() as conn:
-        result = await conn.execute(
-            text(
-                """
-                SELECT transaction_type, COALESCE(SUM(amount), 0)::numeric AS total
-                FROM user_transactions
-                WHERE user_id = :uid
-                  AND (source IS DISTINCT FROM 'stock_trade')
-                  AND DATE_TRUNC('month', transaction_date) = DATE_TRUNC('month', TO_DATE(:month, 'YYYY-MM'))
-                GROUP BY transaction_type
-                """
-            ),
-            {"uid": uid, "month": month},
-        )
-        rows = {r["transaction_type"].lower(): float(r["total"]) for r in result.mappings().all()}
-        last_result = await conn.execute(
-            text(
-                """
-                SELECT transaction_type, COALESCE(SUM(amount), 0)::numeric AS total
-                FROM user_transactions
-                WHERE user_id = :uid
-                  AND (source IS DISTINCT FROM 'stock_trade')
-                  AND DATE_TRUNC('month', transaction_date) = DATE_TRUNC('month', TO_DATE(:month, 'YYYY-MM'))
-                GROUP BY transaction_type
-                """
-            ),
-            {"uid": uid, "month": last_month},
-        )
-        last_rows = {r["transaction_type"].lower(): float(r["total"]) for r in last_result.mappings().all()}
+
+    async with connect() as conn:
+        rows = await repo.fetch_month_totals(conn, uid, month)
+        last_rows = await repo.fetch_month_totals(conn, uid, last_month)
+
     income = rows.get("income", 0.0)
     expenses = rows.get("expense", 0.0)
     savings = income - expenses
@@ -528,31 +318,14 @@ async def income_expense_series(uid: str, months: int = 6, user: dict | None = N
     max_days = limit_for(user or {"features": {}}, "max_finance_history_days")
     max_months = max(1, min(1200, (max_days + 29) // 30))
     months = max(1, min(months, max_months))
-    engine = get_engine()
-    async with engine.connect() as conn:
-        result = await conn.execute(
-            text(
-                """
-                SELECT
-                    TO_CHAR(DATE_TRUNC('month', transaction_date), 'YYYY-MM') AS month,
-                    transaction_type,
-                    COALESCE(SUM(amount), 0)::numeric AS total
-                FROM user_transactions
-                WHERE user_id = :uid
-                  AND transaction_date >= DATE_TRUNC('month', CURRENT_DATE) - (:months - 1) * INTERVAL '1 month'
-                GROUP BY 1, transaction_type
-                ORDER BY 1 ASC
-                """
-            ),
-            {"uid": uid, "months": months},
-        )
-        rows = result.mappings().all()
+    async with connect() as conn:
+        rows = await repo.fetch_income_expense(conn, uid, months)
     by_month: dict[str, dict[str, float]] = {}
     for r in rows:
         m = r["month"]
         by_month.setdefault(m, {"income": 0.0, "expense": 0.0})
         txn_type = r["transaction_type"].lower() if r["transaction_type"] else r["transaction_type"]
-        by_month[m][txn_type] = float(r["total"])
+        by_month[m][txn_type] = r["total"]
     series = [
         IncomeExpensePoint(month=m, income=v.get("income", 0.0), expense=v.get("expense", 0.0))
         for m, v in by_month.items()
@@ -562,30 +335,26 @@ async def income_expense_series(uid: str, months: int = 6, user: dict | None = N
 
 async def spending_by_category(uid: str, days: int = 30, user: dict | None = None) -> SpendingByCategoryResponse:
     days = max(1, min(days, limit_for(user or {"features": {}}, "max_finance_history_days")))
-    engine = get_engine()
-    async with engine.connect() as conn:
-        result = await conn.execute(
-            text(
-                """
-                SELECT category, COALESCE(SUM(amount), 0)::numeric AS amount
-                FROM user_transactions
-                WHERE user_id = :uid
-                  AND transaction_type = 'expense'
-                  AND transaction_date >= CURRENT_DATE - (:days * INTERVAL '1 day')
-                GROUP BY category
-                ORDER BY amount DESC
-                """
-            ),
-            {"uid": uid, "days": days},
-        )
-        rows = result.mappings().all()
-    total = sum(float(r["amount"]) for r in rows)
+    async with connect() as conn:
+        rows = await repo.fetch_spending(conn, uid, days)
+    total = sum(r["amount"] for r in rows)
     categories = [
         SpendingCategory(
             category=r["category"],
-            amount=float(r["amount"]),
-            pct=round((float(r["amount"]) / total) * 100, 1) if total > 0 else 0.0,
+            amount=r["amount"],
+            pct=round((r["amount"] / total) * 100, 1) if total > 0 else 0.0,
         )
         for r in rows
     ]
     return SpendingByCategoryResponse(days=days, total=total, categories=categories)
+
+
+# ---------- sync ----------
+
+
+async def sync_budget_spent(user_id: str) -> dict[str, Any]:
+    """Recalculate user_budgets.spent from actual user_transactions (current
+    month, category-matched, case-insensitive). Keeps budget alerts/UI aligned."""
+    async with begin() as conn:
+        budgets = await repo.recompute_budget_spent(conn, user_id)
+    return {"updated": len(budgets), "budgets": budgets}

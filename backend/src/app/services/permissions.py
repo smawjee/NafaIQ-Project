@@ -10,7 +10,6 @@ from __future__ import annotations
 from typing import Any, Optional
 
 from fastapi import HTTPException, status
-from sqlalchemy import text
 
 TIER_RANK: dict[str, int] = {"Free": 0, "Pro": 1, "Premium": 2}
 
@@ -105,24 +104,20 @@ def limit_for(user: dict, key: str) -> int:
         return DEFAULT_LIMITS.get(key, 0)
 
 
-async def enforce_count_limit(
-    conn: Any,
+def check_count_limit(
     user: dict,
     *,
     feature_key: str,
-    count_sql: str,
-    params: dict[str, Any],
+    current: int,
     label: str,
 ) -> None:
     """Reject creates that exceed the user's plan limit.
 
-    The limit comes from `plan_features`, loaded into `user["features"]`
-    by `require_user`.
+    Pure business rule — the caller passes the current count (obtained from a
+    repository), keeping SQL out of the service and permission layers. The limit
+    comes from `plan_features`, loaded into `user["features"]` by `require_user`.
     """
-    limit = limit_for(user, feature_key)
-    result = await conn.execute(text(count_sql), params)
-    current = int(result.scalar() or 0)
-    if current >= limit:
+    if current >= limit_for(user, feature_key):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail=f"{label} limit reached for {normalize_plan(user.get('plan'))} plan",
