@@ -35,7 +35,7 @@ import { useFinanceGoals } from "@/hooks/use-finance-goals";
 import { useCreateTransaction } from "@/hooks/use-finance-transactions";
 import { useSpendingByCategory } from "@/hooks/use-finance-series";
 import { useWatchlist } from "@/hooks/psx/use-watchlist";
-import { usePsxIndexData } from "@/hooks/psx/use-psx";
+import { usePsxIndexData, useMarketTickers } from "@/hooks/psx/use-psx";
 import { Modal, fieldClass } from "@/components/shared/Modal";
 import { Checkbox } from "@/components/ui/checkbox";
 
@@ -128,6 +128,7 @@ function Dashboard() {
   const { data: spendingByCat, isLoading: spendingByCatLoading } = useSpendingByCategory(30, realUserEnabled);
   const { data: userGoals } = useFinanceGoals(realUserEnabled);
   const { symbols: userWatchlist } = useWatchlist();
+  const liveTickers = useMarketTickers(50);
   const { data: kse100Bars } = usePsxIndexData("KSE100");
   const kse100ChangePct = latestIndexChangePct(kse100Bars);
   const kse100ChangeLabel =
@@ -138,6 +139,7 @@ function Dashboard() {
     ? (portfolioHistory?.points ?? [])
     : portfolioSeries(months);
   const dashboardWatchlist = useShowcaseDashboard ? WATCHLIST : userWatchlist;
+  const liveTickerMap = new Map(liveTickers.map((t) => [t.symbol, t]));
   const dashboardGoals = !useShowcaseDashboard
     ? (userGoals ?? []).slice(0, 3).map((g) => ({
         emoji: g.emoji || "",
@@ -425,8 +427,10 @@ function Dashboard() {
           <div className="scrollbar-none flex gap-3 overflow-x-auto pb-1">
             {dashboardWatchlist.map((tk) => {
             const s = STOCKS[tk];
-            if (!s) return null;
-            const spark = generateOHLCV(s.seed, s.start, s.price, 7).map((c) => c.close);
+            const live = !useShowcaseDashboard ? liveTickerMap.get(tk) : null;
+            const price = live?.price ?? s?.price ?? 0;
+            const changePct = live?.changePct ?? s?.changePct ?? 0;
+            const showSpark = useShowcaseDashboard && !!s;
             return (
               <Link
                 to="/psx"
@@ -434,17 +438,27 @@ function Dashboard() {
                 className="w-[160px] shrink-0 rounded-[8px] border border-border bg-surface p-3 transition hover:border-border-hover"
               >
                 <div className="flex items-center justify-between">
-                  <span className="font-semibold text-text-primary">{tk}</span>
-                  <Change pct={s.changePct} pill />
+                  <span className="font-semibold text-text-primary">{live?.symbol ?? tk}</span>
+                  <Change pct={changePct} pill />
                 </div>
-                <div className="truncate text-[10px] text-text-muted">{t(s.name)}</div>
+                <div className="truncate text-[10px] text-text-muted">{t(live?.name ?? s?.name ?? tk)}</div>
                 <div className="mt-1 font-mono text-lg font-bold tabular-nums text-text-primary">
-                  {fmtNum(s.price)}
+                  {fmtNum(price)}
                 </div>
-                <div className="my-1">
-                  <Sparkline data={spark} color={s.changePct >= 0 ? "#00d4aa" : "#e5484d"} />
-                </div>
-                <SignalBadge signal={s.signal} />
+                {showSpark ? (
+                  <div className="my-1">
+                    <Sparkline
+                      data={generateOHLCV(s.seed, s.start, s.price, 7).map((c) => c.close)}
+                      color={s.changePct >= 0 ? "#00d4aa" : "#e5484d"}
+                    />
+                  </div>
+                ) : (
+                  <div className={cn("mt-1 text-[11px] font-mono tabular-nums", changePct >= 0 ? "text-bull" : "text-bear")}>
+                    {changePct >= 0 ? "+" : ""}
+                    {changePct.toFixed(2)}%
+                  </div>
+                )}
+                <SignalBadge signal={s?.signal ?? "HOLD"} />
               </Link>
             );
             })}
