@@ -1,7 +1,15 @@
 # NafaIQ Monorepo — Project Guide
 
-> Primary workspace: `D:\NafaIQ-Monorepo`
-> Do NOT use `C:\Users\LENOVO\nafaiq-monorepo` (stale clone)
+> ## ⚠️ CRITICAL — SINGLE SOURCE OF TRUTH
+> 
+> **Primary workspace (ONLY):** `D:\NafaIQ-Monorepo`
+> 
+> **`C:\Users\LENOVO\nafaiq-monorepo` — DELETED AND BANNED.**
+> That was a stale, incomplete clone that caused massive confusion and wasted an entire session.
+> Never create, fetch, or use any repo under `C:\Users\LENOVO\` for this project.
+> 
+> **Rule: If a path starts with `C:\Users\LENOVO\` and is NOT this project, ignore it.**
+> **Rule: If a path is not `D:\NafaIQ-Monorepo`, do not touch it.**
 
 ## Team
 
