@@ -9,6 +9,7 @@ from sqlalchemy import text
 from app.api.deps import require_user
 from app.db.sqlalchemy import get_engine
 from app.services.permissions import enforce_count_limit
+from app.services.symbols import require_known_symbol
 
 router = APIRouter(tags=["portfolio"])
 
@@ -131,6 +132,7 @@ async def add_holding(
         )
         if not own.first():
             raise HTTPException(404, "Portfolio not found")
+        await require_known_symbol(conn, body.symbol)
         await enforce_count_limit(
             conn,
             user,
@@ -267,21 +269,28 @@ async def portfolio_value(
 
         result = await conn.execute(
             text("""
+                -- Resolve current price: live snapshot -> latest EOD close.
+                -- Market value falls back to cost basis when a symbol cannot be
+                -- priced at all, so unpriceable holdings read flat (0 gain)
+                -- instead of a spurious -100% loss.
                 SELECT
                     h.id, h.symbol, h.shares, h.avg_cost,
-                    s.price AS current_price,
-                    (h.shares * COALESCE(s.price, 0))::numeric AS market_value,
+                    COALESCE(s.price, o.close) AS current_price,
+                    (h.shares * COALESCE(s.price, o.close, h.avg_cost))::numeric AS market_value,
                     (h.shares * h.avg_cost)::numeric AS cost_basis,
-                    (h.shares * COALESCE(s.price, 0) - h.shares * h.avg_cost)::numeric AS unrealized_pnl,
-                    CASE WHEN (h.shares * h.avg_cost) > 0 AND s.price IS NOT NULL
+                    (h.shares * COALESCE(s.price, o.close, h.avg_cost) - h.shares * h.avg_cost)::numeric AS unrealized_pnl,
+                    CASE WHEN (h.shares * h.avg_cost) > 0 AND COALESCE(s.price, o.close) IS NOT NULL
                         THEN ROUND(
-                            ((h.shares * s.price - h.shares * h.avg_cost) / (h.shares * h.avg_cost)) * 100,
+                            ((h.shares * COALESCE(s.price, o.close) - h.shares * h.avg_cost) / (h.shares * h.avg_cost)) * 100,
                             2
                         )
                         ELSE 0
                     END AS pnl_pct
                 FROM psx_holdings h
                 LEFT JOIN psx_market_snapshot s ON s.symbol = h.symbol
+                LEFT JOIN LATERAL (
+                    SELECT close FROM psx_ohlcv WHERE symbol = h.symbol ORDER BY date DESC LIMIT 1
+                ) o ON TRUE
                 WHERE h.portfolio_id = :pid
                 ORDER BY h.symbol ASC
             """),
@@ -373,16 +382,25 @@ async def portfolio_networth(
                     FROM psx_ohlcv
                     WHERE date < CURRENT_DATE
                     ORDER BY symbol, date DESC
+                ),
+                latest_close AS (
+                    SELECT DISTINCT ON (symbol) symbol, close AS eod_close
+                    FROM psx_ohlcv
+                    ORDER BY symbol, date DESC
                 )
+                -- current price: live snapshot -> latest EOD close; market value
+                -- falls back to cost basis when unpriceable (flat, not -100%).
+                -- today_pnl stays live-price-only: an EOD-only symbol has no
+                -- meaningful intraday change.
                 SELECT
                     h.id, h.symbol, h.shares, h.avg_cost,
-                    s.price AS current_price,
-                    (h.shares * COALESCE(s.price, 0))::numeric AS market_value,
+                    COALESCE(s.price, lc.eod_close) AS current_price,
+                    (h.shares * COALESCE(s.price, lc.eod_close, h.avg_cost))::numeric AS market_value,
                     (h.shares * h.avg_cost)::numeric AS cost_basis,
-                    (h.shares * COALESCE(s.price, 0) - h.shares * h.avg_cost)::numeric AS unrealized_pnl,
-                    CASE WHEN (h.shares * h.avg_cost) > 0 AND s.price IS NOT NULL
+                    (h.shares * COALESCE(s.price, lc.eod_close, h.avg_cost) - h.shares * h.avg_cost)::numeric AS unrealized_pnl,
+                    CASE WHEN (h.shares * h.avg_cost) > 0 AND COALESCE(s.price, lc.eod_close) IS NOT NULL
                         THEN ROUND(
-                            ((h.shares * s.price - h.shares * h.avg_cost) / (h.shares * h.avg_cost)) * 100,
+                            ((h.shares * COALESCE(s.price, lc.eod_close) - h.shares * h.avg_cost) / (h.shares * h.avg_cost)) * 100,
                             2
                         )
                         ELSE 0
@@ -397,6 +415,7 @@ async def portfolio_networth(
                 JOIN psx_portfolios p ON p.id = h.portfolio_id AND p.user_id = :uid
                 LEFT JOIN psx_market_snapshot s ON s.symbol = h.symbol
                 LEFT JOIN prev_close pc ON pc.symbol = h.symbol
+                LEFT JOIN latest_close lc ON lc.symbol = h.symbol
                 ORDER BY h.symbol ASC
             """),
             {"uid": user_id},

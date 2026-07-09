@@ -12,6 +12,7 @@ from app.api.deps import require_user
 from app.db.sqlalchemy import get_session_factory
 from app.services import portfolio as portfolio_service
 from app.services.permissions import enforce_count_limit
+from app.services.symbols import require_known_symbol
 
 router = APIRouter(tags=["portfolio-extended"])
 
@@ -159,6 +160,8 @@ async def create_stock_transaction(
         if not own.first():
             raise HTTPException(404, "Portfolio not found")
 
+        await require_known_symbol(session, body.symbol)
+
         if body.side == "buy":
             await enforce_count_limit(
                 session,
@@ -257,6 +260,39 @@ async def create_stock_transaction(
                             ),
                             {"s": new_shares, "id": er["id"]},
                         )
+
+        # Reflect the trade in personal finance so a purchase (or sale) shows up
+        # in the Finance transactions feed. A buy is cash out (expense), a sell is
+        # cash in (income); both categorised 'Investment', source 'stock_trade'
+        # so they are identifiable and can be filtered from spending later.
+        if body.side in ("buy", "sell"):
+            gross = float(body.price) * int(body.quantity)
+            if body.side == "buy":
+                fin_type = "expense"
+                fin_amount = gross + float(body.fees)
+                merchant = f"Buy {int(body.quantity)} {body.symbol.upper()}"
+            else:
+                fin_type = "income"
+                fin_amount = max(0.01, gross - float(body.fees))
+                merchant = f"Sell {int(body.quantity)} {body.symbol.upper()}"
+            await session.execute(
+                text(
+                    "INSERT INTO user_transactions "
+                    "(user_id, merchant, amount, currency, transaction_type, category, "
+                    " transaction_date, source, note) "
+                    "VALUES (:uid, :merchant, :amount, 'PKR', :ttype, 'Investment', "
+                    "        :txdate, 'stock_trade', :note)"
+                ),
+                {
+                    "uid": user["user_id"],
+                    "merchant": merchant,
+                    "amount": round(fin_amount, 2),
+                    "ttype": fin_type,
+                    "txdate": executed,
+                    "note": f"{int(body.quantity)} @ {float(body.price)}",
+                },
+            )
+
         await session.commit()
     return {
         "id": r["id"],

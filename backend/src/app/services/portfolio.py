@@ -50,14 +50,20 @@ async def value_for_portfolio(portfolio_id: int) -> dict[str, Any]:
                     FROM psx_ohlcv
                     WHERE date < CURRENT_DATE
                     ORDER BY symbol, date DESC
+                ),
+                latest_close AS (
+                    SELECT DISTINCT ON (symbol) symbol, close AS eod_close
+                    FROM psx_ohlcv
+                    ORDER BY symbol, date DESC
                 )
                 SELECT
                     h.id, h.symbol, h.shares, h.avg_cost,
-                    s.price AS current_price,
+                    COALESCE(s.price, lc.eod_close) AS current_price,
                     pc.previous_close AS previous_close
                 FROM psx_holdings h
                 LEFT JOIN psx_market_snapshot s ON s.symbol = h.symbol
                 LEFT JOIN prev_close pc ON pc.symbol = h.symbol
+                LEFT JOIN latest_close lc ON lc.symbol = h.symbol
                 WHERE h.portfolio_id = :pid
                 ORDER BY h.symbol
                 """
@@ -111,15 +117,21 @@ async def networth(user_id: str) -> dict[str, Any]:
                     FROM psx_ohlcv
                     WHERE date < CURRENT_DATE
                     ORDER BY symbol, date DESC
+                ),
+                latest_close AS (
+                    SELECT DISTINCT ON (symbol) symbol, close AS eod_close
+                    FROM psx_ohlcv
+                    ORDER BY symbol, date DESC
                 )
                 SELECT
                     h.id, h.symbol, h.shares, h.avg_cost,
-                    s.price AS current_price,
+                    COALESCE(s.price, lc.eod_close) AS current_price,
                     pc.previous_close AS previous_close
                 FROM psx_holdings h
                 JOIN psx_portfolios p ON p.id = h.portfolio_id AND p.user_id = :uid
                 LEFT JOIN psx_market_snapshot s ON s.symbol = h.symbol
                 LEFT JOIN prev_close pc ON pc.symbol = h.symbol
+                LEFT JOIN latest_close lc ON lc.symbol = h.symbol
                 ORDER BY h.symbol
                 """
             ),
