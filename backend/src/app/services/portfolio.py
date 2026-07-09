@@ -106,7 +106,12 @@ async def allocation(portfolio_id: int, by: str = "stock") -> list[dict[str, Any
 
 
 async def networth(user_id: str) -> dict[str, Any]:
-    """Sum totals across all user portfolios."""
+    """Sum totals across all user portfolios.
+
+    Today P&L uses lot-level awareness: shares bought today (detected via
+    stock_transactions) are valued against their buy price, while older shares
+    are valued against the previous close.
+    """
     factory = get_session_factory()
     async with factory() as session:
         rows = await session.execute(
@@ -122,16 +127,35 @@ async def networth(user_id: str) -> dict[str, Any]:
                     SELECT DISTINCT ON (symbol) symbol, close AS eod_close
                     FROM psx_ohlcv
                     ORDER BY symbol, date DESC
+                ),
+                today_buys AS (
+                    SELECT
+                        st.portfolio_id,
+                        st.symbol,
+                        SUM(st.quantity) AS today_qty,
+                        CASE WHEN SUM(st.quantity) > 0
+                             THEN SUM(st.price * st.quantity) / SUM(st.quantity)
+                             ELSE 0
+                        END AS today_avg_price
+                    FROM stock_transactions st
+                    WHERE st.user_id = :uid
+                      AND st.side = 'buy'
+                      AND (st.executed_at AT TIME ZONE 'Asia/Karachi')::date
+                          = (CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Karachi')::date
+                    GROUP BY st.portfolio_id, st.symbol
                 )
                 SELECT
                     h.id, h.symbol, h.shares, h.avg_cost,
                     COALESCE(s.price, lc.eod_close) AS current_price,
-                    pc.previous_close AS previous_close
+                    pc.previous_close AS previous_close,
+                    tb.today_qty,
+                    tb.today_avg_price
                 FROM psx_holdings h
                 JOIN psx_portfolios p ON p.id = h.portfolio_id AND p.user_id = :uid
                 LEFT JOIN psx_market_snapshot s ON s.symbol = h.symbol
                 LEFT JOIN prev_close pc ON pc.symbol = h.symbol
                 LEFT JOIN latest_close lc ON lc.symbol = h.symbol
+                LEFT JOIN today_buys tb ON tb.portfolio_id = h.portfolio_id AND tb.symbol = h.symbol
                 ORDER BY h.symbol
                 """
             ),
@@ -150,6 +174,12 @@ async def networth(user_id: str) -> dict[str, Any]:
                     float(r["previous_close"])
                     if r["previous_close"] is not None
                     else None
+                ),
+                today_qty=(
+                    int(r["today_qty"]) if r["today_qty"] is not None else None
+                ),
+                today_avg_price=(
+                    float(r["today_avg_price"]) if r["today_avg_price"] is not None else None
                 ),
             )
             holdings.append(row)
@@ -203,6 +233,44 @@ async def history(user_id: str, days: int = 180) -> list[dict[str, Any]]:
                 for row in r.mappings().all()
             ]
     return calc.portfolio_history_from_ohlcv(holdings, ohlcv, days=int(days))
+
+
+async def enriched_watchlist(user_id: str) -> list[dict[str, Any]]:
+    """Return user's watchlist symbols enriched with names, prices, and sectors."""
+    factory = get_session_factory()
+    async with factory() as session:
+        rows = await session.execute(
+            text("""
+                SELECT
+                    w.symbol,
+                    COALESCE(p.name, w.symbol) AS company_name,
+                    COALESCE(p.sector, 'Other') AS sector,
+                    s.price,
+                    s.change,
+                    s.change_pct,
+                    s.volume,
+                    s.refreshed_at AS last_updated
+                FROM user_watchlist w
+                LEFT JOIN psx_profile p ON upper(trim(p.symbol)) = upper(trim(w.symbol))
+                LEFT JOIN psx_market_snapshot s ON upper(trim(s.symbol)) = upper(trim(w.symbol))
+                WHERE w.user_id = :uid
+                ORDER BY w.added_at DESC
+            """),
+            {"uid": user_id},
+        )
+        return [
+            {
+                "symbol": r["symbol"],
+                "company_name": r["company_name"],
+                "sector": r["sector"],
+                "price": float(r["price"]) if r["price"] is not None else None,
+                "change": float(r["change"]) if r["change"] is not None else None,
+                "change_pct": float(r["change_pct"]) if r["change_pct"] is not None else None,
+                "volume": int(r["volume"]) if r["volume"] else 0,
+                "last_updated": r["last_updated"].isoformat() if r["last_updated"] else None,
+            }
+            for r in rows.mappings().all()
+        ]
 
 
 async def performance_vs_kse100(user_id: str, days: int = 180) -> list[dict[str, Any]]:
