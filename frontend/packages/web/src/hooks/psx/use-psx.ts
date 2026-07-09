@@ -13,7 +13,7 @@ import {
   fetchAnnouncements,
   fetchDividends,
   fetchIndexData,
-  fetchSectors,
+  fetchHeatmap,
   fetchSignal,
   fetchBatchSignals,
 } from "@/lib/psx/client";
@@ -168,15 +168,18 @@ export function usePsxHistory(symbol: string | undefined, days = 180) {
     queryKey: ["psx", "history", symbol, days],
     queryFn: async () => {
       const bars = await fetchHistory(symbol!, days);
-      return bars.map<Candle>((b) => ({
-        date: b.date,
-        t: new Date(b.date).getTime(),
-        open: b.open,
-        high: b.high,
-        low: b.low,
-        close: b.close,
-        volume: b.volume,
-      }));
+      return bars
+        .slice()
+        .reverse()
+        .map<Candle>((b) => ({
+          date: b.date,
+          t: new Date(b.date).getTime(),
+          open: b.open,
+          high: b.high,
+          low: b.low,
+          close: b.close,
+          volume: b.volume,
+        }));
     },
     enabled: !!symbol,
     staleTime: 60_000_000, // effectively permanent — OHLCV is historical
@@ -229,7 +232,7 @@ export function usePsxDividends(symbol: string | undefined) {
 export function usePsxIndexData(code: string | undefined) {
   return useQuery({
     queryKey: ["psx", "index", code],
-    queryFn: () => fetchIndexData(code!),
+    queryFn: async () => (await fetchIndexData(code!)).slice().reverse(),
     enabled: !!code,
     staleTime: 60_000,
   });
@@ -238,7 +241,7 @@ export function usePsxIndexData(code: string | undefined) {
 export function usePsxSectors() {
   return useQuery({
     queryKey: ["psx", "sectors"],
-    queryFn: () => fetchSectors(),
+    queryFn: async () => (await fetchHeatmap()).sectors,
     staleTime: 15_000,
     refetchInterval: 30_000,
   });

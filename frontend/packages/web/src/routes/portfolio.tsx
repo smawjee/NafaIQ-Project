@@ -369,7 +369,7 @@ function Portfolio() {
     ticker: "",
     sector: "",
     shares: "",
-    avgCost: "",
+    buyPrice: "",
     current: "",
   };
   const [form, setForm] = useState(emptyForm);
@@ -390,7 +390,7 @@ function Portfolio() {
       ticker: h.ticker,
       sector: h.sector,
       shares: String(h.shares),
-      avgCost: String(h.avgCost),
+      buyPrice: String(h.avgCost),
       current: String(h.current),
     });
     setFormErr("");
@@ -408,21 +408,21 @@ function Portfolio() {
   function saveHolding() {
     setFormErr("");
     const shares = Number(form.shares);
-    const avgCost = Number(form.avgCost);
+    const buyPrice = Number(form.buyPrice);
     const current = Number(form.current);
     if (!form.ticker.trim()) return setFormErr(t("Please enter a stock symbol."));
     if (!form.sector.trim()) return setFormErr(t("Please enter a sector."));
     if (!form.shares || Number.isNaN(shares) || shares <= 0)
       return setFormErr(t("Please enter a valid number of shares."));
-    if (!form.avgCost || Number.isNaN(avgCost) || avgCost <= 0)
-      return setFormErr(t("Please enter a valid average cost."));
-    const cur = !form.current || Number.isNaN(current) || current <= 0 ? avgCost : current;
-    const signal = computeSignal(form.ticker.trim().toUpperCase(), cur, avgCost);
+    if (!form.buyPrice || Number.isNaN(buyPrice) || buyPrice <= 0)
+      return setFormErr(t("Please enter a valid buy price."));
+    const cur = !form.current || Number.isNaN(current) || current <= 0 ? buyPrice : current;
+    const signal = computeSignal(form.ticker.trim().toUpperCase(), cur, buyPrice);
     const entry: Holding = {
       ticker: form.ticker.trim().toUpperCase(),
       sector: form.sector.trim(),
       shares,
-      avgCost,
+      avgCost: buyPrice,
       current: cur,
       signal,
     };
@@ -432,11 +432,11 @@ function Portfolio() {
         if (!portfolioId) {
           createPortfolio.mutate("Main", {
             onSuccess: (p) => {
-              addHoldingApi.mutate({ symbol: entry.ticker, shares: entry.shares, avg_cost: entry.avgCost });
+              addHoldingApi.mutate({ portfolioId: p.id, symbol: entry.ticker, shares: entry.shares, avg_cost: entry.avgCost });
             },
           });
         } else {
-          addHoldingApi.mutate({ symbol: entry.ticker, shares: entry.shares, avg_cost: entry.avgCost });
+          addHoldingApi.mutate({ portfolioId, symbol: entry.ticker, shares: entry.shares, avg_cost: entry.avgCost });
         }
       } else if (apiHoldings?.[editIdx]) {
         updateHoldingApi.mutate({ holdingId: apiHoldings[editIdx].id, shares: entry.shares, avg_cost: entry.avgCost });
@@ -710,10 +710,10 @@ function Portfolio() {
             className={fieldClass}
           />
           <input
-            value={form.avgCost}
-            onChange={(e) => setForm({ ...form, avgCost: e.target.value })}
+            value={form.buyPrice}
+            onChange={(e) => setForm({ ...form, buyPrice: e.target.value })}
             inputMode="decimal"
-            placeholder={t("Avg Cost (PKR)")}
+            placeholder={t("Buy Price (PKR)")}
             className={fieldClass}
           />
           <input

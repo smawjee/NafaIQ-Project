@@ -136,23 +136,25 @@ function OHLCTooltip({ active, payload }: { active?: boolean; payload?: { payloa
 export function CandlestickChart({
   data,
   height = 480,
-  mas = ["MA20", "MA50"],
+  mas = ["MA20", "MA50", "MA100"],
   maSeries,
 }: {
   data: Candle[];
   height?: number;
   mas?: string[];
-  maSeries?: { ma20: (number | null)[]; ma50: (number | null)[]; ma200: (number | null)[] };
+  maSeries?: { ma20: (number | null)[]; ma50: (number | null)[]; ma100: (number | null)[]; ma200: (number | null)[] };
 }) {
   const ct = useChartTheme();
   const ma20 = maSeries?.ma20 ?? sma(data, 20);
   const ma50 = maSeries?.ma50 ?? sma(data, 50);
+  const ma100 = maSeries?.ma100 ?? sma(data, 100);
   const ma200 = maSeries?.ma200 ?? sma(data, 200);
   const enriched = data.map((c, i) => ({
     ...c,
     range: [c.low, c.high] as [number, number],
     ma20: ma20[i],
     ma50: ma50[i],
+    ma100: ma100[i],
     ma200: ma200[i],
   }));
   const maxVol = Math.max(...data.map((d) => d.volume));
@@ -209,6 +211,16 @@ export function CandlestickChart({
             isAnimationActive={false}
           />
         )}
+        {mas.includes("MA100") && (
+          <Line
+            yAxisId="price"
+            dataKey="ma100"
+            stroke="#ef4444"
+            dot={false}
+            strokeWidth={1.2}
+            isAnimationActive={false}
+          />
+        )}
         {mas.includes("MA200") && (
           <Line
             yAxisId="price"
@@ -227,19 +239,20 @@ export function CandlestickChart({
 export function PriceLineChart({
   data,
   height = 480,
-  mas = ["MA20", "MA50"],
+  mas = ["MA20", "MA50", "MA100"],
   maSeries,
 }: {
   data: Candle[];
   height?: number;
   mas?: string[];
-  maSeries?: { ma20: (number | null)[]; ma50: (number | null)[]; ma200: (number | null)[] };
+  maSeries?: { ma20: (number | null)[]; ma50: (number | null)[]; ma100: (number | null)[]; ma200: (number | null)[] };
 }) {
   const ct = useChartTheme();
   const { t } = useLang();
   const priceLineGradientId = useId();
   const ma20 = maSeries?.ma20 ?? sma(data, 20);
   const ma50 = maSeries?.ma50 ?? sma(data, 50);
+  const ma100 = maSeries?.ma100 ?? sma(data, 100);
   const ma200 = maSeries?.ma200 ?? sma(data, 200);
   const enriched = data.map((c, i) => ({
     date: c.date,
@@ -247,6 +260,7 @@ export function PriceLineChart({
     volume: c.volume,
     ma20: ma20[i],
     ma50: ma50[i],
+    ma100: ma100[i],
     ma200: ma200[i],
   }));
   const maxVol = Math.max(...data.map((d) => d.volume));
@@ -320,6 +334,17 @@ export function PriceLineChart({
             dataKey="ma50"
             name="MA50"
             stroke="#3b82f6"
+            dot={false}
+            strokeWidth={1.2}
+            isAnimationActive={false}
+          />
+        )}
+        {mas.includes("MA100") && (
+          <Line
+            yAxisId="price"
+            dataKey="ma100"
+            name="MA100"
+            stroke="#ef4444"
             dot={false}
             strokeWidth={1.2}
             isAnimationActive={false}

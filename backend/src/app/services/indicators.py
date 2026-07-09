@@ -191,7 +191,7 @@ def compute_indicators(bars: list[OHLCVBar], indicator_list: list[str]) -> Indic
                     "signal": _last(macd_d["signal"]),
                     "histogram": _last(macd_d["histogram"]),
                 }
-            elif n in ("sma20", "sma50", "sma200"):
+            elif n in ("sma20", "sma50", "sma100", "sma200"):
                 period = int(n.replace("sma", ""))
                 arr = _sma(close, period)
                 results[n] = _last(arr)

@@ -62,7 +62,7 @@ export const Route = createFileRoute("/psx")({
 
 const SYMBOLS = ["KSE-100", ...Object.keys(STOCKS)];
 const TIMEFRAMES = ["1D", "1W", "1M", "3M", "6M", "1Y", "All"] as const;
-const INDICATORS = ["MA20", "MA50", "MA200"] as const;
+const INDICATORS = ["MA20", "MA50", "MA100", "MA200"] as const;
 
 function tfDays(tf: string) {
   return { "1D": 5, "1W": 14, "1M": 30, "3M": 90, "6M": 130, "1Y": 250, All: 250 }[tf] ?? 250;
@@ -125,7 +125,7 @@ export default function PSX() {
   const [sym, setSym] = useState("KSE-100");
   const [tf, setTf] = useState<string>("6M");
   const [type, setType] = useState<"candle" | "line">("candle");
-  const [mas, setMas] = useState<string[]>(["MA20", "MA50"]);
+  const [mas, setMas] = useState<string[]>(["MA20", "MA50", "MA100"]);
   const [moverTab, setMoverTab] = useState<"Gainers" | "Losers" | "Most Active">("Gainers");
   const [signalFilter, setSignalFilter] = useState<string>("All");
   const [sectorFilter, setSectorFilter] = useState<string>("All");
@@ -181,6 +181,9 @@ export default function PSX() {
     if (sym === "KSE-100" && ohlcvData && ohlcvData.length > 0) {
       return ohlcvData.slice(-250);
     }
+    if (ohlcvData && ohlcvData.length > 0) {
+      return ohlcvData.slice(-250);
+    }
     if (kse100Data && kse100Data.length > 0) {
       return kse100Data.map((b) => ({
         date: b.date,
@@ -191,9 +194,6 @@ export default function PSX() {
         close: b.close,
         volume: b.volume ?? 0,
       }));
-    }
-    if (ohlcvData && ohlcvData.length > 0) {
-      return ohlcvData.slice(-250);
     }
     const meta = symbolMeta(sym);
     return generateOHLCV(meta.seed, meta.start, meta.end, 250, meta.vMin, meta.vMax);
@@ -207,6 +207,7 @@ export default function PSX() {
     return {
       ma20: sma(full, 20).slice(start),
       ma50: sma(full, 50).slice(start),
+      ma100: sma(full, 100).slice(start),
       ma200: sma(full, 200).slice(start),
     };
   }, [full, visibleCount]);
@@ -459,7 +460,7 @@ export default function PSX() {
                 <Typewriter
                   id="psx-ai-analysis"
                   text={t(
-                    "KSE-100 is trading above both MA20 and MA50 with strong volume confirmation. RSI at 58 — bullish momentum without being overbought. Banking and Tech sectors leading gains today.",
+                    "KSE-100 is trading above MA20, MA50 and MA100 with strong volume confirmation. RSI at 58 — bullish momentum without being overbought. Banking and Tech sectors leading gains today.",
                   )}
                 />
               </p>
