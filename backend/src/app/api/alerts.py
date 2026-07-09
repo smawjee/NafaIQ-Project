@@ -1,31 +1,18 @@
-"""User-scoped alerts API: CRUD, events, evaluation."""
+"""User-scoped alerts API: CRUD, events, evaluation (thin HTTP layer)."""
 from __future__ import annotations
 
-from typing import Annotated, Any, Optional
+from typing import Annotated, Optional
 
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel, Field
 
 from app.api.deps import require_user
-from app.db.sqlalchemy import get_engine
+from app.schemas.alerts import AppAlertCreate, AppAlertToggle, PriceAlertCreate
 from app.services import alerts as alerts_service
-from app.services.permissions import enforce_count_limit
 
 router = APIRouter(tags=["alerts"])
 
 
 # ---------- CRUD for app-level alerts (bill / budget / goal) ----------
-
-
-class AppAlertCreate(BaseModel):
-    type: str = Field(..., pattern="^(stock_price|bill|budget|goal)$")
-    title: str = Field(..., min_length=1, max_length=200)
-    meta: Optional[dict[str, Any]] = None
-    enabled: bool = True
-
-
-class AppAlertToggle(BaseModel):
-    enabled: bool
 
 
 @router.get("/alerts")
@@ -78,16 +65,6 @@ async def delete_alert(
 # ---------- Price alerts ----------
 
 
-class PriceAlertCreate(BaseModel):
-    symbol: str = Field(..., min_length=1, max_length=20)
-    condition: str = Field(..., pattern="^(above|below|cross_above|cross_below)$")
-    price: float = Field(..., ge=0)
-    one_time: bool = True
-    notify_push: bool = False
-    notify_email: bool = True
-    notes: Optional[str] = Field(None, max_length=500)
-
-
 @router.get("/alerts/price")
 async def list_price_alerts(user: Annotated[dict, Depends(require_user)]):
     return await alerts_service.list_alerts(user["user_id"], alert_type="price")
@@ -98,18 +75,8 @@ async def create_price_alert(
     body: PriceAlertCreate,
     user: Annotated[dict, Depends(require_user)],
 ):
-    engine = get_engine()
-    async with engine.connect() as conn:
-        await enforce_count_limit(
-            conn,
-            user,
-            feature_key="max_price_alerts",
-            count_sql="SELECT COUNT(*) FROM price_alerts WHERE user_id = :uid",
-            params={"uid": user["user_id"]},
-            label="Price alerts",
-        )
     return await alerts_service.create_price_alert(
-        user["user_id"],
+        user,
         symbol=body.symbol,
         condition=body.condition,
         price=body.price,

@@ -10,10 +10,9 @@ Strategy:
 from __future__ import annotations
 
 import logging
-from datetime import date
 from typing import Any, Optional
 
-from sqlalchemy import select, text
+from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.sqlalchemy import get_session_factory
