@@ -11,6 +11,12 @@ export interface StockSearchResult {
   price: number | null;
   change: number | null;
   changePct: number | null;
+  logoUrl: string | null;
+}
+
+/** TradingView-hosted company logo (SVG) from a logoid, or null. */
+export function logoUrlFor(logoid: string | null | undefined): string | null {
+  return logoid ? `https://s3-symbol-logo.tradingview.com/${logoid}.svg` : null;
 }
 
 /**
@@ -33,6 +39,7 @@ export function buildStockUniverse(
       price: p?.price ?? null,
       change: p?.change ?? null,
       changePct: p?.change_pct ?? null,
+      logoUrl: logoUrlFor(s.logoid),
     };
   });
 }

@@ -119,9 +119,14 @@ class CacheLayer:
                 last_refresh = datetime.fromisoformat(rows[0]["refreshed_at"].replace("Z", "+00:00"))
                 age = (datetime.now(timezone.utc) - last_refresh).total_seconds()
                 if age < max_age_seconds:
-                    result = self.db.table("psx_profile").select("symbol,name,sector").execute()
+                    result = self.db.table("psx_profile").select("symbol,name,sector,logoid").execute()
                     return [
-                        SymbolInfo(symbol=r["symbol"], name=r.get("name", ""), sector=r.get("sector"))
+                        SymbolInfo(
+                            symbol=r["symbol"],
+                            name=r.get("name", ""),
+                            sector=r.get("sector"),
+                            logoid=r.get("logoid"),
+                        )
                         for r in (result.data or [])
                     ]
         except Exception:

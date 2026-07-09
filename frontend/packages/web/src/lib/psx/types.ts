@@ -22,6 +22,7 @@ export interface ApiSymbolInfo {
   symbol: string;
   name: string;
   sector: string | null;
+  logoid?: string | null;
 }
 
 export interface ApiCompanyProfile {

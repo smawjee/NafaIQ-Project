@@ -223,6 +223,7 @@ async def job_refresh_tv_data():
                 "symbol": item["symbol"],
                 "name": item.get("name", item["symbol"]),
                 "sector": item.get("sector"),
+                "logoid": item.get("logoid"),
                 "refreshed_at": now,
             })
 
