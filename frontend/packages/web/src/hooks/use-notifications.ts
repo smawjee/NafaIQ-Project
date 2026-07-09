@@ -20,25 +20,26 @@ export interface NotificationPrefs {
   in_app_alerts: boolean;
 }
 
-export function useNotifications() {
+export function useNotifications(enabled?: boolean) {
   const { user } = useAuth();
   const qc = useQueryClient();
+  const isEnabled = enabled ?? !!user;
 
   const query = useQuery<InAppNotification[]>({
     queryKey: ["notifications", user?.id],
     queryFn: () => userGet<InAppNotification[]>("/api/notifications/list"),
-    enabled: !!user,
+    enabled: isEnabled,
     staleTime: 30_000,
   });
 
-  // Realtime subscription
+  // Realtime subscription — unique channel per caller to avoid cross-talk
   useEffect(() => {
-    if (!user) return;
+    if (!isEnabled) return;
     const channel = supabase
-      .channel("user-notifications")
+      .channel(`user-notifications-${crypto.randomUUID()}`)
       .on(
         "postgres_changes",
-        { event: "INSERT", schema: "public", table: "in_app_notifications" as const, filter: `user_id=eq.${user.id}` },
+        { event: "INSERT", schema: "public", table: "in_app_notifications" as const, filter: `user_id=eq.${user!.id}` },
         () => {
           qc.invalidateQueries({ queryKey: ["notifications"] });
         }
@@ -47,7 +48,7 @@ export function useNotifications() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [user, qc]);
+  }, [isEnabled, user?.id, qc]);
 
   return query;
 }

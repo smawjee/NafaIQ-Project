@@ -27,7 +27,7 @@ export interface PriceAlert {
 const userAlertsTable = "user_alerts" as const;
 const priceAlertsTable = "price_alerts" as const;
 
-export function useUserAlerts() {
+export function useUserAlerts(enabled?: boolean) {
   const { user } = useAuth();
   return useQuery<UserAlert[]>({
     queryKey: ["user_alerts", user?.id],
@@ -40,12 +40,12 @@ export function useUserAlerts() {
       if (error) throw error;
       return (data ?? []) as unknown as UserAlert[];
     },
-    enabled: !!user,
+    enabled: enabled ?? !!user,
     staleTime: 30_000,
   });
 }
 
-export function usePriceAlerts() {
+export function usePriceAlerts(enabled?: boolean) {
   const { user } = useAuth();
   return useQuery<PriceAlert[]>({
     queryKey: ["price_alerts", user?.id],
@@ -58,7 +58,7 @@ export function usePriceAlerts() {
       if (error) throw error;
       return (data ?? []) as unknown as PriceAlert[];
     },
-    enabled: !!user,
+    enabled: enabled ?? !!user,
     staleTime: 30_000,
   });
 }
