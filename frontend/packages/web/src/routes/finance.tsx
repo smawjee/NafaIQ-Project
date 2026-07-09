@@ -38,7 +38,7 @@ import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { selectTransactions, selectBills, selectGoals } from "@/store/finance";
 import { addTransaction, removeTransaction, addBill, markBillPaid as reduxMarkBillPaid, removeBill, addGoal, contributeToGoal } from "@/store/finance";
 import { useFinanceSummary } from "@/hooks/use-finance-summary";
-import { useFinanceBudgets } from "@/hooks/use-finance-budgets";
+import { useFinanceBudgets, useCreateBudget } from "@/hooks/use-finance-budgets";
 import { useFinanceGoals as useApiFinanceGoals, useCreateGoal as useApiCreateGoal, useContributeGoal as useApiContributeGoal } from "@/hooks/use-finance-goals";
 import { useCreateTransaction, useDeleteTransaction, useFinanceTransactions } from "@/hooks/use-finance-transactions";
 import { useCreateBill, useDeleteBill, useFinanceBills, useMarkBillPaid, type FinanceBill } from "@/hooks/use-finance-bills";
@@ -742,7 +742,13 @@ function Budgets() {
   const { user } = useAuth();
   const { isDemo } = useDemo();
   const { data: apiBudgets } = useFinanceBudgets(!!user && !isDemo);
+  const createBudget = useCreateBudget();
   const [offset, setOffset] = useState(0);
+  const [budgetOpen, setBudgetOpen] = useState(false);
+  const [budgetCat, setBudgetCat] = useState("");
+  const [budgetLimit, setBudgetLimit] = useState("");
+  const [budgetTip, setBudgetTip] = useState("");
+  const [budgetErr, setBudgetErr] = useState("");
   const base = new Date();
   const current = new Date(base.getFullYear(), base.getMonth() + offset, 1);
   const prev = new Date(current.getFullYear(), current.getMonth() - 1, 1);
@@ -812,6 +818,62 @@ function Budgets() {
           );
         })}
       </div>
+
+      <button
+        onClick={() => setBudgetOpen(true)}
+        className="flex w-full items-center justify-center gap-1.5 rounded-[6px] border border-dashed border-border py-3 text-sm font-medium text-text-secondary hover:border-bull hover:text-bull"
+      >
+        <Plus className="h-4 w-4" />
+        {t("Add Budget")}
+      </button>
+
+      <Modal open={budgetOpen} onClose={() => setBudgetOpen(false)} title={t("Add Budget")}>
+        <div className="space-y-3">
+          <input
+            value={budgetCat}
+            onChange={(e) => setBudgetCat(e.target.value)}
+            placeholder={t("Category (e.g. Groceries)")}
+            className={fieldClass}
+          />
+          <input
+            value={budgetLimit}
+            onChange={(e) => setBudgetLimit(e.target.value)}
+            inputMode="decimal"
+            placeholder={t("Limit amount (PKR)")}
+            className={fieldClass}
+          />
+          <input
+            value={budgetTip}
+            onChange={(e) => setBudgetTip(e.target.value)}
+            placeholder={t("Tip (optional) — e.g. Stay under limit to save for Hajj")}
+            className={fieldClass}
+          />
+          {budgetErr && <div className="text-xs text-bear">{budgetErr}</div>}
+          <button
+            type="button"
+            onClick={() => {
+              setBudgetErr("");
+              const num = Number(budgetLimit);
+              if (!budgetCat.trim()) return setBudgetErr(t("Please enter a category name."));
+              if (!budgetLimit || Number.isNaN(num) || num <= 0) return setBudgetErr(t("Please enter a valid limit."));
+              if (user && !isDemo) {
+                createBudget.mutate({
+                  category: budgetCat.trim(),
+                  limit_amount: num,
+                  tip: budgetTip.trim() || undefined,
+                });
+              }
+              setBudgetCat("");
+              setBudgetLimit("");
+              setBudgetTip("");
+              setBudgetOpen(false);
+            }}
+            className="w-full rounded-[6px] bg-bull py-2 text-sm font-semibold text-bull-foreground hover:brightness-110"
+          >
+            {t("Add Budget")}
+          </button>
+        </div>
+      </Modal>
     </div>
   );
 }

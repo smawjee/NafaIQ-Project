@@ -345,8 +345,15 @@ class CacheLayer:
                 }
                 for b in bars
             ]
+            seen = set()
+            deduped = []
+            for r in rows:
+                key = (r["code"], r["date"])
+                if key not in seen:
+                    seen.add(key)
+                    deduped.append(r)
             try:
-                self.db.table("psx_index_eod").upsert(rows, on_conflict="code,date").execute()
+                self.db.table("psx_index_eod").upsert(deduped, on_conflict="code,date").execute()
             except Exception:
                 log.warning("cache_index_write_failed", code=c, exc_info=True)
         return bars
