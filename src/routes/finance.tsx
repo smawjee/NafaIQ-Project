@@ -1,6 +1,21 @@
+// Backend API
+import {
+  getGoals,
+  addGoal,
+  updateGoal,
+  deleteGoal,
+  contributeToGoal,
+} from "@/lib/goals";
+import {
+  getBudgets,
+  addBudget,
+  updateBudget,
+  deleteBudget,
+} from "@/lib/budget";
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { motion, useInView, useReducedMotion } from "framer-motion";
+
 import {
   Plus,
   Search,
@@ -17,24 +32,44 @@ import {
   Scale,
   FileDown,
   Coins,
-
+  Pencil,
+  Trash2,
 } from "lucide-react";
+
 import { format } from "date-fns";
+
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+
 import { EmojiIcon } from "@/components/icons";
 import { Card } from "@/components/Card";
 import { AnimatedBar, CountUpNumber } from "@/components/CountUpNumber";
 import { IncomeExpenseChart, Sparkline } from "@/components/charts";
 import { Typewriter } from "@/components/Typewriter";
-import { fmtPKR } from "@/lib/data";
-import { formatNumber, formatPKR, formatSignedPKR } from "@/lib/format";
-import { BUDGETS, INCOME_EXPENSE, type Goal } from "@/lib/finance-data";
-import { cn } from "@/lib/utils";
-import { useLang } from "@/hooks/use-lang";
-import { useFinanceStore, financeActions } from "@/hooks/use-finance-store";
 import { Modal, fieldClass } from "@/components/Modal";
 
+import { fmtPKR } from "@/lib/data";
+import { formatNumber, formatPKR, formatSignedPKR } from "@/lib/format";
+import { INCOME_EXPENSE, type Goal as BaseGoal } from "@/lib/finance-data";
+import { cn } from "@/lib/utils";
+
+// Goal shape as returned by Supabase (adds id + target_date on top of the base shape)
+interface Goal extends BaseGoal {
+  id: string;
+  target_date?: string;
+}
+
+// Budget shape as returned by Supabase
+interface DBBudget {
+  id: string;
+  category: string;
+  limit_amount: number;
+  spent: number;
+  tip?: string;
+}
+
+import { useLang } from "@/hooks/use-lang";
+import { useFinanceStore, financeActions } from "@/hooks/use-finance-store";
 export const Route = createFileRoute("/finance")({
   head: () => ({
     meta: [
@@ -542,6 +577,101 @@ function Budgets() {
   const shortMonth = (d: Date) => d.toLocaleString("en-US", { month: "short" });
   const longLabel = current.toLocaleString("en-US", { month: "long", year: "numeric" });
 
+  // budgets loaded from supabase
+  const [budgets, setBudgets] = useState<DBBudget[]>([]);
+
+  const [open, setOpen] = useState(false);
+  const [editingBudget, setEditingBudget] = useState<DBBudget | null>(null);
+  const [category, setCategory] = useState("");
+  const [limitAmount, setLimitAmount] = useState("");
+  const [spent, setSpent] = useState("");
+  const [tip, setTip] = useState("");
+  const [err, setErr] = useState("");
+
+  // load budgets from supabase
+  useEffect(() => {
+    async function loadBudgets() {
+      try {
+        const data = await getBudgets();
+        setBudgets(data as DBBudget[]);
+      } catch (error) {
+        console.error("Failed to load budgets:", error);
+      }
+    }
+
+    loadBudgets();
+  }, []);
+
+  const resetForm = () => {
+    setCategory("");
+    setLimitAmount("");
+    setSpent("");
+    setTip("");
+    setErr("");
+    setEditingBudget(null);
+  };
+
+  const submit = async () => {
+    setErr("");
+
+    const limitNum = Number(limitAmount);
+    const spentNum = spent ? Number(spent) : 0;
+
+    if (!category.trim()) return setErr(t("Please enter a category name."));
+    if (!limitAmount || Number.isNaN(limitNum) || limitNum <= 0)
+      return setErr(t("Please enter a valid limit amount."));
+    if (spent && (Number.isNaN(spentNum) || spentNum < 0))
+      return setErr(t("Please enter a valid spent amount."));
+
+    try {
+      if (editingBudget) {
+        await updateBudget(editingBudget.id, {
+          category: category.trim(),
+          limit_amount: limitNum,
+          spent: spentNum,
+          tip: tip.trim() || undefined,
+        });
+      } else {
+        await addBudget({
+          category: category.trim(),
+          limit_amount: limitNum,
+          spent: spentNum,
+          tip: tip.trim() || undefined,
+        });
+      }
+
+      const data = await getBudgets();
+      setBudgets(data as DBBudget[]);
+
+      resetForm();
+      setOpen(false);
+    } catch (error) {
+      console.error("Error saving budget:", error);
+      setErr(t("Failed to save budget."));
+    }
+  };
+
+  const startEdit = (b: DBBudget) => {
+    setEditingBudget(b);
+    setCategory(b.category);
+    setLimitAmount(String(b.limit_amount));
+    setSpent(String(b.spent));
+    setTip(b.tip ?? "");
+    setErr("");
+    setOpen(true);
+  };
+
+  const removeBudget = async (id: string) => {
+    if (!confirm(t("Delete this budget?"))) return;
+    try {
+      await deleteBudget(id);
+      const data = await getBudgets();
+      setBudgets(data as DBBudget[]);
+    } catch (error) {
+      console.error("Error deleting budget:", error);
+    }
+  };
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-center gap-4 text-sm text-text-secondary">
@@ -554,9 +684,9 @@ function Budgets() {
         </button>
       </div>
       <div className="grid gap-3 md:grid-cols-2">
-        {BUDGETS.map((b) => {
-          const pct = Math.round((b.spent / b.limit) * 100);
-          const over = b.spent > b.limit;
+        {budgets.map((b) => {
+          const pct = Math.round((b.spent / b.limit_amount) * 100);
+          const over = b.spent > b.limit_amount;
           const color = over
             ? "bg-bear"
             : pct >= 90
@@ -565,7 +695,7 @@ function Budgets() {
                 ? "bg-warning"
                 : "bg-bull";
           return (
-            <Card key={b.category}>
+            <Card key={b.id}>
               <div className="flex items-center justify-between">
                 <span className="text-sm font-medium text-text-primary">{t(b.category)}</span>
                 <span
@@ -574,7 +704,7 @@ function Budgets() {
                     over ? "text-bear" : "text-text-secondary",
                   )}
                 >
-                  {fmtPKR(b.spent)} / {fmtPKR(b.limit)}
+                  {fmtPKR(b.spent)} / {fmtPKR(b.limit_amount)}
                 </span>
               </div>
               <div className="mt-2 h-2 overflow-hidden rounded-full bg-elevated">
@@ -586,10 +716,81 @@ function Budgets() {
                   {t(b.tip)}
                 </div>
               )}
+              <div className="mt-3 flex gap-2">
+                <button
+                  onClick={() => startEdit(b)}
+                  className="flex flex-1 items-center justify-center gap-1 rounded-[6px] border border-primary/40 py-1.5 text-xs font-semibold text-primary hover:bg-primary/10"
+                >
+                  <Pencil className="h-3 w-3" />
+                  {t("Edit")}
+                </button>
+                <button
+                  onClick={() => removeBudget(b.id)}
+                  className="flex flex-1 items-center justify-center gap-1 rounded-[6px] border border-bear/40 py-1.5 text-xs font-semibold text-bear hover:bg-bear/10"
+                >
+                  <Trash2 className="h-3 w-3" />
+                  {t("Delete")}
+                </button>
+              </div>
             </Card>
           );
         })}
+        <button
+          onClick={() => {
+            resetForm();
+            setOpen(true);
+          }}
+          className="flex min-h-[120px] items-center justify-center gap-1.5 rounded-[8px] border border-dashed border-border text-sm font-medium text-text-secondary hover:border-bull hover:text-bull"
+        >
+          <Plus className="h-4 w-4" />
+          {t("Add Budget")}
+        </button>
       </div>
+
+      <Modal
+        open={open}
+        onClose={() => {
+          setOpen(false);
+          resetForm();
+        }}
+        title={editingBudget ? t("Edit Budget") : t("Add Budget")}
+      >
+        <div className="space-y-3">
+          <input
+            value={category}
+            onChange={(e) => setCategory(e.target.value)}
+            placeholder={t("Category name")}
+            className={fieldClass}
+          />
+          <input
+            value={limitAmount}
+            onChange={(e) => setLimitAmount(e.target.value)}
+            inputMode="decimal"
+            placeholder={t("Monthly limit (PKR)")}
+            className={fieldClass}
+          />
+          <input
+            value={spent}
+            onChange={(e) => setSpent(e.target.value)}
+            inputMode="decimal"
+            placeholder={t("Spent so far (PKR, optional)")}
+            className={fieldClass}
+          />
+          <input
+            value={tip}
+            onChange={(e) => setTip(e.target.value)}
+            placeholder={t("Tip (optional)")}
+            className={fieldClass}
+          />
+          {err && <div className="text-xs text-bear">{err}</div>}
+          <button
+            onClick={submit}
+            className="w-full rounded-[6px] bg-bull py-2 text-sm font-semibold text-bull-foreground hover:brightness-110"
+          >
+            {editingBudget ? t("Save Changes") : t("Add Budget")}
+          </button>
+        </div>
+      </Modal>
     </div>
   );
 }
@@ -697,7 +898,9 @@ function Bills() {
 
 function Goals() {
   const { t } = useLang();
-  const { goals } = useFinanceStore();
+  //goals loaded from supabase
+  const [goals, setGoals] = useState<Goal[]>([]);
+  
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
   const [target, setTarget] = useState("");
@@ -707,52 +910,117 @@ function Goals() {
   const [contribGoal, setContribGoal] = useState<string | null>(null);
   const [contribAmount, setContribAmount] = useState("");
   const [contribErr, setContribErr] = useState("");
+  const [editingGoal, setEditingGoal] = useState<Goal | null>(null);
 
-  const submit = () => {
-    setErr("");
-    const num = Number(target);
-    if (!name.trim()) return setErr(t("Please enter a goal name."));
-    if (!target || Number.isNaN(num) || num <= 0)
-      return setErr(t("Please enter a valid target amount."));
-    const goal: Goal = {
-      emoji: "🎯",
-      name: name.trim(),
-      target: num,
-      saved: 0,
-      color: "bull",
-      date: date ? format(date, "MMM d, yyyy") : undefined,
-      ai: t("New goal created. Start contributing to track your progress."),
-    };
-    financeActions.addGoal(goal);
+  //load goals from supabase
+useEffect(() => {
+  async function loadGoals() {
+    try {
+      const data = await getGoals();
+      setGoals(data as Goal[]);
+    } catch (error) {
+      console.error("Failed to load goals:", error);
+    }
+  }
+
+  loadGoals();
+}, []);
+
+  const resetGoalForm = () => {
     setName("");
     setTarget("");
     setDate(undefined);
+    setErr("");
+    setEditingGoal(null);
+  };
+
+  const submit = async () => {
+  setErr("");
+
+  const num = Number(target);
+
+  if (!name.trim()) {
+    return setErr(t("Please enter a goal name."));
+  }
+
+  if (!target || Number.isNaN(num) || num <= 0) {
+    return setErr(t("Please enter a valid target amount."));
+  }
+
+  try {
+    if (editingGoal) {
+      await updateGoal(editingGoal.id, {
+        name: name.trim(),
+        target: num,
+        target_date: date ? format(date, "yyyy-MM-dd") : undefined,
+      });
+    } else {
+      await addGoal({
+        name: name.trim(),
+        target: num,
+        saved: 0,
+        emoji: "🎯",
+        color: "bull",
+        ai: "New goal created. Start contributing to track your progress.",
+        target_date: date ? format(date, "yyyy-MM-dd") : undefined,
+      });
+    }
+
+    const data = await getGoals();
+    setGoals(data as Goal[]);
+
+    resetGoalForm();
     setOpen(false);
-  };
+  } catch (error) {
+    console.error("Error saving goal:", error);
+    setErr(t("Failed to save goal."));
+  }
+};
 
-  const openContribute = (goalName: string) => {
-    setContribGoal(goalName);
-    setContribAmount("");
-    setContribErr("");
-  };
+ const openContribute = (goalId: string) => {
+  setContribGoal(goalId);
+  setContribAmount("");
+  setContribErr("");
+};
 
-  const submitContribute = () => {
-    setContribErr("");
-    const num = Number(contribAmount);
-    if (!contribAmount || Number.isNaN(num) || num <= 0)
-      return setContribErr(t("Please enter a valid amount."));
-    if (contribGoal) financeActions.contributeToGoal(contribGoal, num);
+const submitContribute = async () => {
+  setContribErr("");
+
+  const num = Number(contribAmount);
+
+  if (!contribAmount || Number.isNaN(num) || num <= 0) {
+    return setContribErr(t("Please enter a valid amount."));
+  }
+
+  if (!contribGoal) return;
+
+  try {
+    const goal = goals.find((g) => g.id === contribGoal);
+
+    if (!goal) return;
+
+    await contributeToGoal(goal.id, goal.saved, num);
+
+    const data = await getGoals();
+
+    setGoals(data as Goal[]);
+
     setContribGoal(null);
     setContribAmount("");
-  };
+  } catch (err) {
+    console.error(err);
+  }
+};
 
+
+  const contribGoalName = goals.find((g) => g.id === contribGoal)?.name ?? "";
 
   return (
     <div className="grid gap-4 md:grid-cols-2">
       {goals.map((g) => {
         const pct = Math.round((g.saved / g.target) * 100);
         return (
-          <Card key={g.name}>
+          <Card key={g.id}>
             <div className="flex items-center gap-2">
               <span className="flex h-9 w-9 items-center justify-center rounded-[8px] border border-bull/20 bg-bull/[0.08] text-bull">
                 <EmojiIcon emoji={g.emoji} size={16} />
@@ -768,32 +1036,76 @@ function Goals() {
             <div className="mt-2 h-2 overflow-hidden rounded-full bg-elevated">
               <AnimatedBar value={pct} className={g.color === "bull" ? "bg-bull" : "bg-warning"} />
             </div>
-            {g.date && (
-              <div className="mt-2 text-[11px] text-text-muted">{t("Target date:")} {g.date}</div>
+            {g.target_date && (
+              <div className="mt-2 text-[11px] text-text-muted">
+                {t("Target date:")} {g.target_date}
+              </div>
             )}
             <div className="mt-2 rounded-[6px] border-l-2 border-ai bg-ai-tint px-2.5 py-1.5 text-[11px] text-text-secondary">
               <Sparkles className="mr-1 inline h-3 w-3 text-ai" />
               {t(g.ai)}
             </div>
             <button
-              onClick={() => openContribute(g.name)}
+                 onClick={() => openContribute(g.id)}
               className="mt-3 flex w-full items-center justify-center gap-1.5 rounded-[6px] border border-bull/40 py-1.5 text-xs font-semibold text-bull hover:bg-bull/10"
             >
               <Plus className="h-3.5 w-3.5" />
               {t("Add Contribution")}
             </button>
+            <div className="mt-2 flex gap-2">
+              <button
+                className="flex flex-1 items-center justify-center gap-1 rounded-[6px] border border-primary/40 py-1.5 text-xs font-semibold text-primary hover:bg-primary/10"
+                onClick={() => {
+                  setEditingGoal(g);
+                  setName(g.name);
+                  setTarget(String(g.target));
+                  setDate(g.target_date ? new Date(g.target_date) : undefined);
+                  setErr("");
+                  setOpen(true);
+                }}
+              >
+                <Pencil className="h-3 w-3" />
+                {t("Edit")}
+              </button>
+              <button
+                className="flex flex-1 items-center justify-center gap-1 rounded-[6px] border border-bear/40 py-1.5 text-xs font-semibold text-bear hover:bg-bear/10"
+                onClick={async () => {
+                  if (!confirm(t("Delete this goal?"))) return;
+                  try {
+                    await deleteGoal(g.id);
+                    const data = await getGoals();
+                    setGoals(data as Goal[]);
+                  } catch (error) {
+                    console.error("Error deleting goal:", error);
+                  }
+                }}
+              >
+                <Trash2 className="h-3 w-3" />
+                {t("Delete")}
+              </button>
+            </div>
           </Card>
         );
       })}
       <button
-        onClick={() => setOpen(true)}
+        onClick={() => {
+          resetGoalForm();
+          setOpen(true);
+        }}
         className="flex min-h-[120px] items-center justify-center gap-1.5 rounded-[8px] border border-dashed border-border text-sm font-medium text-text-secondary hover:border-bull hover:text-bull"
       >
         <Plus className="h-4 w-4" />
         {t("Add Goal")}
       </button>
 
-      <Modal open={open} onClose={() => setOpen(false)} title={t("Add Goal")}>
+      <Modal
+        open={open}
+        onClose={() => {
+          setOpen(false);
+          resetGoalForm();
+        }}
+        title={editingGoal ? t("Edit Goal") : t("Add Goal")}
+      >
         <div className="space-y-3">
           <input
             value={name}
@@ -840,7 +1152,7 @@ function Goals() {
             onClick={submit}
             className="w-full rounded-[6px] bg-bull py-2 text-sm font-semibold text-bull-foreground hover:brightness-110"
           >
-            {t("Add Goal")}
+            {editingGoal ? t("Save Changes") : t("Add Goal")}
           </button>
         </div>
       </Modal>
@@ -848,7 +1160,7 @@ function Goals() {
       <Modal
         open={contribGoal != null}
         onClose={() => setContribGoal(null)}
-        title={`${t("Add Contribution")}${contribGoal ? ` — ${t(contribGoal)}` : ""}`}
+        title={`${t("Add Contribution")}${contribGoalName ? ` — ${t(contribGoalName)}` : ""}`}
       >
         <div className="space-y-3">
           <input

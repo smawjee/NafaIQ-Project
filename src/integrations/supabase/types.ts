@@ -40,7 +40,97 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
-      }
+      },
+
+
+      
+//goal table
+
+goals: {
+  Row: {
+    id: string
+    user_id: string
+    name: string
+    target: number
+    saved: number
+    emoji: string | null
+    color: string | null
+    ai: string | null
+    target_date: string | null
+    created_at: string | null
+    updated_at: string | null
+  }
+
+  Insert: {
+    id?: string
+    user_id: string
+    name: string
+    target: number
+    saved?: number
+    emoji?: string | null
+    color?: string | null
+    ai?: string | null
+    target_date?: string | null
+    created_at?: string | null
+    updated_at?: string | null
+  }
+
+  Update: {
+    id?: string
+    user_id?: string
+    name?: string
+    target?: number
+    saved?: number
+    emoji?: string | null
+    color?: string | null
+    ai?: string | null
+    target_date?: string | null
+    created_at?: string | null
+    updated_at?: string | null
+  }
+
+  Relationships: []
+},
+
+budgets: {
+  Row: {
+    id: string
+    user_id: string
+    category: string
+    limit_amount: number
+    spent: number
+    tip: string | null
+    created_at: string | null
+    updated_at: string | null
+  }
+
+  Insert: {
+    id?: string
+    user_id: string
+    category: string
+    limit_amount: number
+    spent?: number
+    tip?: string | null
+    created_at?: string | null
+    updated_at?: string | null
+  }
+
+  Update: {
+    id?: string
+    user_id?: string
+    category?: string
+    limit_amount?: number
+    spent?: number
+    tip?: string | null
+    created_at?: string | null
+    updated_at?: string | null
+  }
+
+  Relationships: []
+},
+
+
+
     }
     Views: {
       [_ in never]: never
