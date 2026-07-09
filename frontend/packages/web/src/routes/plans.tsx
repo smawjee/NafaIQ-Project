@@ -142,7 +142,9 @@ function PlansPage() {
             {t("Simple, honest pricing")}
           </h1>
           <p className="mx-auto mt-4 max-w-xl text-text-secondary">
-            {t("Start free. Upgrade when you're ready for real-time data and unlimited AI insights.")}
+            {t(
+              "Start free. Upgrade when you're ready for real-time data and unlimited AI insights.",
+            )}
           </p>
 
           {/* billing toggle */}
@@ -206,34 +208,30 @@ function PlansPage() {
                 <div className="mt-1 text-[11px] text-gold">{t("Billed annually — 20% off")}</div>
               )}
 
-              {tier.id === "pro" ? (
+              {isLoggedIn ? (
                 <button
                   onClick={async () => {
-                    if (!isLoggedIn) {
-                      navigate({ to: "/auth", search: { redirect: "/plans" } });
-                      return;
-                    }
                     try {
-                      await upgrade.mutateAsync("Pro");
-                      toast.success("You are now on the Pro plan!");
+                      await upgrade.mutateAsync(tier.name as "Free" | "Pro" | "Premium");
+                      toast.success(`${t("You are now on the")} ${tier.name} ${t("plan!")}`);
                       navigate({ to: "/app" });
                     } catch {
-                      toast.error("Failed to upgrade plan");
+                      toast.error(t("Failed to change plan"));
                     }
                   }}
-                  disabled={plan === "Pro" || plan === "Premium" || upgrade.isPending}
+                  disabled={plan === tier.name || upgrade.isPending}
                   className={cn(
-                    "mt-6 flex items-center justify-center rounded-[10px] px-4 py-2.5 text-sm font-semibold transition",
+                    "mt-6 flex items-center justify-center rounded-[10px] px-4 py-2.5 text-sm font-semibold transition disabled:opacity-60",
                     tier.highlight
-                      ? "bg-bull text-bull-foreground hover:bg-[#00efc0] disabled:opacity-60"
+                      ? "bg-bull text-bull-foreground hover:bg-[#00efc0]"
                       : "border border-white/[0.1] bg-surface text-text-primary hover:border-white/[0.2]",
                   )}
                 >
-                  {plan === "Pro" || plan === "Premium" ? "Current Plan" : t(tier.cta)}
+                  {plan === tier.name ? t("Current Plan") : `${t("Choose")} ${tier.name}`}
                 </button>
-              ) : tier.ctaTo ? (
-                <Link
-                  to={tier.ctaTo}
+              ) : (
+                <button
+                  onClick={() => navigate({ to: "/auth" })}
                   className={cn(
                     "mt-6 flex items-center justify-center rounded-[10px] px-4 py-2.5 text-sm font-semibold transition",
                     tier.highlight
@@ -242,14 +240,7 @@ function PlansPage() {
                   )}
                 >
                   {t(tier.cta)}
-                </Link>
-              ) : (
-                <a
-                  href="mailto:usmankhalidj15@gmail.com?subject=NafaIQ%20Premium%20Inquiry"
-                  className="mt-6 flex items-center justify-center rounded-[10px] border border-white/[0.1] bg-surface px-4 py-2.5 text-sm font-semibold text-text-primary transition hover:border-white/[0.2]"
-                >
-                  {t(tier.cta)}
-                </a>
+                </button>
               )}
 
               <ul className="mt-6 space-y-3">
@@ -276,9 +267,13 @@ function PlansPage() {
                   <th className="px-5 py-4 text-left text-[11px] font-semibold uppercase tracking-wide text-text-muted">
                     {t("Feature")}
                   </th>
-                  <th className="px-5 py-4 text-center font-semibold text-text-primary">{t("Free")}</th>
+                  <th className="px-5 py-4 text-center font-semibold text-text-primary">
+                    {t("Free")}
+                  </th>
                   <th className="px-5 py-4 text-center font-semibold text-bull">{t("Pro")}</th>
-                  <th className="px-5 py-4 text-center font-semibold text-text-primary">{t("Premium")}</th>
+                  <th className="px-5 py-4 text-center font-semibold text-text-primary">
+                    {t("Premium")}
+                  </th>
                 </tr>
               </thead>
               <tbody>

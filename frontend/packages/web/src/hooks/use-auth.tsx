@@ -6,6 +6,7 @@ export type Profile = {
   id: string;
   display_name: string | null;
   plan: string;
+  plan_selected_at: string | null;
   avatar_url: string | null;
 };
 
@@ -22,6 +23,7 @@ type AuthContextValue = {
   ) => Promise<{ error: string | null; needsConfirmation: boolean }>;
   signInWithGoogle: () => Promise<{ error: string | null }>;
   signOut: () => Promise<void>;
+  refreshProfile: () => Promise<void>;
 };
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
@@ -59,9 +61,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   async function loadProfile(userId: string) {
-    const { data, error } = await supabase
+    const { data } = await supabase
       .from("profiles")
-      .select("id, display_name, plan, avatar_url")
+      .select("id, display_name, plan, plan_selected_at, avatar_url")
       .eq("id", userId)
       .maybeSingle();
 
@@ -69,6 +71,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setProfile(data as Profile);
     }
   }
+
+  const refreshProfile = async () => {
+    const { data } = await supabase.auth.getSession();
+    const uid = data.session?.user?.id;
+    if (uid) await loadProfile(uid);
+  };
 
   const signInWithPassword: AuthContextValue["signInWithPassword"] = async (email, password) => {
     const { error } = await supabase.auth.signInWithPassword({
@@ -131,6 +139,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         signUpWithPassword,
         signInWithGoogle,
         signOut,
+        refreshProfile,
       }}
     >
       {children}

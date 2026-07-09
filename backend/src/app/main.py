@@ -20,6 +20,7 @@ from app.api import (
     alerts,
     market_v2,
     finance_sync,
+    profile,
 )
 from app.jobs.scheduler import init_scheduler, shutdown_scheduler
 from app.middleware.auth import BearerTokenMiddleware
@@ -123,3 +124,4 @@ app.include_router(finance_extended.router, prefix="/api")
 app.include_router(alerts.router, prefix="/api")
 app.include_router(market_v2.router, prefix="/api")
 app.include_router(finance_sync.router, prefix="/api")
+app.include_router(profile.router, prefix="/api")

@@ -225,6 +225,7 @@ export type Database = {
           display_name: string | null
           id: string
           plan: string
+          plan_selected_at: string | null
           tier: string | null
           updated_at: string
         }
@@ -234,6 +235,7 @@ export type Database = {
           display_name?: string | null
           id: string
           plan?: string
+          plan_selected_at?: string | null
           tier?: string | null
           updated_at?: string
         }
@@ -243,6 +245,7 @@ export type Database = {
           display_name?: string | null
           id?: string
           plan?: string
+          plan_selected_at?: string | null
           tier?: string | null
           updated_at?: string
         }
@@ -539,6 +542,7 @@ export type Database = {
         Row: {
           free_float: number | null
           listed_shares: number | null
+          logoid: string | null
           name: string
           refreshed_at: string
           sector: string | null
@@ -547,6 +551,7 @@ export type Database = {
         Insert: {
           free_float?: number | null
           listed_shares?: number | null
+          logoid?: string | null
           name?: string
           refreshed_at?: string
           sector?: string | null
@@ -555,6 +560,7 @@ export type Database = {
         Update: {
           free_float?: number | null
           listed_shares?: number | null
+          logoid?: string | null
           name?: string
           refreshed_at?: string
           sector?: string | null
@@ -898,6 +904,7 @@ export type Database = {
           merchant: string
           note: string | null
           source: string | null
+          stock_transaction_id: number | null
           transaction_date: string
           transaction_type: string
           user_id: string
@@ -911,6 +918,7 @@ export type Database = {
           merchant: string
           note?: string | null
           source?: string | null
+          stock_transaction_id?: number | null
           transaction_date?: string
           transaction_type: string
           user_id: string
@@ -924,11 +932,20 @@ export type Database = {
           merchant?: string
           note?: string | null
           source?: string | null
+          stock_transaction_id?: number | null
           transaction_date?: string
           transaction_type?: string
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "user_transactions_stock_transaction_id_fkey"
+            columns: ["stock_transaction_id"]
+            isOneToOne: false
+            referencedRelation: "stock_transactions"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       user_watchlist: {
         Row: {
