@@ -1,6 +1,5 @@
 import { useAuth } from "@/hooks/use-auth";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
+import { useMutation } from "@tanstack/react-query";
 
 type Plan = "Free" | "Pro" | "Premium";
 
@@ -31,19 +30,11 @@ export function usePlan() {
 
 export function useUpgradePlan() {
   const { user } = useAuth();
-  const qc = useQueryClient();
 
   return useMutation({
     mutationFn: async (newPlan: Plan) => {
       if (!user) throw new Error("Not authenticated");
-      const { error } = await supabase
-        .from("profiles")
-        .update({ plan: newPlan })
-        .eq("id", user.id);
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["profile"] });
+      throw new Error(`${newPlan} upgrades require the server-side billing/admin flow.`);
     },
   });
 }

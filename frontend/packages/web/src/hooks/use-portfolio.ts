@@ -36,28 +36,29 @@ export interface PortfolioValue {
   };
 }
 
-export function usePortfolioList() {
+export function usePortfolioList(enabled: boolean = true) {
   return useQuery<Portfolio[]>({
     queryKey: ["portfolio", "list"],
     queryFn: () => userGet<Portfolio[]>("/api/portfolio/list"),
+    enabled,
     staleTime: 60_000,
   });
 }
 
-export function useHoldings(portfolioId: number | null) {
+export function useHoldings(portfolioId: number | null, enabled: boolean = true) {
   return useQuery<Holding[]>({
     queryKey: ["portfolio", "holdings", portfolioId],
     queryFn: () => userGet<Holding[]>(`/api/portfolio/${portfolioId}/holdings`),
-    enabled: !!portfolioId,
+    enabled: enabled && !!portfolioId,
     staleTime: 60_000,
   });
 }
 
-export function usePortfolioValue(portfolioId: number | null) {
+export function usePortfolioValue(portfolioId: number | null, enabled: boolean = true) {
   return useQuery<PortfolioValue>({
     queryKey: ["portfolio", "value", portfolioId],
     queryFn: () => userGet<PortfolioValue>(`/api/portfolio/${portfolioId}/value`),
-    enabled: !!portfolioId,
+    enabled: enabled && !!portfolioId,
     staleTime: 15_000,
     refetchInterval: 30_000,
   });

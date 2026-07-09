@@ -8,6 +8,7 @@ from sqlalchemy import text
 
 from app.api.deps import require_user
 from app.db.sqlalchemy import get_engine
+from app.services.permissions import enforce_count_limit
 
 router = APIRouter(tags=["portfolio"])
 
@@ -18,14 +19,14 @@ class PortfolioCreate(BaseModel):
 
 class HoldingCreate(BaseModel):
     symbol: str = Field(..., min_length=1, max_length=10)
-    shares: int = Field(..., ge=0)
-    avg_cost: float = Field(..., ge=0)
+    shares: int = Field(..., gt=0)
+    avg_cost: float = Field(..., gt=0)
     purchased_at: str | None = None
 
 
 class HoldingUpdate(BaseModel):
-    shares: int | None = Field(None, ge=0)
-    avg_cost: float | None = Field(None, ge=0)
+    shares: int | None = Field(None, gt=0)
+    avg_cost: float | None = Field(None, gt=0)
     purchased_at: str | None = None
 
 
@@ -58,6 +59,14 @@ async def create_portfolio(
     user_id = user["user_id"]
     engine = get_engine()
     async with engine.begin() as conn:
+        await enforce_count_limit(
+            conn,
+            user,
+            feature_key="max_portfolios",
+            count_sql="SELECT COUNT(*) FROM psx_portfolios WHERE user_id = :uid",
+            params={"uid": user_id},
+            label="Portfolios",
+        )
         result = await conn.execute(
             text("""
                 INSERT INTO psx_portfolios (user_id, name)
@@ -122,6 +131,14 @@ async def add_holding(
         )
         if not own.first():
             raise HTTPException(404, "Portfolio not found")
+        await enforce_count_limit(
+            conn,
+            user,
+            feature_key="max_holdings_per_portfolio",
+            count_sql="SELECT COUNT(*) FROM psx_holdings WHERE portfolio_id = :pid AND symbol <> :sym",
+            params={"pid": portfolio_id, "sym": body.symbol.upper()},
+            label="Holdings",
+        )
         result = await conn.execute(
             text("""
                 INSERT INTO psx_holdings (portfolio_id, symbol, shares, avg_cost, purchased_at)

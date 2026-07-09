@@ -10,6 +10,7 @@ from sqlalchemy import delete, insert, select, text, update
 from app.api.deps import require_user
 from app.db.orm import get_table
 from app.db.sqlalchemy import ensure_reflected, get_engine
+from app.services.permissions import enforce_count_limit, limit_for
 
 router = APIRouter(tags=["finance"])
 
@@ -78,7 +79,6 @@ class SettingsUpdate(BaseModel):
     monthly_income: float | None = None
     currency: str | None = None
     language: str | None = None
-    plan: str | None = None
 
 
 async def _table(name: str):
@@ -258,6 +258,14 @@ async def create_goal(body: GoalCreate, user: Annotated[dict, Depends(require_us
     goals = await _table("user_goals")
     engine = get_engine()
     async with engine.begin() as conn:
+        await enforce_count_limit(
+            conn,
+            user,
+            feature_key="max_goals",
+            count_sql="SELECT COUNT(*) FROM user_goals WHERE user_id = :uid",
+            params={"uid": uid},
+            label="Savings goals",
+        )
         result = await conn.execute(
             insert(goals)
             .values(
@@ -335,6 +343,14 @@ async def create_budget(body: BudgetCreate, user: Annotated[dict, Depends(requir
     budgets = await _table("user_budgets")
     engine = get_engine()
     async with engine.begin() as conn:
+        await enforce_count_limit(
+            conn,
+            user,
+            feature_key="max_budgets",
+            count_sql="SELECT COUNT(*) FROM user_budgets WHERE user_id = :uid",
+            params={"uid": uid},
+            label="Budgets",
+        )
         result = await conn.execute(
             insert(budgets)
             .values(
@@ -411,6 +427,14 @@ async def create_bill(body: BillCreate, user: Annotated[dict, Depends(require_us
     bills = await _table("user_bills")
     engine = get_engine()
     async with engine.begin() as conn:
+        await enforce_count_limit(
+            conn,
+            user,
+            feature_key="max_bills",
+            count_sql="SELECT COUNT(*) FROM user_bills WHERE user_id = :uid",
+            params={"uid": uid},
+            label="Bills",
+        )
         result = await conn.execute(
             insert(bills)
             .values(
@@ -511,8 +535,6 @@ async def update_settings(body: SettingsUpdate, user: Annotated[dict, Depends(re
         sets.append("currency = :cur"); params["cur"] = body.currency
     if body.language is not None:
         sets.append("language = :lang"); params["lang"] = body.language
-    if body.plan is not None:
-        sets.append("plan = :plan"); params["plan"] = body.plan
     if sets:
         sets.append("updated_at = now()")
         update_clause = ", ".join(sets)
@@ -622,6 +644,9 @@ async def finance_income_expense(
 ):
     """Return the last N months of income/expense series, ordered ASC by month."""
     user_id = user["user_id"]
+    max_days = limit_for(user, "max_finance_history_days")
+    max_months = max(1, min(1200, (max_days + 29) // 30))
+    months = max(1, min(months, max_months))
     engine = get_engine()
     async with engine.connect() as conn:
         result = await conn.execute(
@@ -674,6 +699,7 @@ async def finance_spending_by_category(
 ):
     """Aggregate spending by category for the last N days, ordered by amount DESC."""
     user_id = user["user_id"]
+    days = max(1, min(days, limit_for(user, "max_finance_history_days")))
     engine = get_engine()
     async with engine.connect() as conn:
         result = await conn.execute(

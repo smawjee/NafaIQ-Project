@@ -7,7 +7,9 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
 from app.api.deps import require_user
+from app.db.sqlalchemy import get_engine
 from app.services import alerts as alerts_service
+from app.services.permissions import enforce_count_limit
 
 router = APIRouter(tags=["alerts"])
 
@@ -96,6 +98,16 @@ async def create_price_alert(
     body: PriceAlertCreate,
     user: Annotated[dict, Depends(require_user)],
 ):
+    engine = get_engine()
+    async with engine.connect() as conn:
+        await enforce_count_limit(
+            conn,
+            user,
+            feature_key="max_price_alerts",
+            count_sql="SELECT COUNT(*) FROM price_alerts WHERE user_id = :uid",
+            params={"uid": user["user_id"]},
+            label="Price alerts",
+        )
     return await alerts_service.create_price_alert(
         user["user_id"],
         symbol=body.symbol,

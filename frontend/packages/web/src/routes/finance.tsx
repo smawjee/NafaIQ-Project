@@ -235,9 +235,10 @@ function Overview() {
   const { t } = useLang();
   const { user } = useAuth();
   const { isDemo } = useDemo();
-  const { data: summary } = useFinanceSummary(undefined, !!user);
-  const { data: seriesData } = useIncomeExpenseSeries(6, !!user);
-  const hasSeries = !!user && !!seriesData && seriesData.series.length > 0;
+  const realUserEnabled = !!user && !isDemo;
+  const { data: summary } = useFinanceSummary(undefined, realUserEnabled);
+  const { data: seriesData } = useIncomeExpenseSeries(6, realUserEnabled);
+  const hasSeries = realUserEnabled && !!seriesData && seriesData.series.length > 0;
   const useShowcaseFinance = isDemo;
 
   const incomeVal = useShowcaseFinance ? 47500 : (summary?.income ?? 0);

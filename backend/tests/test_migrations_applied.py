@@ -1,4 +1,4 @@
-"""Pytest: verify all 9 migrations are applied to Supabase.
+"""Pytest: verify required migrations are applied to Supabase.
 
 Checks each migration's expected schema changes against the live DB.
 """
@@ -167,12 +167,30 @@ CHECKS: List[MigrationCheck] = [
                   "WHERE table_name='psx_index_eod' AND column_name='open'"),
         ],
     ),
+    MigrationCheck(
+        filename="20260711000600_user_data_hardening_and_limits.sql",
+        description="User table constraints and plan-limit triggers",
+        checks=[
+            Check("user_transactions FK to auth users",
+                  "SELECT 1 FROM pg_constraint WHERE conname='user_transactions_user_id_fkey'"),
+            Check("user_transactions amount positive",
+                  "SELECT 1 FROM pg_constraint WHERE conname='user_transactions_amount_positive'"),
+            Check("user_budgets unique category period",
+                  "SELECT to_regclass('public.uq_user_budgets_user_category_period') IS NOT NULL"),
+            Check("user_bills status check",
+                  "SELECT 1 FROM pg_constraint WHERE conname='user_bills_status_check'"),
+            Check("watchlist plan limit trigger",
+                  "SELECT 1 FROM pg_trigger WHERE tgname='enforce_user_watchlist_plan_limit'"),
+            Check("profile plan self-update trigger",
+                  "SELECT 1 FROM pg_trigger WHERE tgname='prevent_profile_plan_self_update'"),
+        ],
+    ),
 ]
 
 
 @pytest.mark.asyncio
 async def test_all_migrations_applied():
-    """Verify all 9 migrations are applied to Supabase.
+    """Verify required migrations are applied to Supabase.
 
     Runs every check in CHECKS against the live database. Fails if any check
     does not return a truthy result.
