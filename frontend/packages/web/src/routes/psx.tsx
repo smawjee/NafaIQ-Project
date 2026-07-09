@@ -690,7 +690,9 @@ export default function PSX() {
               {watchlist.symbols.map((tk) => {
                 const fallback = STOCKS[tk];
                 const live = snapshot?.find((row) => row.symbol === tk);
-                const livePrice = live?.price ?? fallback?.price ?? 0;
+                const rawPrice = live?.price ?? fallback?.price ?? null;
+                const hasPrice = rawPrice != null && rawPrice > 0;
+                const livePrice = rawPrice ?? 0;
                 const liveChangePct = live?.change_pct ?? fallback?.changePct ?? 0;
                 const liveName =
                   symbolsData?.find((s) => s.symbol === tk)?.name ?? fallback?.name ?? tk;
@@ -723,10 +725,21 @@ export default function PSX() {
                         <div className="text-[10px] text-text-muted">{t(liveName)}</div>
                       </div>
                       <div className="text-right">
-                        <div className="font-mono text-sm tabular-nums text-text-primary">
-                          {fmtNum(livePrice)}
-                        </div>
-                        <Change pct={liveChangePct} />
+                        {hasPrice ? (
+                          <>
+                            <div className="font-mono text-sm tabular-nums text-text-primary">
+                              {fmtNum(livePrice)}
+                            </div>
+                            <Change pct={liveChangePct} />
+                          </>
+                        ) : (
+                          <div
+                            className="font-mono text-sm tabular-nums text-text-muted"
+                            title={t("Live price unavailable")}
+                          >
+                            —
+                          </div>
+                        )}
                       </div>
                       <SignalBadge signal={signalForSymbol as Signal} />
                     </Link>
