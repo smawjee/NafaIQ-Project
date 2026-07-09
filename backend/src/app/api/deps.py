@@ -7,7 +7,7 @@ from app.config import settings
 
 
 async def require_user(authorization: str = Header(...)) -> dict:
-    """Validate Supabase JWT and return {user_id, email}.
+    """Validate Supabase JWT and return {user_id, email, plan}.
 
     Expects: Authorization: Bearer <supabase_jwt>
     """
@@ -23,7 +23,11 @@ async def require_user(authorization: str = Header(...)) -> dict:
             algorithms=["HS256"],
             audience="authenticated",
         )
-        return {"user_id": payload["sub"], "email": payload.get("email", "")}
+        return {
+            "user_id": payload["sub"],
+            "email": payload.get("email", ""),
+            "plan": payload.get("plan") or "Free",
+        }
     except (jwt.PyJWTError, ValueError, KeyError) as e:
         raise HTTPException(401, f"Invalid token: {e}")
 

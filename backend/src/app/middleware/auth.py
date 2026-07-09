@@ -20,6 +20,7 @@ USER_PATHS_PREFIXES = (
     "/api/notifications",
     "/api/alerts",
     "/api/finance",
+    "/api/finance-extended",
 )
 
 
