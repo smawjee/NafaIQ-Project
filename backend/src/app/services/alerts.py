@@ -317,7 +317,9 @@ async def _record_event(
             ),
             {
                 "uid": user_id,
-                "kind": alert_type,
+                # in_app_notifications.kind uses "price_alert"; alert_events uses
+                # "stock_price". Map so the CHECK constraint is satisfied.
+                "kind": "price_alert" if alert_type == "stock_price" else alert_type,
                 "title": title,
                 "body": body,
                 "link": None,
@@ -467,13 +469,13 @@ async def evaluate_budget_alerts(
                         "SELECT id FROM alert_events "
                         "WHERE user_id = :uid AND alert_type = 'budget' "
                         "AND created_at > now() - INTERVAL '24 hours' "
-                        "AND payload->>'budget_id' = CAST(:bid AS TEXT) "
-                        "AND payload->>'threshold' = CAST(:th AS TEXT)"
+                        "AND payload->>'budget_id' = :bid "
+                        "AND payload->>'threshold' = :th"
                     ),
                     {
                         "uid": b["user_id"],
-                        "bid": b["id"],
-                        "th": t,
+                        "bid": str(b["id"]),
+                        "th": str(t),
                     },
                 )
                 if recent.first():
@@ -525,10 +527,10 @@ async def evaluate_goal_alerts(
                         "SELECT id FROM alert_events "
                         "WHERE user_id = :uid AND alert_type = 'goal' "
                         "AND created_at > now() - INTERVAL '24 hours' "
-                        "AND payload->>'goal_id' = CAST(:gid AS TEXT) "
-                        "AND payload->>'threshold' = CAST(:th AS TEXT)"
+                        "AND payload->>'goal_id' = :gid "
+                        "AND payload->>'threshold' = :th"
                     ),
-                    {"uid": g["user_id"], "gid": g["id"], "th": t},
+                    {"uid": g["user_id"], "gid": str(g["id"]), "th": str(t)},
                 )
                 if recent.first():
                     continue
