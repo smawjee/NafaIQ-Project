@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from "react";
-import { Search, Plus, Check, Loader2, TrendingUp } from "lucide-react";
+import { Search, Plus, Check, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useStockSearch } from "@/hooks/psx/use-stock-search";
 import type { StockSearchResult } from "@/lib/psx/stock-search";
+import { StockLogo } from "@/components/search/StockLogo";
 
 export interface StockSearchBoxProps {
   /** "add" shows a plus / Added state; "navigate" is a suggestion list. */
@@ -118,15 +119,7 @@ export function StockSearchBox({
                 isAdded && "opacity-50",
               )}
             >
-              {mode === "add" ? (
-                isAdded ? (
-                  <Check className="h-3.5 w-3.5 shrink-0 text-text-muted" />
-                ) : (
-                  <Plus className="h-3.5 w-3.5 shrink-0 text-bull" />
-                )
-              ) : (
-                <TrendingUp className="h-3.5 w-3.5 shrink-0 text-text-muted" />
-              )}
+              <StockLogo symbol={r.symbol} logoUrl={r.logoUrl} size={22} />
               <span className="shrink-0 text-sm font-semibold text-bull">{r.symbol}</span>
               <span className="flex-1 truncate text-[11px] text-text-muted">{r.name}</span>
               {r.price != null ? (
@@ -147,7 +140,16 @@ export function StockSearchBox({
                   ) : null}
                 </span>
               ) : null}
-              {isAdded ? <span className="shrink-0 text-[10px] text-text-muted">Added</span> : null}
+              {mode === "add" ? (
+                isAdded ? (
+                  <span className="flex shrink-0 items-center gap-1 text-[10px] text-text-muted">
+                    <Check className="h-3.5 w-3.5" />
+                    Added
+                  </span>
+                ) : (
+                  <Plus className="h-4 w-4 shrink-0 text-bull" />
+                )
+              ) : null}
             </button>
           );
         })

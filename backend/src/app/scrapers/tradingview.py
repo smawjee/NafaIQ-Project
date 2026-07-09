@@ -14,7 +14,7 @@ TV_SCANNER_URL = "https://scanner.tradingview.com/pakistan/scan"
 
 SCAN_PAYLOAD = {
     "filter": [{"left": "type", "operation": "equal", "right": "stock"}],
-    "columns": ["name", "close", "change", "change_abs", "volume", "sector", "market_cap_basic"],
+    "columns": ["name", "close", "change", "change_abs", "volume", "sector", "market_cap_basic", "logoid"],
     "sort": {"sortBy": "volume", "sortOrder": "desc"},
     "range": [0, 500],
 }
@@ -121,6 +121,7 @@ class TradingViewScraper:
                     "volume": d[4],
                     "sector": tv_sector,
                     "market_cap": d[6],
+                    "logoid": d[7] if len(d) > 7 else None,
                 })
             return results
         except Exception:

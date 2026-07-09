@@ -94,6 +94,7 @@ class SymbolInfo(BaseModel):
     symbol: str
     name: str = ""
     sector: Optional[str] = None
+    logoid: Optional[str] = None
 
 
 class SectorDataItem(BaseModel):
