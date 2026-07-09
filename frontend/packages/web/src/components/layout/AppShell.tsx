@@ -27,6 +27,8 @@ import { cn } from "@/lib/utils";
 import { TICKER_ITEMS, STOCKS } from "@/lib/data";
 import { LEARNING_PATHS, LESSON_CONTENT } from "@/lib/learn/data";
 import { useAuth } from "@/hooks/use-auth";
+import { usePermissions } from "@/hooks/use-permissions";
+import type { Plan } from "@/lib/plan-features";
 import { useLandingTheme } from "@/hooks/use-landing-theme";
 import { DemoBanner } from "@/components/demo/DemoBanner";
 import { useLang } from "@/hooks/use-lang";
@@ -75,6 +77,17 @@ function Logo({ to = "/app" }: { to?: string }) {
 
 function initial(name?: string | null, email?: string | null) {
   return (name?.trim()?.[0] || email?.trim()?.[0] || "U").toUpperCase();
+}
+
+/**
+ * Plan-aware upgrade CTA. Free users are nudged to Pro, Pro users to Premium,
+ * and Premium users (top tier) see no upgrade prompt. Keeps the header/drawer
+ * honest instead of always showing "Upgrade to Pro".
+ */
+function upgradeCta(plan: Plan): { label: string; show: boolean } {
+  if (plan === "Premium") return { label: "", show: false };
+  if (plan === "Pro") return { label: "Go Premium", show: true };
+  return { label: "Upgrade to Pro", show: true };
 }
 
 function SidebarLink({
@@ -421,6 +434,8 @@ function Header({
   const { t, isUrdu } = useLang();
   const { theme, toggleTheme } = useLandingTheme();
   const isDark = theme === "dark";
+  const { plan } = usePermissions();
+  const cta = upgradeCta(plan);
   return (
     <header
       className={cn(
@@ -459,19 +474,23 @@ function Header({
 
       {/* utility cluster — evenly spaced, right-aligned */}
       <div className="flex shrink-0 items-center gap-3 sm:gap-4">
-        <Link
-          to="/plans"
-          className="hidden shrink-0 items-center gap-1.5 rounded-[8px] border border-bull/40 bg-bull/10 px-3 py-1.5 text-[12px] font-semibold text-bull transition hover:border-bull/60 hover:bg-bull/15 sm:inline-flex"
-        >
-          <Sparkles className="h-3.5 w-3.5" /> {t("Upgrade to Pro")}
-        </Link>
-        <Link
-          to="/plans"
-          aria-label="Upgrade to Pro"
-          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[8px] border border-bull/40 bg-bull/10 text-bull sm:hidden"
-        >
-          <Sparkles className="h-4 w-4" />
-        </Link>
+        {cta.show && (
+          <>
+            <Link
+              to="/plans"
+              className="hidden shrink-0 items-center gap-1.5 rounded-[8px] border border-bull/40 bg-bull/10 px-3 py-1.5 text-[12px] font-semibold text-bull transition hover:border-bull/60 hover:bg-bull/15 sm:inline-flex"
+            >
+              <Sparkles className="h-3.5 w-3.5" /> {t(cta.label)}
+            </Link>
+            <Link
+              to="/plans"
+              aria-label={cta.label}
+              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[8px] border border-bull/40 bg-bull/10 text-bull sm:hidden"
+            >
+              <Sparkles className="h-4 w-4" />
+            </Link>
+          </>
+        )}
         <ThemeToggle isDark={isDark} onToggle={toggleTheme} />
         <NotificationBell />
         <UserMenu />
@@ -590,6 +609,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     }
   }
   const { profile, user, signOut } = useAuth();
+  const { plan } = usePermissions();
+  const cta = upgradeCta(plan);
   const { theme } = useLandingTheme();
   const { t, isUrdu } = useLang();
   const navigate = useNavigate();
@@ -666,13 +687,15 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                   {t(n.label)}
                 </Link>
               ))}
-              <Link
-                to="/plans"
-                onClick={() => setDrawer(false)}
-                className="flex items-center gap-3 rounded-[6px] border border-bull/40 bg-bull/10 px-3 py-3 text-sm font-semibold text-bull hover:bg-bull/15"
-              >
-                <Sparkles className="h-5 w-5" /> {t("Upgrade to Pro")}
-              </Link>
+              {cta.show && (
+                <Link
+                  to="/plans"
+                  onClick={() => setDrawer(false)}
+                  className="flex items-center gap-3 rounded-[6px] border border-bull/40 bg-bull/10 px-3 py-3 text-sm font-semibold text-bull hover:bg-bull/15"
+                >
+                  <Sparkles className="h-5 w-5" /> {t(cta.label)}
+                </Link>
+              )}
               <div className="mt-2 flex items-center gap-3 border-t border-border px-3 pt-3">
                 <div className="flex h-8 w-8 items-center justify-center rounded-full bg-bull/20 text-sm font-semibold text-bull">
                   {initial(profile?.display_name, user?.email)}

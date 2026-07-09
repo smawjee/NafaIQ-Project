@@ -6,11 +6,15 @@ from fastapi import Header, HTTPException
 from app.services.auth import resolve_supabase_user
 
 
-async def require_user(authorization: str = Header(...)) -> dict:
+async def require_user(authorization: str | None = Header(None)) -> dict:
     """Validate Supabase JWT and return {user_id, email, plan}.
 
     Expects: Authorization: Bearer <supabase_jwt>
+
+    Returns a clean 401 (not 422) when the header is missing or malformed.
     """
+    if not authorization:
+        raise HTTPException(401, "Missing Authorization header")
     try:
         scheme, token = authorization.split(" ", 1)
         if scheme.lower() != "bearer":

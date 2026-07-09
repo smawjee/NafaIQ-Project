@@ -24,6 +24,7 @@ dependencies = [
     "scikit-learn>=1.6",
     "joblib>=1.4",
     "sqlalchemy[asyncio]>=2.0",
+    "asyncpg>=0.30",
     "slowapi>=0.1.9",
 ]
 

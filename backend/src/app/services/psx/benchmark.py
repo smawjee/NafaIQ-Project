@@ -54,20 +54,25 @@ async def get_kse100_latest() -> Optional[dict[str, Any]]:
         async with factory() as session:
             r = await session.execute(
                 text(
-                    "SELECT code, date, close, change, change_pct "
+                    "SELECT code, date, close, open "
                     "FROM psx_index_eod WHERE code = 'KSE100' "
-                    "ORDER BY date DESC LIMIT 1"
+                    "ORDER BY date DESC LIMIT 2"
                 )
             )
-            row = r.mappings().first()
-            if not row:
+            rows = r.mappings().all()
+            if not rows:
                 return None
+            latest = dict(rows[0])
+            prev_close = float(rows[1]["close"]) if len(rows) > 1 else float(latest.get("open", 0) or float(latest["close"] or 0))
+            value = float(latest["close"] or 0)
+            change = value - prev_close
+            change_pct = (change / prev_close * 100) if prev_close else 0
             return {
-                "code": row["code"],
-                "date": str(row["date"]),
-                "value": float(row["close"] or 0),
-                "change": float(row.get("change") or 0),
-                "change_pct": float(row.get("change_pct") or 0),
+                "code": latest["code"],
+                "date": str(latest["date"]),
+                "value": value,
+                "change": round(change, 2),
+                "change_pct": round(change_pct, 4),
             }
     except Exception:
         log.exception("get_kse100_latest failed")
