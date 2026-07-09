@@ -19,14 +19,14 @@ class PortfolioCreate(BaseModel):
 
 class HoldingCreate(BaseModel):
     symbol: str = Field(..., min_length=1, max_length=10)
-    shares: int = Field(..., gt=0)
-    avg_cost: float = Field(..., gt=0)
+    shares: int = Field(..., ge=0)
+    avg_cost: float = Field(..., ge=0)
     purchased_at: str | None = None
 
 
 class HoldingUpdate(BaseModel):
-    shares: int | None = Field(None, gt=0)
-    avg_cost: float | None = Field(None, gt=0)
+    shares: int | None = Field(None, ge=0)
+    avg_cost: float | None = Field(None, ge=0)
     purchased_at: str | None = None
 
 
