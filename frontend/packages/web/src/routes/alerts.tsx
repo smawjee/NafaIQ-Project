@@ -47,12 +47,13 @@ function Alerts() {
   const dispatch = useAppDispatch();
   const isLoggedIn = !!user && !isDemo;
 
+  const realUserEnabled = !!user && !isDemo;
   const localAlerts = useAppSelector(selectAlerts);
   const localNotifications = useAppSelector(selectNotifications);
-  const { data: userAlerts } = useUserAlerts();
-  const { data: priceAlerts } = usePriceAlerts();
-  const { data: apiNotifications } = useNotifications();
-  const { data: alertEvents } = useAlertEvents(50, !!user && !isDemo);
+  const { data: userAlerts } = useUserAlerts(realUserEnabled);
+  const { data: priceAlerts } = usePriceAlerts(realUserEnabled);
+  const { data: apiNotifications } = useNotifications(realUserEnabled);
+  const { data: alertEvents } = useAlertEvents(50, realUserEnabled);
   const markAlertRead = useMarkAlertEventRead();
   const evaluateAlerts = useEvaluateAlerts();
   const createUserAlert = useCreateUserAlert();
