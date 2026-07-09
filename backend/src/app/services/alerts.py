@@ -17,6 +17,19 @@ from app.db.sqlalchemy import get_session_factory
 from app.services import calculations as calc
 from app.services.psx.prices import get_latest_price
 
+
+def _jsonb(value: Any) -> dict[str, Any]:
+    """JSONB columns come back as dicts from asyncpg but as strings from other
+    drivers; accept both."""
+    if not value:
+        return {}
+    if isinstance(value, dict):
+        return value
+    try:
+        return json.loads(value)
+    except (TypeError, ValueError):
+        return {}
+
 log = logging.getLogger(__name__)
 
 
@@ -79,7 +92,7 @@ async def list_alerts(
                 "user_id": r["user_id"],
                 "type": r["type"],
                 "title": r["title"],
-                "meta": json.loads(r["meta"]) if r["meta"] else {},
+                "meta": _jsonb(r["meta"]),
                 "enabled": r["enabled"],
                 "triggered_at": (
                     str(r["triggered_at"]) if r["triggered_at"] else None
@@ -121,7 +134,7 @@ async def create_user_alert(
         "user_id": r["user_id"],
         "type": r["type"],
         "title": r["title"],
-        "meta": json.loads(r["meta"]) if r["meta"] else {},
+        "meta": _jsonb(r["meta"]),
         "enabled": r["enabled"],
         "triggered_at": None,
         "created_at": str(r["created_at"]),
@@ -238,10 +251,7 @@ async def list_alert_events(
         )
         out: list[dict[str, Any]] = []
         for r in rows.mappings().all():
-            try:
-                payload = json.loads(r["payload"]) if r["payload"] else {}
-            except (TypeError, ValueError):
-                payload = {}
+            payload = _jsonb(r["payload"])
             out.append(
                 {
                     "id": r["id"],

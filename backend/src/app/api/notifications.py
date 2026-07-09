@@ -96,16 +96,20 @@ async def update_prefs(
 ):
     user_id = user["user_id"]
     sets = []
-    params: dict[str, Any] = {"uid": user_id}
+    # The INSERT below binds :email/:push/:inapp unconditionally, so every key
+    # must be present even when the caller updates a single preference.
+    params: dict[str, Any] = {
+        "uid": user_id,
+        "email": body.email_alerts,
+        "push": body.push_alerts,
+        "inapp": body.in_app_alerts,
+    }
     if body.email_alerts is not None:
         sets.append("email_alerts = :email")
-        params["email"] = body.email_alerts
     if body.push_alerts is not None:
         sets.append("push_alerts = :push")
-        params["push"] = body.push_alerts
     if body.in_app_alerts is not None:
         sets.append("in_app_alerts = :inapp")
-        params["inapp"] = body.in_app_alerts
 
     if sets:
         sets.append("updated_at = now()")
