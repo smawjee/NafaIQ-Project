@@ -14,43 +14,45 @@ from app.db.sqlalchemy import get_engine
 log = logging.getLogger(__name__)
 
 
+_jwks_client: "jwt.PyJWKClient | None" = None
+
+
+def _get_jwks_client() -> "jwt.PyJWKClient":
+    """Cached JWKS client. Supabase now signs tokens with asymmetric keys
+    (ES256/RS256); PyJWKClient caches the public keys, so we keep one instance
+    instead of refetching JWKS on every authenticated request."""
+    global _jwks_client
+    if _jwks_client is None:
+        _jwks_client = jwt.PyJWKClient(
+            f"{settings.supabase_url}/auth/v1/.well-known/jwks.json"
+        )
+    return _jwks_client
+
+
 async def resolve_supabase_user(token: str) -> dict[str, Any]:
     if not settings.supabase_jwt_secret:
         raise HTTPException(503, "SUPABASE_JWT_SECRET not configured")
     try:
-        payload = jwt.decode(
-            token,
-            settings.supabase_jwt_secret,
-            algorithms=["HS256"],
-            audience="authenticated",
-        )
-    except jwt.PyJWTError as e:
-        log.warning("JWT decode with audience failed: %s — trying without audience", e)
-        try:
+        alg = jwt.get_unverified_header(token).get("alg", "HS256")
+        if alg in ("RS256", "ES256"):
+            # Asymmetric (current Supabase default): verify against JWKS public keys.
+            signing_key = _get_jwks_client().get_signing_key_from_jwt(token)
+            payload = jwt.decode(
+                token,
+                signing_key.key,
+                algorithms=["RS256", "ES256"],
+                options={"verify_aud": False},
+            )
+        else:
+            # Legacy HS256 shared secret.
             payload = jwt.decode(
                 token,
                 settings.supabase_jwt_secret,
                 algorithms=["HS256"],
                 options={"verify_aud": False},
             )
-        except jwt.PyJWTError as e2:
-            log.warning("JWT decode without audience also failed: %s", e2)
-            # Try RS256 via JWKS as last resort
-            try:
-                import httpx
-                jwks_url = f"{settings.supabase_url}/auth/v1/.well-known/jwks.json"
-                resp = httpx.get(jwks_url, timeout=10)
-                jwks_client = jwt.PyJWKClient(jwks_url)
-                signing_key = jwks_client.get_signing_key_from_jwt(token)
-                payload = jwt.decode(
-                    token,
-                    signing_key.key,
-                    algorithms=["RS256", "ES256"],
-                    options={"verify_aud": False},
-                )
-            except Exception as e3:
-                log.warning("JWT RS256 via JWKS also failed: %s", e3)
-                raise HTTPException(401, f"Invalid token after trying all methods: {e}") from e3
+    except Exception as e:
+        raise HTTPException(401, f"Invalid token: {e}") from e
     user_id = payload["sub"]
     plan = payload.get("plan") or "Free"
     features: dict[str, Any] = {}
