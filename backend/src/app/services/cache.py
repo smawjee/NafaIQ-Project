@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import asyncio
+import time
 from datetime import date, datetime, timezone
-from typing import Optional
+from typing import Awaitable, Callable, Optional
 
 import structlog
 
@@ -22,36 +24,72 @@ from app.models import (
 log = structlog.get_logger()
 
 
+# Minimum seconds between background scrapes of the same resource. The
+# scheduler already refreshes these while the market is open; this throttle
+# keeps stale-data fallbacks from hammering DPS when it is not.
+BACKGROUND_REFRESH_THROTTLE = 60.0
+
+
 class CacheLayer:
-    """Read-through cache: serve from Supabase if fresh, else scrape + write."""
+    """Read-through cache: serve from Supabase if fresh, else scrape + write.
+
+    Stale DB data is served immediately with the scrape moved to a background
+    task — user requests only wait on a live PSX scrape when the table is
+    completely empty.
+    """
 
     def __init__(self, dps: DPSScraper):
         self.dps = dps
         self.db = get_supabase()
+        self._refreshing: set[str] = set()
+        self._last_refresh_attempt: dict[str, float] = {}
+
+    def _refresh_in_background(self, key: str, refresh: Callable[[], Awaitable[object]]) -> None:
+        now = time.monotonic()
+        if key in self._refreshing:
+            return
+        if now - self._last_refresh_attempt.get(key, 0.0) < BACKGROUND_REFRESH_THROTTLE:
+            return
+        self._last_refresh_attempt[key] = now
+        self._refreshing.add(key)
+
+        async def _run() -> None:
+            try:
+                await refresh()
+            except Exception:
+                log.warning("cache_background_refresh_failed", key=key, exc_info=True)
+            finally:
+                self._refreshing.discard(key)
+
+        try:
+            asyncio.get_running_loop().create_task(_run())
+        except RuntimeError:
+            self._refreshing.discard(key)
 
     # ---------- market snapshot ----------
 
     async def get_market_snapshot(self, max_age_seconds: int = 5) -> list[MarketSnapshotItem]:
-        # Check cache freshness
         try:
-            result = (
-                self.db.table("psx_market_snapshot")
-                .select("refreshed_at")
-                .order("refreshed_at", desc=True)
-                .limit(1)
-                .execute()
-            )
+            result = self.db.table("psx_market_snapshot").select("*").execute()
             rows = result.data or []
             if rows:
-                last_refresh = datetime.fromisoformat(rows[0]["refreshed_at"].replace("Z", "+00:00"))
-                age = (datetime.now(timezone.utc) - last_refresh).total_seconds()
-                if age < max_age_seconds:
-                    result = self.db.table("psx_market_snapshot").select("*").execute()
-                    return [_row_to_market_snapshot(r) for r in (result.data or [])]
+                newest = max((r.get("refreshed_at") or "" for r in rows), default="")
+                stale = True
+                if newest:
+                    last_refresh = datetime.fromisoformat(newest.replace("Z", "+00:00"))
+                    age = (datetime.now(timezone.utc) - last_refresh).total_seconds()
+                    stale = age >= max_age_seconds
+                if stale:
+                    # Serve what we have; refresh off the request path.
+                    self._refresh_in_background("market_snapshot", self._scrape_market_snapshot)
+                return [_row_to_market_snapshot(r) for r in rows]
         except Exception:
             log.warning("cache_market_read_failed", exc_info=True)
 
-        # Cache miss: scrape + bulk write
+        # Nothing cached at all: a live scrape is the only option.
+        return await self._scrape_market_snapshot()
+
+    async def _scrape_market_snapshot(self) -> list[MarketSnapshotItem]:
         items = await self.dps.fetch_market_watch()
         if items:
             rows = [
@@ -109,30 +147,35 @@ class CacheLayer:
         try:
             result = (
                 self.db.table("psx_profile")
-                .select("refreshed_at")
-                .order("refreshed_at", desc=True)
-                .limit(1)
+                .select("symbol,name,sector,logoid,refreshed_at")
                 .execute()
             )
             rows = result.data or []
             if rows:
-                last_refresh = datetime.fromisoformat(rows[0]["refreshed_at"].replace("Z", "+00:00"))
-                age = (datetime.now(timezone.utc) - last_refresh).total_seconds()
-                if age < max_age_seconds:
-                    result = self.db.table("psx_profile").select("symbol,name,sector,logoid").execute()
-                    return [
-                        SymbolInfo(
-                            symbol=r["symbol"],
-                            name=r.get("name", ""),
-                            sector=r.get("sector"),
-                            logoid=r.get("logoid"),
-                        )
-                        for r in (result.data or [])
-                    ]
+                newest = max((r.get("refreshed_at") or "" for r in rows), default="")
+                stale = True
+                if newest:
+                    last_refresh = datetime.fromisoformat(newest.replace("Z", "+00:00"))
+                    age = (datetime.now(timezone.utc) - last_refresh).total_seconds()
+                    stale = age >= max_age_seconds
+                if stale:
+                    self._refresh_in_background("symbols", self._scrape_symbols)
+                return [
+                    SymbolInfo(
+                        symbol=r["symbol"],
+                        name=r.get("name", ""),
+                        sector=r.get("sector"),
+                        logoid=r.get("logoid"),
+                    )
+                    for r in rows
+                ]
         except Exception:
             log.warning("cache_symbols_read_failed", exc_info=True)
 
-        # Cache miss: scrape symbols, bulk write
+        # Nothing cached at all: a live scrape is the only option.
+        return await self._scrape_symbols()
+
+    async def _scrape_symbols(self) -> list[SymbolInfo]:
         symbols = await self.dps.fetch_symbols()
         if symbols:
             rows = [
@@ -362,6 +405,36 @@ class CacheLayer:
             except Exception:
                 log.warning("cache_index_write_failed", code=c, exc_info=True)
         return bars
+
+    async def get_index_latest(self, code: str, bars: int = 2) -> list[IndexBar]:
+        """Newest `bars` rows for an index (date DESC) — for dashboard cards.
+
+        Avoids pulling the full index history just to compute latest vs
+        previous close. Falls back to the full path only when the table has
+        no rows for the code.
+        """
+        c = code.upper()
+        try:
+            result = (
+                self.db.table("psx_index_eod")
+                .select("*")
+                .eq("code", c)
+                .order("date", desc=True)
+                .limit(bars)
+                .execute()
+            )
+            rows = result.data or []
+            if rows:
+                return [
+                    IndexBar(code=r["code"], date=_parse_iso_date(r["date"]), close=r["close"], volume=r.get("volume"))
+                    for r in rows
+                ]
+        except Exception:
+            log.warning("cache_index_latest_read_failed", code=c, exc_info=True)
+
+        all_bars = await self.get_index_eod(c)
+        newest_first = sorted(all_bars, key=lambda b: (b.date or date.min), reverse=True)
+        return newest_first[:bars]
 
     # ---------- sectors ----------
 

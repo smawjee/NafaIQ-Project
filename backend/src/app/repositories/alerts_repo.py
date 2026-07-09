@@ -288,19 +288,27 @@ async def insert_in_app_notification(
 
 
 async def recent_event_exists(
-    conn: Executor, user_id: str, alert_type: str, key_field: str, key_value: str, threshold: str
+    conn: Executor,
+    user_id: str,
+    alert_type: str,
+    key_field: str,
+    key_value: str,
+    discriminator: str,
+    discriminator_field: str = "threshold",
 ) -> bool:
-    """24h idempotency check for budget/goal threshold events. `key_field` is a
-    fixed payload key name ('budget_id' or 'goal_id'), not user input."""
+    """24h idempotency check for evaluator events. `key_field`/`discriminator_field`
+    are fixed payload key names ('budget_id'+'threshold', 'goal_id'+'threshold',
+    'bill_id'+'due_date'), never user input; `key_value`/`discriminator` are the
+    values to match."""
     row = await conn.execute(
         text(
             "SELECT id FROM alert_events "
             "WHERE user_id = :uid AND alert_type = :at "
             "AND created_at > now() - INTERVAL '24 hours' "
             f"AND payload->>'{key_field}' = :kv "
-            "AND payload->>'threshold' = :th"
+            f"AND payload->>'{discriminator_field}' = :disc"
         ),
-        {"uid": user_id, "at": alert_type, "kv": key_value, "th": threshold},
+        {"uid": user_id, "at": alert_type, "kv": key_value, "disc": discriminator},
     )
     return row.first() is not None
 

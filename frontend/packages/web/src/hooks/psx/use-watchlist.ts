@@ -1,37 +1,45 @@
 import { useCallback, useEffect, useState } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { userGet } from "@/lib/psx/client";
 import { useAuth } from "@/hooks/use-auth";
-
-const DEFAULT_WATCHLIST = ["HBL", "ENGRO", "LUCK", "OGDC"];
-const DEMO_EMAIL = import.meta.env.VITE_DEMO_EMAIL || "demo@nafaiq.com";
+import { isDemoUser } from "@/lib/demo";
+import { useAppDispatch, useAppSelector } from "@/store/hooks";
+import {
+  addWatchlistSymbol,
+  removeWatchlistSymbol,
+  selectWatchlistSymbols,
+} from "@/store/watchlist";
 
 export function useWatchlist() {
   const { user } = useAuth();
   const qc = useQueryClient();
-  const isDemo = user?.email === DEMO_EMAIL;
-  const [symbols, setSymbols] = useState<string[]>(DEFAULT_WATCHLIST);
+  const dispatch = useAppDispatch();
+  // Demo and anonymous users live entirely in the local Redux store —
+  // their watchlist never touches Supabase.
+  const useLocal = !user || isDemoUser(user);
+  const localSymbols = useAppSelector(selectWatchlistSymbols);
+  const [symbols, setSymbols] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
 
   const load = useCallback(async () => {
+    if (useLocal) {
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     try {
-      if (!user || isDemo) {
-        setSymbols(DEFAULT_WATCHLIST);
-        return;
-      }
       const { data } = await supabase
         .from("user_watchlist")
         .select("symbol")
         .order("added_at", { ascending: false });
       setSymbols((data ?? []).map((r) => r.symbol));
     } catch {
-      setSymbols(user && !isDemo ? [] : DEFAULT_WATCHLIST);
+      setSymbols([]);
     } finally {
       setLoading(false);
     }
-  }, [isDemo, user]);
+  }, [useLocal]);
 
   useEffect(() => {
     load();
@@ -40,41 +48,52 @@ export function useWatchlist() {
   const add = useCallback(
     async (symbol: string) => {
       const sym = symbol.toUpperCase().trim();
+      if (useLocal) {
+        dispatch(addWatchlistSymbol(sym));
+        return;
+      }
       setSymbols((prev) => {
         if (prev.includes(sym)) return prev;
         return [...prev, sym];
       });
       try {
-        if (!user || isDemo) return;
         await supabase
           .from("user_watchlist")
-          .upsert({ symbol: sym, user_id: user.id }, { onConflict: "user_id,symbol" });
+          .upsert({ symbol: sym, user_id: user!.id }, { onConflict: "user_id,symbol" });
       } catch {
-        // Demo and anonymous users intentionally remain local-only.
+        // Best-effort: the optimistic local update above already applied.
       }
       qc.invalidateQueries({ queryKey: ["watchlist"] });
       qc.invalidateQueries({ queryKey: ["enriched-watchlist"] });
     },
-    [isDemo, user, qc],
+    [useLocal, user, qc, dispatch],
   );
 
   const remove = useCallback(
     async (symbol: string) => {
       const sym = symbol.toUpperCase().trim();
+      if (useLocal) {
+        dispatch(removeWatchlistSymbol(sym));
+        return;
+      }
       setSymbols((prev) => prev.filter((s) => s !== sym));
       try {
-        if (!user || isDemo) return;
-        await supabase.from("user_watchlist").delete().eq("user_id", user.id).eq("symbol", sym);
+        await supabase.from("user_watchlist").delete().eq("user_id", user!.id).eq("symbol", sym);
       } catch {
-        // Demo and anonymous users intentionally remain local-only.
+        // Best-effort: the optimistic local update above already applied.
       }
       qc.invalidateQueries({ queryKey: ["watchlist"] });
       qc.invalidateQueries({ queryKey: ["enriched-watchlist"] });
     },
-    [isDemo, user, qc],
+    [useLocal, user, qc, dispatch],
   );
 
-  return { symbols, loading, add, remove };
+  return {
+    symbols: useLocal ? localSymbols : symbols,
+    loading: useLocal ? false : loading,
+    add,
+    remove,
+  };
 }
 
 /* ── enriched watchlist (React Query, authenticated) ── */
@@ -98,6 +117,7 @@ export function useEnrichedWatchlist(enabled = true) {
     enabled,
     staleTime: 8_000,
     refetchInterval: 30_000,
+    placeholderData: keepPreviousData,
   });
 }
 

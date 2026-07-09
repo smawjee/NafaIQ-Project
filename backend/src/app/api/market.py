@@ -64,6 +64,13 @@ async def dividends(symbol: str):
 
 # ---------- index ----------
 
+# NOTE: declared before /index/{code} so "cards" is not captured as a code.
+@router.get("/index/cards")
+async def index_cards():
+    """Latest + previous close per benchmark index (dashboard cards)."""
+    return await market_service.index_cards()
+
+
 @router.get("/index/{code}")
 async def index_data(code: str):
     return await market_service.index_eod(code)
@@ -109,3 +116,10 @@ async def sector_averages():
 async def history_coverage():
     """Days of historical OHLCV data per symbol (verifies 20-day guarantee)."""
     return await market_service.history_coverage()
+
+
+@router.get("/market/metrics")
+@limiter.limit("30/minute")
+async def screener_metrics(request: Request):
+    """Per-symbol RSI + market cap for the screener (nulls where unavailable)."""
+    return await market_service.screener_metrics()

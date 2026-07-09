@@ -103,12 +103,17 @@ function price(tier: (typeof TIERS)[number], billing: Billing) {
 function PlansPage() {
   const [billing, setBilling] = useState<Billing>("monthly");
   const { t } = useLang();
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const { plan } = usePlan();
   const upgrade = useUpgradePlan();
   const navigate = useNavigate();
   const isLoggedIn = !!user;
   const backTo = isLoggedIn ? "/app" : "/";
+  // Onboarding = logged in but hasn't confirmed a plan yet. New profiles default
+  // to "Free", so during onboarding we must NOT lock the Free button as the
+  // "current plan" — the user still needs to click it to stamp plan_selected_at
+  // and leave the plan gate. Only lock a tier once a plan has been confirmed.
+  const hasConfirmedPlan = !!profile?.plan_selected_at;
 
   return (
     <div className="min-h-screen bg-background">
@@ -209,26 +214,41 @@ function PlansPage() {
               )}
 
               {isLoggedIn ? (
-                <button
-                  onClick={async () => {
-                    try {
-                      await upgrade.mutateAsync(tier.name as "Free" | "Pro" | "Premium");
-                      toast.success(`${t("You are now on the")} ${tier.name} ${t("plan!")}`);
-                      navigate({ to: "/app" });
-                    } catch {
-                      toast.error(t("Failed to change plan"));
-                    }
-                  }}
-                  disabled={plan === tier.name || upgrade.isPending}
-                  className={cn(
-                    "mt-6 flex items-center justify-center rounded-[10px] px-4 py-2.5 text-sm font-semibold transition disabled:opacity-60",
-                    tier.highlight
-                      ? "bg-bull text-bull-foreground hover:bg-[#00efc0]"
-                      : "border border-white/[0.1] bg-surface text-text-primary hover:border-white/[0.2]",
-                  )}
-                >
-                  {plan === tier.name ? t("Current Plan") : `${t("Choose")} ${tier.name}`}
-                </button>
+                (() => {
+                  const isCurrent = hasConfirmedPlan && plan === tier.name;
+                  const pendingThis =
+                    upgrade.isPending && upgrade.variables === tier.name;
+                  return (
+                    <button
+                      onClick={async () => {
+                        try {
+                          await upgrade.mutateAsync(tier.name as "Free" | "Pro" | "Premium");
+                          toast.success(
+                            `${t("You are now on the")} ${tier.name} ${t("plan!")}`,
+                          );
+                          navigate({ to: "/app" });
+                        } catch {
+                          toast.error(t("Failed to change plan"));
+                        }
+                      }}
+                      disabled={isCurrent || upgrade.isPending}
+                      className={cn(
+                        "mt-6 flex items-center justify-center rounded-[10px] px-4 py-2.5 text-sm font-semibold transition disabled:opacity-60",
+                        tier.highlight
+                          ? "bg-bull text-bull-foreground hover:bg-[#00efc0]"
+                          : "border border-white/[0.1] bg-surface text-text-primary hover:border-white/[0.2]",
+                      )}
+                    >
+                      {pendingThis
+                        ? t("Saving…")
+                        : isCurrent
+                          ? t("Current Plan")
+                          : !hasConfirmedPlan && tier.id === "free"
+                            ? t("Get Started")
+                            : `${t("Choose")} ${tier.name}`}
+                    </button>
+                  );
+                })()
               ) : (
                 <button
                   onClick={() => navigate({ to: "/auth" })}

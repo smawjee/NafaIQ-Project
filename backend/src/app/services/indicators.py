@@ -243,3 +243,12 @@ def _last(arr: np.ndarray) -> Optional[float]:
     if len(finite) == 0:
         return None
     return round(float(finite[-1]), 4)
+
+
+def rsi_from_closes(closes: list[float], period: int = 14) -> Optional[float]:
+    """Latest RSI(period) from a close-price series, or None when there is not
+    enough history to compute it (needs > period+1 points)."""
+    if not closes or len(closes) < period + 1:
+        return None
+    value = _last(_rsi(np.asarray(closes, dtype=np.float64), period))
+    return round(value, 1) if value is not None else None

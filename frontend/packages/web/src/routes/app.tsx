@@ -1,6 +1,17 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { Sparkles, ArrowRight, Plus, TrendingUp, Calendar, Wallet, Target } from "lucide-react";
+import {
+  Sparkles,
+  ArrowRight,
+  Plus,
+  TrendingUp,
+  Calendar,
+  Wallet,
+  Target,
+  Coins,
+  CreditCard,
+  Activity,
+} from "lucide-react";
 import { toast } from "sonner";
 import { Card, StatCard } from "@/components/shared/Card";
 import { Change } from "@/components/charts/Change";
@@ -14,8 +25,8 @@ import {
 import { CountUpNumber, AnimatedBar } from "@/components/charts/CountUpNumber";
 import { Typewriter } from "@/components/shared/Typewriter";
 import { useTheme } from "@/hooks/use-theme";
-import { STOCKS, WATCHLIST, generateOHLCV, fmtPKR, fmtNum } from "@/lib/data";
-import { SPENDING, GOALS, BUDGETS, BILLS } from "@/lib/finance/data";
+import { STOCKS, generateOHLCV, fmtPKR, fmtNum } from "@/lib/data";
+import { formatSignedPKR } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/use-auth";
 import { useDemo } from "@/hooks/use-demo";
@@ -24,6 +35,7 @@ import { useAppDispatch } from "@/store/hooks";
 import { addTransaction } from "@/store/finance";
 import { addHolding } from "@/store/portfolio";
 import { addAlert } from "@/store/alerts";
+import { useDashboardData, useFinanceData } from "@/hooks/use-demo-data";
 import {
   usePortfolioList,
   useAddHolding,
@@ -43,7 +55,7 @@ import {
 } from "@/hooks/psx/use-watchlist";
 import { StockLogo } from "@/components/search/StockLogo";
 import { logoUrlFor } from "@/lib/psx/stock-search";
-import { usePsxIndexData, useMarketTickers } from "@/hooks/psx/use-psx";
+import { usePsxIndexCards, useMarketTickers } from "@/hooks/psx/use-psx";
 import { Modal, fieldClass } from "@/components/shared/Modal";
 import { Checkbox } from "@/components/ui/checkbox";
 
@@ -62,8 +74,10 @@ export const Route = createFileRoute("/app")({
 
 const RANGES = ["1M", "3M", "6M", "1Y"] as const;
 
-function portfolioSeries(months: number) {
-  const base = 858054 / 1.1273;
+// Synthetic showcase history ending at the store's current portfolio value,
+// so the demo chart stays consistent with the live demo KPIs.
+function portfolioSeries(months: number, endValue: number) {
+  const base = endValue / 1.1273;
   const out = [];
   const labels = ["Jan", "Feb", "Mar", "Apr", "May", "Jun"].slice(6 - months);
   for (let i = 0; i < labels.length; i++) {
@@ -96,15 +110,6 @@ const MONTHS = [
 function formatToday() {
   const d = new Date();
   return `${WEEKDAYS[d.getDay()]}, ${d.getDate()} ${MONTHS[d.getMonth()]} ${d.getFullYear()}`;
-}
-
-function latestIndexChangePct(bars: { date: string; close: number }[] | undefined): number | null {
-  if (!bars || bars.length < 2) return null;
-  const sorted = bars.slice().sort((a, b) => a.date.localeCompare(b.date));
-  const latest = sorted[sorted.length - 1];
-  const previous = sorted[sorted.length - 2];
-  if (!latest || !previous || previous.close === 0) return null;
-  return ((latest.close - previous.close) / previous.close) * 100;
 }
 
 function Dashboard() {
@@ -151,16 +156,22 @@ function Dashboard() {
   const { data: enrichedWatchlist, isLoading: watchlistLoading } =
     useEnrichedWatchlist(realUserEnabled);
   const liveTickers = useMarketTickers(50);
-  const { data: kse100Bars } = usePsxIndexData("KSE100");
-  const kse100ChangePct = latestIndexChangePct(kse100Bars);
+  // Lightweight cards endpoint — latest/prev close only, not full history.
+  const { data: indexCards } = usePsxIndexCards();
+  const kse100ChangePct = indexCards?.find((c) => c.code === "KSE100")?.change_pct ?? null;
   const kse100ChangeLabel =
     kse100ChangePct == null
       ? "--"
       : `${kse100ChangePct >= 0 ? "+" : ""}${kse100ChangePct.toFixed(2)}%`;
+  // Demo/local dashboard numbers come from the global Redux store, so demo
+  // activity (transactions, buys, watchlist edits) updates them live.
+  const showcase = useDashboardData();
   const portfolioChartData = !useShowcaseDashboard
     ? (portfolioHistory?.points ?? [])
-    : portfolioSeries(months);
-  const dashboardWatchlist = useShowcaseDashboard ? WATCHLIST : (enrichedWatchlist ?? []);
+    : portfolioSeries(months, showcase.portfolioValue);
+  const dashboardWatchlist = useShowcaseDashboard
+    ? showcase.watchlistSymbols
+    : (enrichedWatchlist ?? []);
   const liveTickerMap = new Map(liveTickers.map((t) => [t.symbol, t]));
   const dashboardGoals = !useShowcaseDashboard
     ? (userGoals ?? []).slice(0, 3).map((g) => ({
@@ -171,7 +182,38 @@ function Dashboard() {
         color: (g.color === "warning" ? "warning" : "bull") as "warning" | "bull",
         ai: g.ai_tip || "",
       }))
-    : GOALS.slice(0, 3);
+    : showcase.goals;
+
+  // KPI values, resolved once for both modes (demo -> Redux, real -> API).
+  const kpiNetWorth = useShowcaseDashboard
+    ? showcase.netWorth
+    : (networth?.total_market_value ?? 0);
+  const kpiPortfolioValue = useShowcaseDashboard
+    ? showcase.portfolioValue
+    : (networth?.total_market_value ?? 0);
+  const kpiTotalInvested = useShowcaseDashboard
+    ? showcase.totalInvested
+    : (networth?.total_cost_basis ?? 0);
+  const kpiMonthlySpending = useShowcaseDashboard
+    ? showcase.monthlySpending
+    : (financeSummary?.expenses ?? 0);
+  const kpiTodayPnl = useShowcaseDashboard ? showcase.todayPnl : (networth?.today_pnl ?? 0);
+  const kpiTodayPnlPct = useShowcaseDashboard
+    ? showcase.todayPnlPct
+    : (networth?.today_pnl_pct ?? 0);
+  const kpiUnrealizedPct = useShowcaseDashboard
+    ? showcase.unrealizedPnlPct
+    : (networth?.total_unrealized_pnl_pct ?? 0);
+  const kpiSpendingDeltaPct = useShowcaseDashboard
+    ? showcase.monthlySpendingDeltaPct
+    : financeSummary && financeSummary.last_month_expense > 0
+      ? Math.round(
+          ((financeSummary.expenses - financeSummary.last_month_expense) /
+            financeSummary.last_month_expense) *
+            100,
+        )
+      : 0;
+  const pctLabel = (v: number) => `${v >= 0 ? "+" : ""}${v.toFixed(2)}%`;
 
   return (
     <div className="mx-auto max-w-7xl space-y-8">
@@ -301,102 +343,52 @@ function Dashboard() {
           </div>
         </div>
       ) : (
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
-          <Card className="lg:col-span-6">
-            <div className="text-[13px] font-medium text-text-secondary">
-              {t("Total Net Worth")}
-            </div>
-            <div className="mt-3 font-mono text-4xl font-bold tabular-nums text-text-primary">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-6">
+          <StatCard
+            variant="hero"
+            className="sm:col-span-2"
+            label="Total Net Worth"
+            icon={Wallet}
+            info="Your portfolio's market value plus cash — your total wealth on NafaIQ."
+            value={<CountUpNumber value={kpiNetWorth} prefix="PKR " />}
+            sub={`${formatSignedPKR(Math.round(kpiTodayPnl))} (${pctLabel(kpiTodayPnlPct)}) today`}
+            trend={kpiTodayPnl >= 0 ? "up" : "down"}
+          />
+          <StatCard
+            label="Portfolio Value"
+            icon={TrendingUp}
+            value={<CountUpNumber value={kpiPortfolioValue} prefix="PKR " />}
+            sub={`${pctLabel(kpiUnrealizedPct)} all time`}
+            trend={kpiUnrealizedPct >= 0 ? "up" : "down"}
+          />
+          <StatCard
+            label="Total Invested"
+            icon={Coins}
+            info="The total cost basis of your holdings — what you originally paid for them."
+            value={<CountUpNumber value={kpiTotalInvested} prefix="PKR " />}
+            sub="cost basis"
+            trend="neutral"
+          />
+          <StatCard
+            label="Monthly Spending"
+            icon={CreditCard}
+            value={<CountUpNumber value={kpiMonthlySpending} prefix="PKR " />}
+            sub={`${kpiSpendingDeltaPct >= 0 ? "+" : ""}${kpiSpendingDeltaPct}% vs last month`}
+            trend={kpiSpendingDeltaPct > 0 ? "down" : "up"}
+          />
+          <StatCard
+            label="Today's PSX P/L"
+            icon={Activity}
+            info="Change in your holdings' value today versus yesterday's closing prices."
+            value={
               <CountUpNumber
-                value={useShowcaseDashboard ? 4280500 : (networth?.total_market_value ?? 0)}
-                prefix="PKR "
+                value={Math.abs(Math.round(kpiTodayPnl))}
+                prefix={kpiTodayPnl >= 0 ? "+PKR " : "-PKR "}
               />
-            </div>
-            <div
-              className={cn(
-                "mt-2 font-mono text-sm tabular-nums",
-                (networth?.today_pnl ?? 0) >= 0 ? "text-bull" : "text-bear",
-              )}
-            >
-              {!useShowcaseDashboard
-                ? `${(networth?.today_pnl ?? 0) >= 0 ? "+" : ""}PKR ${Math.round(networth?.today_pnl ?? 0).toLocaleString()} (${(networth?.today_pnl_pct ?? 0) >= 0 ? "+" : ""}${networth?.today_pnl_pct ?? 0}%) today`
-                : "+PKR 56,000 (+1.32%) this month"}
-            </div>
-          </Card>
-          <div className="grid grid-cols-1 gap-6 sm:grid-cols-4 lg:col-span-6">
-            <StatCard
-              label="Portfolio Value"
-              value={
-                <CountUpNumber
-                  value={useShowcaseDashboard ? 858054 : (networth?.total_market_value ?? 0)}
-                  prefix="PKR "
-                />
-              }
-              sub={
-                !useShowcaseDashboard && networth
-                  ? `${networth.total_unrealized_pnl_pct >= 0 ? "+" : ""}${networth.total_unrealized_pnl_pct}% all time`
-                  : !useShowcaseDashboard
-                    ? "0% all time"
-                    : "+12.73% YTD"
-              }
-              subColor={
-                !useShowcaseDashboard && networth
-                  ? (networth.total_unrealized_pnl_pct ?? 0) >= 0
-                    ? "text-bull"
-                    : "text-bear"
-                  : "text-bull"
-              }
-            />
-            <StatCard
-              label="Total Invested"
-              value={
-                <CountUpNumber
-                  value={useShowcaseDashboard ? 761190 : (networth?.total_cost_basis ?? 0)}
-                  prefix="PKR "
-                />
-              }
-            />
-            <StatCard
-              label="Monthly Spending"
-              value={
-                <CountUpNumber
-                  value={useShowcaseDashboard ? 112050 : (financeSummary?.expenses ?? 0)}
-                  prefix="PKR "
-                />
-              }
-              sub={
-                !useShowcaseDashboard && financeSummary && financeSummary.last_month_expense > 0
-                  ? `${Math.round(((financeSummary.expenses - financeSummary.last_month_expense) / financeSummary.last_month_expense) * 100)}% vs last month`
-                  : !useShowcaseDashboard
-                    ? "0% vs last month"
-                    : "-12% vs May"
-              }
-              subColor="text-bull"
-            />
-            <StatCard
-              label="Today's PSX P/L"
-              value={
-                <CountUpNumber
-                  value={useShowcaseDashboard ? 17480 : Math.round(networth?.today_pnl ?? 0)}
-                  prefix={useShowcaseDashboard ? "+" : (networth?.today_pnl ?? 0) >= 0 ? "+" : ""}
-                />
-              }
-              sub={
-                !useShowcaseDashboard && networth
-                  ? `${networth.today_pnl_pct >= 0 ? "+" : ""}${networth.today_pnl_pct}%`
-                  : !useShowcaseDashboard
-                    ? "0%"
-                    : "+1.42%"
-              }
-              subColor={
-                !useShowcaseDashboard && networth
-                  ? (networth.today_pnl_pct ?? 0) >= 0
-                    ? "text-bull"
-                    : "text-bear"
-                  : "text-bull"
-              }
-            />
-          </div>
+            }
+            sub={pctLabel(kpiTodayPnlPct)}
+            trend={kpiTodayPnl >= 0 ? "up" : "down"}
+          />
         </div>
       )}
 
@@ -483,12 +475,12 @@ function Dashboard() {
           ) : (
             <>
               <DonutChart
-                data={SPENDING}
-                centerValue={localizeDigits("132,000")}
+                data={showcase.spending.categories}
+                centerValue={localizeDigits(Math.round(showcase.spending.total).toLocaleString())}
                 centerLabel="PKR total"
               />
               <div className="mt-2 grid grid-cols-2 gap-1.5 text-xs">
-                {SPENDING.map((s, i) => (
+                {showcase.spending.categories.map((s, i) => (
                   <span key={s.name} className="flex items-center gap-1.5 text-text-secondary">
                     <span
                       className="h-2 w-2 rounded-full"
@@ -901,15 +893,18 @@ function QuickAddAlertModal({ open, onClose }: { open: boolean; onClose: () => v
   const dispatch = useAppDispatch();
   const isLoggedIn = !!user && !isDemo;
   const createUserAlert = useCreateUserAlert();
+  // Bill/budget/goal choices come from the local store so demo-created
+  // items show up as alert targets.
+  const { bills: localBills, budgets: localBudgets, goals: localGoals } = useFinanceData();
   const [type, setType] = useState("Stock Price");
   const [stock, setStock] = useState(ALERT_STOCKS[0]);
   const [direction, setDirection] = useState("Above");
   const [price, setPrice] = useState("");
-  const [bill, setBill] = useState(BILLS[0]?.name ?? "");
+  const [bill, setBill] = useState(localBills[0]?.name ?? "");
   const [timing, setTiming] = useState("1 day before");
-  const [budgetCat, setBudgetCat] = useState(BUDGETS[0]?.category ?? "");
+  const [budgetCat, setBudgetCat] = useState(localBudgets[0]?.category ?? "");
   const [budgetThreshold, setBudgetThreshold] = useState("80");
-  const [goal, setGoal] = useState(GOALS[0]?.name ?? "");
+  const [goal, setGoal] = useState(localGoals[0]?.name ?? "");
   const [goalMilestone, setGoalMilestone] = useState("50");
   const [push, setPush] = useState(true);
   const [email, setEmail] = useState(false);
@@ -1054,7 +1049,7 @@ function QuickAddAlertModal({ open, onClose }: { open: boolean; onClose: () => v
               onChange={(e) => setBill(e.target.value)}
               className="rounded-[6px] border border-border bg-elevated px-3 py-2 text-sm text-text-primary"
             >
-              {BILLS.map((b) => (
+              {localBills.map((b) => (
                 <option key={b.name} value={b.name}>
                   {b.name}
                 </option>
@@ -1077,7 +1072,7 @@ function QuickAddAlertModal({ open, onClose }: { open: boolean; onClose: () => v
               onChange={(e) => setBudgetCat(e.target.value)}
               className="rounded-[6px] border border-border bg-elevated px-3 py-2 text-sm text-text-primary"
             >
-              {BUDGETS.map((b) => (
+              {localBudgets.map((b) => (
                 <option key={b.category} value={b.category}>
                   {t(b.category)}
                 </option>
@@ -1102,7 +1097,7 @@ function QuickAddAlertModal({ open, onClose }: { open: boolean; onClose: () => v
               onChange={(e) => setGoal(e.target.value)}
               className="rounded-[6px] border border-border bg-elevated px-3 py-2 text-sm text-text-primary"
             >
-              {GOALS.map((g) => (
+              {localGoals.map((g) => (
                 <option key={g.name} value={g.name}>
                   {g.emoji} {t(g.name)}
                 </option>

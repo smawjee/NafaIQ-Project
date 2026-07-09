@@ -307,6 +307,17 @@ async def create_stock_transaction(user: dict, body: StockTransactionCreate) -> 
             check_count_limit(
                 user, feature_key="max_holdings_per_portfolio", current=current, label="Holdings"
             )
+        elif body.side == "sell":
+            # Reject selling more shares than are held — otherwise the trade would
+            # book phantom income and silently delete the position.
+            holding = await repo.get_holding_by_symbol(sess, body.portfolio_id, body.symbol)
+            held = holding["shares"] if holding else 0
+            if held < int(body.quantity):
+                raise HTTPException(
+                    400,
+                    f"Insufficient shares to sell: you hold {held} {body.symbol.upper()}, "
+                    f"tried to sell {int(body.quantity)}.",
+                )
 
         executed = body.executed_at or datetime.now(timezone.utc)
         r = await repo.insert_stock_transaction(

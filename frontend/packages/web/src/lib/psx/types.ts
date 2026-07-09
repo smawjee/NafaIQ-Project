@@ -72,6 +72,21 @@ export interface ApiIndexBar {
   volume: number | null;
 }
 
+export interface ApiIndexCard {
+  code: string;
+  date: string | null;
+  close: number;
+  prev_close: number | null;
+  change: number;
+  change_pct: number;
+}
+
+export interface ApiScreenerMetric {
+  symbol: string;
+  rsi: number | null;
+  market_cap: number | null;
+}
+
 export interface ApiSectorDataItem {
   name: string;
   pct: number;

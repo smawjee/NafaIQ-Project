@@ -1,14 +1,16 @@
 import { useAuth } from "@/hooks/use-auth";
 import { useNavigate } from "@tanstack/react-router";
+import { DEMO_EMAIL, isDemoUser } from "@/lib/demo";
 
-const DEMO_EMAIL = import.meta.env.VITE_DEMO_EMAIL || "demo@nafaiq.com";
+export { DEMO_EMAIL, isDemoUser };
+
 const DEMO_PASSWORD = import.meta.env.VITE_DEMO_PASSWORD || "";
 
 export function useDemo() {
   const { user, signInWithPassword } = useAuth();
   const navigate = useNavigate();
 
-  const isDemo = !!(user && user.email === DEMO_EMAIL);
+  const isDemo = isDemoUser(user);
 
   const signInAsDemo = async (options?: { redirectTo?: string }) => {
     if (!DEMO_PASSWORD) {

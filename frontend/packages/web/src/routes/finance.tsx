@@ -18,30 +18,55 @@ import {
   Scale,
   FileDown,
   Coins,
-
 } from "lucide-react";
 import { format } from "date-fns";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { EmojiIcon } from "@/components/icons/icons";
 import { Card } from "@/components/shared/Card";
+import { useConfirm } from "@/components/shared/ConfirmDialog";
+import { toast } from "sonner";
 import { AnimatedBar, CountUpNumber } from "@/components/charts/CountUpNumber";
 import { IncomeExpenseChart, Sparkline } from "@/components/charts/charts";
 import { Typewriter } from "@/components/shared/Typewriter";
 import { fmtPKR } from "@/lib/data";
 import { formatNumber, formatPKR, formatSignedPKR } from "@/lib/format";
-import { BUDGETS as DUMMY_BUDGETS, INCOME_EXPENSE, type Goal } from "@/lib/finance/data";
+import { type Goal } from "@/lib/finance/data";
 import { cn } from "@/lib/utils";
 import { useLang } from "@/hooks/use-lang";
 import { useDemo } from "@/hooks/use-demo";
+import { useFinanceData } from "@/hooks/use-demo-data";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
-import { selectTransactions, selectBills, selectGoals } from "@/store/finance";
-import { addTransaction, removeTransaction, addBill, markBillPaid as reduxMarkBillPaid, removeBill, addGoal, contributeToGoal } from "@/store/finance";
+import { selectTransactions, selectBills, selectBudgets, selectGoals } from "@/store/finance";
+import {
+  addTransaction,
+  removeTransaction,
+  addBill,
+  markBillPaid as reduxMarkBillPaid,
+  removeBill,
+  addGoal,
+  contributeToGoal,
+  addBudget as reduxAddBudget,
+} from "@/store/finance";
 import { useFinanceSummary } from "@/hooks/use-finance-summary";
 import { useFinanceBudgets, useCreateBudget } from "@/hooks/use-finance-budgets";
-import { useFinanceGoals as useApiFinanceGoals, useCreateGoal as useApiCreateGoal, useContributeGoal as useApiContributeGoal } from "@/hooks/use-finance-goals";
-import { useCreateTransaction, useDeleteTransaction, useFinanceTransactions } from "@/hooks/use-finance-transactions";
-import { useCreateBill, useDeleteBill, useFinanceBills, useMarkBillPaid, type FinanceBill } from "@/hooks/use-finance-bills";
+import {
+  useFinanceGoals as useApiFinanceGoals,
+  useCreateGoal as useApiCreateGoal,
+  useContributeGoal as useApiContributeGoal,
+} from "@/hooks/use-finance-goals";
+import {
+  useCreateTransaction,
+  useDeleteTransaction,
+  useFinanceTransactions,
+} from "@/hooks/use-finance-transactions";
+import {
+  useCreateBill,
+  useDeleteBill,
+  useFinanceBills,
+  useMarkBillPaid,
+  type FinanceBill,
+} from "@/hooks/use-finance-bills";
 import { useIncomeExpenseSeries, useSpendingByCategory } from "@/hooks/use-finance-series";
 import { useZakatSettings, useZakatHistory, useCalculateZakat } from "@/hooks/use-zakat";
 import { Modal, fieldClass } from "@/components/shared/Modal";
@@ -238,26 +263,42 @@ function Overview() {
   const realUserEnabled = !!user && !isDemo;
   const { data: summary } = useFinanceSummary(undefined, realUserEnabled);
   const { data: seriesData } = useIncomeExpenseSeries(6, realUserEnabled);
+  // Demo/local numbers come from the global Redux store so demo transactions
+  // move the Overview KPIs and chart.
+  const local = useFinanceData();
   const hasSeries = realUserEnabled && !!seriesData && seriesData.series.length > 0;
   const useShowcaseFinance = isDemo;
 
-  const incomeVal = useShowcaseFinance ? 47500 : (summary?.income ?? 0);
-  const expensesVal = useShowcaseFinance ? 18675 : (summary?.expenses ?? 0);
-  const savingsVal = useShowcaseFinance ? 28825 : (summary?.savings ?? 0);
-  const rateVal = useShowcaseFinance ? 60.7 : (summary?.savings_rate ?? 0);
-  const lastIncomeVal = useShowcaseFinance ? 45000 : (summary?.last_month_income ?? 0);
-  const lastExpenseVal = useShowcaseFinance ? 21200 : (summary?.last_month_expense ?? 0);
-  const lastSavingsVal = useShowcaseFinance ? 24000 : (summary?.last_month_savings ?? 0);
+  const incomeVal = useShowcaseFinance ? local.summary.income : (summary?.income ?? 0);
+  const expensesVal = useShowcaseFinance ? local.summary.expenses : (summary?.expenses ?? 0);
+  const savingsVal = useShowcaseFinance ? local.summary.savings : (summary?.savings ?? 0);
+  const rateVal = useShowcaseFinance ? local.summary.savingsRate : (summary?.savings_rate ?? 0);
+  const lastIncomeVal = useShowcaseFinance
+    ? local.lastMonth.income
+    : (summary?.last_month_income ?? 0);
+  const lastExpenseVal = useShowcaseFinance
+    ? local.lastMonth.expense
+    : (summary?.last_month_expense ?? 0);
+  const lastSavingsVal = useShowcaseFinance
+    ? local.lastMonth.income - local.lastMonth.expense
+    : (summary?.last_month_savings ?? 0);
   const incomeDelta = incomeVal - lastIncomeVal;
-  const expenseDeltaPct = lastExpenseVal > 0 ? ((expensesVal - lastExpenseVal) / lastExpenseVal) * 100 : 0;
+  const expenseDeltaPct =
+    lastExpenseVal > 0 ? ((expensesVal - lastExpenseVal) / lastExpenseVal) * 100 : 0;
   const savingsDelta = savingsVal - lastSavingsVal;
   const maxKpiValue = Math.max(incomeVal, expensesVal, Math.abs(savingsVal), 1);
-  const incomeBar = useShowcaseFinance ? 78 : Math.min((incomeVal / maxKpiValue) * 100, 100);
-  const expenseBar = useShowcaseFinance ? 40 : Math.min((expensesVal / maxKpiValue) * 100, 100);
-  const savingsBar = useShowcaseFinance ? 61 : Math.min((Math.max(savingsVal, 0) / maxKpiValue) * 100, 100);
-  const savingsRateBar = useShowcaseFinance ? 60.7 : Math.max(0, Math.min(rateVal, 100));
+  const incomeBar = Math.min((incomeVal / maxKpiValue) * 100, 100);
+  const expenseBar = Math.min((expensesVal / maxKpiValue) * 100, 100);
+  const savingsBar = Math.min((Math.max(savingsVal, 0) / maxKpiValue) * 100, 100);
+  const savingsRateBar = Math.max(0, Math.min(rateVal, 100));
   const savingsRateStatus =
-    rateVal >= 50 ? "Excellent" : rateVal >= 20 ? "Healthy" : rateVal > 0 ? "Needs attention" : "No savings yet";
+    rateVal >= 50
+      ? "Excellent"
+      : rateVal >= 20
+        ? "Healthy"
+        : rateVal > 0
+          ? "Needs attention"
+          : "No savings yet";
 
   const income = useCountUp(incomeVal);
   const expenses = useCountUp(expensesVal);
@@ -268,29 +309,29 @@ function Overview() {
     ? seriesData.series.slice(-3).map((s) => s.income)
     : !useShowcaseFinance
       ? [0, 0, 0]
-      : [43000, 45000, 47500];
+      : local.series.slice(-3).map((s) => s.income);
   const expenseSpark = hasSeries
     ? seriesData.series.slice(-3).map((s) => s.expense)
     : !useShowcaseFinance
       ? [0, 0, 0]
-      : [22000, 21200, 18675];
+      : local.series.slice(-3).map((s) => s.expense);
 
   const chartData = hasSeries
     ? seriesData.series.map((s) => ({ month: s.month, income: s.income, expense: s.expense }))
     : !useShowcaseFinance
       ? emptyIncomeExpenseSeries(6)
-      : INCOME_EXPENSE;
+      : local.series;
 
   const totalIncome = hasSeries
     ? Math.round(seriesData.series.reduce((a, b) => a + b.income, 0))
     : !useShowcaseFinance
       ? 0
-      : 285000;
+      : Math.round(local.series.reduce((a, b) => a + b.income, 0));
   const totalExpense = hasSeries
     ? Math.round(seriesData.series.reduce((a, b) => a + b.expense, 0))
     : !useShowcaseFinance
       ? 0
-      : 112050;
+      : Math.round(local.series.reduce((a, b) => a + b.expense, 0));
   const totalSavings = totalIncome - totalExpense;
 
   return (
@@ -306,7 +347,10 @@ function Overview() {
             <ArrowUpRight className="h-5 w-5 text-bull" />
           </div>
           <KpiLabel>Monthly Income</KpiLabel>
-          <div dir="ltr" className="mt-1 font-mono text-lg font-semibold tracking-tight text-bull tabular-nums sm:text-xl">
+          <div
+            dir="ltr"
+            className="mt-1 font-mono text-lg font-semibold tracking-tight text-bull tabular-nums sm:text-xl"
+          >
             PKR <span ref={income.ref}>{income.formatted}</span>
           </div>
           <div className="mt-3 h-1 w-full overflow-hidden rounded-full bg-white/5">
@@ -334,7 +378,10 @@ function Overview() {
             <ArrowDownRight className="h-5 w-5 text-bear" />
           </div>
           <KpiLabel>Total Expenses</KpiLabel>
-          <div dir="ltr" className="mt-1 font-mono text-lg font-semibold tracking-tight text-bear tabular-nums sm:text-xl">
+          <div
+            dir="ltr"
+            className="mt-1 font-mono text-lg font-semibold tracking-tight text-bear tabular-nums sm:text-xl"
+          >
             PKR <span ref={expenses.ref}>{expenses.formatted}</span>
           </div>
           <div className="mt-3 h-1 w-full overflow-hidden rounded-full bg-white/5">
@@ -363,14 +410,19 @@ function Overview() {
             <PiggyBank className="h-5 w-5 text-ai" />
           </div>
           <KpiLabel>Net Savings</KpiLabel>
-          <div dir="ltr" className="kpi-value-neutral mt-1 font-mono text-lg font-semibold tracking-tight text-ai tabular-nums sm:text-xl">
+          <div
+            dir="ltr"
+            className="kpi-value-neutral mt-1 font-mono text-lg font-semibold tracking-tight text-ai tabular-nums sm:text-xl"
+          >
             PKR <span ref={savings.ref}>{savings.formatted}</span>
           </div>
           <div className="mt-3 h-1 w-full overflow-hidden rounded-full bg-white/5">
             <AnimatedBar value={savingsBar} className="bg-ai" />
           </div>
           <div className="mt-3 flex items-center justify-between gap-2">
-            <span className="text-[10px] text-text-muted sm:text-[11px]">{t("Saved this month")}</span>
+            <span className="text-[10px] text-text-muted sm:text-[11px]">
+              {t("Saved this month")}
+            </span>
             <span
               dir="ltr"
               className={cn(
@@ -389,7 +441,10 @@ function Overview() {
             <Percent className="h-5 w-5 text-warning" />
           </div>
           <KpiLabel>Savings Rate</KpiLabel>
-          <div dir="ltr" className="kpi-value-neutral mt-1 font-mono text-lg font-semibold tracking-tight text-warning tabular-nums sm:text-xl">
+          <div
+            dir="ltr"
+            className="kpi-value-neutral mt-1 font-mono text-lg font-semibold tracking-tight text-warning tabular-nums sm:text-xl"
+          >
             <span ref={rate.ref}>{rate.formatted}</span>%
           </div>
           <div className="mt-3 h-1 w-full overflow-hidden rounded-full bg-white/5">
@@ -472,6 +527,7 @@ function Transactions() {
   const dispatch = useAppDispatch();
   const storeTransactions = useAppSelector(selectTransactions);
 
+  const confirm = useConfirm();
   const { data: apiTransactions = [], isLoading } = useFinanceTransactions(!!user && !isDemo);
   const createTransaction = useCreateTransaction();
   const deleteTransaction = useDeleteTransaction();
@@ -536,12 +592,14 @@ function Transactions() {
 
     try {
       if (isDemo) {
-        dispatch(addTransaction({
-          merchant: merchant.trim(),
-          category: kind === "income" ? "Income" : category,
-          account,
-          amount: kind === "income" ? num : -num,
-        }));
+        dispatch(
+          addTransaction({
+            merchant: merchant.trim(),
+            category: kind === "income" ? "Income" : category,
+            account,
+            amount: kind === "income" ? num : -num,
+          }),
+        );
       } else {
         await createTransaction.mutateAsync({
           merchant: merchant.trim(),
@@ -566,23 +624,27 @@ function Transactions() {
     }
   };
 
-  const handleDelete = async (id: number) => {
+  const handleDelete = (id: number) => {
     if (!user && !isDemo) return;
 
-    const ok = confirm("Delete this transaction?");
-    if (!ok) return;
-
-    try {
-      if (isDemo) {
-        const idx = storeTransactions.findIndex((_, i) => -i - 1 === id);
-        if (idx >= 0) dispatch(removeTransaction(idx));
-      } else {
-        await deleteTransaction.mutateAsync(id);
-      }
-    } catch (error) {
-      console.error("Delete transaction error:", error);
-      alert("Failed to delete transaction.");
-    }
+    confirm({
+      title: tr("Delete transaction?"),
+      description: tr(
+        "This action cannot be undone. This transaction will be permanently removed from your finance history.",
+      ),
+      confirmText: tr("Delete Transaction"),
+      variant: "destructive",
+      successMessage: tr("Transaction deleted"),
+      errorMessage: tr("Could not delete transaction. Please try again."),
+      onConfirm: async () => {
+        if (isDemo) {
+          const idx = storeTransactions.findIndex((_, i) => -i - 1 === id);
+          if (idx >= 0) dispatch(removeTransaction(idx));
+        } else {
+          await deleteTransaction.mutateAsync(id);
+        }
+      },
+    });
   };
 
   return (
@@ -635,7 +697,9 @@ function Transactions() {
                 <div className="flex-1">
                   <div className="text-sm text-text-primary">{t.merchant}</div>
                   <div className="flex items-center gap-1.5 text-[11px] text-text-muted">
-                    <span className="rounded-[4px] bg-elevated px-1.5 py-0.5">{tr(t.category)}</span>
+                    <span className="rounded-[4px] bg-elevated px-1.5 py-0.5">
+                      {tr(t.category)}
+                    </span>
                     {t.source ?? "manual"}
                   </div>
                 </div>
@@ -736,11 +800,12 @@ function Transactions() {
   );
 }
 
-
 function Budgets() {
   const { t } = useLang();
   const { user } = useAuth();
   const { isDemo } = useDemo();
+  const dispatch = useAppDispatch();
+  const storeBudgets = useAppSelector(selectBudgets);
   const { data: apiBudgets } = useFinanceBudgets(!!user && !isDemo);
   const createBudget = useCreateBudget();
   const [offset, setOffset] = useState(0);
@@ -756,14 +821,15 @@ function Budgets() {
   const shortMonth = (d: Date) => d.toLocaleString("en-US", { month: "short" });
   const longLabel = current.toLocaleString("en-US", { month: "long", year: "numeric" });
 
-  const displayBudgets = user && !isDemo
-    ? (apiBudgets ?? []).map((b) => ({
-        category: b.category,
-        spent: b.spent,
-        limit: b.limit_amount,
-        tip: b.tip,
-      }))
-    : DUMMY_BUDGETS;
+  const displayBudgets =
+    user && !isDemo
+      ? (apiBudgets ?? []).map((b) => ({
+          category: b.category,
+          spent: b.spent,
+          limit: b.limit_amount,
+          tip: b.tip,
+        }))
+      : storeBudgets;
 
   return (
     <div className="space-y-4">
@@ -855,13 +921,23 @@ function Budgets() {
               setBudgetErr("");
               const num = Number(budgetLimit);
               if (!budgetCat.trim()) return setBudgetErr(t("Please enter a category name."));
-              if (!budgetLimit || Number.isNaN(num) || num <= 0) return setBudgetErr(t("Please enter a valid limit."));
+              if (!budgetLimit || Number.isNaN(num) || num <= 0)
+                return setBudgetErr(t("Please enter a valid limit."));
               if (user && !isDemo) {
                 createBudget.mutate({
                   category: budgetCat.trim(),
                   limit_amount: num,
                   tip: budgetTip.trim() || undefined,
                 });
+              } else {
+                dispatch(
+                  reduxAddBudget({
+                    category: budgetCat.trim(),
+                    spent: 0,
+                    limit: num,
+                    tip: budgetTip.trim() || undefined,
+                  }),
+                );
               }
               setBudgetCat("");
               setBudgetLimit("");
@@ -885,6 +961,7 @@ function Bills() {
   const dispatch = useAppDispatch();
   const storeBills = useAppSelector(selectBills);
 
+  const confirm = useConfirm();
   const { data: apiBills = [], isLoading } = useFinanceBills(!!user && !isDemo);
   const createBill = useCreateBill();
   const markBillPaid = useMarkBillPaid();
@@ -893,6 +970,7 @@ function Bills() {
   const [name, setName] = useState("");
   const [amount, setAmount] = useState("");
   const [due, setDue] = useState("");
+  const [recurring, setRecurring] = useState(false);
   const [err, setErr] = useState("");
   const [busyBillId, setBusyBillId] = useState<number | null>(null);
 
@@ -932,7 +1010,14 @@ function Bills() {
 
     try {
       if (isDemo) {
-        dispatch(addBill({ name: name.trim(), amount: num, due: due.trim() || "Upcoming", status: "UPCOMING" }));
+        dispatch(
+          addBill({
+            name: name.trim(),
+            amount: num,
+            due: due.trim() || "Upcoming",
+            status: "UPCOMING",
+          }),
+        );
       } else {
         const dueDate = due.trim() || null;
         await createBill.mutateAsync({
@@ -940,12 +1025,14 @@ function Bills() {
           amount: num,
           due_date: dueDate,
           status: "UPCOMING",
+          recurring,
         });
       }
 
       setName("");
       setAmount("");
       setDue("");
+      setRecurring(false);
       setOpen(false);
     } catch (error) {
       console.error("Add bill error:", error);
@@ -963,34 +1050,37 @@ function Bills() {
       } else {
         await markBillPaid.mutateAsync(bill.id);
       }
+      toast.success(t("Bill marked as paid"));
     } catch (error) {
       console.error("Mark bill paid error:", error);
-      alert("Failed to mark bill as paid.");
+      toast.error(t("Could not mark the bill as paid. Please try again."));
     } finally {
       setBusyBillId(null);
     }
   };
 
-  const handleDelete = async (bill: FinanceBill) => {
+  const handleDelete = (bill: FinanceBill) => {
     if (!user && !isDemo) return;
 
-    const ok = confirm(`Delete ${bill.name}?`);
-    if (!ok) return;
-
-    try {
-      setBusyBillId(bill.id);
-      if (isDemo) {
-        const idx = storeBills.findIndex((_, i) => -i - 1 === bill.id);
-        if (idx >= 0) dispatch(removeBill(idx));
-      } else {
-        await deleteBill.mutateAsync(bill.id);
-      }
-    } catch (error) {
-      console.error("Delete bill error:", error);
-      alert("Failed to delete bill.");
-    } finally {
-      setBusyBillId(null);
-    }
+    confirm({
+      title: t("Delete bill?"),
+      description: t('"{name}" will be permanently removed. This action cannot be undone.').replace(
+        "{name}",
+        bill.name,
+      ),
+      confirmText: t("Delete Bill"),
+      variant: "destructive",
+      successMessage: t("Bill deleted"),
+      errorMessage: t("Could not delete bill. Please try again."),
+      onConfirm: async () => {
+        if (isDemo) {
+          const idx = storeBills.findIndex((_, i) => -i - 1 === bill.id);
+          if (idx >= 0) dispatch(removeBill(idx));
+        } else {
+          await deleteBill.mutateAsync(bill.id);
+        }
+      },
+    });
   };
 
   return (
@@ -1087,6 +1177,15 @@ function Bills() {
             type="date"
             className={fieldClass}
           />
+          <label className="flex items-center gap-2 text-sm text-text-secondary">
+            <input
+              type="checkbox"
+              checked={recurring}
+              onChange={(e) => setRecurring(e.target.checked)}
+              className="h-4 w-4 rounded border-border bg-elevated accent-bull"
+            />
+            {t("Recurring monthly (auto-rolls to next month when marked paid)")}
+          </label>
           {err && <div className="text-xs text-bear">{err}</div>}
           <button
             type="button"
@@ -1120,17 +1219,18 @@ function Goals() {
   const [contribAmount, setContribAmount] = useState("");
   const [contribErr, setContribErr] = useState("");
 
-  const displayGoals: Goal[] = user && !isDemo
-    ? (apiGoals ?? []).map((g) => ({
-        emoji: g.emoji || "🎯",
-        name: g.name,
-        target: g.target,
-        saved: g.saved,
-        color: (g.color === "warning" ? "warning" : "bull") as "warning" | "bull",
-        ai: g.ai_tip || "",
-        date: g.target_date || undefined,
-      }))
-    : storeGoals;
+  const displayGoals: Goal[] =
+    user && !isDemo
+      ? (apiGoals ?? []).map((g) => ({
+          emoji: g.emoji || "🎯",
+          name: g.name,
+          target: g.target,
+          saved: g.saved,
+          color: (g.color === "warning" ? "warning" : "bull") as "warning" | "bull",
+          ai: g.ai_tip || "",
+          date: g.target_date || undefined,
+        }))
+      : storeGoals;
 
   const submit = () => {
     setErr("");
@@ -1187,7 +1287,6 @@ function Goals() {
     setContribAmount("");
   };
 
-
   return (
     <div className="grid gap-4 md:grid-cols-2">
       {user && displayGoals.length === 0 && (
@@ -1215,7 +1314,9 @@ function Goals() {
               <AnimatedBar value={pct} className={g.color === "bull" ? "bg-bull" : "bg-warning"} />
             </div>
             {g.date && (
-              <div className="mt-2 text-[11px] text-text-muted">{t("Target date:")} {g.date}</div>
+              <div className="mt-2 text-[11px] text-text-muted">
+                {t("Target date:")} {g.date}
+              </div>
             )}
             <div className="mt-2 rounded-[6px] border-l-2 border-ai bg-ai-tint px-2.5 py-1.5 text-[11px] text-text-secondary">
               <Sparkles className="mr-1 inline h-3 w-3 text-ai" />
@@ -1332,9 +1433,7 @@ function FinanceReportModal({ onClose }: { onClose: () => void }) {
         onClick={(e) => e.stopPropagation()}
       >
         <div className="mb-4 flex items-center justify-between">
-          <h3 className="text-base font-semibold text-text-primary">
-            {t("AI Finance Report")}
-          </h3>
+          <h3 className="text-base font-semibold text-text-primary">{t("AI Finance Report")}</h3>
           <button onClick={onClose}>
             <X className="h-5 w-5 text-text-secondary" />
           </button>
@@ -1342,7 +1441,8 @@ function FinanceReportModal({ onClose }: { onClose: () => void }) {
         <div className="rounded-[10px] border border-white/[0.08] bg-surface-alt p-4 text-center">
           <p className="text-sm font-semibold text-text-primary">Coming soon</p>
           <p className="mt-2 text-xs leading-relaxed text-text-secondary">
-            Real AI insights from your income, expenses, and budgets are coming soon. For now, review your live KPIs on the Overview tab.
+            Real AI insights from your income, expenses, and budgets are coming soon. For now,
+            review your live KPIs on the Overview tab.
           </p>
         </div>
         <div className="mt-4 mb-6 flex gap-2">

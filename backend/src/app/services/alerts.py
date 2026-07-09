@@ -162,12 +162,19 @@ async def evaluate_price_alerts() -> int:
 
 
 async def evaluate_bill_reminders(days_ahead: int = 3) -> int:
-    """Create reminder events for bills due within N days."""
+    """Create reminder events for bills due within N days. Only one reminder per
+    (bill, due_date) within a 24-hour window (the job runs every 60s)."""
     async with connect() as conn:
         bills = await repo.fetch_due_bills(conn, days_ahead)
     triggered = 0
     for b in bills:
         due_date = b["due_date"]
+        async with connect() as conn:
+            if await repo.recent_event_exists(
+                conn, b["user_id"], "bill", "bill_id", str(b["id"]), str(due_date),
+                discriminator_field="due_date",
+            ):
+                continue
         days = calc.bill_due_in_days(due_date)
         await _record_event(
             b["user_id"],

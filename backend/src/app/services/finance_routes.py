@@ -315,9 +315,10 @@ async def summary(uid: str, month: str | None = None) -> FinanceSummaryResponse:
 
 
 async def income_expense_series(uid: str, months: int = 6, user: dict | None = None) -> IncomeExpenseResponse:
-    max_days = limit_for(user or {"features": {}}, "max_finance_history_days")
-    max_months = max(1, min(1200, (max_days + 29) // 30))
-    months = max(1, min(months, max_months))
+    # The monthly income/expense chart is a coarse aggregate, decoupled from the
+    # per-transaction history-day quota (which still gates granular views like
+    # spending-by-category). Cap at 12 months.
+    months = max(1, min(months, 12))
     async with connect() as conn:
         rows = await repo.fetch_income_expense(conn, uid, months)
     by_month: dict[str, dict[str, float]] = {}
@@ -326,9 +327,25 @@ async def income_expense_series(uid: str, months: int = 6, user: dict | None = N
         by_month.setdefault(m, {"income": 0.0, "expense": 0.0})
         txn_type = r["transaction_type"].lower() if r["transaction_type"] else r["transaction_type"]
         by_month[m][txn_type] = r["total"]
+    # Zero-fill the month grid so the chart always shows `months` ordered bars,
+    # even for months with no activity (avoids gaps / misleading captions).
+    now = datetime.now(timezone.utc)
+    grid: list[str] = []
+    y, mo = now.year, now.month
+    for _ in range(months):
+        grid.append(f"{y:04d}-{mo:02d}")
+        mo -= 1
+        if mo == 0:
+            mo = 12
+            y -= 1
+    grid.reverse()
     series = [
-        IncomeExpensePoint(month=m, income=v.get("income", 0.0), expense=v.get("expense", 0.0))
-        for m, v in by_month.items()
+        IncomeExpensePoint(
+            month=m,
+            income=by_month.get(m, {}).get("income", 0.0),
+            expense=by_month.get(m, {}).get("expense", 0.0),
+        )
+        for m in grid
     ]
     return IncomeExpenseResponse(months=months, series=series)
 

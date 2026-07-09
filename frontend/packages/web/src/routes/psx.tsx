@@ -5,7 +5,6 @@ import {
   Plus,
   Star,
   Filter,
-  Info,
   CandlestickChart as CandleIcon,
   LineChart as LineIcon,
 } from "lucide-react";
@@ -14,6 +13,7 @@ import { StockSearchBox } from "@/components/search/StockSearchBox";
 import { toast } from "sonner";
 
 import { Card } from "@/components/shared/Card";
+import { InfoTip } from "@/components/shared/InfoTip";
 import { CountUpNumber } from "@/components/charts/CountUpNumber";
 import { Typewriter } from "@/components/shared/Typewriter";
 import { Change } from "@/components/charts/Change";
@@ -39,10 +39,12 @@ import {
   usePsxSymbols,
   usePsxIndexData,
   usePsxBatchSignals,
+  usePsxScreenerMetrics,
   useMarketTickers,
   useMarketMovers,
   useIndexCards,
 } from "@/hooks/psx/use-psx";
+import { formatNumber, formatCompactPKR } from "@/lib/format";
 import { useWatchlist } from "@/hooks/psx/use-watchlist";
 import { useDemo } from "@/hooks/use-demo";
 import { StatsGridSkeleton, ChartSkeleton, TableSkeleton } from "@/components/shared/PageSkeleton";
@@ -66,6 +68,14 @@ export const Route = createFileRoute("/psx")({
 const SYMBOLS = ["KSE-100", ...Object.keys(STOCKS)];
 const TIMEFRAMES = ["1D", "1W", "1M", "3M", "6M", "1Y", "All"] as const;
 const INDICATORS = ["MA20", "MA50", "MA100", "MA200"] as const;
+
+// Short definitions for the benchmark-index cards, keyed by display name.
+const INDEX_INFO: Record<string, string> = {
+  "KSE-100": "Benchmark index tracking the top listed companies on PSX.",
+  "KSE-30": "Index of 30 highly liquid companies on the Pakistan Stock Exchange.",
+  "KMI-30": "Shariah-compliant index of 30 selected PSX companies.",
+  "KSE All Share": "Broad market index covering listed PSX shares.",
+};
 
 function tfDays(tf: string) {
   return { "1D": 5, "1W": 14, "1M": 30, "3M": 90, "6M": 130, "1Y": 250, All: 250 }[tf] ?? 250;
@@ -147,6 +157,7 @@ export default function PSX() {
   const { data: symbolsData } = usePsxSymbols();
   const { data: kse100Data } = usePsxIndexData("KSE100");
   const { data: batchSignals } = usePsxBatchSignals(50);
+  const { data: screenerMetrics } = usePsxScreenerMetrics();
   const marketMovers = useMarketMovers(
     moverTab === "Gainers" ? "gainers" : moverTab === "Losers" ? "losers" : "volume",
     6,
@@ -228,6 +239,14 @@ export default function PSX() {
   const chg = hasData ? last.close - first.open : 0;
   const chgPct = hasData && first.open ? (chg / first.open) * 100 : 0;
 
+  const metricsMap = useMemo(() => {
+    const m = new Map<string, { rsi: number | null; market_cap: number | null }>();
+    for (const row of screenerMetrics ?? []) {
+      m.set(row.symbol, { rsi: row.rsi, market_cap: row.market_cap });
+    }
+    return m;
+  }, [screenerMetrics]);
+
   const screenRows = useMemo(() => {
     const sectorMap = new Map<string, string>();
     if (symbolsData) {
@@ -242,16 +261,20 @@ export default function PSX() {
           if (s.signal) signalMap.set(s.symbol, s.signal as Signal);
         }
       }
-      let rows = snapshot.map((s) => ({
-        ticker: s.symbol,
-        sector: sectorMap.get(s.symbol) ?? "—",
-        price: s.price ?? 0,
-        changePct: s.change_pct ?? 0,
-        signal: signalMap.get(s.symbol) ?? ("HOLD" as Signal),
-        rsi: 50,
-        volume: fmtNum(s.volume, 1),
-        marketCap: "—",
-      }));
+      let rows = snapshot.map((s) => {
+        const m = metricsMap.get(s.symbol);
+        return {
+          ticker: s.symbol,
+          sector: sectorMap.get(s.symbol) ?? "—",
+          price: s.price ?? 0,
+          changePct: s.change_pct ?? 0,
+          // No fabricated HOLD: only show a signal the model actually produced.
+          signal: signalMap.get(s.symbol) ?? null,
+          rsi: m?.rsi ?? null,
+          volume: formatNumber(s.volume ?? 0, 0),
+          marketCap: m?.market_cap != null ? formatCompactPKR(m.market_cap) : "—",
+        };
+      });
       if (sectorFilter !== "All") {
         rows = rows.filter((r) => r.sector === sectorFilter);
       }
@@ -261,8 +284,8 @@ export default function PSX() {
       }
       return rows;
     }
-    return STOCK_LIST;
-  }, [snapshot, symbolsData, sectorFilter, searchFilter]);
+    return STOCK_LIST.map((s) => ({ ...s, rsi: s.rsi as number | null, signal: s.signal as Signal | null }));
+  }, [snapshot, symbolsData, sectorFilter, searchFilter, batchSignals, metricsMap]);
 
   const movers = useMemo(() => {
     if (marketMovers.length > 0) {
@@ -277,10 +300,13 @@ export default function PSX() {
         sector: m.sector,
         price: m.price,
         changePct: m.changePct,
-        signal: signalMap.get(m.symbol) ?? ("HOLD" as Signal),
-        rsi: 50,
-        volume: fmtNum(m.volume, 1),
-        marketCap: "—",
+        signal: signalMap.get(m.symbol) ?? null,
+        rsi: metricsMap.get(m.symbol)?.rsi ?? null,
+        volume: formatNumber(m.volume ?? 0, 0),
+        marketCap:
+          metricsMap.get(m.symbol)?.market_cap != null
+            ? formatCompactPKR(metricsMap.get(m.symbol)!.market_cap!)
+            : "—",
       }));
     }
     const arr = [...STOCK_LIST];
@@ -291,7 +317,7 @@ export default function PSX() {
         .slice(0, 6);
     if (moverTab === "Losers") return arr.sort((a, b) => a.changePct - b.changePct).slice(0, 6);
     return arr.sort((a, b) => parseFloat(b.volume) - parseFloat(a.volume)).slice(0, 6);
-  }, [moverTab, marketMovers]);
+  }, [moverTab, marketMovers, batchSignals, metricsMap]);
 
   const screened = screenRows.filter((s) => signalFilter === "All" || s.signal === signalFilter);
   const screenerPageSize = 8;
@@ -353,6 +379,7 @@ export default function PSX() {
           <Card key={idx.key}>
             <div className="flex items-center gap-1.5">
               <span className="text-xs font-medium text-text-secondary">{idx.name}</span>
+              {INDEX_INFO[idx.name] && <InfoTip label={INDEX_INFO[idx.name]} />}
             </div>
             <div className="mt-1 font-mono text-lg font-bold tabular-nums text-text-primary">
               <CountUpNumber value={idx.value} decimals={2} />
@@ -623,24 +650,40 @@ export default function PSX() {
                         <Change pct={s.changePct} />
                       </td>
                       <td className="text-center">
-                        <SignalBadge signal={s.signal} />
+                        {s.signal ? (
+                          <SignalBadge signal={s.signal} />
+                        ) : (
+                          <span className="text-text-muted" title={t("Signal unavailable")}>
+                            —
+                          </span>
+                        )}
                       </td>
                       <td className="text-right font-mono tabular-nums">
-                        <span
-                          className={cn(
-                            s.rsi > 70
-                              ? "text-bear"
-                              : s.rsi < 30
-                                ? "text-bull"
-                                : "text-text-secondary",
-                          )}
-                          title={
-                            s.rsi > 70 ? t("Overbought") : s.rsi < 30 ? t("Oversold") : t("Neutral")
-                          }
-                        >
-                          {s.rsi}
-                          {s.rsi > 70 ? " OB" : s.rsi < 30 ? " OS" : ""}
-                        </span>
+                        {s.rsi == null ? (
+                          <span className="text-text-muted" title={t("Not enough history")}>
+                            —
+                          </span>
+                        ) : (
+                          <span
+                            className={cn(
+                              s.rsi > 70
+                                ? "text-bear"
+                                : s.rsi < 30
+                                  ? "text-bull"
+                                  : "text-text-secondary",
+                            )}
+                            title={
+                              s.rsi > 70
+                                ? t("Overbought")
+                                : s.rsi < 30
+                                  ? t("Oversold")
+                                  : t("Neutral")
+                            }
+                          >
+                            {s.rsi.toFixed(0)}
+                            {s.rsi > 70 ? " OB" : s.rsi < 30 ? " OS" : ""}
+                          </span>
+                        )}
                       </td>
                       <td className="text-right font-mono tabular-nums text-text-secondary">
                         {s.volume}
