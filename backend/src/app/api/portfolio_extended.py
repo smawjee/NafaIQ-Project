@@ -11,6 +11,7 @@ from sqlalchemy import text
 from app.api.deps import require_user
 from app.db.sqlalchemy import get_session_factory
 from app.services import portfolio as portfolio_service
+from app.services.permissions import enforce_count_limit
 
 router = APIRouter(tags=["portfolio-extended"])
 
@@ -157,6 +158,19 @@ async def create_stock_transaction(
         )
         if not own.first():
             raise HTTPException(404, "Portfolio not found")
+
+        if body.side == "buy":
+            await enforce_count_limit(
+                session,
+                user,
+                feature_key="max_holdings_per_portfolio",
+                count_sql=(
+                    "SELECT COUNT(*) FROM psx_holdings "
+                    "WHERE portfolio_id = :pid AND symbol <> :sym"
+                ),
+                params={"pid": body.portfolio_id, "sym": body.symbol.upper()},
+                label="Holdings",
+            )
 
         executed = body.executed_at or datetime.now(timezone.utc)
         row = await session.execute(
