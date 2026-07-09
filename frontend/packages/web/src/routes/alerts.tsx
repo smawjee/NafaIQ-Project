@@ -14,6 +14,8 @@ import { selectAlerts, selectNotifications } from "@/store/alerts";
 import { addAlert, toggleAlert, removeAlert } from "@/store/alerts";
 import { useUserAlerts, usePriceAlerts, useCreateUserAlert, useToggleUserAlert, useRemoveUserAlert } from "@/hooks/use-alerts";
 import { useNotifications } from "@/hooks/use-notifications";
+import { useAlertEvents, useMarkAlertEventRead, useEvaluateAlerts } from "@/hooks/use-alert-events";
+import { EmptyState } from "@/components/shared/EmptyState";
 import { BUDGETS, GOALS, BILLS } from "@/lib/finance/data";
 
 export const Route = createFileRoute("/alerts")({
@@ -50,6 +52,9 @@ function Alerts() {
   const { data: userAlerts } = useUserAlerts();
   const { data: priceAlerts } = usePriceAlerts();
   const { data: apiNotifications } = useNotifications();
+  const { data: alertEvents } = useAlertEvents(50, !!user && !isDemo);
+  const markAlertRead = useMarkAlertEventRead();
+  const evaluateAlerts = useEvaluateAlerts();
   const createUserAlert = useCreateUserAlert();
   const toggleUserAlert = useToggleUserAlert();
   const removeUserAlert = useRemoveUserAlert();
@@ -408,6 +413,95 @@ function Alerts() {
               {!n.read && <span className="h-2 w-2 shrink-0 rounded-full bg-bull" />}
             </div>
           ))}
+        </Card>
+      </section>
+
+      {/* Alert events / notification history */}
+      <section>
+        <div className="mb-3 flex items-center justify-between">
+          <h3 className="text-sm font-semibold text-text-primary">
+            {t("Notification History")}
+          </h3>
+          {isLoggedIn ? (
+            <button
+              onClick={() => evaluateAlerts.mutate()}
+              disabled={evaluateAlerts.isPending}
+              className="rounded-[6px] border border-border px-2 py-1 text-[11px] font-medium text-text-secondary transition hover:border-bull hover:text-bull disabled:opacity-50"
+            >
+              {t(evaluateAlerts.isPending ? "Checking..." : "Check now")}
+            </button>
+          ) : null}
+        </div>
+        <Card>
+          {isLoggedIn ? (
+            alertEvents && alertEvents.length > 0 ? (
+              <div className="divide-y divide-border/40">
+                {alertEvents.map((ev) => (
+                  <button
+                    key={ev.id}
+                    onClick={() => {
+                      if (!ev.read_at) markAlertRead.mutate(ev.id);
+                    }}
+                    className="flex w-full items-start gap-3 px-3 py-3 text-left transition hover:bg-hover"
+                  >
+                    <span
+                      className={cn(
+                        "mt-1.5 h-2 w-2 shrink-0 rounded-full",
+                        ev.alert_type === "stock_price" ? "bg-bull" : "bg-warning",
+                      )}
+                    />
+                    <div className="min-w-0 flex-1">
+                      <div className="text-sm text-text-primary">{ev.title}</div>
+                      <div className="text-[11px] text-text-muted">
+                        {ev.body}
+                      </div>
+                      <div className="mt-1 text-[10px] text-text-muted">
+                        {new Date(ev.created_at).toLocaleString()}
+                      </div>
+                    </div>
+                    {!ev.read_at ? (
+                      <span className="h-2 w-2 shrink-0 rounded-full bg-bull" />
+                    ) : null}
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <EmptyState
+                title={t("No notifications yet")}
+                description={t(
+                  "Your triggered alerts will appear here. Click 'Check now' to evaluate alerts manually.",
+                )}
+              />
+            )
+          ) : localNotifications.length > 0 ? (
+            <div className="divide-y divide-border/40">
+              {localNotifications.map((n, i) => (
+                <div key={i} className="flex items-center gap-3 px-3 py-3">
+                  <span
+                    className={cn(
+                      "flex h-8 w-8 items-center justify-center rounded-[8px] border border-white/[0.06] bg-elevated text-text-secondary",
+                      n.emoji === "🎯" || n.emoji === "📈"
+                        ? "badge-positive"
+                        : n.emoji === "📅" || n.emoji === "💸"
+                          ? "badge-negative"
+                          : "badge-neutral",
+                    )}
+                  >
+                    <EmojiIcon emoji={n.emoji} size={15} />
+                  </span>
+                  <div className="flex-1">
+                    <div className="text-sm text-text-primary">{t(n.msg)}</div>
+                    <div className="text-[11px] text-text-muted">{n.time}</div>
+                  </div>
+                  {!n.read && (
+                    <span className="h-2 w-2 shrink-0 rounded-full bg-bull" />
+                  )}
+                </div>
+              ))}
+            </div>
+          ) : (
+            <EmptyState title={t("No notifications yet")} />
+          )}
         </Card>
       </section>
 

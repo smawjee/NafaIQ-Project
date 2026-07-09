@@ -462,20 +462,20 @@ function Portfolio() {
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         <StatCard
           label="Portfolio Value"
-          value={<CountUpNumber value={isLoggedIn ? (portfolioValue?.totals.market_value ?? networth?.total_market_value ?? 0) : 858054} prefix="PKR " />}
-          sub={`${t("Total Invested")} ${fmtPKR(isLoggedIn ? (portfolioValue?.totals.cost_basis ?? networth?.total_cost_basis ?? 0) : 761190)}`}
+          value={<CountUpNumber value={!useDemoPortfolio ? (portfolioValue?.totals.market_value ?? networth?.total_market_value ?? 0) : 858054} prefix="PKR " />}
+          sub={`${t("Total Invested")} ${fmtPKR(!useDemoPortfolio ? (portfolioValue?.totals.cost_basis ?? networth?.total_cost_basis ?? 0) : 761190)}`}
         />
-        <StatCard label="Total Invested" value={<CountUpNumber value={isLoggedIn ? (portfolioValue?.totals.cost_basis ?? networth?.total_cost_basis ?? 0) : 761190} prefix="PKR " />} />
+        <StatCard label="Total Invested" value={<CountUpNumber value={!useDemoPortfolio ? (portfolioValue?.totals.cost_basis ?? networth?.total_cost_basis ?? 0) : 761190} prefix="PKR " />} />
         <StatCard
           label="Total Gain"
-          value={<CountUpNumber value={isLoggedIn ? (portfolioValue?.totals.unrealized_pnl ?? networth?.total_unrealized_pnl ?? 0) : 96864} prefix={isLoggedIn && (portfolioValue?.totals.unrealized_pnl ?? networth?.total_unrealized_pnl ?? 0) >= 0 ? "+PKR " : "PKR "} />}
-          sub={isLoggedIn && portfolioValue ? `${portfolioValue.totals.pnl_pct >= 0 ? "+" : ""}${portfolioValue.totals.pnl_pct.toFixed(2)}%` : isLoggedIn && networth ? `${networth.total_unrealized_pnl_pct >= 0 ? "+" : ""}${networth.total_unrealized_pnl_pct.toFixed(2)}%` : isLoggedIn ? "0.00%" : "+12.73%"}
+          value={<CountUpNumber value={!useDemoPortfolio ? (portfolioValue?.totals.unrealized_pnl ?? networth?.total_unrealized_pnl ?? 0) : 96864} prefix={!useDemoPortfolio && (portfolioValue?.totals.unrealized_pnl ?? networth?.total_unrealized_pnl ?? 0) >= 0 ? "+PKR " : "PKR "} />}
+          sub={!useDemoPortfolio && portfolioValue ? `${portfolioValue.totals.pnl_pct >= 0 ? "+" : ""}${portfolioValue.totals.pnl_pct.toFixed(2)}%` : !useDemoPortfolio && networth ? `${networth.total_unrealized_pnl_pct >= 0 ? "+" : ""}${networth.total_unrealized_pnl_pct.toFixed(2)}%` : !useDemoPortfolio ? "0.00%" : "+12.73%"}
           subColor="text-bull"
         />
         <StatCard
           label="Today's P/L"
-          value={<CountUpNumber value={isLoggedIn ? Math.round(networth?.today_pnl ?? 0) : 17480} prefix={isLoggedIn && (networth?.today_pnl ?? 0) >= 0 ? "+PKR " : "PKR "} />}
-          sub={isLoggedIn && networth ? `${networth.today_pnl_pct >= 0 ? "+" : ""}${networth.today_pnl_pct.toFixed(2)}%` : isLoggedIn ? "0.00%" : "+1.42%"}
+          value={<CountUpNumber value={!useDemoPortfolio ? Math.round(networth?.today_pnl ?? 0) : 17480} prefix={!useDemoPortfolio && (networth?.today_pnl ?? 0) >= 0 ? "+PKR " : "PKR "} />}
+          sub={!useDemoPortfolio && networth ? `${networth.today_pnl_pct >= 0 ? "+" : ""}${networth.today_pnl_pct.toFixed(2)}%` : !useDemoPortfolio ? "0.00%" : "+1.42%"}
           subColor="text-bull"
         />
       </div>
