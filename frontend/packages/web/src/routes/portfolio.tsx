@@ -290,19 +290,20 @@ function Portfolio() {
   const { isDemo } = useDemo();
   const dispatch = useAppDispatch();
   const localHoldings = useAppSelector(selectHoldings);
-  const { data: portfolios } = usePortfolioList();
+  const isLoggedIn = !!user;
+  const useDemoPortfolio = isDemo;
+  const realPortfolioEnabled = isLoggedIn && !isDemo;
+  const { data: portfolios } = usePortfolioList(realPortfolioEnabled);
   const portfolioId = portfolios?.[0]?.id ?? null;
-  const { data: apiHoldings } = useHoldings(portfolioId);
-  const { data: portfolioValue } = usePortfolioValue(portfolioId);
-  const { data: networth } = usePortfolioNetworth(!!user);
+  const { data: apiHoldings } = useHoldings(portfolioId, realPortfolioEnabled);
+  const { data: portfolioValue } = usePortfolioValue(portfolioId, realPortfolioEnabled);
+  const { data: networth } = usePortfolioNetworth(realPortfolioEnabled);
   const { data: symbols } = usePsxSymbols();
   const addHoldingApi = useAddHolding(portfolioId);
   const updateHoldingApi = useUpdateHolding(portfolioId);
   const removeHoldingApi = useRemoveHolding(portfolioId);
   const createPortfolio = useCreatePortfolio();
 
-  const isLoggedIn = !!user;
-  const useDemoPortfolio = isDemo;
   const apiPortfolioHoldings: Holding[] = (apiHoldings ?? []).map((h) => ({
         ticker: h.symbol,
         sector: STOCKS[h.symbol]?.sector ?? "Other",
