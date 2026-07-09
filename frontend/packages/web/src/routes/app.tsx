@@ -1,19 +1,16 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
-import {
-  Sparkles,
-  ArrowRight,
-  Plus,
-  TrendingUp,
-  Calendar,
-  Wallet,
-  Target,
-} from "lucide-react";
+import { Sparkles, ArrowRight, Plus, TrendingUp, Calendar, Wallet, Target } from "lucide-react";
 import { toast } from "sonner";
 import { Card, StatCard } from "@/components/shared/Card";
 import { Change } from "@/components/charts/Change";
 import { EmojiIcon } from "@/components/icons/icons";
-import { DonutChart, PortfolioAreaChart, Sparkline, DONUT_LIGHT_PALETTE } from "@/components/charts/charts";
+import {
+  DonutChart,
+  PortfolioAreaChart,
+  Sparkline,
+  DONUT_LIGHT_PALETTE,
+} from "@/components/charts/charts";
 import { CountUpNumber, AnimatedBar } from "@/components/charts/CountUpNumber";
 import { Typewriter } from "@/components/shared/Typewriter";
 import { useTheme } from "@/hooks/use-theme";
@@ -27,13 +24,25 @@ import { useAppDispatch } from "@/store/hooks";
 import { addTransaction } from "@/store/finance";
 import { addHolding } from "@/store/portfolio";
 import { addAlert } from "@/store/alerts";
-import { usePortfolioList, useAddHolding, useCreatePortfolio, usePortfolioHistory, usePortfolioNetworth } from "@/hooks/use-portfolio";
+import {
+  usePortfolioList,
+  useAddHolding,
+  useCreatePortfolio,
+  usePortfolioHistory,
+  usePortfolioNetworth,
+} from "@/hooks/use-portfolio";
 import { useCreateUserAlert } from "@/hooks/use-alerts";
 import { useFinanceSummary } from "@/hooks/use-finance-summary";
 import { useFinanceGoals } from "@/hooks/use-finance-goals";
 import { useCreateTransaction } from "@/hooks/use-finance-transactions";
 import { useSpendingByCategory } from "@/hooks/use-finance-series";
-import { useWatchlist, useEnrichedWatchlist, type EnrichedWatchlistItem } from "@/hooks/psx/use-watchlist";
+import {
+  useWatchlist,
+  useEnrichedWatchlist,
+  type EnrichedWatchlistItem,
+} from "@/hooks/psx/use-watchlist";
+import { StockLogo } from "@/components/search/StockLogo";
+import { logoUrlFor } from "@/lib/psx/stock-search";
 import { usePsxIndexData, useMarketTickers } from "@/hooks/psx/use-psx";
 import { Modal, fieldClass } from "@/components/shared/Modal";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -89,9 +98,7 @@ function formatToday() {
   return `${WEEKDAYS[d.getDay()]}, ${d.getDate()} ${MONTHS[d.getMonth()]} ${d.getFullYear()}`;
 }
 
-function latestIndexChangePct(
-  bars: { date: string; close: number }[] | undefined,
-): number | null {
+function latestIndexChangePct(bars: { date: string; close: number }[] | undefined): number | null {
   if (!bars || bars.length < 2) return null;
   const sorted = bars.slice().sort((a, b) => a.date.localeCompare(b.date));
   const latest = sorted[sorted.length - 1];
@@ -122,12 +129,19 @@ function Dashboard() {
   /* Real user data hooks (demo stays on showcase data) */
   const realUserEnabled = !!user && !isDemo;
   const { data: networth } = usePortfolioNetworth(realUserEnabled);
-  const { data: portfolioHistory, isLoading: portfolioHistoryLoading } = usePortfolioHistory(historyDays, realUserEnabled);
+  const { data: portfolioHistory, isLoading: portfolioHistoryLoading } = usePortfolioHistory(
+    historyDays,
+    realUserEnabled,
+  );
   const { data: financeSummary } = useFinanceSummary(undefined, realUserEnabled);
-  const { data: spendingByCat, isLoading: spendingByCatLoading } = useSpendingByCategory(30, realUserEnabled);
+  const { data: spendingByCat, isLoading: spendingByCatLoading } = useSpendingByCategory(
+    30,
+    realUserEnabled,
+  );
   const { data: userGoals } = useFinanceGoals(realUserEnabled);
   const { symbols: userWatchlist } = useWatchlist();
-  const { data: enrichedWatchlist, isLoading: watchlistLoading } = useEnrichedWatchlist(realUserEnabled);
+  const { data: enrichedWatchlist, isLoading: watchlistLoading } =
+    useEnrichedWatchlist(realUserEnabled);
   const liveTickers = useMarketTickers(50);
   const { data: kse100Bars } = usePsxIndexData("KSE100");
   const kse100ChangePct = latestIndexChangePct(kse100Bars);
@@ -213,7 +227,9 @@ function Dashboard() {
             </div>
             <div className="flex-1">
               <div className="flex items-center gap-2.5">
-                <h2 className="text-sm font-semibold text-text-primary">{t("AI Recommendation")}</h2>
+                <h2 className="text-sm font-semibold text-text-primary">
+                  {t("AI Recommendation")}
+                </h2>
                 <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold text-primary">
                   92% confidence
                 </span>
@@ -277,45 +293,103 @@ function Dashboard() {
           </div>
         </div>
       ) : (
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
-        <Card className="lg:col-span-6">
-          <div className="text-[13px] font-medium text-text-secondary">{t("Total Net Worth")}</div>
-          <div className="mt-3 font-mono text-4xl font-bold tabular-nums text-text-primary">
-            <CountUpNumber value={useShowcaseDashboard ? 4280500 : (networth?.total_market_value ?? 0)} prefix="PKR " />
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
+          <Card className="lg:col-span-6">
+            <div className="text-[13px] font-medium text-text-secondary">
+              {t("Total Net Worth")}
+            </div>
+            <div className="mt-3 font-mono text-4xl font-bold tabular-nums text-text-primary">
+              <CountUpNumber
+                value={useShowcaseDashboard ? 4280500 : (networth?.total_market_value ?? 0)}
+                prefix="PKR "
+              />
+            </div>
+            <div
+              className={cn(
+                "mt-2 font-mono text-sm tabular-nums",
+                (networth?.today_pnl ?? 0) >= 0 ? "text-bull" : "text-bear",
+              )}
+            >
+              {!useShowcaseDashboard
+                ? `${(networth?.today_pnl ?? 0) >= 0 ? "+" : ""}PKR ${Math.round(networth?.today_pnl ?? 0).toLocaleString()} (${(networth?.today_pnl_pct ?? 0) >= 0 ? "+" : ""}${networth?.today_pnl_pct ?? 0}%) today`
+                : "+PKR 56,000 (+1.32%) this month"}
+            </div>
+          </Card>
+          <div className="grid grid-cols-1 gap-6 sm:grid-cols-4 lg:col-span-6">
+            <StatCard
+              label="Portfolio Value"
+              value={
+                <CountUpNumber
+                  value={useShowcaseDashboard ? 858054 : (networth?.total_market_value ?? 0)}
+                  prefix="PKR "
+                />
+              }
+              sub={
+                !useShowcaseDashboard && networth
+                  ? `${networth.total_unrealized_pnl_pct >= 0 ? "+" : ""}${networth.total_unrealized_pnl_pct}% all time`
+                  : !useShowcaseDashboard
+                    ? "0% all time"
+                    : "+12.73% YTD"
+              }
+              subColor={
+                !useShowcaseDashboard && networth
+                  ? (networth.total_unrealized_pnl_pct ?? 0) >= 0
+                    ? "text-bull"
+                    : "text-bear"
+                  : "text-bull"
+              }
+            />
+            <StatCard
+              label="Total Invested"
+              value={
+                <CountUpNumber
+                  value={useShowcaseDashboard ? 761190 : (networth?.total_cost_basis ?? 0)}
+                  prefix="PKR "
+                />
+              }
+            />
+            <StatCard
+              label="Monthly Spending"
+              value={
+                <CountUpNumber
+                  value={useShowcaseDashboard ? 112050 : (financeSummary?.expenses ?? 0)}
+                  prefix="PKR "
+                />
+              }
+              sub={
+                !useShowcaseDashboard && financeSummary && financeSummary.last_month_expense > 0
+                  ? `${Math.round(((financeSummary.expenses - financeSummary.last_month_expense) / financeSummary.last_month_expense) * 100)}% vs last month`
+                  : !useShowcaseDashboard
+                    ? "0% vs last month"
+                    : "-12% vs May"
+              }
+              subColor="text-bull"
+            />
+            <StatCard
+              label="Today's PSX P/L"
+              value={
+                <CountUpNumber
+                  value={useShowcaseDashboard ? 17480 : Math.round(networth?.today_pnl ?? 0)}
+                  prefix={useShowcaseDashboard ? "+" : (networth?.today_pnl ?? 0) >= 0 ? "+" : ""}
+                />
+              }
+              sub={
+                !useShowcaseDashboard && networth
+                  ? `${networth.today_pnl_pct >= 0 ? "+" : ""}${networth.today_pnl_pct}%`
+                  : !useShowcaseDashboard
+                    ? "0%"
+                    : "+1.42%"
+              }
+              subColor={
+                !useShowcaseDashboard && networth
+                  ? (networth.today_pnl_pct ?? 0) >= 0
+                    ? "text-bull"
+                    : "text-bear"
+                  : "text-bull"
+              }
+            />
           </div>
-          <div className={cn("mt-2 font-mono text-sm tabular-nums", (networth?.today_pnl ?? 0) >= 0 ? "text-bull" : "text-bear")}>
-            {!useShowcaseDashboard
-              ? `${(networth?.today_pnl ?? 0) >= 0 ? "+" : ""}PKR ${Math.round(networth?.today_pnl ?? 0).toLocaleString()} (${(networth?.today_pnl_pct ?? 0) >= 0 ? "+" : ""}${networth?.today_pnl_pct ?? 0}%) today`
-              : "+PKR 56,000 (+1.32%) this month"}
-          </div>
-        </Card>
-        <div className="grid grid-cols-1 gap-6 sm:grid-cols-4 lg:col-span-6">
-          <StatCard
-            label="Portfolio Value"
-            value={<CountUpNumber value={useShowcaseDashboard ? 858054 : (networth?.total_market_value ?? 0)} prefix="PKR " />}
-            sub={!useShowcaseDashboard && networth ? `${networth.total_unrealized_pnl_pct >= 0 ? "+" : ""}${networth.total_unrealized_pnl_pct}% all time` : !useShowcaseDashboard ? "0% all time" : "+12.73% YTD"}
-            subColor={!useShowcaseDashboard && networth ? ((networth.total_unrealized_pnl_pct ?? 0) >= 0 ? "text-bull" : "text-bear") : "text-bull"}
-          />
-          <StatCard
-            label="Total Invested"
-            value={<CountUpNumber value={useShowcaseDashboard ? 761190 : (networth?.total_cost_basis ?? 0)} prefix="PKR " />}
-          />
-          <StatCard
-            label="Monthly Spending"
-            value={<CountUpNumber value={useShowcaseDashboard ? 112050 : (financeSummary?.expenses ?? 0)} prefix="PKR " />}
-            sub={!useShowcaseDashboard && financeSummary && financeSummary.last_month_expense > 0
-              ? `${Math.round(((financeSummary.expenses - financeSummary.last_month_expense) / financeSummary.last_month_expense) * 100)}% vs last month`
-              : !useShowcaseDashboard ? "0% vs last month" : "-12% vs May"}
-            subColor="text-bull"
-          />
-          <StatCard
-            label="Today's PSX P/L"
-            value={<CountUpNumber value={useShowcaseDashboard ? 17480 : Math.round(networth?.today_pnl ?? 0)} prefix={useShowcaseDashboard ? "+" : ((networth?.today_pnl ?? 0) >= 0 ? "+" : "")} />}
-            sub={!useShowcaseDashboard && networth ? `${networth.today_pnl_pct >= 0 ? "+" : ""}${networth.today_pnl_pct}%` : !useShowcaseDashboard ? "0%" : "+1.42%"}
-            subColor={!useShowcaseDashboard && networth ? ((networth.today_pnl_pct ?? 0) >= 0 ? "text-bull" : "text-bear") : "text-bull"}
-          />
         </div>
-      </div>
       )}
 
       {/* Charts */}
@@ -363,7 +437,9 @@ function Dashboard() {
           </div>
         </Card>
         <Card className="lg:col-span-2">
-          <h3 className="mb-3 text-sm font-semibold text-text-primary">{t("Spending Breakdown")}</h3>
+          <h3 className="mb-3 text-sm font-semibold text-text-primary">
+            {t("Spending Breakdown")}
+          </h3>
           {!useShowcaseDashboard && spendingByCatLoading ? (
             <div className="flex h-[220px] items-center justify-center text-sm text-text-secondary">
               {t("Loading spending breakdown...")}
@@ -398,7 +474,11 @@ function Dashboard() {
             </div>
           ) : (
             <>
-              <DonutChart data={SPENDING} centerValue={localizeDigits("132,000")} centerLabel="PKR total" />
+              <DonutChart
+                data={SPENDING}
+                centerValue={localizeDigits("132,000")}
+                centerLabel="PKR total"
+              />
               <div className="mt-2 grid grid-cols-2 gap-1.5 text-xs">
                 {SPENDING.map((s, i) => (
                   <span key={s.name} className="flex items-center gap-1.5 text-text-secondary">
@@ -425,8 +505,11 @@ function Dashboard() {
         <h3 className="mb-3 text-sm font-semibold text-text-primary">{t("Watchlist")}</h3>
         {watchlistLoading ? (
           <div className="scrollbar-none flex gap-3 overflow-x-auto pb-1">
-            {[1,2,3].map((i) => (
-              <div key={i} className="h-[120px] w-[160px] shrink-0 animate-pulse rounded-[8px] bg-surface-hover" />
+            {[1, 2, 3].map((i) => (
+              <div
+                key={i}
+                className="h-[120px] w-[160px] shrink-0 animate-pulse rounded-[8px] bg-surface-hover"
+              />
             ))}
           </div>
         ) : dashboardWatchlist.length === 0 ? (
@@ -436,56 +519,73 @@ function Dashboard() {
         ) : useShowcaseDashboard ? (
           <div className="scrollbar-none flex gap-3 overflow-x-auto pb-1">
             {(dashboardWatchlist as string[]).map((tk) => {
-            const s = STOCKS[tk];
-            const price = s?.price ?? 0;
-            const changePct = s?.changePct ?? 0;
-            return (
-              <Link
-                to="/psx"
-                key={tk}
-                className="w-[160px] shrink-0 rounded-[8px] border border-border bg-surface p-3 transition hover:border-border-hover"
-              >
-                <div className="flex items-center justify-between">
-                  <span className="font-semibold text-text-primary">{tk}</span>
-                  <Change pct={changePct} pill />
-                </div>
-                <div className="truncate text-[10px] text-text-muted">{t(s?.name ?? tk)}</div>
-                <div className="mt-1 font-mono text-lg font-bold tabular-nums text-text-primary">
-                  {fmtNum(price)}
-                </div>
-                <div className={cn("mt-1 text-[11px] font-mono tabular-nums", changePct >= 0 ? "text-bull" : "text-bear")}>
-                  {changePct >= 0 ? "+" : ""}
-                  {changePct.toFixed(2)}%
-                </div>
-              </Link>
-            );
+              const s = STOCKS[tk];
+              const price = s?.price ?? 0;
+              const changePct = s?.changePct ?? 0;
+              return (
+                <Link
+                  to="/psx"
+                  key={tk}
+                  className="w-[160px] shrink-0 rounded-[8px] border border-border bg-surface p-3 transition hover:border-border-hover"
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="font-semibold text-text-primary">{tk}</span>
+                    <Change pct={changePct} pill />
+                  </div>
+                  <div className="truncate text-[10px] text-text-muted">{t(s?.name ?? tk)}</div>
+                  <div className="mt-1 font-mono text-lg font-bold tabular-nums text-text-primary">
+                    {fmtNum(price)}
+                  </div>
+                  <div
+                    className={cn(
+                      "mt-1 text-[11px] font-mono tabular-nums",
+                      changePct >= 0 ? "text-bull" : "text-bear",
+                    )}
+                  >
+                    {changePct >= 0 ? "+" : ""}
+                    {changePct.toFixed(2)}%
+                  </div>
+                </Link>
+              );
             })}
           </div>
         ) : (
           <div className="scrollbar-none flex gap-3 overflow-x-auto pb-1">
             {(dashboardWatchlist as EnrichedWatchlistItem[]).map((item) => {
-            const price = item.price ?? 0;
-            const changePct = item.change_pct ?? 0;
-            return (
-              <Link
-                to={"/stock/" + item.symbol}
-                key={item.symbol}
-                className="w-[160px] shrink-0 rounded-[8px] border border-border bg-surface p-3 transition hover:border-border-hover"
-              >
-                <div className="flex items-center justify-between">
-                  <span className="font-semibold text-text-primary">{item.symbol}</span>
-                  <Change pct={changePct} pill />
-                </div>
-                <div className="truncate text-[10px] text-text-muted">{item.company_name}</div>
-                <div className="mt-1 font-mono text-lg font-bold tabular-nums text-text-primary">
-                  {price > 0 ? fmtNum(price) : "—"}
-                </div>
-                <div className={cn("mt-1 text-[11px] font-mono tabular-nums", changePct >= 0 ? "text-bull" : "text-bear")}>
-                  {changePct >= 0 ? "+" : ""}
-                  {changePct.toFixed(2)}%
-                </div>
-              </Link>
-            );
+              const hasPrice = item.price != null && item.price > 0;
+              const changePct = item.change_pct ?? 0;
+              return (
+                <Link
+                  to={"/stock/" + item.symbol}
+                  key={item.symbol}
+                  className="w-[160px] shrink-0 rounded-[8px] border border-border bg-surface p-3 transition hover:border-border-hover"
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="flex items-center gap-1.5 font-semibold text-text-primary">
+                      <StockLogo symbol={item.symbol} logoUrl={logoUrlFor(item.logoid)} size={18} />
+                      {item.symbol}
+                    </span>
+                    {hasPrice && <Change pct={changePct} pill />}
+                  </div>
+                  <div className="truncate text-[10px] text-text-muted">{item.company_name}</div>
+                  <div className="mt-1 font-mono text-lg font-bold tabular-nums text-text-primary">
+                    {hasPrice ? fmtNum(item.price as number) : "—"}
+                  </div>
+                  {hasPrice ? (
+                    <div
+                      className={cn(
+                        "mt-1 text-[11px] font-mono tabular-nums",
+                        changePct >= 0 ? "text-bull" : "text-bear",
+                      )}
+                    >
+                      {changePct >= 0 ? "+" : ""}
+                      {changePct.toFixed(2)}%
+                    </div>
+                  ) : (
+                    <div className="mt-1 text-[11px] text-text-muted">{t("Price unavailable")}</div>
+                  )}
+                </Link>
+              );
             })}
           </div>
         )}
@@ -501,30 +601,30 @@ function Dashboard() {
         ) : (
           <div className="scrollbar-none flex gap-4 overflow-x-auto py-3 lg:grid lg:grid-cols-3">
             {dashboardGoals.map((g) => {
-            const pct = g.target > 0 ? Math.round((g.saved / g.target) * 100) : 0;
-            return (
-              <Card key={g.name} className="w-[280px] shrink-0 lg:w-auto">
-                <div className="flex items-center gap-2">
-                  <span className="flex h-9 w-9 items-center justify-center rounded-[8px] border border-bull/20 bg-bull/[0.08] text-bull">
-                    <EmojiIcon emoji={g.emoji} size={16} />
-                  </span>
-                  <span className="font-semibold text-text-primary">{t(g.name)}</span>
-                  <span className="ml-auto font-mono text-sm font-bold tabular-nums text-bull">
-                    {pct}%
-                  </span>
-                </div>
-                <div className="mt-2 font-mono text-xs tabular-nums text-text-secondary">
-                  {fmtPKR(g.saved)} / {fmtPKR(g.target)}
-                </div>
-                <div className="mt-2 h-2 overflow-hidden rounded-full bg-elevated">
-                  <AnimatedBar
-                    value={pct}
-                    className={g.color === "bull" ? "bg-bull" : "bg-warning"}
-                  />
-                </div>
-                <p className="mt-2 text-[11px] leading-relaxed text-text-muted">{t(g.ai)}</p>
-              </Card>
-            );
+              const pct = g.target > 0 ? Math.round((g.saved / g.target) * 100) : 0;
+              return (
+                <Card key={g.name} className="w-[280px] shrink-0 lg:w-auto">
+                  <div className="flex items-center gap-2">
+                    <span className="flex h-9 w-9 items-center justify-center rounded-[8px] border border-bull/20 bg-bull/[0.08] text-bull">
+                      <EmojiIcon emoji={g.emoji} size={16} />
+                    </span>
+                    <span className="font-semibold text-text-primary">{t(g.name)}</span>
+                    <span className="ml-auto font-mono text-sm font-bold tabular-nums text-bull">
+                      {pct}%
+                    </span>
+                  </div>
+                  <div className="mt-2 font-mono text-xs tabular-nums text-text-secondary">
+                    {fmtPKR(g.saved)} / {fmtPKR(g.target)}
+                  </div>
+                  <div className="mt-2 h-2 overflow-hidden rounded-full bg-elevated">
+                    <AnimatedBar
+                      value={pct}
+                      className={g.color === "bull" ? "bg-bull" : "bg-warning"}
+                    />
+                  </div>
+                  <p className="mt-2 text-[11px] leading-relaxed text-text-muted">{t(g.ai)}</p>
+                </Card>
+              );
             })}
           </div>
         )}
@@ -579,12 +679,14 @@ function QuickAddTransactionModal({ open, onClose }: { open: boolean; onClose: (
           transaction_date: new Date().toISOString(),
         });
       } else {
-        dispatch(addTransaction({
-          merchant: merchant.trim(),
-          category: kind === "income" ? "Income" : category,
-          account,
-          amount: kind === "income" ? num : -num,
-        }));
+        dispatch(
+          addTransaction({
+            merchant: merchant.trim(),
+            category: kind === "income" ? "Income" : category,
+            account,
+            amount: kind === "income" ? num : -num,
+          }),
+        );
       }
       toast.success(t("Transaction added"));
       setMerchant("");
@@ -722,14 +824,16 @@ function QuickAddHoldingModal({ open, onClose }: { open: boolean; onClose: () =>
         createPortfolio.mutate("Main", { onSuccess: (p) => doAdd(p.id) });
       }
     } else {
-      dispatch(addHolding({
-        ticker: sym,
-        sector: stock?.sector ?? "—",
-        shares: s,
-        avgCost: ac,
-        current: cur,
-        signal: computeSignal(sym, cur, ac),
-      }));
+      dispatch(
+        addHolding({
+          ticker: sym,
+          sector: stock?.sector ?? "—",
+          shares: s,
+          avgCost: ac,
+          current: cur,
+          signal: computeSignal(sym, cur, ac),
+        }),
+      );
       toast.success(t("Holding added"));
       setTicker("");
       setShares("");
@@ -816,16 +920,24 @@ function QuickAddAlertModal({ open, onClose }: { open: boolean; onClose: () => v
         return;
       }
       title = `${stock} ${direction.toLowerCase()} PKR ${num}`;
-      meta = isLoggedIn ? { symbol: stock, direction: direction.toLowerCase(), price: num } : `Created ${new Date().toLocaleString("en-US", { month: "short", day: "numeric" })}`;
+      meta = isLoggedIn
+        ? { symbol: stock, direction: direction.toLowerCase(), price: num }
+        : `Created ${new Date().toLocaleString("en-US", { month: "short", day: "numeric" })}`;
     } else if (type === "Bill Reminder") {
       title = `${bill} — ${timing}`;
       meta = isLoggedIn ? { bill, timing } : "Recurring monthly";
     } else if (type === "Budget") {
-      if (!budgetCat) { setErr(t("Please select a budget category.")); return; }
+      if (!budgetCat) {
+        setErr(t("Please select a budget category."));
+        return;
+      }
       title = `${budgetCat} at ${budgetThreshold}% of budget`;
       meta = isLoggedIn ? { category: budgetCat, threshold: budgetThreshold } : "Monthly";
     } else {
-      if (!goal) { setErr(t("Please select a goal.")); return; }
+      if (!goal) {
+        setErr(t("Please select a goal."));
+        return;
+      }
       title = `${goal} ${goalMilestone}% reached`;
       meta = isLoggedIn ? { goal, milestone: goalMilestone } : "One-time";
     }
@@ -833,7 +945,14 @@ function QuickAddAlertModal({ open, onClose }: { open: boolean; onClose: () => v
     if (isLoggedIn) {
       createUserAlert.mutate(
         {
-          type: type === "Stock Price" ? "stock_price" : type === "Bill Reminder" ? "bill" : type === "Budget" ? "budget" : "goal",
+          type:
+            type === "Stock Price"
+              ? "stock_price"
+              : type === "Bill Reminder"
+                ? "bill"
+                : type === "Budget"
+                  ? "budget"
+                  : "goal",
           title,
           meta: typeof meta === "object" ? meta : {},
         },
@@ -850,10 +969,18 @@ function QuickAddAlertModal({ open, onClose }: { open: boolean; onClose: () => v
       );
     } else {
       const channels = [push && "Push", email && "Email"].filter(Boolean).join(" + ") || "In-app";
-      dispatch(addAlert({
-        alert: { emoji: ty.emoji, title, type: `${type} Alert`, meta: typeof meta === "string" ? meta : JSON.stringify(meta), on: true },
-        notifMsg: `New alert created: ${title} (${channels})`,
-      }));
+      dispatch(
+        addAlert({
+          alert: {
+            emoji: ty.emoji,
+            title,
+            type: `${type} Alert`,
+            meta: typeof meta === "string" ? meta : JSON.stringify(meta),
+            on: true,
+          },
+          notifMsg: `New alert created: ${title} (${channels})`,
+        }),
+      );
       toast.success(t("Alert created"));
       setPrice("");
       setBudgetThreshold("80");
@@ -920,7 +1047,9 @@ function QuickAddAlertModal({ open, onClose }: { open: boolean; onClose: () => v
               className="rounded-[6px] border border-border bg-elevated px-3 py-2 text-sm text-text-primary"
             >
               {BILLS.map((b) => (
-                <option key={b.name} value={b.name}>{b.name}</option>
+                <option key={b.name} value={b.name}>
+                  {b.name}
+                </option>
               ))}
             </select>
             <select
@@ -941,7 +1070,9 @@ function QuickAddAlertModal({ open, onClose }: { open: boolean; onClose: () => v
               className="rounded-[6px] border border-border bg-elevated px-3 py-2 text-sm text-text-primary"
             >
               {BUDGETS.map((b) => (
-                <option key={b.category} value={b.category}>{t(b.category)}</option>
+                <option key={b.category} value={b.category}>
+                  {t(b.category)}
+                </option>
               ))}
             </select>
             <select
@@ -964,7 +1095,9 @@ function QuickAddAlertModal({ open, onClose }: { open: boolean; onClose: () => v
               className="rounded-[6px] border border-border bg-elevated px-3 py-2 text-sm text-text-primary"
             >
               {GOALS.map((g) => (
-                <option key={g.name} value={g.name}>{g.emoji} {t(g.name)}</option>
+                <option key={g.name} value={g.name}>
+                  {g.emoji} {t(g.name)}
+                </option>
               ))}
             </select>
             <select

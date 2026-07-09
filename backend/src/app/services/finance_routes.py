@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
-from typing import Any
+from datetime import date, datetime, timedelta, timezone
+from typing import Any, Optional
 
 from fastapi import HTTPException
 from sqlalchemy import delete, insert, select, text, update
@@ -36,6 +36,29 @@ def _transaction_type(value: str) -> str:
     if normalized not in {"income", "expense"}:
         raise HTTPException(400, "transaction_type must be income or expense")
     return normalized
+
+
+def _as_date(value: Any) -> Optional[date]:
+    """Coerce an ISO date string to a date (asyncpg DATE columns reject strings)."""
+    if value is None or isinstance(value, date):
+        return value
+    try:
+        return date.fromisoformat(str(value)[:10])
+    except ValueError:
+        raise HTTPException(400, f"Invalid date: {value!r} (expected YYYY-MM-DD)")
+
+
+def _as_timestamp(value: Any) -> Optional[datetime]:
+    """Coerce an ISO datetime/date string to a datetime for timestamptz columns."""
+    if value is None or isinstance(value, datetime):
+        return value
+    try:
+        dt = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+    except ValueError:
+        raise HTTPException(400, f"Invalid datetime: {value!r} (expected ISO 8601)")
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return dt
 
 
 def _serialize_transaction(row: Any) -> dict[str, Any]:
@@ -122,7 +145,7 @@ async def create_transaction(uid: str, body: TransactionCreate) -> dict[str, Any
         "note": body.note,
     }
     if body.transaction_date is not None:
-        values["transaction_date"] = body.transaction_date
+        values["transaction_date"] = _as_timestamp(body.transaction_date)
     engine = get_engine()
     async with engine.begin() as conn:
         result = await conn.execute(insert(txns).values(**values).returning(txns))
@@ -136,6 +159,8 @@ async def update_transaction(uid: str, txn_id: int, body: TransactionUpdate) -> 
         values["transaction_type"] = _transaction_type(values["transaction_type"])
     if "amount" in values and values["amount"] is not None:
         values["amount"] = abs(values["amount"])
+    if "transaction_date" in values:
+        values["transaction_date"] = _as_timestamp(values["transaction_date"])
     if not values:
         raise HTTPException(400, "No fields to update")
     txns = await _table("user_transactions")
@@ -199,7 +224,7 @@ async def create_goal(uid: str, body: GoalCreate, user: dict) -> dict[str, Any]:
                 saved=body.saved,
                 color=body.color,
                 ai_tip=body.ai_tip,
-                target_date=body.target_date,
+                target_date=_as_date(body.target_date),
             )
             .returning(goals),
         )
@@ -341,7 +366,7 @@ async def create_bill(uid: str, body: BillCreate, user: dict) -> dict[str, Any]:
                 user_id=uid,
                 name=body.name.strip(),
                 amount=body.amount,
-                due_date=body.due_date,
+                due_date=_as_date(body.due_date),
                 status=body.status,
                 recurring=body.recurring,
             )
@@ -353,6 +378,8 @@ async def create_bill(uid: str, body: BillCreate, user: dict) -> dict[str, Any]:
 
 async def update_bill(uid: str, bill_id: int, body: BillUpdate) -> dict[str, Any]:
     values = body.model_dump(exclude_unset=True)
+    if "due_date" in values:
+        values["due_date"] = _as_date(values["due_date"])
     if not values:
         raise HTTPException(400, "No fields to update")
     bills = await _table("user_bills")

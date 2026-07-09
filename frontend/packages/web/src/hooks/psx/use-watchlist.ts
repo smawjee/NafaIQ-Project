@@ -37,43 +37,42 @@ export function useWatchlist() {
     load();
   }, [load]);
 
-  const add = useCallback(async (symbol: string) => {
-    const sym = symbol.toUpperCase().trim();
-    setSymbols((prev) => {
-      if (prev.includes(sym)) return prev;
-      return [...prev, sym];
-    });
-    try {
-      if (!user || isDemo) return;
-      await supabase
-        .from("user_watchlist")
-        .upsert(
-          { symbol: sym, user_id: user.id },
-          { onConflict: "user_id,symbol" },
-        );
-    } catch {
-      // Demo and anonymous users intentionally remain local-only.
-    }
-    qc.invalidateQueries({ queryKey: ["watchlist"] });
-    qc.invalidateQueries({ queryKey: ["enriched-watchlist"] });
-  }, [isDemo, user, qc]);
+  const add = useCallback(
+    async (symbol: string) => {
+      const sym = symbol.toUpperCase().trim();
+      setSymbols((prev) => {
+        if (prev.includes(sym)) return prev;
+        return [...prev, sym];
+      });
+      try {
+        if (!user || isDemo) return;
+        await supabase
+          .from("user_watchlist")
+          .upsert({ symbol: sym, user_id: user.id }, { onConflict: "user_id,symbol" });
+      } catch {
+        // Demo and anonymous users intentionally remain local-only.
+      }
+      qc.invalidateQueries({ queryKey: ["watchlist"] });
+      qc.invalidateQueries({ queryKey: ["enriched-watchlist"] });
+    },
+    [isDemo, user, qc],
+  );
 
-  const remove = useCallback(async (symbol: string) => {
-    const sym = symbol.toUpperCase().trim();
-    setSymbols((prev) => prev.filter((s) => s !== sym));
-    try {
-      if (!user || isDemo) return;
-      await supabase
-        .from("user_watchlist")
-        .delete()
-        .eq("user_id", user.id)
-        .eq("symbol", sym);
-    } catch {
-      // Demo and anonymous users intentionally remain local-only.
-    }
-    qc.invalidateQueries({ queryKey: ["watchlist"] });
-    qc.invalidateQueries({ queryKey: ["enriched-watchlist"] });
-  }, [isDemo, user, qc]);
+  const remove = useCallback(
+    async (symbol: string) => {
+      const sym = symbol.toUpperCase().trim();
+      setSymbols((prev) => prev.filter((s) => s !== sym));
+      try {
+        if (!user || isDemo) return;
+        await supabase.from("user_watchlist").delete().eq("user_id", user.id).eq("symbol", sym);
+      } catch {
+        // Demo and anonymous users intentionally remain local-only.
+      }
+      qc.invalidateQueries({ queryKey: ["watchlist"] });
+      qc.invalidateQueries({ queryKey: ["enriched-watchlist"] });
+    },
+    [isDemo, user, qc],
+  );
 
   return { symbols, loading, add, remove };
 }
@@ -84,6 +83,7 @@ export interface EnrichedWatchlistItem {
   symbol: string;
   company_name: string;
   sector: string;
+  logoid: string | null;
   price: number | null;
   change: number | null;
   change_pct: number | null;
@@ -110,10 +110,7 @@ export function useAddToWatchlist() {
       if (!user) throw new Error("Not authenticated");
       await supabase
         .from("user_watchlist")
-        .upsert(
-          { symbol: sym, user_id: user.id },
-          { onConflict: "user_id,symbol" },
-        );
+        .upsert({ symbol: sym, user_id: user.id }, { onConflict: "user_id,symbol" });
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["watchlist"] });
@@ -129,11 +126,7 @@ export function useRemoveFromWatchlist() {
     mutationFn: async (symbol: string) => {
       const sym = symbol.toUpperCase().trim();
       if (!user) throw new Error("Not authenticated");
-      await supabase
-        .from("user_watchlist")
-        .delete()
-        .eq("user_id", user.id)
-        .eq("symbol", sym);
+      await supabase.from("user_watchlist").delete().eq("user_id", user.id).eq("symbol", sym);
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["watchlist"] });
