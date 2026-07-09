@@ -1,5 +1,5 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
-import { useState } from "react";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { useEffect, useState } from "react";
 import { Sparkles, ArrowRight, Plus, TrendingUp, Calendar, Wallet, Target } from "lucide-react";
 import { toast } from "sonner";
 import { Card, StatCard } from "@/components/shared/Card";
@@ -112,7 +112,15 @@ function Dashboard() {
   const { isDemo } = useDemo();
   const { t } = useLang();
   const { theme } = useTheme();
+  const navigate = useNavigate();
   const useShowcaseDashboard = isDemo;
+
+  // Onboarding: real users who haven't chosen a plan yet pick one first;
+  // everything downstream is gated by that choice.
+  const needsPlanSelection = !!user && !isDemo && profile !== null && !profile.plan_selected_at;
+  useEffect(() => {
+    if (needsPlanSelection) navigate({ to: "/plans" });
+  }, [needsPlanSelection, navigate]);
   const firstName = (profile?.display_name || user?.email?.split("@")[0] || "Investor").split(
     " ",
   )[0];

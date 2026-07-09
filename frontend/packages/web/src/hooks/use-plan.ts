@@ -1,5 +1,12 @@
 import { useAuth } from "@/hooks/use-auth";
-import { getPlanFeatures, normalizePlan, PLAN_RANK, type Plan, type PlanFeatures } from "@/lib/plan-features";
+import {
+  getPlanFeatures,
+  normalizePlan,
+  PLAN_RANK,
+  type Plan,
+  type PlanFeatures,
+} from "@/lib/plan-features";
+import { userPost } from "@/lib/psx/client";
 import { useMutation } from "@tanstack/react-query";
 
 type LimitFeature = "portfolios" | "budgets" | "goals" | "price_alerts";
@@ -33,12 +40,18 @@ export function usePlan() {
 }
 
 export function useUpgradePlan() {
-  const { user } = useAuth();
+  const { user, refreshProfile } = useAuth();
 
   return useMutation({
     mutationFn: async (newPlan: Plan) => {
       if (!user) throw new Error("Not authenticated");
-      throw new Error(`${newPlan} upgrades require the server-side billing/admin flow.`);
+      // Sanctioned plan-change path (backend service connection); the DB
+      // trigger still blocks direct client-side plan updates. When payments
+      // land, Pro/Premium should route through checkout before this call.
+      return userPost<{ plan: string; plan_selected_at: string }>("/api/profile/plan", {
+        plan: newPlan,
+      });
     },
+    onSuccess: () => refreshProfile(),
   });
 }
