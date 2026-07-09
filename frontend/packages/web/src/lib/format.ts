@@ -46,3 +46,29 @@ export function formatSignedPercent(value: number, decimals = 2): string {
 export function formatSignedPKR(value: number, decimals = 0): string {
   return `${leadingSign(value)}PKR ${formatNumber(Math.abs(value), decimals)}`;
 }
+
+/** Compact magnitude, e.g. 2.4e12 -> "2.4T", 2.15e11 -> "215B", 4.5e7 -> "45M". */
+export function formatCompact(value: number): string {
+  const abs = Math.abs(value);
+  const sign = value < 0 ? "-" : "";
+  const units: [number, string][] = [
+    [1e12, "T"],
+    [1e9, "B"],
+    [1e6, "M"],
+    [1e3, "K"],
+  ];
+  for (const [threshold, suffix] of units) {
+    if (abs >= threshold) {
+      const scaled = abs / threshold;
+      // One decimal below 100 (2.4T, 45.6B), none above (215B, 312K).
+      const digits = scaled < 100 ? 1 : 0;
+      return `${sign}${localizeDigits(scaled.toFixed(digits))}${suffix}`;
+    }
+  }
+  return `${sign}${formatNumber(abs, 0)}`;
+}
+
+/** Compact currency, e.g. 2.15e11 -> "PKR 215B". */
+export function formatCompactPKR(value: number): string {
+  return `PKR ${formatCompact(value)}`;
+}

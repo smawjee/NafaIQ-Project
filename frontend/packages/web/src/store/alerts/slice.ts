@@ -58,12 +58,6 @@ const alertsSlice = createSlice({
   },
 });
 
-export const {
-  addAlert,
-  toggleAlert,
-  removeAlert,
-  markNotifRead,
-  clearAllNotifs,
-  resetAlerts,
-} = alertsSlice.actions;
+export const { addAlert, toggleAlert, removeAlert, markNotifRead, clearAllNotifs, resetAlerts } =
+  alertsSlice.actions;
 export default alertsSlice.reducer;

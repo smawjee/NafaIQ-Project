@@ -8,6 +8,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from app.api.deps import optional_user
 from app.middleware.rate_limit import limiter
 from app.services import market as market_service
+from app.services.memcache import mem_cache
 from app.services.psx.benchmark import get_kse100_latest, get_kse100_series
 from app.services.psx.prices import get_latest_price
 from app.services.psx.sector_map import get_sector, get_sector_map
@@ -66,6 +67,9 @@ async def kse100(
     days: int = 365,
     _user: Annotated[Optional[dict], Depends(optional_user)] = None,
 ):
-    series = await get_kse100_series(days=days)
-    latest = await get_kse100_latest()
-    return {"latest": latest, "series": series}
+    async def load():
+        series = await get_kse100_series(days=days)
+        latest = await get_kse100_latest()
+        return {"latest": latest, "series": series}
+
+    return await mem_cache.get_or_load(f"kse100:{days}", 60.0, load)

@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 import logging
+import time
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.gzip import GZipMiddleware
 import structlog
 
 from app.config import settings
@@ -100,6 +102,9 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+# Compress large JSON payloads (market snapshot is ~500 rows).
+app.add_middleware(GZipMiddleware, minimum_size=1024)
+
 app.add_middleware(BearerTokenMiddleware)
 
 app.add_middleware(
@@ -109,6 +114,25 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Timing log for hot market endpoints, to compare before/after cache work.
+_HOT_PATH_PREFIXES = ("/api/market", "/api/quote", "/api/symbols", "/api/index", "/api/sectors")
+
+
+@app.middleware("http")
+async def _hot_endpoint_timing(request: Request, call_next):
+    if not request.url.path.startswith(_HOT_PATH_PREFIXES):
+        return await call_next(request)
+    start = time.perf_counter()
+    response = await call_next(request)
+    elapsed_ms = round((time.perf_counter() - start) * 1000, 1)
+    log.info(
+        "hot_endpoint",
+        path=request.url.path,
+        ms=elapsed_ms,
+        status=response.status_code,
+    )
+    return response
 
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)

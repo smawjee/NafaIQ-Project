@@ -7,6 +7,8 @@ import type {
   ApiAnnouncementItem,
   ApiDividendEvent,
   ApiIndexBar,
+  ApiIndexCard,
+  ApiScreenerMetric,
   ApiSectorDataItem,
   ApiHeatmapResponse,
   ApiIndicatorPayload,
@@ -18,7 +20,9 @@ import type {
   ApiBacktestResult,
 } from "./types";
 
-const BASE = import.meta.env.VITE_PSX_API_URL || "http://localhost:8000";
+// 127.0.0.1, not localhost: on Windows, "localhost" resolves to IPv6 ::1
+// first and pays a ~2s connect-fallback per request when the API binds IPv4.
+const BASE = import.meta.env.VITE_PSX_API_URL || "http://127.0.0.1:8000";
 const TOKEN = import.meta.env.VITE_PSX_API_TOKEN || "";
 
 async function get<T>(path: string): Promise<T> {
@@ -144,6 +148,14 @@ export function fetchDividends(symbol: string): Promise<ApiDividendEvent[]> {
 
 export function fetchIndexData(code: string): Promise<ApiIndexBar[]> {
   return get<ApiIndexBar[]>(`/api/index/${code}`);
+}
+
+export function fetchIndexCards(): Promise<ApiIndexCard[]> {
+  return get<ApiIndexCard[]>("/api/index/cards");
+}
+
+export function fetchScreenerMetrics(): Promise<ApiScreenerMetric[]> {
+  return get<ApiScreenerMetric[]>("/api/market/metrics");
 }
 
 export function fetchSectors(): Promise<ApiSectorDataItem[]> {
@@ -311,11 +323,19 @@ export function fetchAllAlerts(): Promise<AppAlert[]> {
   return userGet<AppAlert[]>("/api/alerts");
 }
 
-export function createAlert(data: { type: AppAlert["type"]; title: string; meta?: Record<string, unknown>; enabled?: boolean }): Promise<AppAlert> {
+export function createAlert(data: {
+  type: AppAlert["type"];
+  title: string;
+  meta?: Record<string, unknown>;
+  enabled?: boolean;
+}): Promise<AppAlert> {
   return userPost<AppAlert>("/api/alerts", data);
 }
 
-export function toggleAlert(id: number, enabled: boolean): Promise<{ id: number; enabled: boolean }> {
+export function toggleAlert(
+  id: number,
+  enabled: boolean,
+): Promise<{ id: number; enabled: boolean }> {
   return userPatch<{ id: number; enabled: boolean }>(`/api/alerts/${id}`, { enabled });
 }
 
@@ -323,6 +343,16 @@ export function deleteAlert(id: number): Promise<{ deleted: number }> {
   return userDelete<{ deleted: number }>(`/api/alerts/${id}`);
 }
 
-export function evaluateAlerts(): Promise<{ price_alerts: number; bill_reminders: number; budget_alerts: number; goal_alerts: number }> {
-  return userPost<{ price_alerts: number; bill_reminders: number; budget_alerts: number; goal_alerts: number }>("/api/alerts/evaluate", {});
+export function evaluateAlerts(): Promise<{
+  price_alerts: number;
+  bill_reminders: number;
+  budget_alerts: number;
+  goal_alerts: number;
+}> {
+  return userPost<{
+    price_alerts: number;
+    bill_reminders: number;
+    budget_alerts: number;
+    goal_alerts: number;
+  }>("/api/alerts/evaluate", {});
 }

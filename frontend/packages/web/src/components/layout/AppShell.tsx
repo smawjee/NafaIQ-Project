@@ -31,6 +31,9 @@ import { usePermissions } from "@/hooks/use-permissions";
 import type { Plan } from "@/lib/plan-features";
 import { useLandingTheme } from "@/hooks/use-landing-theme";
 import { DemoBanner } from "@/components/demo/DemoBanner";
+import { useDemo } from "@/hooks/use-demo";
+import { useAppDispatch, useAppSelector } from "@/store/hooks";
+import { selectNotifications, markNotifRead } from "@/store/alerts";
 import { StockSearchBox } from "@/components/search/StockSearchBox";
 import { useLang } from "@/hooks/use-lang";
 import { useNotifications, useMarkNotificationRead } from "@/hooks/use-notifications";
@@ -48,11 +51,6 @@ const NAV = [
 ] as const;
 
 const PRIMARY_NAV = NAV.slice(0, 6);
-
-const NOTIFICATIONS = [
-  { id: 1, title: "HBL flashed a Strong Buy", time: "2m ago", tone: "bull" },
-  { id: 2, title: "Dining budget exceeded by 15%", time: "1h ago", tone: "warning" },
-] as const;
 
 const LABELS: Record<string, string> = {
   app: "Dashboard",
@@ -228,8 +226,13 @@ function StockSearch() {
 function NotificationBell() {
   const { t } = useLang();
   const { user } = useAuth();
+  const { isDemo } = useDemo();
   const isLoggedIn = !!user;
-  const { data: apiNotifications } = useNotifications();
+  // Demo users read the local Redux notifications, never the backend.
+  const realUserEnabled = isLoggedIn && !isDemo;
+  const dispatch = useAppDispatch();
+  const localNotifications = useAppSelector(selectNotifications);
+  const { data: apiNotifications } = useNotifications(realUserEnabled);
   const { data: kse100 } = useKse100(30, isLoggedIn);
   const markRead = useMarkNotificationRead();
   const [open, setOpen] = useState(false);
@@ -258,10 +261,19 @@ function NotificationBell() {
           },
         ]
       : [];
-  const display = isLoggedIn && apiNotifications ? apiNotifications : null;
+  const display = realUserEnabled && apiNotifications ? apiNotifications : null;
+  // Demo/anonymous fallback: the Redux notifications that demo alerts create.
+  const localItems = localNotifications.map((n, i) => ({
+    id: `local-${i}`,
+    title: n.msg,
+    time: n.time,
+    tone: "bull" as const,
+    read: n.read,
+    link: null as string | null,
+  }));
   const unreadCount = display
     ? display.filter((n) => !n.read).length
-    : NOTIFICATIONS.length + liveKseNotification.length;
+    : localItems.filter((n) => !n.read).length + liveKseNotification.length;
   const items = display
     ? [
         ...liveKseNotification,
@@ -279,10 +291,7 @@ function NotificationBell() {
           link: n.link,
         })),
       ]
-    : [
-        ...liveKseNotification,
-        ...NOTIFICATIONS.map((n) => ({ ...n, link: null as string | null, read: true })),
-      ];
+    : [...liveKseNotification, ...localItems.slice(0, 9)];
 
   return (
     <div ref={ref} className="relative shrink-0">
@@ -327,9 +336,15 @@ function NotificationBell() {
                 <li
                   key={n.id}
                   onClick={() => {
-                    if (isLoggedIn && display) {
+                    if (display) {
                       const orig = display.find((x) => String(x.id) === n.id);
                       if (orig && !orig.read) markRead.mutate(orig.id);
+                      if (n.link) window.location.href = n.link;
+                    } else {
+                      if (n.id.startsWith("local-")) {
+                        const idx = Number(n.id.slice("local-".length));
+                        if (!Number.isNaN(idx) && !n.read) dispatch(markNotifRead(idx));
+                      }
                       if (n.link) window.location.href = n.link;
                     }
                   }}

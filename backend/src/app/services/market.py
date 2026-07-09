@@ -13,9 +13,24 @@ from app.scrapers.dps import DPSScraper
 from app.schemas.market import BacktestParams, ScreenerParams
 from app.services.backtest import run_backtest
 from app.services.cache import CacheLayer
-from app.services.indicators import compute_indicators
+from app.services.indicators import compute_indicators, rsi_from_closes
+from app.services.memcache import mem_cache
 
 DEFAULT_INDICATORS = ["rsi14", "sma20", "sma50", "sma200", "macd", "bollinger", "atr14"]
+
+# In-process TTLs for hot reads (seconds). Supabase stays the persistent
+# store; these just stop every request from paying a cloud round-trip.
+TTL_SNAPSHOT = 5.0
+TTL_SYMBOLS = 900.0
+TTL_INDEX = 60.0
+TTL_SECTORS = 15.0
+TTL_HISTORY = 3600.0  # EOD candles — refreshed by the nightly backfill job
+TTL_PROFILE = 1800.0
+TTL_FUNDAMENTALS = 1800.0
+TTL_SECTOR_AVG = 30.0
+TTL_SCREENER_METRICS = 120.0
+
+INDEX_CARD_CODES = ["KSE100", "KSE30", "KMI30", "ALLSHR"]
 
 
 @lru_cache(maxsize=1)
@@ -23,42 +38,69 @@ def get_cache() -> CacheLayer:
     return CacheLayer(DPSScraper())
 
 
-# ---------- passthrough reads (thin cache delegation) ----------
+# ---------- passthrough reads (memory TTL -> Supabase -> scrape) ----------
+
+
+async def _snapshot_rows() -> list[dict[str, Any]]:
+    async def load() -> list[dict[str, Any]]:
+        items = await get_cache().get_market_snapshot()
+        return [i.model_dump(mode="json") for i in items]
+
+    return await mem_cache.get_or_load("market_snapshot", TTL_SNAPSHOT, load)
 
 
 async def market_snapshot() -> list[dict[str, Any]]:
-    items = await get_cache().get_market_snapshot()
-    return [i.model_dump(mode="json") for i in items]
+    return await _snapshot_rows()
 
 
 async def quote(symbol: str) -> dict[str, Any]:
-    items = await get_cache().get_market_snapshot()
-    for i in items:
-        if i.symbol == symbol.upper():
-            return i.model_dump(mode="json")
+    sym = symbol.upper()
+    # In-memory scan of the cached snapshot — no per-quote network fetch.
+    for row in await _snapshot_rows():
+        if row["symbol"] == sym:
+            return row
     raise HTTPException(404, f"Symbol {symbol} not found in market snapshot")
 
 
 async def history(symbol: str, days: int = 250) -> list[dict[str, Any]]:
-    bars = await get_cache().get_history(symbol, days)
-    return [b.model_dump(mode="json") for b in bars]
+    sym = symbol.upper()
+
+    async def load() -> list[dict[str, Any]]:
+        bars = await get_cache().get_history(sym, days)
+        return [b.model_dump(mode="json") for b in bars]
+
+    return await mem_cache.get_or_load(f"history:{sym}:{days}", TTL_HISTORY, load)
 
 
 async def symbols() -> list[dict[str, Any]]:
-    items = await get_cache().get_symbols()
-    return [i.model_dump(mode="json") for i in items]
+    async def load() -> list[dict[str, Any]]:
+        items = await get_cache().get_symbols()
+        return [i.model_dump(mode="json") for i in items]
+
+    return await mem_cache.get_or_load("symbols", TTL_SYMBOLS, load)
 
 
 async def fundamentals(symbol: str) -> dict[str, Any]:
-    f = await get_cache().get_fundamentals(symbol)
-    return f.model_dump(mode="json")
+    sym = symbol.upper()
+
+    async def load() -> dict[str, Any]:
+        f = await get_cache().get_fundamentals(sym)
+        return f.model_dump(mode="json")
+
+    return await mem_cache.get_or_load(f"fundamentals:{sym}", TTL_FUNDAMENTALS, load)
 
 
 async def profile(symbol: str) -> dict[str, Any]:
-    p = await get_cache().get_profile(symbol)
-    if p is None:
+    sym = symbol.upper()
+
+    async def load() -> dict[str, Any] | None:
+        p = await get_cache().get_profile(sym)
+        return p.model_dump(mode="json") if p is not None else None
+
+    result = await mem_cache.get_or_load(f"profile:{sym}", TTL_PROFILE, load)
+    if result is None:
         raise HTTPException(404, f"Profile for {symbol} not found")
-    return p.model_dump(mode="json")
+    return result
 
 
 async def announcements(symbol: str | None = None, limit: int = 50) -> list[dict[str, Any]]:
@@ -72,13 +114,50 @@ async def dividends(symbol: str) -> list[dict[str, Any]]:
 
 
 async def index_eod(code: str) -> list[dict[str, Any]]:
-    bars = await get_cache().get_index_eod(code)
-    return [b.model_dump(mode="json") for b in bars]
+    c = code.upper()
+
+    async def load() -> list[dict[str, Any]]:
+        bars = await get_cache().get_index_eod(c)
+        return [b.model_dump(mode="json") for b in bars]
+
+    return await mem_cache.get_or_load(f"index:{c}", TTL_INDEX, load)
+
+
+async def index_cards() -> list[dict[str, Any]]:
+    """Latest + previous close per benchmark index — one light payload for
+    the dashboard cards instead of four full-history downloads."""
+
+    async def load() -> list[dict[str, Any]]:
+        out: list[dict[str, Any]] = []
+        for code in INDEX_CARD_CODES:
+            bars = await get_cache().get_index_latest(code, bars=2)
+            if not bars:
+                continue
+            latest = bars[0]
+            prev = bars[1] if len(bars) > 1 else None
+            change = (latest.close - prev.close) if prev else 0.0
+            change_pct = (change / prev.close * 100) if prev and prev.close else 0.0
+            out.append(
+                {
+                    "code": code,
+                    "date": latest.date.isoformat() if latest.date else None,
+                    "close": latest.close,
+                    "prev_close": prev.close if prev else None,
+                    "change": round(change, 2),
+                    "change_pct": round(change_pct, 2),
+                }
+            )
+        return out
+
+    return await mem_cache.get_or_load("index_cards", TTL_INDEX, load)
 
 
 async def sectors() -> list[dict[str, Any]]:
-    items = await get_cache().get_sectors()
-    return [i.model_dump(mode="json") for i in items]
+    async def load() -> list[dict[str, Any]]:
+        items = await get_cache().get_sectors()
+        return [i.model_dump(mode="json") for i in items]
+
+    return await mem_cache.get_or_load("sectors", TTL_SECTORS, load)
 
 
 async def indicators(symbol: str, indicator_list: list[str] | None = None) -> dict[str, Any]:
@@ -217,8 +296,40 @@ async def heatmap() -> dict[str, Any]:
 
 async def sector_averages() -> list[dict[str, Any]]:
     """Per-sector average % change via SQLAlchemy Core (join+aggregation)."""
-    async with connect() as conn:
-        return await repo.sector_averages(conn)
+
+    async def load() -> list[dict[str, Any]]:
+        async with connect() as conn:
+            return await repo.sector_averages(conn)
+
+    return await mem_cache.get_or_load("sector_averages", TTL_SECTOR_AVG, load)
+
+
+async def screener_metrics() -> list[dict[str, Any]]:
+    """Per-symbol RSI (from OHLCV history) and market cap (listed shares *
+    live price), for the screener/movers tables. Nulls where unavailable —
+    callers must render a dash rather than a placeholder number.
+
+    Computed from our own cached DB (one closes query + one market-cap query),
+    so it never scrapes on the request path; memoized to keep it cheap.
+    """
+
+    async def load() -> list[dict[str, Any]]:
+        async with connect() as conn:
+            caps = await repo.market_caps(conn)
+            closes = await repo.recent_closes(conn, days=60)
+        symbols = set(caps) | set(closes)
+        out: list[dict[str, Any]] = []
+        for sym in symbols:
+            out.append(
+                {
+                    "symbol": sym,
+                    "rsi": rsi_from_closes(closes.get(sym, [])),
+                    "market_cap": caps.get(sym),
+                }
+            )
+        return out
+
+    return await mem_cache.get_or_load("screener_metrics", TTL_SCREENER_METRICS, load)
 
 
 async def history_coverage() -> list[dict[str, Any]]:

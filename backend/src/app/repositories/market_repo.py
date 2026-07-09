@@ -59,6 +59,48 @@ async def sector_averages(conn: Executor) -> list[dict[str, Any]]:
     ]
 
 
+async def market_caps(conn: Executor) -> dict[str, float]:
+    """Market cap per symbol = listed_shares * live price, from psx_profile
+    joined to psx_market_snapshot. Only symbols with both values present."""
+    await ensure_reflected()
+    snapshot = get_table("psx_market_snapshot")
+    profile_t = get_table("psx_profile")
+    stmt = (
+        select(
+            snapshot.c.symbol,
+            snapshot.c.price,
+            profile_t.c.listed_shares,
+        )
+        .select_from(snapshot.join(profile_t, snapshot.c.symbol == profile_t.c.symbol))
+        .where(profile_t.c.listed_shares.isnot(None))
+        .where(profile_t.c.listed_shares > 0)
+        .where(snapshot.c.price.isnot(None))
+        .where(snapshot.c.price > 0)
+    )
+    rows = (await conn.execute(stmt)).all()
+    return {r.symbol: float(r.price) * float(r.listed_shares) for r in rows}
+
+
+async def recent_closes(conn: Executor, days: int = 60) -> dict[str, list[float]]:
+    """Recent daily closes per symbol (oldest -> newest) for indicator math."""
+    await ensure_reflected()
+    stmt = text(
+        """
+        SELECT symbol, close
+        FROM psx_ohlcv
+        WHERE date >= CURRENT_DATE - (:days * INTERVAL '1 day')
+        ORDER BY symbol, date
+        """
+    )
+    rows = (await conn.execute(stmt, {"days": days})).all()
+    out: dict[str, list[float]] = {}
+    for r in rows:
+        if r.close is None:
+            continue
+        out.setdefault(r.symbol, []).append(float(r.close))
+    return out
+
+
 async def history_coverage(conn: Executor) -> list[dict[str, Any]]:
     """Days of historical OHLCV data per symbol (verifies the 20-day guarantee)."""
     await ensure_reflected()

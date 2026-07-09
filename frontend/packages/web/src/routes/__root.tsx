@@ -21,6 +21,7 @@ import { AuthProvider, useAuth } from "@/hooks/use-auth";
 import { LandingThemeProvider } from "@/hooks/use-landing-theme";
 import { LearnProvider } from "@/hooks/learn/use-learn";
 import { Toaster } from "@/components/ui/sonner";
+import { ConfirmProvider } from "@/components/shared/ConfirmDialog";
 import { store } from "../store";
 
 function NotFoundComponent() {
@@ -262,8 +263,10 @@ function RootComponent() {
         <AuthProvider>
           <LearnProvider>
             <LandingThemeProvider>
-              <AuthGate />
-              <Toaster />
+              <ConfirmProvider>
+                <AuthGate />
+                <Toaster />
+              </ConfirmProvider>
             </LandingThemeProvider>
           </LearnProvider>
         </AuthProvider>

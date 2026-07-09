@@ -109,6 +109,17 @@ class IndicatorResult(BaseModel):
     indicators: dict
 
 
+class ScreenerMetric(BaseModel):
+    """Per-symbol screener metrics computed from our own cached data.
+
+    Both fields are nullable: rsi is None when there is not enough OHLCV
+    history, market_cap is None when listed shares or price are unknown.
+    """
+    symbol: str
+    rsi: Optional[float] = None
+    market_cap: Optional[float] = None
+
+
 class ScreenerParams(BaseModel):
     sector: Optional[str] = None
     pe_max: Optional[float] = None

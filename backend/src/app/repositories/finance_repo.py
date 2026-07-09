@@ -190,9 +190,31 @@ async def delete_goal(conn: Executor, uid: str, goal_id: int) -> Optional[int]:
 
 
 async def list_budgets(conn: Executor, uid: str) -> list[dict[str, Any]]:
-    budgets = await _table("user_budgets")
+    # `spent` is computed live from the current month's expense transactions
+    # (category-matched, case-insensitive, excluding stock trades) so budget
+    # usage always reflects real spending without depending on a sync call.
     result = await conn.execute(
-        select(budgets).where(budgets.c.user_id == uid).order_by(budgets.c.category)
+        text(
+            """
+            SELECT
+                b.id, b.user_id, b.category,
+                COALESCE((
+                    SELECT SUM(t.amount)
+                    FROM user_transactions t
+                    WHERE t.user_id = b.user_id
+                      AND t.transaction_type = 'expense'
+                      AND (t.source IS DISTINCT FROM 'stock_trade')
+                      AND LOWER(t.category) = LOWER(b.category)
+                      AND DATE_TRUNC('month', t.transaction_date)
+                          = DATE_TRUNC('month', CURRENT_DATE)
+                ), 0)::numeric AS spent,
+                b.limit_amount, b.period, b.tip, b.created_at
+            FROM user_budgets b
+            WHERE b.user_id = :uid
+            ORDER BY b.category
+            """
+        ),
+        {"uid": uid},
     )
     return [_budget(r) for r in result.mappings().all()]
 
@@ -261,14 +283,31 @@ async def update_bill(
 
 async def mark_bill_paid(conn: Executor, uid: str, bill_id: int) -> Optional[dict[str, Any]]:
     bills = await _table("user_bills")
-    result = await conn.execute(
-        update(bills)
-        .where(bills.c.id == bill_id, bills.c.user_id == uid)
-        .values(status="PAID", paid_at=text("now()"))
-        .returning(bills)
+    existing = await conn.execute(
+        select(bills.c.recurring).where(bills.c.id == bill_id, bills.c.user_id == uid)
     )
-    row = result.mappings().first()
-    return _bill(row) if row else None
+    row = existing.first()
+    if row is None:
+        return None
+    if row[0]:  # recurring: record the payment, then roll to next month's cycle
+        result = await conn.execute(
+            update(bills)
+            .where(bills.c.id == bill_id, bills.c.user_id == uid)
+            .values(
+                status="UPCOMING",
+                paid_at=text("now()"),
+                due_date=text("(COALESCE(due_date, CURRENT_DATE) + INTERVAL '1 month')::date"),
+            )
+            .returning(bills)
+        )
+    else:  # one-off: mark paid
+        result = await conn.execute(
+            update(bills)
+            .where(bills.c.id == bill_id, bills.c.user_id == uid)
+            .values(status="PAID", paid_at=text("now()"))
+            .returning(bills)
+        )
+    return _bill(result.mappings().first())
 
 
 async def delete_bill(conn: Executor, uid: str, bill_id: int) -> Optional[int]:

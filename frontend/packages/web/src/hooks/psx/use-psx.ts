@@ -1,7 +1,7 @@
 import { useEffect } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { Candle } from "@/lib/data";
-import type { UiTicker, UiIndex, UiSector } from "@/lib/psx/types";
+import type { ApiMarketSnapshotItem, UiTicker, UiIndex, UiSector } from "@/lib/psx/types";
 import { supabase } from "@/integrations/supabase/client";
 import {
   fetchMarketSnapshot,
@@ -13,6 +13,8 @@ import {
   fetchAnnouncements,
   fetchDividends,
   fetchIndexData,
+  fetchIndexCards,
+  fetchScreenerMetrics,
   fetchHeatmap,
   fetchSignal,
   fetchBatchSignals,
@@ -24,6 +26,8 @@ export function usePsxLiveMarket() {
     queryFn: () => fetchMarketSnapshot(),
     staleTime: 5_000,
     refetchInterval: 8_000,
+    // Keep showing the last snapshot while a poll is in flight — no blanking.
+    placeholderData: keepPreviousData,
   });
 }
 
@@ -69,10 +73,7 @@ export function useMarketTickers(limit = 20): UiTicker[] {
     }));
 }
 
-export function useMarketMovers(
-  sort: "gainers" | "losers" | "volume",
-  limit = 6,
-): UiTicker[] {
+export function useMarketMovers(sort: "gainers" | "losers" | "volume", limit = 6): UiTicker[] {
   const { data: snapshot } = usePsxLiveMarket();
   const { data: symbols } = usePsxSymbols();
   if (!snapshot || !symbols) return [];
@@ -92,14 +93,11 @@ export function useMarketMovers(
       .filter((s) => s.changePct > 0)
       .sort((a, b) => b.changePct - a.changePct)
       .slice(0, limit);
-  if (sort === "losers")
-    return arr.sort((a, b) => a.changePct - b.changePct).slice(0, limit);
+  if (sort === "losers") return arr.sort((a, b) => a.changePct - b.changePct).slice(0, limit);
   return arr.sort((a, b) => b.volume - a.volume).slice(0, limit);
 }
 
-export function useMarketTickerForSymbol(
-  symbol: string | undefined,
-): UiTicker | null {
+export function useMarketTickerForSymbol(symbol: string | undefined): UiTicker | null {
   const { data: snapshot } = usePsxLiveMarket();
   if (!snapshot || !symbol) return null;
   const found = snapshot.find((s) => s.symbol === symbol.toUpperCase());
@@ -115,51 +113,61 @@ export function useMarketTickerForSymbol(
   };
 }
 
-export function useIndexCards(): UiIndex[] {
-  const { data: kse1 } = usePsxIndexData("KSE100");
-  const { data: kse3 } = usePsxIndexData("KSE30");
-  const { data: kmi } = usePsxIndexData("KMI30");
-  const { data: ash } = usePsxIndexData("ALLSHR");
+const INDEX_CARD_NAMES: Record<string, string> = {
+  KSE100: "KSE-100",
+  KSE30: "KSE-30",
+  KMI30: "KMI-30",
+  ALLSHR: "KSE All Share",
+};
 
-  function toUi(
-    data: { close: number; date: string; volume: number | null }[] | undefined,
-    name: string,
-  ): UiIndex {
-    if (!data || data.length < 2)
-      return { name, value: 0, change: 0, changePct: 0 };
-    const latest = data[data.length - 1].close;
-    const prev = data[data.length - 2].close;
-    return {
-      name,
-      value: latest,
-      change: +(latest - prev).toFixed(2),
-      changePct: +(prev !== 0 ? ((latest - prev) / prev) * 100 : 0).toFixed(2),
-    };
-  }
-
-  return [
-    toUi(kse1, "KSE-100"),
-    toUi(kse3, "KSE-30"),
-    toUi(kmi, "KMI-30"),
-    toUi(ash, "KSE All Share"),
-  ];
-}
-
-export function usePsxSnapshot() {
+/** Latest + previous close per benchmark index from the lightweight
+ * /api/index/cards endpoint (one small request instead of four full
+ * index-history downloads). */
+export function usePsxIndexCards() {
   return useQuery({
-    queryKey: ["psx", "snapshot"],
-    queryFn: () => fetchMarketSnapshot(),
-    staleTime: 5_000,
-    refetchInterval: 15_000,
+    queryKey: ["psx", "index-cards"],
+    queryFn: () => fetchIndexCards(),
+    staleTime: 30_000,
+    refetchInterval: 60_000,
+    placeholderData: keepPreviousData,
   });
 }
 
+export function useIndexCards(): UiIndex[] {
+  const { data: cards } = usePsxIndexCards();
+
+  return Object.entries(INDEX_CARD_NAMES).map(([code, name]) => {
+    const card = cards?.find((c) => c.code === code);
+    if (!card) return { name, value: 0, change: 0, changePct: 0 };
+    return {
+      name,
+      value: card.close,
+      change: card.change,
+      changePct: card.change_pct,
+    };
+  });
+}
+
+/** Alias of usePsxLiveMarket — same query key/cache, so components using
+ * either hook share one snapshot request instead of polling twice. */
+export function usePsxSnapshot() {
+  return usePsxLiveMarket();
+}
+
 export function usePsxQuote(symbol: string | undefined) {
+  const qc = useQueryClient();
+  const sym = symbol?.toUpperCase();
   return useQuery({
-    queryKey: ["psx", "quote", symbol],
-    queryFn: () => fetchQuote(symbol!),
-    enabled: !!symbol,
+    queryKey: ["psx", "quote", sym],
+    queryFn: () => fetchQuote(sym!),
+    enabled: !!sym,
     staleTime: 5_000,
+    // Paint instantly from the already-loaded market snapshot while the
+    // dedicated quote request confirms in the background.
+    placeholderData: () => {
+      const snapshot = qc.getQueryData<ApiMarketSnapshotItem[]>(["psx", "live"]);
+      return snapshot?.find((s) => s.symbol === sym);
+    },
   });
 }
 
@@ -235,6 +243,7 @@ export function usePsxIndexData(code: string | undefined) {
     queryFn: async () => (await fetchIndexData(code!)).slice().reverse(),
     enabled: !!code,
     staleTime: 60_000,
+    placeholderData: keepPreviousData,
   });
 }
 
@@ -244,6 +253,19 @@ export function usePsxSectors() {
     queryFn: async () => (await fetchHeatmap()).sectors,
     staleTime: 15_000,
     refetchInterval: 30_000,
+    placeholderData: keepPreviousData,
+  });
+}
+
+/** Per-symbol RSI + market cap for the screener/movers tables. Values are
+ * null where the backend has insufficient data; callers render a dash. */
+export function usePsxScreenerMetrics() {
+  return useQuery({
+    queryKey: ["psx", "screener-metrics"],
+    queryFn: () => fetchScreenerMetrics(),
+    staleTime: 120_000,
+    refetchInterval: 120_000,
+    placeholderData: keepPreviousData,
   });
 }
 

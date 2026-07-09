@@ -109,6 +109,34 @@ The live DB has two finance table sets. Verified who uses what:
 - **Per-page feature-locked states — RECOMMEND doing with the dev server up.** Adding locked/blur states for realtime toggle, export, screener, AI-over-limit, and count-limit prompts touches the large page files (`psx.tsx`, `portfolio.tsx`, `finance.tsx`, `alerts.tsx`) and benefits from visual verification. Best done one page at a time with the app running, not blind.
 - **Central demo guard — LOWER URGENCY than first flagged.** The demo account is a real Supabase user, and RLS scopes every row to that user_id, so demo writes cannot leak into *other* users' data (no cross-user hole). The existing per-component `!isDemo` gating works (build/tests green). Centralization is optional polish, not a security fix.
 
+## Demo Redux store execution log (2026-07-10)
+
+Demo/local-only data is now fully handled by the global Redux Toolkit store (`frontend/packages/web/src/store/`), persisted to localStorage (`nafaiq:redux:v1`):
+
+- **Slices:** `finance` (transactions/bills/budgets/goals), `portfolio` (holdings), `alerts` (alerts/notifications), `watchlist` (NEW), `demoUser` (NEW — session metadata). All seeded from the showcase fixtures.
+- **Global reset:** `resetDemoData` action re-seeds every slice and clears the persisted key. Dispatched on logout, whenever a real (non-demo) account becomes active (`use-auth.tsx::reconcileDemoState`), and via the new "Reset Demo Data" button in `DemoBanner`.
+- **Demo detection centralized** in `lib/demo.ts::isDemoUser` (used by `use-demo`, `use-watchlist`, `use-auth`).
+- **Facade hooks** in `hooks/use-demo-data.ts`: `useDashboardData()`, `useFinanceData()`, `usePortfolioData()` — components pick Redux (demo/local) vs React Query (real users) cleanly.
+- **Wiring fixes so demo updates globally:** dashboard KPIs/donut/watchlist/goals, finance Overview KPIs + 6-month chart, portfolio KPIs + sector/stock allocations now derive from the store in demo mode (previously static fixtures/hardcoded numbers); demo "Add Budget" now dispatches to Redux (previously a silent no-op); notification bell reads Redux notifications for demo and no longer queries the backend notifications API as the demo account.
+- React Query remains the source of truth for real authenticated users; no real-user data path changed.
+
+## Feature correctness requirements
+
+- Demo user data must be handled by a global Redux/local store, not the real database.
+- Real authenticated users must use backend/Supabase data.
+- Demo and real-user states must never mix.
+
+## Manual/live audit checklist
+
+Demo-store additions (items 1–16 are the verification/live-run checks recorded in the sections above):
+
+17. Login/use demo mode
+18. Add demo transaction, demo stock buy, demo watchlist item, and demo alert
+19. Confirm demo data updates globally across dashboard/finance/portfolio/watchlist
+20. Confirm demo data is not written to Supabase/Postgres
+21. Logout/reset demo and confirm demo state clears correctly
+22. Login as real user and confirm no demo data leaks into real account
+
 ## 0. Headline finding
 
 The project is **far more complete than the `recall/` status notes claim.** The tracker (`recall/progress.md`, dated 07-08) says "Phases 3-9 pending / Finance & Portfolio are client-side mock only," but migrations dated 07-09 -> 07-11 and the matching backend services and frontend hooks were added *after* that note. The persistence layer, API surface, calculations, PSX integration, demo mode, and role model **already exist and are wired end-to-end** for most sections of the spec.
