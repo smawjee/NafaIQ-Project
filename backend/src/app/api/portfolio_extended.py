@@ -279,9 +279,9 @@ async def create_stock_transaction(
                 text(
                     "INSERT INTO user_transactions "
                     "(user_id, merchant, amount, currency, transaction_type, category, "
-                    " transaction_date, source, note) "
+                    " transaction_date, source, note, stock_transaction_id) "
                     "VALUES (:uid, :merchant, :amount, 'PKR', :ttype, 'Investment', "
-                    "        :txdate, 'stock_trade', :note)"
+                    "        :txdate, 'stock_trade', :note, :stid)"
                 ),
                 {
                     "uid": user["user_id"],
@@ -290,6 +290,7 @@ async def create_stock_transaction(
                     "ttype": fin_type,
                     "txdate": executed,
                     "note": f"{int(body.quantity)} @ {float(body.price)}",
+                    "stid": r["id"],
                 },
             )
 
