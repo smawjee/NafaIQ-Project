@@ -455,6 +455,7 @@ async def summary(uid: str, month: str | None = None) -> FinanceSummaryResponse:
                 SELECT transaction_type, COALESCE(SUM(amount), 0)::numeric AS total
                 FROM user_transactions
                 WHERE user_id = :uid
+                  AND (source IS DISTINCT FROM 'stock_trade')
                   AND DATE_TRUNC('month', transaction_date) = DATE_TRUNC('month', TO_DATE(:month, 'YYYY-MM'))
                 GROUP BY transaction_type
                 """
@@ -468,6 +469,7 @@ async def summary(uid: str, month: str | None = None) -> FinanceSummaryResponse:
                 SELECT transaction_type, COALESCE(SUM(amount), 0)::numeric AS total
                 FROM user_transactions
                 WHERE user_id = :uid
+                  AND (source IS DISTINCT FROM 'stock_trade')
                   AND DATE_TRUNC('month', transaction_date) = DATE_TRUNC('month', TO_DATE(:month, 'YYYY-MM'))
                 GROUP BY transaction_type
                 """

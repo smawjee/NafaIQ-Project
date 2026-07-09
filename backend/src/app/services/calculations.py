@@ -43,10 +43,10 @@ def today_pnl(shares: float, latest_price: float, previous_close: float) -> floa
     return round(float(shares) * (float(latest_price) - float(previous_close)), 2)
 
 
-def today_pnl_pct(today: float, prev_value: float) -> float:
-    if prev_value <= 0:
+def today_pnl_pct(today: float, base_value: float) -> float:
+    if base_value <= 0:
         return 0.0
-    return round((today / prev_value) * 100, 2)
+    return round((today / base_value) * 100, 2)
 
 
 def compute_holding_row(
@@ -55,13 +55,41 @@ def compute_holding_row(
     avg_cost: float,
     latest_price: Optional[float],
     previous_close: Optional[float],
+    today_qty: Optional[float] = None,
+    today_avg_price: Optional[float] = None,
 ) -> dict[str, Any]:
-    """Return a typed holding row for portfolio aggregation."""
-    cur = holding_value(shares, latest_price or 0.0)
+    """Return a typed holding row for portfolio aggregation.
+
+    When today_qty / today_avg_price are provided (shares bought today via
+    stock_transactions), today_pnl splits into:
+      - today's bought shares: (current_price - today's avg buy price) × today_qty
+      - older shares:          (current_price - previous_close) × (shares - today_qty)
+    Otherwise today_pnl uses previous_close for all shares (previous behaviour).
+    """
+    # Unpriceable holdings (no live snapshot AND no EOD close) fall back to cost
+    # basis so they read flat (0%) instead of a spurious -100% loss.
+    priced = latest_price is not None
+    price = latest_price if priced else avg_cost
+    cur = holding_value(shares, price)
     cost = cost_basis(shares, avg_cost)
     pnl = unrealized_pnl(cur, cost)
     pct = pnl_pct(pnl, cost)
-    t_pnl = today_pnl(shares, latest_price or 0.0, previous_close or 0.0)
+    if not priced:
+        # No real price -> no meaningful daily change.
+        t_pnl = 0.0
+        today_base_val = 0.0
+    elif today_qty and today_qty > 0:
+        bought_today = min(today_qty, shares)
+        old_shares = max(shares - today_qty, 0)
+        t_pnl = (price - (today_avg_price or 0.0)) * bought_today
+        if previous_close is not None:
+            t_pnl += (price - previous_close) * old_shares
+        today_base_val = ((today_avg_price or 0.0) * bought_today)
+        if previous_close is not None:
+            today_base_val += previous_close * old_shares
+    else:
+        t_pnl = today_pnl(shares, price, previous_close or 0.0)
+        today_base_val = (previous_close or 0.0) * shares if previous_close is not None else 0.0
     return {
         "symbol": symbol,
         "shares": shares,
@@ -72,7 +100,8 @@ def compute_holding_row(
         "cost_basis": round(cost, 2),
         "unrealized_pnl": pnl,
         "pnl_pct": pct,
-        "today_pnl": t_pnl,
+        "today_pnl": round(t_pnl, 2),
+        "today_base": round(today_base_val, 2),
     }
 
 
@@ -83,10 +112,18 @@ def aggregate_portfolio_totals(holdings: list[dict[str, Any]]) -> dict[str, Any]
     total_pnl = round(sum(h.get("unrealized_pnl", 0) for h in holdings), 2)
     total_pct = pnl_pct(total_pnl, total_cost)
     total_today = round(sum(h.get("today_pnl", 0) for h in holdings), 2)
-    prev_value = round(
-        sum((h.get("previous_close") or 0) * h.get("shares", 0) for h in holdings), 2
-    )
-    total_today_pct = today_pnl_pct(total_today, prev_value)
+
+    def _today_base(h: dict[str, Any]) -> float:
+        tb = h.get("today_base", 0)
+        if tb and tb > 0:
+            return tb
+        # backward-compat: value shares against previous close when today_base
+        # isn't supplied (older holding rows / direct callers).
+        pc = h.get("previous_close")
+        return pc * h.get("shares", 0) if pc else 0.0
+
+    today_base_total = round(sum(_today_base(h) for h in holdings), 2)
+    total_today_pct = today_pnl_pct(total_today, today_base_total)
     return {
         "total_market_value": total_value,
         "total_cost_basis": total_cost,

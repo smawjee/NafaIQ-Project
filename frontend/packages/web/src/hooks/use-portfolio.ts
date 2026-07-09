@@ -78,13 +78,10 @@ export function useAddHolding(portfolioId: number | null) {
     mutationFn: (data: { portfolioId?: number; symbol: string; shares: number; avg_cost: number }) => {
       const pid = data.portfolioId ?? portfolioId;
       if (!pid) throw new Error("No portfolio selected");
-      return userPost<Holding>(`/api/portfolio/transactions`, {
-        portfolio_id: pid,
+      return userPost<Holding>(`/api/portfolio/${pid}/holdings`, {
         symbol: data.symbol,
-        side: "buy",
-        quantity: data.shares,
-        price: data.avg_cost,
-        fees: 0,
+        shares: data.shares,
+        avg_cost: data.avg_cost,
       });
     },
     onSuccess: () => {

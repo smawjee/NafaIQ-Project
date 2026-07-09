@@ -12,7 +12,6 @@ import {
 import { toast } from "sonner";
 import { Card, StatCard } from "@/components/shared/Card";
 import { Change } from "@/components/charts/Change";
-import { SignalBadge } from "@/components/charts/SignalBadge";
 import { EmojiIcon } from "@/components/icons/icons";
 import { DonutChart, PortfolioAreaChart, Sparkline, DONUT_LIGHT_PALETTE } from "@/components/charts/charts";
 import { CountUpNumber, AnimatedBar } from "@/components/charts/CountUpNumber";
@@ -34,7 +33,7 @@ import { useFinanceSummary } from "@/hooks/use-finance-summary";
 import { useFinanceGoals } from "@/hooks/use-finance-goals";
 import { useCreateTransaction } from "@/hooks/use-finance-transactions";
 import { useSpendingByCategory } from "@/hooks/use-finance-series";
-import { useWatchlist } from "@/hooks/psx/use-watchlist";
+import { useWatchlist, useEnrichedWatchlist, type EnrichedWatchlistItem } from "@/hooks/psx/use-watchlist";
 import { usePsxIndexData, useMarketTickers } from "@/hooks/psx/use-psx";
 import { Modal, fieldClass } from "@/components/shared/Modal";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -128,6 +127,7 @@ function Dashboard() {
   const { data: spendingByCat, isLoading: spendingByCatLoading } = useSpendingByCategory(30, realUserEnabled);
   const { data: userGoals } = useFinanceGoals(realUserEnabled);
   const { symbols: userWatchlist } = useWatchlist();
+  const { data: enrichedWatchlist, isLoading: watchlistLoading } = useEnrichedWatchlist(realUserEnabled);
   const liveTickers = useMarketTickers(50);
   const { data: kse100Bars } = usePsxIndexData("KSE100");
   const kse100ChangePct = latestIndexChangePct(kse100Bars);
@@ -138,7 +138,7 @@ function Dashboard() {
   const portfolioChartData = !useShowcaseDashboard
     ? (portfolioHistory?.points ?? [])
     : portfolioSeries(months);
-  const dashboardWatchlist = useShowcaseDashboard ? WATCHLIST : userWatchlist;
+  const dashboardWatchlist = useShowcaseDashboard ? WATCHLIST : (enrichedWatchlist ?? []);
   const liveTickerMap = new Map(liveTickers.map((t) => [t.symbol, t]));
   const dashboardGoals = !useShowcaseDashboard
     ? (userGoals ?? []).slice(0, 3).map((g) => ({
@@ -283,18 +283,22 @@ function Dashboard() {
           <div className="mt-3 font-mono text-4xl font-bold tabular-nums text-text-primary">
             <CountUpNumber value={useShowcaseDashboard ? 4280500 : (networth?.total_market_value ?? 0)} prefix="PKR " />
           </div>
-          <div className="mt-2 font-mono text-sm tabular-nums text-bull">
+          <div className={cn("mt-2 font-mono text-sm tabular-nums", (networth?.today_pnl ?? 0) >= 0 ? "text-bull" : "text-bear")}>
             {!useShowcaseDashboard
               ? `${(networth?.today_pnl ?? 0) >= 0 ? "+" : ""}PKR ${Math.round(networth?.today_pnl ?? 0).toLocaleString()} (${(networth?.today_pnl_pct ?? 0) >= 0 ? "+" : ""}${networth?.today_pnl_pct ?? 0}%) today`
               : "+PKR 56,000 (+1.32%) this month"}
           </div>
         </Card>
-        <div className="grid grid-cols-1 gap-6 sm:grid-cols-3 lg:col-span-6">
+        <div className="grid grid-cols-1 gap-6 sm:grid-cols-4 lg:col-span-6">
           <StatCard
             label="Portfolio Value"
             value={<CountUpNumber value={useShowcaseDashboard ? 858054 : (networth?.total_market_value ?? 0)} prefix="PKR " />}
             sub={!useShowcaseDashboard && networth ? `${networth.total_unrealized_pnl_pct >= 0 ? "+" : ""}${networth.total_unrealized_pnl_pct}% all time` : !useShowcaseDashboard ? "0% all time" : "+12.73% YTD"}
-            subColor="text-bull"
+            subColor={!useShowcaseDashboard && networth ? ((networth.total_unrealized_pnl_pct ?? 0) >= 0 ? "text-bull" : "text-bear") : "text-bull"}
+          />
+          <StatCard
+            label="Total Invested"
+            value={<CountUpNumber value={useShowcaseDashboard ? 761190 : (networth?.total_cost_basis ?? 0)} prefix="PKR " />}
           />
           <StatCard
             label="Monthly Spending"
@@ -308,7 +312,7 @@ function Dashboard() {
             label="Today's PSX P/L"
             value={<CountUpNumber value={useShowcaseDashboard ? 17480 : Math.round(networth?.today_pnl ?? 0)} prefix={useShowcaseDashboard ? "+" : ((networth?.today_pnl ?? 0) >= 0 ? "+" : "")} />}
             sub={!useShowcaseDashboard && networth ? `${networth.today_pnl_pct >= 0 ? "+" : ""}${networth.today_pnl_pct}%` : !useShowcaseDashboard ? "0%" : "+1.42%"}
-            subColor="text-bull"
+            subColor={!useShowcaseDashboard && networth ? ((networth.today_pnl_pct ?? 0) >= 0 ? "text-bull" : "text-bear") : "text-bull"}
           />
         </div>
       </div>
@@ -419,18 +423,22 @@ function Dashboard() {
       {/* Watchlist strip */}
       <section>
         <h3 className="mb-3 text-sm font-semibold text-text-primary">{t("Watchlist")}</h3>
-        {!useShowcaseDashboard && dashboardWatchlist.length === 0 ? (
+        {watchlistLoading ? (
+          <div className="scrollbar-none flex gap-3 overflow-x-auto pb-1">
+            {[1,2,3].map((i) => (
+              <div key={i} className="h-[120px] w-[160px] shrink-0 animate-pulse rounded-[8px] bg-surface-hover" />
+            ))}
+          </div>
+        ) : dashboardWatchlist.length === 0 ? (
           <Card hover={false} className="text-sm text-text-secondary">
             {t("Your watchlist is empty. Add stocks from the PSX page to track them here.")}
           </Card>
-        ) : (
+        ) : useShowcaseDashboard ? (
           <div className="scrollbar-none flex gap-3 overflow-x-auto pb-1">
-            {dashboardWatchlist.map((tk) => {
+            {(dashboardWatchlist as string[]).map((tk) => {
             const s = STOCKS[tk];
-            const live = !useShowcaseDashboard ? liveTickerMap.get(tk) : null;
-            const price = live?.price ?? s?.price ?? 0;
-            const changePct = live?.changePct ?? s?.changePct ?? 0;
-            const showSpark = useShowcaseDashboard && !!s;
+            const price = s?.price ?? 0;
+            const changePct = s?.changePct ?? 0;
             return (
               <Link
                 to="/psx"
@@ -438,27 +446,44 @@ function Dashboard() {
                 className="w-[160px] shrink-0 rounded-[8px] border border-border bg-surface p-3 transition hover:border-border-hover"
               >
                 <div className="flex items-center justify-between">
-                  <span className="font-semibold text-text-primary">{live?.symbol ?? tk}</span>
+                  <span className="font-semibold text-text-primary">{tk}</span>
                   <Change pct={changePct} pill />
                 </div>
-                <div className="truncate text-[10px] text-text-muted">{t(live?.name ?? s?.name ?? tk)}</div>
+                <div className="truncate text-[10px] text-text-muted">{t(s?.name ?? tk)}</div>
                 <div className="mt-1 font-mono text-lg font-bold tabular-nums text-text-primary">
                   {fmtNum(price)}
                 </div>
-                {showSpark ? (
-                  <div className="my-1">
-                    <Sparkline
-                      data={generateOHLCV(s.seed, s.start, s.price, 7).map((c) => c.close)}
-                      color={s.changePct >= 0 ? "#00d4aa" : "#e5484d"}
-                    />
-                  </div>
-                ) : (
-                  <div className={cn("mt-1 text-[11px] font-mono tabular-nums", changePct >= 0 ? "text-bull" : "text-bear")}>
-                    {changePct >= 0 ? "+" : ""}
-                    {changePct.toFixed(2)}%
-                  </div>
-                )}
-                <SignalBadge signal={s?.signal ?? "HOLD"} />
+                <div className={cn("mt-1 text-[11px] font-mono tabular-nums", changePct >= 0 ? "text-bull" : "text-bear")}>
+                  {changePct >= 0 ? "+" : ""}
+                  {changePct.toFixed(2)}%
+                </div>
+              </Link>
+            );
+            })}
+          </div>
+        ) : (
+          <div className="scrollbar-none flex gap-3 overflow-x-auto pb-1">
+            {(dashboardWatchlist as EnrichedWatchlistItem[]).map((item) => {
+            const price = item.price ?? 0;
+            const changePct = item.change_pct ?? 0;
+            return (
+              <Link
+                to={"/stock/" + item.symbol}
+                key={item.symbol}
+                className="w-[160px] shrink-0 rounded-[8px] border border-border bg-surface p-3 transition hover:border-border-hover"
+              >
+                <div className="flex items-center justify-between">
+                  <span className="font-semibold text-text-primary">{item.symbol}</span>
+                  <Change pct={changePct} pill />
+                </div>
+                <div className="truncate text-[10px] text-text-muted">{item.company_name}</div>
+                <div className="mt-1 font-mono text-lg font-bold tabular-nums text-text-primary">
+                  {price > 0 ? fmtNum(price) : "—"}
+                </div>
+                <div className={cn("mt-1 text-[11px] font-mono tabular-nums", changePct >= 0 ? "text-bull" : "text-bear")}>
+                  {changePct >= 0 ? "+" : ""}
+                  {changePct.toFixed(2)}%
+                </div>
               </Link>
             );
             })}
@@ -733,7 +758,7 @@ function QuickAddHoldingModal({ open, onClose }: { open: boolean; onClose: () =>
           value={avgCost}
           onChange={(e) => setAvgCost(e.target.value)}
           inputMode="decimal"
-          placeholder={t("Buy price (PKR)")}
+          placeholder={t("Buy price per share (PKR)")}
           className={fieldClass}
         />
         {err && <div className="text-xs text-bear">{err}</div>}

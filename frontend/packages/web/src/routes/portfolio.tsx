@@ -471,13 +471,13 @@ function Portfolio() {
           label="Total Gain"
           value={<CountUpNumber value={!useDemoPortfolio ? (portfolioValue?.totals.unrealized_pnl ?? networth?.total_unrealized_pnl ?? 0) : 96864} prefix={!useDemoPortfolio && (portfolioValue?.totals.unrealized_pnl ?? networth?.total_unrealized_pnl ?? 0) >= 0 ? "+PKR " : "PKR "} />}
           sub={!useDemoPortfolio && portfolioValue ? `${portfolioValue.totals.pnl_pct >= 0 ? "+" : ""}${portfolioValue.totals.pnl_pct.toFixed(2)}%` : !useDemoPortfolio && networth ? `${networth.total_unrealized_pnl_pct >= 0 ? "+" : ""}${networth.total_unrealized_pnl_pct.toFixed(2)}%` : !useDemoPortfolio ? "0.00%" : "+12.73%"}
-          subColor="text-bull"
+          subColor={!useDemoPortfolio ? ((portfolioValue?.totals.unrealized_pnl ?? networth?.total_unrealized_pnl ?? 0) >= 0 ? "text-bull" : "text-bear") : "text-bull"}
         />
         <StatCard
           label="Today's P/L"
           value={<CountUpNumber value={!useDemoPortfolio ? Math.round(networth?.today_pnl ?? 0) : 17480} prefix={!useDemoPortfolio && (networth?.today_pnl ?? 0) >= 0 ? "+PKR " : "PKR "} />}
           sub={!useDemoPortfolio && networth ? `${networth.today_pnl_pct >= 0 ? "+" : ""}${networth.today_pnl_pct.toFixed(2)}%` : !useDemoPortfolio ? "0.00%" : "+1.42%"}
-          subColor="text-bull"
+          subColor={!useDemoPortfolio && networth ? ((networth.today_pnl_pct ?? 0) >= 0 ? "text-bull" : "text-bear") : "text-bull"}
         />
       </div>
 
@@ -713,7 +713,7 @@ function Portfolio() {
             value={form.buyPrice}
             onChange={(e) => setForm({ ...form, buyPrice: e.target.value })}
             inputMode="decimal"
-            placeholder={t("Buy Price (PKR)")}
+            placeholder={t("Buy Price per Share (PKR)")}
             className={fieldClass}
           />
           <input
