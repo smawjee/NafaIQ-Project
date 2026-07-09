@@ -236,32 +236,18 @@ async def job_refresh_tv_data():
 
 
 async def job_check_alerts():
+    """Evaluate ALL user alerts (stock price, bill, budget, goal) on a schedule.
+
+    Delegates to the full evaluator so a trigger records an alert_event and
+    delivers a notification. The previous inline version only flipped the
+    alert's `enabled` flag off and notified nobody.
+    """
     try:
-        db = get_supabase()
-        alerts = db.table("price_alerts").select("*").eq("enabled", True).execute()
-        if not alerts.data:
-            return
-        snapshot = db.table("psx_market_snapshot").select("symbol,price").execute()
-        prices = {r["symbol"]: r.get("price") for r in (snapshot.data or [])}
-        now = datetime.now(timezone.utc).isoformat()
-        for alert in (alerts.data or []):
-            sym = alert["symbol"]
-            alert_price = alert.get("price")
-            current_price = prices.get(sym)
-            if current_price is None or alert_price is None:
-                continue
-            condition = alert.get("condition", "")
-            triggered = False
-            if condition == "above" and current_price > alert_price:
-                triggered = True
-            elif condition == "below" and current_price < alert_price:
-                triggered = True
-            if triggered:
-                db.table("price_alerts").update({
-                    "triggered_at": now,
-                    "enabled": False,
-                }).eq("id", alert["id"]).execute()
-                log.info("alert:triggered", symbol=sym, condition=condition, price=current_price, alert_price=alert_price)
+        from app.services.alerts import evaluate_all
+
+        result = await evaluate_all()
+        if any(result.values()):
+            log.info("job:check_alerts:done", **result)
     except Exception:
         log.exception("job:check_alerts:failed")
 
