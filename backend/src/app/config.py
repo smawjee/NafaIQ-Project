@@ -60,6 +60,9 @@ class Settings(BaseSettings):
     ahletrade_base_url: str = "http://feed.ahletrade.com/HTTPFeedServer/FeedFetcher"
     dps_base_url: str = "https://dps.psx.com.pk"
     log_level: str = "INFO"
+
+    # CORS — comma-separated origins (e.g. "http://localhost:3000,https://nafaiq.com")
+    cors_origins: str = "*"
     port: int = 8000
 
     @property

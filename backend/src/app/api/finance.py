@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -544,7 +544,7 @@ async def finance_summary(
     """Aggregate income, expenses, and savings for a given month."""
     user_id = user["user_id"]
     if month is None:
-        month = datetime.utcnow().strftime("%Y-%m")
+        month = datetime.now(timezone.utc).strftime("%Y-%m")
     year_s, m_s = month.split("-")
     year_i, m_i = int(year_s), int(m_s)
 
