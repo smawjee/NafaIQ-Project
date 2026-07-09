@@ -33,6 +33,7 @@ import { useLang } from "@/hooks/use-lang";
 import { useNotifications, useMarkNotificationRead } from "@/hooks/use-notifications";
 import { ScrollToTop } from "@/components/shared/ScrollToTop";
 import { ThemeToggle } from "@/components/shared/ThemeToggle";
+import { useKse100 } from "@/hooks/psx/use-market-v2";
 
 const NAV = [
   { to: "/app", label: "Dashboard", icon: LayoutDashboard, mobile: "Home" },
@@ -48,7 +49,6 @@ const PRIMARY_NAV = NAV.slice(0, 6);
 const NOTIFICATIONS = [
   { id: 1, title: "HBL flashed a Strong Buy", time: "2m ago", tone: "bull" },
   { id: 2, title: "Dining budget exceeded by 15%", time: "1h ago", tone: "warning" },
-  { id: 3, title: "KSE-100 up 1.24% — market open", time: "Today", tone: "bull" },
 ] as const;
 
 const LABELS: Record<string, string> = {
@@ -230,6 +230,7 @@ function NotificationBell() {
   const { user } = useAuth();
   const isLoggedIn = !!user;
   const { data: apiNotifications } = useNotifications();
+  const { data: kse100 } = useKse100(30, isLoggedIn);
   const markRead = useMarkNotificationRead();
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -241,18 +242,34 @@ function NotificationBell() {
     return () => document.removeEventListener("mousedown", onClick);
   }, []);
 
+  const liveKseNotification =
+    isLoggedIn && kse100?.latest
+      ? [
+          {
+            id: "kse100-live",
+            title: `KSE-100 ${kse100.latest.change_pct >= 0 ? "+" : ""}${kse100.latest.change_pct.toFixed(2)}% today`,
+            time: new Date(kse100.latest.date).toLocaleDateString("en-US", {
+              month: "short",
+              day: "numeric",
+            }),
+            tone: kse100.latest.change_pct >= 0 ? ("bull" as const) : ("warning" as const),
+            read: false,
+            link: "/psx",
+          },
+        ]
+      : [];
   const display = isLoggedIn && apiNotifications ? apiNotifications : null;
-  const unreadCount = display ? display.filter((n) => !n.read).length : NOTIFICATIONS.length;
+  const unreadCount = display ? display.filter((n) => !n.read).length : NOTIFICATIONS.length + liveKseNotification.length;
   const items = display
-    ? display.slice(0, 10).map((n) => ({
+    ? [...liveKseNotification, ...display.slice(0, 9).map((n) => ({
         id: String(n.id),
         title: n.title,
         time: new Date(n.created_at).toLocaleString("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" }),
         tone: n.kind === "price_alert" ? "bull" : "warning",
         read: n.read,
         link: n.link,
-      }))
-    : NOTIFICATIONS.map((n) => ({ ...n, link: null as string | null }));
+      }))]
+    : [...liveKseNotification, ...NOTIFICATIONS.map((n) => ({ ...n, link: null as string | null, read: true }))];
 
   return (
     <div ref={ref} className="relative shrink-0">
