@@ -51,7 +51,7 @@ async def market_heatmap(
     this endpoint for the market heatmap UI.
     """
     rows = await get_scanner().scan(
-        columns=["name", "close", "change", "change_pct", "volume", "sector", "market_cap_basic"],
+        columns=["name", "close", "change", "change_abs", "volume", "sector", "market_cap_basic"],
         sort_by="volume",
         sort_dir="desc",
         limit=500,
