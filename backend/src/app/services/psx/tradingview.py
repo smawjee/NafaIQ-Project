@@ -65,22 +65,26 @@ class TradingViewScanner:
         columns selected; we leave interpretation to the caller.
         """
         if columns is None:
+            # NOTE: TradingView's "change" IS the percent change; "change_abs" is
+            # the absolute change. There is no "change_pct" column (requesting it
+            # returns HTTP 400). Column order here must match caller index parsing.
             columns = [
                 "name",
                 "close",
                 "change",
-                "change_pct",
+                "change_abs",
                 "volume",
                 "sector",
                 "market_cap_basic",
             ]
-        payload = {
+        # TradingView "range" is row pagination [start, end], not a value filter.
+        payload: dict[str, Any] = {
             "columns": columns,
-            "range": [list(range_pct)],
-            "sort": {"sortBy": sort_by, "sortOrder": sort_dir} if sort_by else None,
-            "limit": limit,
+            "range": [0, max(1, limit)],
             "markets": ["pakistan"],
         }
+        if sort_by:
+            payload["sort"] = {"sortBy": sort_by, "sortOrder": sort_dir}
         try:
             client = await self._get_client()
             r = await client.post(self.url, content=json.dumps(payload))

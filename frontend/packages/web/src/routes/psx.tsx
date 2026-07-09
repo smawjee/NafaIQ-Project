@@ -10,6 +10,8 @@ import {
   LineChart as LineIcon,
 } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { StockSearchBox } from "@/components/search/StockSearchBox";
+import { toast } from "sonner";
 
 import { Card } from "@/components/shared/Card";
 import { CountUpNumber } from "@/components/charts/CountUpNumber";
@@ -289,7 +291,8 @@ export default function PSX() {
     (currentScreenerPage - 1) * screenerPageSize,
     currentScreenerPage * screenerPageSize,
   );
-  const screenerStart = screened.length === 0 ? 0 : (currentScreenerPage - 1) * screenerPageSize + 1;
+  const screenerStart =
+    screened.length === 0 ? 0 : (currentScreenerPage - 1) * screenerPageSize + 1;
   const screenerEnd = Math.min(currentScreenerPage * screenerPageSize, screened.length);
 
   const sectorRows = useMemo(() => {
@@ -641,34 +644,21 @@ export default function PSX() {
                     {t("Add Stock")}
                   </button>
                 </PopoverTrigger>
-                <PopoverContent align="end" className="w-56 p-1">
-                  <div className="max-h-64 overflow-y-auto">
-                    {Object.keys(STOCKS).filter((tk) => !watchlist.symbols.includes(tk)).length ===
-                    0 ? (
-                      <p className="px-2 py-3 text-center text-xs text-text-muted">
-                        All stocks added
-                      </p>
-                    ) : (
-                      Object.keys(STOCKS)
-                        .filter((tk) => !watchlist.symbols.includes(tk))
-                        .map((tk) => (
-                          <button
-                            key={tk}
-                            onClick={() => {
-                              watchlist.add(tk);
-                              setAddOpen(false);
-                            }}
-                            className="flex w-full items-center gap-2 rounded-[6px] px-2 py-1.5 text-left hover:bg-hover"
-                          >
-                            <Plus className="h-3.5 w-3.5 text-bull" />
-                            <span className="text-sm font-semibold text-bull">{tk}</span>
-                            <span className="flex-1 truncate text-[10px] text-text-muted">
-                              {t(STOCKS[tk].name)}
-                            </span>
-                          </button>
-                        ))
-                    )}
-                  </div>
+                <PopoverContent align="end" className="w-80 p-2">
+                  <StockSearchBox
+                    mode="add"
+                    autoFocus
+                    addedSymbols={watchlist.symbols}
+                    placeholder={t("Search stocks to add…")}
+                    onSelect={(r) => {
+                      if (watchlist.symbols.includes(r.symbol)) {
+                        toast(`${r.symbol} ${t("is already in your watchlist")}`);
+                        return;
+                      }
+                      watchlist.add(r.symbol);
+                      toast.success(`${r.symbol} ${t("added to watchlist")}`);
+                    }}
+                  />
                 </PopoverContent>
               </Popover>
             </div>
@@ -678,16 +668,22 @@ export default function PSX() {
                 const live = snapshot?.find((row) => row.symbol === tk);
                 const livePrice = live?.price ?? fallback?.price ?? 0;
                 const liveChangePct = live?.change_pct ?? fallback?.changePct ?? 0;
-                const liveName = symbolsData?.find((s) => s.symbol === tk)?.name ?? fallback?.name ?? tk;
+                const liveName =
+                  symbolsData?.find((s) => s.symbol === tk)?.name ?? fallback?.name ?? tk;
                 const signalForSymbol =
-                  batchSignals?.signals?.find((s: { symbol: string }) => s.symbol === tk)?.signal ?? fallback?.signal ?? "HOLD";
+                  batchSignals?.signals?.find((s: { symbol: string }) => s.symbol === tk)?.signal ??
+                  fallback?.signal ??
+                  "HOLD";
                 return (
                   <div
                     key={tk}
                     className="group flex items-center gap-2 rounded-[6px] px-2 py-1.5 hover:bg-hover"
                   >
                     <button
-                      onClick={() => watchlist.remove(tk)}
+                      onClick={() => {
+                        watchlist.remove(tk);
+                        toast(`${tk} ${t("removed from watchlist")}`);
+                      }}
                       aria-label={`Remove ${tk}`}
                       className="shrink-0"
                     >

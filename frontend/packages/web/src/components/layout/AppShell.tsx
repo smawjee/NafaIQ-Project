@@ -31,6 +31,7 @@ import { usePermissions } from "@/hooks/use-permissions";
 import type { Plan } from "@/lib/plan-features";
 import { useLandingTheme } from "@/hooks/use-landing-theme";
 import { DemoBanner } from "@/components/demo/DemoBanner";
+import { StockSearchBox } from "@/components/search/StockSearchBox";
 import { useLang } from "@/hooks/use-lang";
 import { useNotifications, useMarkNotificationRead } from "@/hooks/use-notifications";
 import { ScrollToTop } from "@/components/shared/ScrollToTop";
@@ -210,31 +211,17 @@ function Sidebar({ onCollapse }: { onCollapse: () => void }) {
 }
 
 function StockSearch() {
-  const [q, setQ] = useState("");
   const navigate = useNavigate();
   const { t: tr } = useLang();
-  function submit(e: React.FormEvent) {
-    e.preventDefault();
-    const t = q.trim().toUpperCase();
-    if (!t) return;
-    if (STOCKS[t]) {
-      navigate({ to: "/stock/$ticker", params: { ticker: t } });
-    } else {
-      navigate({ to: "/psx" });
-    }
-    setQ("");
-  }
   return (
-    <form onSubmit={submit} className="relative hidden w-full max-w-xs shrink-0 sm:block">
-      <Search className="pointer-events-none absolute start-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-text-muted" />
-      <input
-        value={q}
-        onChange={(e) => setQ(e.target.value)}
+    <div className="hidden w-full max-w-xs shrink-0 sm:block">
+      <StockSearchBox
+        mode="navigate"
+        variant="floating"
         placeholder={tr("Search stocks (e.g. HBL)…")}
-        aria-label={tr("Search stocks")}
-        className="h-8 w-full rounded-[8px] border border-white/[0.08] bg-surface ps-8 pe-3 text-[13px] text-text-primary outline-none transition-colors placeholder:text-text-muted focus:border-bull"
+        onSelect={(r) => navigate({ to: "/stock/$ticker", params: { ticker: r.symbol } })}
       />
-    </form>
+    </div>
   );
 }
 
@@ -272,17 +259,30 @@ function NotificationBell() {
         ]
       : [];
   const display = isLoggedIn && apiNotifications ? apiNotifications : null;
-  const unreadCount = display ? display.filter((n) => !n.read).length : NOTIFICATIONS.length + liveKseNotification.length;
+  const unreadCount = display
+    ? display.filter((n) => !n.read).length
+    : NOTIFICATIONS.length + liveKseNotification.length;
   const items = display
-    ? [...liveKseNotification, ...display.slice(0, 9).map((n) => ({
-        id: String(n.id),
-        title: n.title,
-        time: new Date(n.created_at).toLocaleString("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" }),
-        tone: n.kind === "price_alert" ? "bull" : "warning",
-        read: n.read,
-        link: n.link,
-      }))]
-    : [...liveKseNotification, ...NOTIFICATIONS.map((n) => ({ ...n, link: null as string | null, read: true }))];
+    ? [
+        ...liveKseNotification,
+        ...display.slice(0, 9).map((n) => ({
+          id: String(n.id),
+          title: n.title,
+          time: new Date(n.created_at).toLocaleString("en-US", {
+            month: "short",
+            day: "numeric",
+            hour: "2-digit",
+            minute: "2-digit",
+          }),
+          tone: n.kind === "price_alert" ? "bull" : "warning",
+          read: n.read,
+          link: n.link,
+        })),
+      ]
+    : [
+        ...liveKseNotification,
+        ...NOTIFICATIONS.map((n) => ({ ...n, link: null as string | null, read: true })),
+      ];
 
   return (
     <div ref={ref} className="relative shrink-0">
@@ -322,30 +322,32 @@ function NotificationBell() {
               <li className="px-4 py-6 text-center text-[12px] text-text-muted">
                 {t("No notifications")}
               </li>
-            ) : items.map((n) => (
-              <li
-                key={n.id}
-                onClick={() => {
-                  if (isLoggedIn && display) {
-                    const orig = display.find((x) => String(x.id) === n.id);
-                    if (orig && !orig.read) markRead.mutate(orig.id);
-                    if (n.link) window.location.href = n.link;
-                  }
-                }}
-                className="flex items-start gap-2.5 px-4 py-3 transition-colors hover:bg-white/[0.03] cursor-pointer"
-              >
-                <span
-                  className={cn(
-                    "mt-1.5 h-2 w-2 shrink-0 rounded-full",
-                    n.tone === "bull" ? "bg-bull" : "bg-warning",
-                  )}
-                />
-                <div className="min-w-0">
-                  <div className="text-[13px] text-text-primary">{n.title}</div>
-                  <div className="text-[11px] text-text-muted">{n.time}</div>
-                </div>
-              </li>
-            ))}
+            ) : (
+              items.map((n) => (
+                <li
+                  key={n.id}
+                  onClick={() => {
+                    if (isLoggedIn && display) {
+                      const orig = display.find((x) => String(x.id) === n.id);
+                      if (orig && !orig.read) markRead.mutate(orig.id);
+                      if (n.link) window.location.href = n.link;
+                    }
+                  }}
+                  className="flex items-start gap-2.5 px-4 py-3 transition-colors hover:bg-white/[0.03] cursor-pointer"
+                >
+                  <span
+                    className={cn(
+                      "mt-1.5 h-2 w-2 shrink-0 rounded-full",
+                      n.tone === "bull" ? "bg-bull" : "bg-warning",
+                    )}
+                  />
+                  <div className="min-w-0">
+                    <div className="text-[13px] text-text-primary">{n.title}</div>
+                    <div className="text-[11px] text-text-muted">{n.time}</div>
+                  </div>
+                </li>
+              ))
+            )}
           </ul>
         </div>
       )}
@@ -641,10 +643,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         />
         <Breadcrumbs />
         <DemoBanner />
-        <main className={cn(
-          "pt-4 pb-24 lg:pb-8",
-          pathname.startsWith("/learn/lesson") ? "px-0" : "px-3 sm:px-5 lg:px-6",
-        )}>
+        <main
+          className={cn(
+            "pt-4 pb-24 lg:pb-8",
+            pathname.startsWith("/learn/lesson") ? "px-0" : "px-3 sm:px-5 lg:px-6",
+          )}
+        >
           <PageTransition routeKey={pathname}>{children}</PageTransition>
         </main>
       </div>
