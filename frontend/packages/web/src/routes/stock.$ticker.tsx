@@ -172,7 +172,7 @@ function StockDetail() {
       <Card hover={false} className="bg-surface-alt">
         <div className="h-[300px] lg:h-[440px]">
           {data.length > 0 ? (
-            <CandlestickChart data={data} height={9999} mas={["MA20", "MA50"]} />
+            <CandlestickChart data={data} height={9999} mas={["MA20", "MA50", "MA100"]} />
           ) : (
             <div className="flex h-full items-center justify-center text-text-muted text-sm">
               {t("Loading chart data...")}
