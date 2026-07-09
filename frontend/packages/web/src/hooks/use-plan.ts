@@ -1,31 +1,35 @@
 import { useAuth } from "@/hooks/use-auth";
+import { getPlanFeatures, normalizePlan, PLAN_RANK, type Plan, type PlanFeatures } from "@/lib/plan-features";
 import { useMutation } from "@tanstack/react-query";
 
-type Plan = "Free" | "Pro" | "Premium";
+type LimitFeature = "portfolios" | "budgets" | "goals" | "price_alerts";
 
-const PLAN_LIMITS: Record<Plan, Record<string, number>> = {
-  Free: { portfolios: 1, budgets: 3, goals: 2, price_alerts: 3 },
-  Pro: { portfolios: 999, budgets: 999, goals: 999, price_alerts: 999 },
-  Premium: { portfolios: 999, budgets: 999, goals: 999, price_alerts: 999 },
+const LIMIT_KEYS: Record<
+  LimitFeature,
+  keyof Pick<PlanFeatures, "max_portfolios" | "max_budgets" | "max_goals" | "max_price_alerts">
+> = {
+  portfolios: "max_portfolios",
+  budgets: "max_budgets",
+  goals: "max_goals",
+  price_alerts: "max_price_alerts",
 };
 
-const PLAN_HIERARCHY: Plan[] = ["Free", "Pro", "Premium"];
-
 export function usePlan() {
-  const { profile, user } = useAuth();
-  const plan: Plan = (profile?.plan as Plan) || "Free";
+  const { profile } = useAuth();
+  const plan = normalizePlan(profile?.plan);
+  const features = getPlanFeatures(plan);
 
-  const canAccess = (feature: keyof typeof PLAN_LIMITS.Free): boolean => {
-    return true; // Feature gating is deferred — always return true for now
+  const getLimit = (feature: LimitFeature): number => {
+    return Number(features[LIMIT_KEYS[feature]] ?? 0);
   };
 
-  const getLimit = (feature: keyof typeof PLAN_LIMITS.Free): number => {
-    return PLAN_LIMITS[plan]?.[feature] ?? 999;
+  const canAccess = (feature: LimitFeature): boolean => {
+    return getLimit(feature) > 0;
   };
 
-  const planIndex = PLAN_HIERARCHY.indexOf(plan);
+  const planIndex = PLAN_RANK[plan];
 
-  return { plan, canAccess, getLimit, planIndex };
+  return { plan, features, canAccess, getLimit, planIndex };
 }
 
 export function useUpgradePlan() {

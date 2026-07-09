@@ -82,6 +82,9 @@ def plan_features_dict(features_row: Any) -> dict[str, Any]:
 
 
 DEFAULT_LIMITS: dict[str, int] = {
+    # Watchlist currently writes through Supabase JS, so live enforcement is
+    # the database trigger on user_watchlist. Keep this fallback for future
+    # backend endpoints and for missing plan_features rows.
     "max_watchlist": 10,
     "max_price_alerts": 5,
     "max_portfolios": 1,
