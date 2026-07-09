@@ -44,6 +44,7 @@ import {
   useIndexCards,
 } from "@/hooks/psx/use-psx";
 import { useWatchlist } from "@/hooks/psx/use-watchlist";
+import { useDemo } from "@/hooks/use-demo";
 import { StatsGridSkeleton, ChartSkeleton, TableSkeleton } from "@/components/shared/PageSkeleton";
 import { cn } from "@/lib/utils";
 import { useLang } from "@/hooks/use-lang";
@@ -135,6 +136,7 @@ export default function PSX() {
   const [screenerPage, setScreenerPage] = useState(1);
   const [showAllSectors, setShowAllSectors] = useState(false);
   const watchlist = useWatchlist();
+  const { isDemo } = useDemo();
   const [addOpen, setAddOpen] = useState(false);
   const [loading, setLoading] = useState(true);
 
@@ -180,28 +182,36 @@ export default function PSX() {
   const visibleCount = tfDays(tf);
 
   const full = useMemo(() => {
-    if (sym === "KSE-100" && ohlcvData && ohlcvData.length > 0) {
-      return ohlcvData.slice(-250);
+    const asc = <T extends { date: string }>(rows: T[]) =>
+      [...rows].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+    // KSE-100 is an index: its real candles live in psx_index_eod, never psx_ohlcv.
+    if (sym === "KSE-100") {
+      if (kse100Data && kse100Data.length > 0) {
+        return asc(kse100Data).map((b) => ({
+          date: b.date,
+          t: new Date(b.date).getTime(),
+          open: b.open ?? b.close,
+          high: b.high ?? b.close,
+          low: b.low ?? b.close,
+          close: b.close,
+          volume: b.volume ?? 0,
+        }));
+      }
+    } else if (ohlcvData && ohlcvData.length > 0) {
+      // Real OHLCV, oldest -> newest, most recent 250 bars.
+      return asc(ohlcvData).slice(-250);
     }
-    if (ohlcvData && ohlcvData.length > 0) {
-      return ohlcvData.slice(-250);
+    // Demo users see realistic generated candles; real users never see dummy data
+    // (an empty array renders a clean "no data" state below).
+    if (isDemo) {
+      const meta = symbolMeta(sym);
+      return generateOHLCV(meta.seed, meta.start, meta.end, 250, meta.vMin, meta.vMax);
     }
-    if (kse100Data && kse100Data.length > 0) {
-      return kse100Data.map((b) => ({
-        date: b.date,
-        t: new Date(b.date).getTime(),
-        open: b.open ?? b.close,
-        high: b.high ?? b.close,
-        low: b.low ?? b.close,
-        close: b.close,
-        volume: b.volume ?? 0,
-      }));
-    }
-    const meta = symbolMeta(sym);
-    return generateOHLCV(meta.seed, meta.start, meta.end, 250, meta.vMin, meta.vMax);
-  }, [sym, ohlcvData, kse100Data]);
+    return [];
+  }, [sym, ohlcvData, kse100Data, isDemo]);
 
   const data = full.slice(-visibleCount);
+  const hasData = data.length > 0;
   // Compute MAs over the full 250-point series (so MA200 warms up), then align
   // to the visible window — otherwise short timeframes render an empty MA line.
   const maSeries = useMemo(() => {
@@ -215,8 +225,8 @@ export default function PSX() {
   }, [full, visibleCount]);
   const last = data[data.length - 1];
   const first = data[0];
-  const chg = last.close - first.open;
-  const chgPct = (chg / first.open) * 100;
+  const chg = hasData ? last.close - first.open : 0;
+  const chgPct = hasData && first.open ? (chg / first.open) * 100 : 0;
 
   const screenRows = useMemo(() => {
     const sectorMap = new Map<string, string>();
@@ -431,25 +441,39 @@ export default function PSX() {
               </div>
             </div>
 
-            {/* Price overlay */}
-            <div className="mb-2 flex flex-wrap items-baseline gap-3">
-              <span className="font-mono text-2xl font-bold tabular-nums text-text-primary">
-                {fmtNum(last.close)}
-              </span>
-              <Change value={`${chg >= 0 ? "+" : ""}${fmtNum(chg)}`} pct={chgPct} />
-              <span className="font-mono text-xs tabular-nums text-text-muted">
-                O {fmtNum(first.open)} · H {fmtNum(Math.max(...data.map((d) => d.high)))} · L{" "}
-                {fmtNum(Math.min(...data.map((d) => d.low)))} · Vol {last.volume}M
-              </span>
-            </div>
+            {hasData ? (
+              <>
+                {/* Price overlay */}
+                <div className="mb-2 flex flex-wrap items-baseline gap-3">
+                  <span className="font-mono text-2xl font-bold tabular-nums text-text-primary">
+                    {fmtNum(last.close)}
+                  </span>
+                  <Change value={`${chg >= 0 ? "+" : ""}${fmtNum(chg)}`} pct={chgPct} />
+                  <span className="font-mono text-xs tabular-nums text-text-muted">
+                    O {fmtNum(first.open)} · H {fmtNum(Math.max(...data.map((d) => d.high)))} · L{" "}
+                    {fmtNum(Math.min(...data.map((d) => d.low)))} · Vol {last.volume}M
+                  </span>
+                </div>
 
-            <div className="h-[300px] lg:h-[480px]">
-              {type === "line" ? (
-                <PriceLineChart data={data} height={9999} mas={mas} maSeries={maSeries} />
-              ) : (
-                <CandlestickChart data={data} height={9999} mas={mas} maSeries={maSeries} />
-              )}
-            </div>
+                <div className="h-[300px] lg:h-[480px]">
+                  {type === "line" ? (
+                    <PriceLineChart data={data} height={9999} mas={mas} maSeries={maSeries} />
+                  ) : (
+                    <CandlestickChart data={data} height={9999} mas={mas} maSeries={maSeries} />
+                  )}
+                </div>
+              </>
+            ) : (
+              <div className="flex h-[300px] flex-col items-center justify-center gap-2 text-center lg:h-[480px]">
+                <CandleIcon className="h-8 w-8 text-text-muted" />
+                <p className="text-sm text-text-secondary">
+                  {t("No chart data available for")} {sym}
+                </p>
+                <p className="text-xs text-text-muted">
+                  {t("Historical prices haven't been loaded for this symbol yet.")}
+                </p>
+              </div>
+            )}
           </Card>
 
           {/* AI signal bar */}
