@@ -1,30 +1,21 @@
 """Symbol validation against the known PSX universe.
 
-A symbol is considered valid if it appears in any of our reference sources:
-the company profile table, the live market snapshot, or historical OHLCV.
-Used to reject holdings/transactions for non-existent tickers (e.g. "DF").
+A symbol is valid if it appears in any reference source (company profile, live
+market snapshot, or historical OHLCV). Used to reject holdings/transactions for
+non-existent tickers. The existence query lives in market_repo; this module is
+the validation guard (raises the domain 400).
 """
 from __future__ import annotations
 
 from typing import Any
 
 from fastapi import HTTPException
-from sqlalchemy import text
 
-_EXISTS_SQL = text(
-    """
-    SELECT
-        EXISTS(SELECT 1 FROM psx_profile          WHERE symbol = :s)
-     OR EXISTS(SELECT 1 FROM psx_market_snapshot   WHERE symbol = :s)
-     OR EXISTS(SELECT 1 FROM psx_ohlcv             WHERE symbol = :s)
-    """
-)
+from app.repositories import market_repo
 
 
 async def symbol_is_known(conn: Any, symbol: str) -> bool:
-    """Return True if the (upper-cased) symbol exists in any PSX reference source."""
-    result = await conn.execute(_EXISTS_SQL, {"s": symbol.upper()})
-    return bool(result.scalar())
+    return await market_repo.symbol_is_known(conn, symbol)
 
 
 async def require_known_symbol(conn: Any, symbol: str) -> None:

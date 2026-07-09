@@ -5,7 +5,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends
 
 from app.api.deps import require_user
-from app.models.finance import (
+from app.schemas.finance import (
     BillCreate,
     BillUpdate,
     BudgetCreate,

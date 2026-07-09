@@ -1,29 +1,21 @@
-"""User-scoped finance extensions: zakat settings, history, calculation."""
+"""User-scoped finance extensions: zakat settings, history, calculation.
+
+Thin HTTP layer over services.zakat.
+"""
 from __future__ import annotations
 
-from typing import Annotated, Any, Optional
+from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel, Field
 
 from app.api.deps import require_user
+from app.schemas.zakat import ZakatCalculateRequest, ZakatSettingsUpdate
 from app.services import zakat as zakat_service
 
 router = APIRouter(tags=["finance-extended"])
 
 
 # ---------- Settings ----------
-
-
-class ZakatSettingsUpdate(BaseModel):
-    method: Optional[str] = Field(None, max_length=40)
-    custom_rate_pct: Optional[float] = Field(None, ge=0, le=100)
-    nisab_source: Optional[str] = Field(None, max_length=20)
-    nisab_value_pkr: Optional[float] = Field(None, ge=0)
-    include_cash: Optional[bool] = None
-    include_investments: Optional[bool] = None
-    include_receivables: Optional[bool] = None
-    notes: Optional[str] = Field(None, max_length=2000)
 
 
 @router.get("/finance/zakat/settings")
@@ -67,53 +59,20 @@ async def history(
 # ---------- Calculate ----------
 
 
-class ZakatCalculateRequest(BaseModel):
-    islamic_year: str = Field(..., min_length=1, max_length=10)
-    total_assets_pkr: float = Field(..., ge=0)
-    total_deductions_pkr: float = Field(0, ge=0)
-    nisab_value_pkr: float = Field(..., ge=0)
-    rate_pct: float = Field(2.5, ge=0, le=100)
-    method: Optional[str] = None
-    breakdown: Optional[dict[str, Any]] = None
-    save: bool = False
-
-
 @router.post("/finance/zakat/calculate")
 async def calculate(
     body: ZakatCalculateRequest,
     user: Annotated[dict, Depends(require_user)],
 ):
     """Estimate Zakat. Optionally save the record if save=True."""
-    settings = await zakat_service.get_or_create_settings(user["user_id"])
-    method = body.method or settings["method"]
-    if method == "standard_2_5":
-        rate = 2.5
-    elif method == "custom_rate":
-        rate = settings.get("custom_rate_pct") or body.rate_pct
-    else:
-        rate = 0.0
-    from app.services import calculations as calc
-
-    estimate = calc.zakat_estimate(
-        total_assets=body.total_assets_pkr,
-        total_deductions=body.total_deductions_pkr,
-        nisab_value=body.nisab_value_pkr,
-        rate_pct=rate,
+    return await zakat_service.estimate(
+        user["user_id"],
+        islamic_year=body.islamic_year,
+        total_assets_pkr=body.total_assets_pkr,
+        total_deductions_pkr=body.total_deductions_pkr,
+        nisab_value_pkr=body.nisab_value_pkr,
+        rate_pct=body.rate_pct,
+        method=body.method,
+        breakdown=body.breakdown,
+        save=body.save,
     )
-    if body.save and rate > 0:
-        return await zakat_service.save_record(
-            user["user_id"],
-            islamic_year=body.islamic_year,
-            method=method,
-            nisab_value_pkr=body.nisab_value_pkr,
-            total_assets_pkr=body.total_assets_pkr,
-            total_deductions_pkr=body.total_deductions_pkr,
-            rate_pct=rate,
-            breakdown=body.breakdown or {},
-        )
-    return {
-        "method": method,
-        "rate_pct": rate,
-        "islamic_year": body.islamic_year,
-        **estimate,
-    }
