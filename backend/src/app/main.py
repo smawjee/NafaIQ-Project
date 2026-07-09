@@ -19,6 +19,7 @@ from app.api import (
     finance_extended,
     alerts,
     market_v2,
+    finance_sync,
 )
 from app.jobs.scheduler import init_scheduler, shutdown_scheduler
 from app.middleware.auth import BearerTokenMiddleware
@@ -98,16 +99,15 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-cors = settings.cors_origins.split(",") if settings.cors_origins != "*" else ["*"]
+app.add_middleware(BearerTokenMiddleware)
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=cors,
-    allow_credentials=False,
+    allow_origins=["*"],
+    allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-app.add_middleware(BearerTokenMiddleware)
 
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
@@ -122,3 +122,4 @@ app.include_router(portfolio_extended.router, prefix="/api")
 app.include_router(finance_extended.router, prefix="/api")
 app.include_router(alerts.router, prefix="/api")
 app.include_router(market_v2.router, prefix="/api")
+app.include_router(finance_sync.router, prefix="/api")

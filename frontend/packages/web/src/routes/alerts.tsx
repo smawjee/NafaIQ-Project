@@ -15,8 +15,11 @@ import { addAlert, toggleAlert, removeAlert } from "@/store/alerts";
 import { useUserAlerts, usePriceAlerts, useCreateUserAlert, useToggleUserAlert, useRemoveUserAlert } from "@/hooks/use-alerts";
 import { useNotifications } from "@/hooks/use-notifications";
 import { useAlertEvents, useMarkAlertEventRead, useEvaluateAlerts } from "@/hooks/use-alert-events";
+import { useFinanceBudgets } from "@/hooks/use-finance-budgets";
+import { useFinanceGoals } from "@/hooks/use-finance-goals";
+import { useFinanceBills } from "@/hooks/use-finance-bills";
 import { EmptyState } from "@/components/shared/EmptyState";
-import { BUDGETS, GOALS, BILLS } from "@/lib/finance/data";
+import { BUDGETS as DUMMY_BUDGETS, GOALS as DUMMY_GOALS, BILLS as DUMMY_BILLS } from "@/lib/finance/data";
 
 export const Route = createFileRoute("/alerts")({
   head: () => ({
@@ -60,18 +63,26 @@ function Alerts() {
   const toggleUserAlert = useToggleUserAlert();
   const removeUserAlert = useRemoveUserAlert();
 
+  // Real user data for budget/goal/bill dropdowns
+  const { data: realBudgets } = useFinanceBudgets(isLoggedIn);
+  const { data: realGoals } = useFinanceGoals(isLoggedIn);
+  const { data: realBills } = useFinanceBills(isLoggedIn);
 
   const [type, setType] = useState("Stock Price");
 
-  // form state
+  // form state — use real data when logged in, dummy data for demo
+  const budgetOptions = isLoggedIn ? (realBudgets ?? []).map((b) => ({ name: b.category, value: b.category })) : DUMMY_BUDGETS.map((b) => ({ name: b.category, value: b.category }));
+  const goalOptions = isLoggedIn ? (realGoals ?? []).map((g) => ({ name: g.name, emoji: g.emoji || "🎯" })) : DUMMY_GOALS.map((g) => ({ name: g.name, emoji: g.emoji }));
+  const billOptions = isLoggedIn ? (realBills ?? []).map((b) => ({ name: b.name })) : DUMMY_BILLS.map((b) => ({ name: b.name }));
+
   const [stock, setStock] = useState(STOCKS[0]);
   const [direction, setDirection] = useState("Above");
   const [price, setPrice] = useState("");
-  const [bill, setBill] = useState(BILLS[0]?.name ?? "");
+  const [bill, setBill] = useState(billOptions[0]?.name ?? "");
   const [timing, setTiming] = useState("1 day before");
-  const [budgetCat, setBudgetCat] = useState(BUDGETS[0]?.category ?? "");
+  const [budgetCat, setBudgetCat] = useState(budgetOptions[0]?.value ?? "");
   const [budgetThreshold, setBudgetThreshold] = useState("80");
-  const [goal, setGoal] = useState(GOALS[0]?.name ?? "");
+  const [goal, setGoal] = useState(goalOptions[0]?.name ?? "");
   const [goalMilestone, setGoalMilestone] = useState("50");
   const [push, setPush] = useState(true);
   const [email, setEmail] = useState(false);
@@ -297,7 +308,7 @@ function Alerts() {
                 onChange={(e) => setBill(e.target.value)}
                 className="rounded-[6px] border border-border bg-elevated px-3 py-2 text-sm text-text-primary"
               >
-                {BILLS.map((b) => (
+                {billOptions.map((b) => (
                   <option key={b.name} value={b.name}>{b.name}</option>
                 ))}
               </select>
@@ -318,8 +329,8 @@ function Alerts() {
                 onChange={(e) => setBudgetCat(e.target.value)}
                 className="rounded-[6px] border border-border bg-elevated px-3 py-2 text-sm text-text-primary"
               >
-                {BUDGETS.map((b) => (
-                  <option key={b.category} value={b.category}>{t(b.category)}</option>
+                {budgetOptions.map((b) => (
+                  <option key={b.value} value={b.value}>{t(b.name)}</option>
                 ))}
               </select>
               <select
@@ -341,7 +352,7 @@ function Alerts() {
                 onChange={(e) => setGoal(e.target.value)}
                 className="rounded-[6px] border border-border bg-elevated px-3 py-2 text-sm text-text-primary"
               >
-                {GOALS.map((g) => (
+                {goalOptions.map((g) => (
                   <option key={g.name} value={g.name}>{g.emoji} {t(g.name)}</option>
                 ))}
               </select>
