@@ -10,7 +10,7 @@ from fastapi import APIRouter, Depends, HTTPException
 
 from app.api.deps import require_user
 from app.schemas.zakat import ZakatCalculateRequest, ZakatSettingsUpdate
-from app.services import zakat as zakat_service
+from app.services.finance import zakat as zakat_service
 
 router = APIRouter(tags=["finance-extended"])
 

@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter
 
-from app.services import signals as signals_service
+from app.services.market import signals as signals_service
 
 router = APIRouter(tags=["signals"])
 

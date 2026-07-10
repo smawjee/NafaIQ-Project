@@ -15,7 +15,7 @@ from app.schemas.finance import (
     TransactionCreate,
     TransactionUpdate,
 )
-from app.services import finance_routes as finance_service
+from app.services import finance as finance_service
 
 router = APIRouter(tags=["finance"])
 
