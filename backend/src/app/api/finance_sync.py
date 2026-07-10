@@ -10,7 +10,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends
 
 from app.api.deps import require_user
-from app.services import finance_routes as finance_service
+from app.services import finance as finance_service
 
 router = APIRouter(tags=["finance-sync"])
 

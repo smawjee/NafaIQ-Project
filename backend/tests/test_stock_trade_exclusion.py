@@ -19,7 +19,7 @@ import pytest
 from app.config import settings
 from app.repositories import finance_repo, portfolio_repo
 from app.repositories.base import begin
-from app.services import finance_routes as finance_service
+from app.services import finance as finance_service
 from app.services import portfolio as portfolio_service
 
 pytestmark = pytest.mark.skipif(
