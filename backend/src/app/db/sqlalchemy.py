@@ -27,10 +27,11 @@ def get_engine():
     global _engine
     if _engine is None:
         url = _build_database_url()
-        from sqlalchemy.pool import NullPool
         _engine = create_async_engine(
             url,
-            poolclass=NullPool,
+            pool_size=10,
+            max_overflow=20,
+            pool_pre_ping=True,
             echo=False,
             connect_args={"statement_cache_size": 0},
         )

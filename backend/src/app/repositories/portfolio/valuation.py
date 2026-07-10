@@ -151,6 +151,28 @@ async def fetch_symbol_ohlcv(
     ]
 
 
+async def fetch_symbols_ohlcv(
+    conn: Executor, symbols: list[str], days: int
+) -> dict[str, list[dict[str, Any]]]:
+    if not symbols:
+        return {}
+    result = await conn.execute(
+        text(
+            "SELECT symbol, date, close FROM psx_ohlcv "
+            "WHERE symbol = ANY(:syms) AND date >= CURRENT_DATE - (:days * INTERVAL '1 day') "
+            "ORDER BY symbol, date ASC"
+        ),
+        {"syms": symbols, "days": int(days)},
+    )
+    grouped: dict[str, list[dict[str, Any]]] = {}
+    for r in result.mappings().all():
+        sym = r["symbol"]
+        if sym not in grouped:
+            grouped[sym] = []
+        grouped[sym].append({"date": r["date"], "close": float(r["close"] or 0)})
+    return grouped
+
+
 async def fetch_portfolio_value_holdings(
     conn: Executor, portfolio_id: int
 ) -> list[dict[str, Any]]:

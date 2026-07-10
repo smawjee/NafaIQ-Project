@@ -7,7 +7,7 @@ from typing import Awaitable, Callable, Optional
 
 import structlog
 
-from app.db.supabase import get_supabase
+from app.db.supabase import async_execute, get_supabase
 from app.scrapers.dps import DPSScraper
 from app.models import (
     MarketSnapshotItem,
@@ -70,7 +70,7 @@ class CacheLayer:
 
     async def get_market_snapshot(self, max_age_seconds: int = 5) -> list[MarketSnapshotItem]:
         try:
-            result = self.db.table("psx_market_snapshot").select("*").execute()
+            result = await async_execute(lambda c: c.table("psx_market_snapshot").select("*"))
             rows = result.data or []
             if rows:
                 newest = max((r.get("refreshed_at") or "" for r in rows), default="")
@@ -106,7 +106,7 @@ class CacheLayer:
                 for i in items
             ]
             try:
-                self.db.table("psx_market_snapshot").upsert(rows, on_conflict="symbol").execute()
+                await async_execute(lambda c: c.table("psx_market_snapshot").upsert(rows, on_conflict="symbol"))
             except Exception:
                 log.warning("cache_market_write_failed", exc_info=True)
         return items
@@ -116,13 +116,14 @@ class CacheLayer:
     async def get_history(self, symbol: str, days: int = 250, max_age_seconds: int = 21600) -> list[OHLCVBar]:
         sym = symbol.upper()
         try:
-            bars_result = (
-                self.db.table("psx_ohlcv")
-                .select("*", count="exact")
-                .eq("symbol", sym)
-                .order("date", desc=True)
-                .limit(days)
-                .execute()
+            bars_result = await async_execute(
+                lambda c: (
+                    c.table("psx_ohlcv")
+                    .select("*", count="exact")
+                    .eq("symbol", sym)
+                    .order("date", desc=True)
+                    .limit(days)
+                )
             )
             if bars_result.count and bars_result.count > 0:
                 rows = bars_result.data or []
@@ -136,7 +137,7 @@ class CacheLayer:
         if bars:
             rows = [b.to_dict() for b in bars]
             try:
-                self.db.table("psx_ohlcv").upsert(rows, on_conflict="symbol,date").execute()
+                await async_execute(lambda c: c.table("psx_ohlcv").upsert(rows, on_conflict="symbol,date"))
             except Exception:
                 log.warning("cache_history_write_failed", symbol=sym, exc_info=True)
         return bars[-days:] if len(bars) > days else bars
@@ -145,10 +146,8 @@ class CacheLayer:
 
     async def get_symbols(self, max_age_seconds: int = 86400) -> list[SymbolInfo]:
         try:
-            result = (
-                self.db.table("psx_profile")
-                .select("symbol,name,sector,logoid,refreshed_at")
-                .execute()
+            result = await async_execute(
+                lambda c: c.table("psx_profile").select("symbol,name,sector,logoid,refreshed_at")
             )
             rows = result.data or []
             if rows:
@@ -188,7 +187,7 @@ class CacheLayer:
                 for s in symbols
             ]
             try:
-                self.db.table("psx_profile").upsert(rows, on_conflict="symbol").execute()
+                await async_execute(lambda c: c.table("psx_profile").upsert(rows, on_conflict="symbol"))
             except Exception:
                 log.warning("cache_symbols_write_failed", exc_info=True)
         return symbols
@@ -198,7 +197,7 @@ class CacheLayer:
     async def get_profile(self, symbol: str, max_age_seconds: int = 604800) -> Optional[CompanyProfile]:
         sym = symbol.upper()
         try:
-            result = self.db.table("psx_profile").select("*").eq("symbol", sym).execute()
+            result = await async_execute(lambda c: c.table("psx_profile").select("*").eq("symbol", sym))
             rows = result.data or []
             if rows:
                 r = rows[0]
@@ -217,14 +216,14 @@ class CacheLayer:
 
         profile = await self.dps.fetch_profile(sym)
         try:
-            self.db.table("psx_profile").upsert({
+            await async_execute(lambda c: c.table("psx_profile").upsert({
                 "symbol": profile.symbol,
                 "name": profile.name,
                 "sector": profile.sector,
                 "listed_shares": profile.listed_shares,
                 "free_float": profile.free_float,
                 "refreshed_at": datetime.now(timezone.utc).isoformat(),
-            }, on_conflict="symbol").execute()
+            }, on_conflict="symbol"))
         except Exception:
             pass
         return profile
@@ -234,7 +233,7 @@ class CacheLayer:
     async def get_fundamentals(self, symbol: str, max_age_seconds: int = 86400) -> FundamentalsData:
         sym = symbol.upper()
         try:
-            result = self.db.table("psx_fundamentals").select("*").eq("symbol", sym).execute()
+            result = await async_execute(lambda c: c.table("psx_fundamentals").select("*").eq("symbol", sym))
             rows = result.data or []
             if rows:
                 r = rows[0]
@@ -255,7 +254,7 @@ class CacheLayer:
 
         fundamentals = await self.dps.fetch_fundamentals(sym)
         try:
-            self.db.table("psx_fundamentals").upsert({
+            await async_execute(lambda c: c.table("psx_fundamentals").upsert({
                 "symbol": sym,
                 "eps": fundamentals.eps,
                 "pe": fundamentals.pe,
@@ -264,31 +263,91 @@ class CacheLayer:
                 "payout": fundamentals.payout,
                 "roe": fundamentals.roe,
                 "refreshed_at": datetime.now(timezone.utc).isoformat(),
-            }, on_conflict="symbol").execute()
+            }, on_conflict="symbol"))
         except Exception:
             pass
         return fundamentals
+
+    # ---------- batch helpers (screener) ----------
+
+    async def get_histories_batch(self, symbols: list[str], days: int = 200) -> dict[str, list[OHLCVBar]]:
+        syms = [s.upper() for s in symbols]
+        try:
+            bars_result = await async_execute(
+                lambda c: (
+                    c.table("psx_ohlcv")
+                    .select("*")
+                    .in_("symbol", syms)
+                    .order("date", desc=True)
+                )
+            )
+            rows = bars_result.data or []
+            grouped: dict[str, list[OHLCVBar]] = {}
+            for r in rows:
+                sym = r["symbol"]
+                if sym not in grouped:
+                    grouped[sym] = []
+                grouped[sym].append(_row_to_bar(r))
+            return grouped
+        except Exception:
+            log.warning("cache_histories_batch_read_failed", exc_info=True)
+
+        result: dict[str, list[OHLCVBar]] = {}
+        for sym in symbols:
+            result[sym] = await self.get_history(sym, days)
+        return result
+
+    async def get_fundamentals_batch(self, symbols: list[str]) -> dict[str, Optional[FundamentalsData]]:
+        syms = [s.upper() for s in symbols]
+        try:
+            result = await async_execute(
+                lambda c: c.table("psx_fundamentals").select("*").in_("symbol", syms)
+            )
+            rows = result.data or []
+            grouped: dict[str, FundamentalsData] = {}
+            for r in rows:
+                sym = r["symbol"]
+                grouped[sym] = FundamentalsData(
+                    symbol=sym,
+                    eps=r.get("eps"),
+                    pe=r.get("pe"),
+                    pb=r.get("pb"),
+                    div_yield=r.get("div_yield"),
+                    payout=r.get("payout"),
+                    roe=r.get("roe"),
+                )
+            return grouped
+        except Exception:
+            log.warning("cache_fundamentals_batch_read_failed", exc_info=True)
+
+        result: dict[str, Optional[FundamentalsData]] = {}
+        for sym in symbols:
+            result[sym] = await self.get_fundamentals(sym)
+        return result
 
     # ---------- announcements ----------
 
     async def get_announcements(self, symbol: str | None = None, limit: int = 50, max_age_seconds: int = 900) -> list[AnnouncementItem]:
         try:
-            result = (
-                self.db.table("psx_announcements")
-                .select("refreshed_at")
-                .order("refreshed_at", desc=True)
-                .limit(1)
-                .execute()
+            result = await async_execute(
+                lambda c: (
+                    c.table("psx_announcements")
+                    .select("refreshed_at")
+                    .order("refreshed_at", desc=True)
+                    .limit(1)
+                )
             )
             rows = result.data or []
             if rows:
                 last_refresh = datetime.fromisoformat(rows[0]["refreshed_at"].replace("Z", "+00:00"))
                 age = (datetime.now(timezone.utc) - last_refresh).total_seconds()
                 if age < max_age_seconds:
-                    query = self.db.table("psx_announcements").select("*").order("posted_at", desc=True).limit(limit)
-                    if symbol:
-                        query = query.eq("symbol", symbol.upper())
-                    result = query.execute()
+                    def _q(c):
+                        q = c.table("psx_announcements").select("*").order("posted_at", desc=True).limit(limit)
+                        if symbol:
+                            q = q.eq("symbol", symbol.upper())
+                        return q
+                    result = await async_execute(_q)
                     return [
                         AnnouncementItem(
                             id=r["id"],
@@ -309,7 +368,7 @@ class CacheLayer:
                 {
                     "id": item.id,
                     "symbol": item.symbol,
-                    "posted_at": item.posted_at,
+                    "posted_at": item.posted_at.isoformat() if hasattr(item.posted_at, "isoformat") else item.posted_at,
                     "title": item.title,
                     "category": item.category,
                     "url": item.url,
@@ -318,7 +377,7 @@ class CacheLayer:
                 for item in items
             ]
             try:
-                self.db.table("psx_announcements").upsert(rows, on_conflict="id").execute()
+                await async_execute(lambda c: c.table("psx_announcements").upsert(rows, on_conflict="id"))
             except Exception:
                 log.warning("cache_announcements_write_failed", exc_info=True)
         return items[:limit]
@@ -328,7 +387,7 @@ class CacheLayer:
     async def get_dividends(self, symbol: str, max_age_seconds: int = 86400) -> list[DividendEvent]:
         sym = symbol.upper()
         try:
-            result = self.db.table("psx_dividends").select("*").eq("symbol", sym).order("ex_date", desc=True).execute()
+            result = await async_execute(lambda c: c.table("psx_dividends").select("*").eq("symbol", sym).order("ex_date", desc=True))
             rows = result.data or []
             if rows:
                 return [
@@ -352,8 +411,8 @@ class CacheLayer:
                 {
                     "announcement_id": e.announcement_id,
                     "symbol": e.symbol,
-                    "ex_date": e.ex_date,
-                    "announcement_date": e.announcement_date,
+                    "ex_date": e.ex_date.isoformat() if hasattr(e.ex_date, "isoformat") else e.ex_date,
+                    "announcement_date": e.announcement_date.isoformat() if hasattr(e.announcement_date, "isoformat") else e.announcement_date,
                     "payout_type": e.payout_type,
                     "per_share": e.per_share,
                     "bonus_pct": e.bonus_pct,
@@ -362,7 +421,7 @@ class CacheLayer:
                 for e in events
             ]
             try:
-                self.db.table("psx_dividends").upsert(rows, on_conflict="announcement_id").execute()
+                await async_execute(lambda c: c.table("psx_dividends").upsert(rows, on_conflict="announcement_id"))
             except Exception:
                 log.warning("cache_dividends_write_failed", symbol=sym, exc_info=True)
         return events
@@ -372,7 +431,7 @@ class CacheLayer:
     async def get_index_eod(self, code: str, max_age_seconds: int = 3600) -> list[IndexBar]:
         c = code.upper()
         try:
-            result = self.db.table("psx_index_eod").select("*").eq("code", c).order("date", desc=True).execute()
+            result = await async_execute(lambda q: q.table("psx_index_eod").select("*").eq("code", c).order("date", desc=True))
             rows = result.data or []
             if rows:
                 return [
@@ -401,7 +460,7 @@ class CacheLayer:
                     seen.add(key)
                     deduped.append(r)
             try:
-                self.db.table("psx_index_eod").upsert(deduped, on_conflict="code,date").execute()
+                await async_execute(lambda c: c.table("psx_index_eod").upsert(deduped, on_conflict="code,date"))
             except Exception:
                 log.warning("cache_index_write_failed", code=c, exc_info=True)
         return bars
@@ -415,13 +474,14 @@ class CacheLayer:
         """
         c = code.upper()
         try:
-            result = (
-                self.db.table("psx_index_eod")
-                .select("*")
-                .eq("code", c)
-                .order("date", desc=True)
-                .limit(bars)
-                .execute()
+            result = await async_execute(
+                lambda cl: (
+                    cl.table("psx_index_eod")
+                    .select("*")
+                    .eq("code", c)
+                    .order("date", desc=True)
+                    .limit(bars)
+                )
             )
             rows = result.data or []
             if rows:
@@ -441,14 +501,14 @@ class CacheLayer:
     async def get_sectors(self) -> list[SectorDataItem]:
         """Build sector aggregates from cached snapshot + profile data."""
         try:
-            result = self.db.table("psx_market_snapshot").select("*").execute()
+            result = await async_execute(lambda c: c.table("psx_market_snapshot").select("*"))
             snapshot = [_row_to_market_snapshot(r) for r in (result.data or [])]
         except Exception:
             snapshot = await self.dps.fetch_market_watch()
 
         sector_map: dict[str, str] = {}
         try:
-            profiles = self.db.table("psx_profile").select("symbol,sector").execute()
+            profiles = await async_execute(lambda c: c.table("psx_profile").select("symbol,sector"))
             for p in (profiles.data or []):
                 if p.get("symbol") and p.get("sector"):
                     sector_map[p["symbol"]] = p["sector"]

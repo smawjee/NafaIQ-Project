@@ -24,7 +24,7 @@ async def create_budget(uid: str, body: BudgetCreate, user: dict) -> dict[str, A
             conn,
             {
                 "user_id": uid,
-                "category": body.category.strip(),
+                "category": body.category.strip().lower(),
                 "spent": body.spent,
                 "limit_amount": body.limit_amount,
                 "period": body.period,
@@ -37,6 +37,8 @@ async def update_budget(uid: str, budget_id: int, body: BudgetUpdate) -> dict[st
     values = body.model_dump(exclude_unset=True)
     if not values:
         raise HTTPException(400, "No fields to update")
+    if "category" in values:
+        values["category"] = values["category"].strip().lower()
     async with begin() as conn:
         row = await repo.update_budget(conn, uid, budget_id, values)
     if not row:

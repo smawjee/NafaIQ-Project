@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+from collections.abc import Awaitable, Callable
 from datetime import datetime, timedelta, timezone
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
@@ -13,7 +14,7 @@ from app.scrapers.ahletrade import AhleTradePoller
 from app.scrapers.tradingview import TradingViewScraper
 from app.services.cache import CacheLayer
 from app.api.health import set_market_refresh_time
-from app.db.supabase import get_supabase
+from app.db.supabase import async_execute
 
 log = structlog.get_logger()
 
@@ -21,7 +22,14 @@ scheduler = AsyncIOScheduler()
 ahletrade = AhleTradePoller()
 dps = DPSScraper()
 tv = TradingViewScraper()
-cache = CacheLayer(dps)
+_cache: CacheLayer | None = None
+
+
+def get_cache() -> CacheLayer:
+    global _cache
+    if _cache is None:
+        _cache = CacheLayer(dps)
+    return _cache
 
 PTK_TZ = timezone(timedelta(hours=5))
 
@@ -41,7 +49,6 @@ async def job_refresh_market():
         items = await dps.fetch_market_watch()
         if not items:
             return
-        db = get_supabase()
         now = datetime.now(timezone.utc).isoformat()
         rows = [
             {
@@ -56,7 +63,7 @@ async def job_refresh_market():
             }
             for item in items
         ]
-        db.table("psx_market_snapshot").upsert(rows, on_conflict="symbol").execute()
+        await async_execute(lambda c: c.table("psx_market_snapshot").upsert(rows, on_conflict="symbol"))
         set_market_refresh_time()
         log.info("job:refresh_market:done", symbols=len(items))
     except Exception:
@@ -69,7 +76,6 @@ async def job_refresh_announcements():
         items = await dps.fetch_announcements(offset=0, count=50)
         if not items:
             return
-        db = get_supabase()
         rows = [
             {
                 "id": item.id,
@@ -82,7 +88,7 @@ async def job_refresh_announcements():
             }
             for item in items
         ]
-        db.table("psx_announcements").upsert(rows, on_conflict="id").execute()
+        await async_execute(lambda c: c.table("psx_announcements").upsert(rows, on_conflict="id"))
         log.info("job:refresh_announcements:done", count=len(items))
     except Exception:
         log.exception("job:refresh_announcements:failed")
@@ -93,12 +99,11 @@ async def job_poll_ahletrade():
     if not await _is_market_open():
         return
     try:
-        db = get_supabase()
-        symbols = db.table("psx_profile").select("symbol").execute()
+        symbols = await async_execute(lambda c: c.table("psx_profile").select("symbol"))
         sym_list = [r["symbol"] for r in (symbols.data or [])]
 
         # Poll top 20 by volume (avoid hammering AhleTrade with 500 symbols)
-        snapshot = db.table("psx_market_snapshot").select("symbol,volume").order("volume", desc=True).limit(20).execute()
+        snapshot = await async_execute(lambda c: c.table("psx_market_snapshot").select("symbol,volume").order("volume", desc=True).limit(20))
         top_symbols = [r["symbol"] for r in (snapshot.data or [])] or sym_list[:20]
 
         now = datetime.now(timezone.utc).isoformat()
@@ -120,45 +125,60 @@ async def job_poll_ahletrade():
                 log.debug("ahletrade_poll_symbol_failed", symbol=sym)
 
         if rows_to_write:
-            db.table("psx_market_snapshot").upsert(rows_to_write, on_conflict="symbol").execute()
+            await async_execute(lambda c: c.table("psx_market_snapshot").upsert(rows_to_write, on_conflict="symbol"))
             log.debug("job:poll_ahletrade:done", patched=len(rows_to_write))
     except Exception:
         log.exception("job:poll_ahletrade:failed")
 
 
+async def _run_concurrently(
+    symbols: list[str],
+    worker: "Callable[[str], Awaitable[None]]",
+    max_concurrent: int = 5,
+) -> None:
+    sem = asyncio.Semaphore(max_concurrent)
+
+    async def wrapped(sym: str) -> None:
+        async with sem:
+            await worker(sym)
+
+    await asyncio.gather(*[wrapped(sym) for sym in symbols], return_exceptions=True)
+
+
 async def job_backfill_history():
     log.info("job:backfill_history:start")
-    db = get_supabase()
-    result = db.table("psx_profile").select("symbol").execute()
+    result = await async_execute(lambda c: c.table("psx_profile").select("symbol"))
     symbols = [r["symbol"] for r in (result.data or [])]
     if not symbols:
         return
-    for sym in symbols:
+
+    async def _backfill(sym: str) -> None:
         try:
             bars = await dps.fetch_historical(sym)
             if bars:
                 rows = [b.to_dict() for b in bars]
-                db.table("psx_ohlcv").upsert(rows, on_conflict="symbol,date").execute()
+                await async_execute(lambda c: c.table("psx_ohlcv").upsert(rows, on_conflict="symbol,date"))
             log.info("job:backfill_history:symbol_done", symbol=sym, bars=len(bars))
-            await asyncio.sleep(0.5)
         except Exception:
             log.exception("job:backfill_history:failed", symbol=sym)
+
+    await _run_concurrently(symbols, _backfill, max_concurrent=5)
     log.info("job:backfill_history:done")
 
 
 async def job_refresh_fundamentals():
     log.info("job:refresh_fundamentals:start")
-    db = get_supabase()
-    result = db.table("psx_profile").select("symbol").execute()
+    result = await async_execute(lambda c: c.table("psx_profile").select("symbol"))
     symbols = [r["symbol"] for r in (result.data or [])]
     if not symbols:
         return
     now = datetime.now(timezone.utc).isoformat()
-    for sym in symbols:
+
+    async def _refresh(sym: str) -> None:
         try:
             f = await dps.fetch_fundamentals(sym)
             profile = await dps.fetch_profile(sym)
-            db.table("psx_fundamentals").upsert({
+            await async_execute(lambda c: c.table("psx_fundamentals").upsert({
                 "symbol": sym,
                 "eps": f.eps,
                 "pe": f.pe,
@@ -167,24 +187,24 @@ async def job_refresh_fundamentals():
                 "payout": f.payout,
                 "roe": f.roe,
                 "refreshed_at": now,
-            }, on_conflict="symbol").execute()
-            db.table("psx_profile").upsert({
+            }, on_conflict="symbol"))
+            await async_execute(lambda c: c.table("psx_profile").upsert({
                 "symbol": sym,
                 "name": profile.name,
                 "sector": profile.sector,
                 "listed_shares": profile.listed_shares,
                 "free_float": profile.free_float,
                 "refreshed_at": now,
-            }, on_conflict="symbol").execute()
-            await asyncio.sleep(0.5)
+            }, on_conflict="symbol"))
         except Exception:
             log.exception("job:refresh_fundamentals:failed", symbol=sym)
+
+    await _run_concurrently(symbols, _refresh, max_concurrent=5)
     log.info("job:refresh_fundamentals:done")
 
 
 async def job_refresh_index_eod():
     log.info("job:refresh_index_eod:start")
-    db = get_supabase()
     for code in ("KSE100", "KSE30", "KMI30", "ALLSHR"):
         try:
             bars = await dps.fetch_index_eod(code)
@@ -201,7 +221,7 @@ async def job_refresh_index_eod():
                     }
                     for b in bars
                 ]
-                db.table("psx_index_eod").upsert(rows, on_conflict="code,date").execute()
+                await async_execute(lambda c: c.table("psx_index_eod").upsert(rows, on_conflict="code,date"))
         except Exception:
             log.exception("job:refresh_index_eod:failed", code=code)
     log.info("job:refresh_index_eod:done")
@@ -214,7 +234,6 @@ async def job_refresh_tv_data():
         items = await tv.fetch_market_data()
         if not items:
             return
-        db = get_supabase()
         now = datetime.now(timezone.utc).isoformat()
 
         profile_rows = []
@@ -228,7 +247,7 @@ async def job_refresh_tv_data():
             })
 
         if profile_rows:
-            db.table("psx_profile").upsert(profile_rows, on_conflict="symbol").execute()
+            await async_execute(lambda c: c.table("psx_profile").upsert(profile_rows, on_conflict="symbol"))
 
         log.info("job:refresh_tv_data:done", symbols=len(items))
     except Exception:

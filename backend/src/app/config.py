@@ -11,7 +11,7 @@ def _env_files() -> list[str]:
     candidates = []
     cwd = Path.cwd()
     candidates.append(str(cwd / ".env"))
-    backend_dir = Path(__file__).resolve().parent.parent.parent.parent
+    backend_dir = Path(__file__).resolve().parent.parent.parent
     candidates.append(str(backend_dir / ".env"))
     candidates.append(str(backend_dir.parent / ".env"))
     return [p for p in candidates if os.path.isfile(p)]

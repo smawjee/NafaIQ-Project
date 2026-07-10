@@ -42,12 +42,12 @@ async def get_budget_by_category(
                     WHERE t.user_id = b.user_id
                       AND t.transaction_type = 'expense'
                       AND (t.source IS DISTINCT FROM 'stock_trade')
-                      AND LOWER(t.category) = LOWER(b.category)
+                      AND t.category = b.category
                       AND DATE_TRUNC('month', t.transaction_date)
                           = DATE_TRUNC('month', CURRENT_DATE)
                 ), 0)::numeric AS spent
             FROM user_budgets b
-            WHERE b.user_id = :uid AND LOWER(b.category) = LOWER(:cat)
+            WHERE b.user_id = :uid AND b.category = :cat
             LIMIT 1
             """
         ),

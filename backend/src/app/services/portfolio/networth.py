@@ -77,9 +77,7 @@ async def history(user_id: str, days: int = 180) -> list[dict[str, Any]]:
         symbols = [h["symbol"] for h in holdings]
         if not symbols:
             return []
-        ohlcv: dict[str, list[dict[str, Any]]] = {}
-        for sym in symbols:
-            ohlcv[sym] = await repo.fetch_symbol_ohlcv(conn, sym, int(days))
+        ohlcv = await repo.fetch_symbols_ohlcv(conn, symbols, int(days))
     return calc.portfolio_history_from_ohlcv(holdings, ohlcv, days=int(days))
 
 
