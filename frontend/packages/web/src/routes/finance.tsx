@@ -917,36 +917,45 @@ function Budgets() {
           {budgetErr && <div className="text-xs text-bear">{budgetErr}</div>}
           <button
             type="button"
-            onClick={() => {
+            disabled={createBudget.isPending}
+            onClick={async () => {
               setBudgetErr("");
               const num = Number(budgetLimit);
               if (!budgetCat.trim()) return setBudgetErr(t("Please enter a category name."));
               if (!budgetLimit || Number.isNaN(num) || num <= 0)
                 return setBudgetErr(t("Please enter a valid limit."));
-              if (user && !isDemo) {
-                createBudget.mutate({
-                  category: budgetCat.trim(),
-                  limit_amount: num,
-                  tip: budgetTip.trim() || undefined,
-                });
-              } else {
-                dispatch(
-                  reduxAddBudget({
+              try {
+                if (user && !isDemo) {
+                  await createBudget.mutateAsync({
                     category: budgetCat.trim(),
-                    spent: 0,
-                    limit: num,
+                    limit_amount: num,
                     tip: budgetTip.trim() || undefined,
-                  }),
+                  });
+                } else {
+                  dispatch(
+                    reduxAddBudget({
+                      category: budgetCat.trim(),
+                      spent: 0,
+                      limit: num,
+                      tip: budgetTip.trim() || undefined,
+                    }),
+                  );
+                }
+                toast.success(t("Budget added"));
+                setBudgetCat("");
+                setBudgetLimit("");
+                setBudgetTip("");
+                setBudgetOpen(false);
+              } catch (error) {
+                console.error("Add budget error:", error);
+                setBudgetErr(
+                  t("Could not add budget — it may already exist or you've hit your plan limit."),
                 );
               }
-              setBudgetCat("");
-              setBudgetLimit("");
-              setBudgetTip("");
-              setBudgetOpen(false);
             }}
-            className="w-full rounded-[6px] bg-bull py-2 text-sm font-semibold text-bull-foreground hover:brightness-110"
+            className="w-full rounded-[6px] bg-bull py-2 text-sm font-semibold text-bull-foreground hover:brightness-110 disabled:opacity-60"
           >
-            {t("Add Budget")}
+            {createBudget.isPending ? t("Saving…") : t("Add Budget")}
           </button>
         </div>
       </Modal>
@@ -1232,36 +1241,42 @@ function Goals() {
         }))
       : storeGoals;
 
-  const submit = () => {
+  const submit = async () => {
     setErr("");
     const num = Number(target);
     if (!name.trim()) return setErr(t("Please enter a goal name."));
     if (!target || Number.isNaN(num) || num <= 0)
       return setErr(t("Please enter a valid target amount."));
-    if (user && !isDemo) {
-      createGoalApi.mutate({
-        name: name.trim(),
-        target: num,
-        emoji: "🎯",
-        color: "bull",
-        target_date: date ? date.toISOString() : undefined,
-      });
-    } else {
-      const goal: Goal = {
-        emoji: "🎯",
-        name: name.trim(),
-        target: num,
-        saved: 0,
-        color: "bull",
-        date: date ? format(date, "MMM d, yyyy") : undefined,
-        ai: t("New goal created. Start contributing to track your progress."),
-      };
-      dispatch(addGoal(goal));
+    try {
+      if (user && !isDemo) {
+        await createGoalApi.mutateAsync({
+          name: name.trim(),
+          target: num,
+          emoji: "🎯",
+          color: "bull",
+          target_date: date ? date.toISOString() : undefined,
+        });
+      } else {
+        const goal: Goal = {
+          emoji: "🎯",
+          name: name.trim(),
+          target: num,
+          saved: 0,
+          color: "bull",
+          date: date ? format(date, "MMM d, yyyy") : undefined,
+          ai: t("New goal created. Start contributing to track your progress."),
+        };
+        dispatch(addGoal(goal));
+      }
+      toast.success(t("Goal created"));
+      setName("");
+      setTarget("");
+      setDate(undefined);
+      setOpen(false);
+    } catch (error) {
+      console.error("Add goal error:", error);
+      setErr(t("Could not create goal — you may have reached your plan limit."));
     }
-    setName("");
-    setTarget("");
-    setDate(undefined);
-    setOpen(false);
   };
 
   const openContribute = (goalName: string) => {

@@ -89,18 +89,23 @@ function symbolMeta(sym: string) {
 
 function MarketTicker() {
   const { t } = useLang();
+  const { isDemo } = useDemo();
   const tickers = useMarketTickers(20);
+  // Real users never see fabricated tickers: fall back to the static list only
+  // in demo mode, otherwise render nothing until live data arrives.
   const rows = tickers.length
     ? tickers
-    : STOCK_LIST.map((s) => ({
-        symbol: s.ticker,
-        name: s.name,
-        sector: s.sector,
-        price: s.price,
-        change: 0,
-        changePct: s.changePct,
-        volume: 0,
-      }));
+    : isDemo
+      ? STOCK_LIST.map((s) => ({
+          symbol: s.ticker,
+          name: s.name,
+          sector: s.sector,
+          price: s.price,
+          change: 0,
+          changePct: s.changePct,
+          volume: 0,
+        }))
+      : [];
   const row = [...rows, ...rows];
   return (
     <div className="market-strip overflow-hidden rounded-[10px]">
@@ -284,12 +289,14 @@ export default function PSX() {
       }
       return rows;
     }
+    // Real users never see fabricated rows — only demo falls back to the static list.
+    if (!isDemo) return [];
     return STOCK_LIST.map((s) => ({
       ...s,
       rsi: s.rsi as number | null,
       signal: s.signal as Signal | null,
     }));
-  }, [snapshot, symbolsData, sectorFilter, searchFilter, batchSignals, metricsMap]);
+  }, [snapshot, symbolsData, sectorFilter, searchFilter, batchSignals, metricsMap, isDemo]);
 
   const movers = useMemo(() => {
     if (marketMovers.length > 0) {
@@ -313,6 +320,8 @@ export default function PSX() {
             : "—",
       }));
     }
+    // Real users never see fabricated movers — only demo falls back.
+    if (!isDemo) return [];
     const arr = [...STOCK_LIST];
     if (moverTab === "Gainers")
       return arr
@@ -321,7 +330,7 @@ export default function PSX() {
         .slice(0, 6);
     if (moverTab === "Losers") return arr.sort((a, b) => a.changePct - b.changePct).slice(0, 6);
     return arr.sort((a, b) => parseFloat(b.volume) - parseFloat(a.volume)).slice(0, 6);
-  }, [moverTab, marketMovers, batchSignals, metricsMap]);
+  }, [moverTab, marketMovers, batchSignals, metricsMap, isDemo]);
 
   const screened = screenRows.filter((s) => signalFilter === "All" || s.signal === signalFilter);
   const screenerPageSize = 8;
@@ -343,8 +352,10 @@ export default function PSX() {
         volume: s.volume ?? 0,
       }));
     }
+    // Real users never see fabricated sectors — only demo falls back.
+    if (!isDemo) return [];
     return SECTORS.map((s) => ({ name: s.name, pct: s.pct, volume: 0 }));
-  }, [sectorData]);
+  }, [sectorData, isDemo]);
   const heatmapRows = showAllSectors ? sectorRows : sectorRows.slice(0, 12);
 
   useEffect(() => {

@@ -12,7 +12,7 @@ from app.repositories import notifications_repo as repo
 from app.repositories.base import begin, connect
 from app.schemas.notifications import NotifPrefsUpdate
 
-_DEFAULT_PREFS = {"email_alerts": True, "push_alerts": False, "in_app_alerts": True}
+_DEFAULT_PREFS = {"email_alerts": False, "push_alerts": False, "in_app_alerts": True}
 
 
 async def list_notifications(user_id: str, limit: int = 50) -> list[dict[str, Any]]:

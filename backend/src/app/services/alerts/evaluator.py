@@ -1,13 +1,21 @@
-"""Alert evaluators for price / bill / budget / goal alerts.
+"""Alert evaluators.
 
-Designed to be called by an external cron / scheduler; POST /api/alerts/evaluate
-lets the frontend trigger a manual run for testing.
+Two sources, both user-scoped:
+- app-created alerts in `user_alerts` (bill / budget / goal / stock_price):
+  meta-driven — a notification fires only for the exact condition the user
+  configured (e.g. "Groceries at 80%"). This is the opt-in source, so a user
+  who created no alerts is never notified (no global firing).
+- `price_alerts` rows created from the stock-detail page.
+
+Delivery (in-app / email) respects the user's notification preferences — see
+app.services.alerts.events.record_event.
 """
 from __future__ import annotations
 
 import logging
+from typing import Any, Optional
 
-from app.repositories import alerts_repo as repo
+from app.repositories import alerts as repo
 from app.repositories.base import begin, connect
 from app.services import calculations as calc
 from app.services.alerts.events import record_event
@@ -16,8 +24,23 @@ from app.services.psx.prices import get_latest_price
 log = logging.getLogger(__name__)
 
 
+def _num(value: Any) -> Optional[float]:
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _timing_days(timing: str) -> int:
+    """'1 day before' / '3 days before' / '7 days before' -> the number."""
+    for tok in str(timing).split():
+        if tok.isdigit():
+            return int(tok)
+    return 3
+
+
 async def evaluate_price_alerts() -> int:
-    """Check all enabled price alerts. Return count of triggered alerts."""
+    """Check all enabled price_alerts rows (stock-detail page). Returns count fired."""
     async with connect() as conn:
         alerts = await repo.fetch_enabled_price_alerts(conn)
 
@@ -65,118 +88,141 @@ async def evaluate_price_alerts() -> int:
     return triggered
 
 
-async def evaluate_bill_reminders(days_ahead: int = 3) -> int:
-    """Create reminder events for bills due within N days. Only one reminder per
-    (bill, due_date) within a 24-hour window (the job runs every 60s)."""
-    async with connect() as conn:
-        bills = await repo.fetch_due_bills(conn, days_ahead)
-    triggered = 0
-    for b in bills:
-        due_date = b["due_date"]
-        async with connect() as conn:
-            if await repo.recent_event_exists(
-                conn, b["user_id"], "bill", "bill_id", str(b["id"]), str(due_date),
-                discriminator_field="due_date",
-            ):
-                continue
-        days = calc.bill_due_in_days(due_date)
-        await record_event(
-            b["user_id"],
-            alert_id=None,
-            alert_type="bill",
-            symbol=None,
-            title=f"{b['name']} due in {days if days is not None else 'N/A'} day(s)",
-            body=f"Bill '{b['name']}' for PKR {float(b['amount']):.2f} is due on {due_date}.",
-            payload={
-                "bill_id": b["id"],
-                "amount": float(b["amount"]),
-                "due_date": str(due_date),
-            },
-        )
-        triggered += 1
-    return triggered
+# ---------------------------------------------------------------------------
+# Per-type meta evaluators — return (title, body, payload, symbol) if the
+# alert's configured condition is currently met, else None.
+# ---------------------------------------------------------------------------
 
 
-async def evaluate_budget_alerts(thresholds: tuple[float, ...] = (80.0, 90.0, 100.0)) -> int:
-    """Create budget alert events at each threshold. Only one event per
-    (budget, threshold) within a 24-hour window."""
+async def _eval_stock_price(uid: str, meta: dict) -> Optional[tuple]:
+    symbol = str(meta.get("symbol", "")).upper()
+    target = _num(meta.get("price"))
+    direction = str(meta.get("direction", "")).lower()
+    if not symbol or target is None or direction not in ("above", "below"):
+        return None
+    try:
+        pd = await get_latest_price(symbol, allow_external=False)
+    except Exception:
+        return None
+    if not pd or pd.get("price") is None:
+        return None
+    latest = float(pd["price"])
+    if not ((direction == "above" and latest >= target) or (direction == "below" and latest <= target)):
+        return None
+    title = f"{symbol} {direction} PKR {target:.2f}"
+    body = f"{symbol} is now PKR {latest:.2f} ({direction} your PKR {target:.2f} alert)."
+    return title, body, {"symbol": symbol, "price": latest, "target": target, "direction": direction}, symbol
+
+
+async def _eval_budget(uid: str, meta: dict) -> Optional[tuple]:
+    category = str(meta.get("category", ""))
+    threshold = _num(meta.get("threshold"))
+    if not category or threshold is None:
+        return None
     async with connect() as conn:
-        budgets = await repo.fetch_all_budgets(conn)
+        b = await repo.get_budget_by_category(conn, uid, category)
+    if not b:
+        return None
+    usage = calc.budget_usage(b["spent"], b["limit_amount"])
+    if usage < threshold:
+        return None
+    title = f"{category} {threshold:.0f}% of budget used"
+    body = (
+        f"Spending on {category} is PKR {b['spent']:.2f} of "
+        f"PKR {b['limit_amount']:.2f} ({usage:.1f}%)."
+    )
+    return title, body, {"category": category, "usage_pct": usage, "threshold": threshold}, None
+
+
+async def _eval_goal(uid: str, meta: dict) -> Optional[tuple]:
+    name = str(meta.get("goal", ""))
+    milestone = _num(meta.get("milestone"))
+    if not name or milestone is None:
+        return None
+    async with connect() as conn:
+        g = await repo.get_goal_by_name(conn, uid, name)
+    if not g:
+        return None
+    progress = calc.goal_progress(g["saved"], g["target"])
+    if progress < milestone:
+        return None
+    title = f"{name} {milestone:.0f}% reached"
+    body = (
+        f"You've saved PKR {g['saved']:.2f} of PKR {g['target']:.2f} "
+        f"({progress:.1f}%) for {name}."
+    )
+    return title, body, {"goal": name, "progress_pct": progress, "milestone": milestone}, None
+
+
+async def _eval_bill(uid: str, meta: dict) -> Optional[tuple]:
+    name = str(meta.get("bill", ""))
+    if not name:
+        return None
+    days_ahead = _timing_days(meta.get("timing", "3 days before"))
+    async with connect() as conn:
+        bill = await repo.get_bill_by_name(conn, uid, name)
+    if not bill or bill["status"] == "PAID" or bill["due_date"] is None:
+        return None
+    days_left = calc.bill_due_in_days(bill["due_date"])
+    if days_left is None or days_left > days_ahead:
+        return None
+    when = f"in {days_left} day(s)" if days_left >= 0 else f"{abs(days_left)} day(s) ago"
+    title = f"{name} due {when}"
+    body = f"Bill '{name}' for PKR {bill['amount']:.2f} is due on {bill['due_date']}."
+    return title, body, {"bill": name, "amount": bill["amount"], "due_date": str(bill["due_date"])}, None
+
+
+_EVALUATORS = {
+    "stock_price": _eval_stock_price,
+    "budget": _eval_budget,
+    "goal": _eval_goal,
+    "bill": _eval_bill,
+}
+
+
+async def evaluate_user_alerts() -> int:
+    """Evaluate every enabled app-created alert against its own configured
+    condition. Fires (once per alert per 24h) only for the user who owns it."""
+    async with connect() as conn:
+        alerts = await repo.fetch_enabled_user_alerts(conn)
+
     triggered = 0
-    for b in budgets:
-        usage = calc.budget_usage(float(b["spent"]), float(b["limit_amount"]))
-        for t in thresholds:
-            if usage < t:
+    seen: set[int] = set()
+    for a in alerts:
+        # Never process the same alert twice in one pass.
+        if a["id"] in seen:
+            continue
+        seen.add(a["id"])
+        # Isolate each alert: a transient error on one must not skip the rest.
+        try:
+            evaluator = _EVALUATORS.get(a["type"])
+            if evaluator is None:
                 continue
+            result = await evaluator(a["user_id"], a["meta"] or {})
+            if result is None:
+                continue
+            # One notification per alert per 24h window.
             async with connect() as conn:
-                if await repo.recent_event_exists(
-                    conn, b["user_id"], "budget", "budget_id", str(b["id"]), str(t)
-                ):
+                if await repo.recent_event_for_alert(conn, a["id"]):
                     continue
-            title = f"{b['category']} {t:.0f}% of budget used"
-            body = (
-                f"Spending on {b['category']} is PKR {float(b['spent']):.2f} "
-                f"of PKR {float(b['limit_amount']):.2f} ({usage:.1f}%)."
-            )
+            title, body, payload, symbol = result
             await record_event(
-                b["user_id"],
-                alert_id=None,
-                alert_type="budget",
-                symbol=None,
+                a["user_id"],
+                alert_id=a["id"],
+                alert_type=a["type"],
+                symbol=symbol,
                 title=title,
                 body=body,
-                payload={
-                    "budget_id": b["id"],
-                    "category": b["category"],
-                    "usage_pct": usage,
-                    "threshold": t,
-                },
+                payload={**payload, "alert_id": a["id"]},
             )
             triggered += 1
-    return triggered
-
-
-async def evaluate_goal_alerts(thresholds: tuple[float, ...] = (25.0, 50.0, 75.0, 100.0)) -> int:
-    async with connect() as conn:
-        goals = await repo.fetch_all_goals(conn)
-    triggered = 0
-    for g in goals:
-        progress = calc.goal_progress(float(g["saved"]), float(g["target"]))
-        for t in thresholds:
-            if progress < t:
-                continue
-            async with connect() as conn:
-                if await repo.recent_event_exists(
-                    conn, g["user_id"], "goal", "goal_id", str(g["id"]), str(t)
-                ):
-                    continue
-            title = f"{g['name']} {t:.0f}% reached"
-            body = (
-                f"You have saved PKR {float(g['saved']):.2f} of "
-                f"PKR {float(g['target']):.2f} ({progress:.1f}%) for {g['name']}."
-            )
-            await record_event(
-                g["user_id"],
-                alert_id=None,
-                alert_type="goal",
-                symbol=None,
-                title=title,
-                body=body,
-                payload={
-                    "goal_id": g["id"],
-                    "goal_name": g["name"],
-                    "progress_pct": progress,
-                    "threshold": t,
-                },
-            )
-            triggered += 1
+        except Exception:
+            log.exception("user-alert evaluation failed for alert %s", a.get("id"))
     return triggered
 
 
 async def evaluate_all() -> dict[str, int]:
     return {
+        "user_alerts": await evaluate_user_alerts(),
         "price_alerts": await evaluate_price_alerts(),
-        "bill_reminders": await evaluate_bill_reminders(),
-        "budget_alerts": await evaluate_budget_alerts(),
-        "goal_alerts": await evaluate_goal_alerts(),
     }

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any, Optional
 
-from app.repositories import alerts_repo as repo
+from app.repositories import alerts as repo
 from app.repositories.base import begin, connect
 
 

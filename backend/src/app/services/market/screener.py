@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from app.repositories import market_repo as repo
+from app.repositories import market as repo
 from app.repositories.base import connect
 from app.schemas.market import BacktestParams, ScreenerParams
 from app.services.backtest import run_backtest
