@@ -40,6 +40,9 @@ import {
 import { usePsxSymbols } from "@/hooks/psx/use-psx";
 import { Modal, fieldClass } from "@/components/shared/Modal";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
+import { StockSearchBox } from "@/components/search/StockSearchBox";
+import { StockLogo } from "@/components/search/StockLogo";
+import type { StockSearchResult } from "@/lib/psx/stock-search";
 
 export const Route = createFileRoute("/portfolio")({
   head: () => ({
@@ -389,6 +392,18 @@ function Portfolio() {
     });
     setFormErr("");
     setFormOpen(true);
+  }
+
+  // Chosen from the searchable PSX universe → fill symbol, sector, and (if the
+  // live snapshot has it) the current price, so the user never types a raw ticker.
+  function pickStock(r: StockSearchResult) {
+    setFormErr("");
+    setForm((f) => ({
+      ...f,
+      ticker: r.symbol,
+      sector: r.sector ?? f.sector ?? "Other",
+      current: r.price != null && r.price > 0 ? String(r.price) : f.current,
+    }));
   }
 
   function remove(idx: number) {
@@ -790,18 +805,41 @@ function Portfolio() {
         title={editIdx == null ? t("Add Holding") : t("Edit Holding")}
       >
         <div className="space-y-3">
-          <input
-            value={form.ticker}
-            onChange={(e) => setForm({ ...form, ticker: e.target.value })}
-            placeholder={t("Stock symbol (e.g. HBL)")}
-            className={fieldClass}
-          />
-          <input
-            value={form.sector}
-            onChange={(e) => setForm({ ...form, sector: e.target.value })}
-            placeholder={t("Sector")}
-            className={fieldClass}
-          />
+          {editIdx != null ? (
+            // Editing: the symbol is fixed — show it read-only.
+            <div className="flex items-center gap-2 rounded-[8px] border border-white/[0.08] bg-surface px-3 py-2">
+              <StockLogo symbol={form.ticker} size={22} />
+              <span className="text-sm font-semibold text-bull">{form.ticker}</span>
+              {form.sector && (
+                <span className="ml-auto text-[11px] text-text-muted">{form.sector}</span>
+              )}
+            </div>
+          ) : form.ticker ? (
+            // Adding, symbol chosen: show the pick with a "Change" affordance.
+            <div className="flex items-center gap-2 rounded-[8px] border border-white/[0.08] bg-surface px-3 py-2">
+              <StockLogo symbol={form.ticker} size={22} />
+              <span className="text-sm font-semibold text-bull">{form.ticker}</span>
+              {form.sector && (
+                <span className="text-[11px] text-text-muted">{form.sector}</span>
+              )}
+              <button
+                type="button"
+                onClick={() => setForm({ ...form, ticker: "", sector: "" })}
+                className="ml-auto text-xs font-medium text-text-muted hover:text-text-primary"
+              >
+                {t("Change")}
+              </button>
+            </div>
+          ) : (
+            // Adding, no symbol yet: searchable PSX universe (ticker or name).
+            <StockSearchBox
+              mode="navigate"
+              variant="floating"
+              autoFocus
+              placeholder={t("Search stock by symbol or name…")}
+              onSelect={pickStock}
+            />
+          )}
           <input
             value={form.shares}
             onChange={(e) => setForm({ ...form, shares: e.target.value })}
