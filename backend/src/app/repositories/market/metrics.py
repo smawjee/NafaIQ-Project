@@ -1,6 +1,7 @@
-"""Market data access: SQLAlchemy Core aggregations over the reflected PSX
-tables. Only the market queries that hit our own DB live here; live external
-sources (DPS cache, TradingView scanner) are orchestrated in the service.
+"""Market aggregations over our own PSX tables — sector averages, market caps,
+recent closes, and history coverage — feeding the screener and heatmap. Live
+external sources (DPS cache, TradingView scanner) are orchestrated in the
+service, not here.
 """
 from __future__ import annotations
 
@@ -12,22 +13,6 @@ from app.db.orm import get_table
 from app.db.sqlalchemy import ensure_reflected
 
 Executor = Any
-
-_SYMBOL_EXISTS_SQL = text(
-    """
-    SELECT
-        EXISTS(SELECT 1 FROM psx_profile          WHERE symbol = :s)
-     OR EXISTS(SELECT 1 FROM psx_market_snapshot   WHERE symbol = :s)
-     OR EXISTS(SELECT 1 FROM psx_ohlcv             WHERE symbol = :s)
-    """
-)
-
-
-async def symbol_is_known(conn: Executor, symbol: str) -> bool:
-    """True if the (upper-cased) symbol exists in any PSX reference source
-    (company profile, live snapshot, or historical OHLCV)."""
-    result = await conn.execute(_SYMBOL_EXISTS_SQL, {"s": symbol.upper()})
-    return bool(result.scalar())
 
 
 async def sector_averages(conn: Executor) -> list[dict[str, Any]]:

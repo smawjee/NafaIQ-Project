@@ -1,6 +1,6 @@
 """Portfolio service package: holdings & portfolio CRUD, valuation/analytics,
 watchlist enrichment, and trades. All DB access is delegated to
-app.repositories.portfolio_repo; these modules hold no SQL.
+app.repositories.portfolio; these modules hold no SQL.
 
 Re-exports the public functions so callers can keep using
 `from app.services import portfolio as portfolio_service` and call

@@ -17,7 +17,7 @@ import httpx
 import pytest
 
 from app.config import settings
-from app.repositories import finance_repo, portfolio_repo
+from app.repositories import finance, portfolio
 from app.repositories.base import begin
 from app.services import finance as finance_service
 from app.services import portfolio as portfolio_service
@@ -61,7 +61,7 @@ async def test_stock_trade_excluded_from_expense_aggregations() -> None:
         # ---- setup: one normal expense + one stock-trade investment buy ----
         async with begin() as conn:
             # normal Food expense (PKR 1,000)
-            await finance_repo.insert_transaction(
+            await finance.insert_transaction(
                 conn,
                 {
                     "user_id": uid,
@@ -76,11 +76,11 @@ async def test_stock_trade_excluded_from_expense_aggregations() -> None:
                 },
             )
             # portfolio + holding -> cost basis includes the stock buy
-            pf = await portfolio_repo.insert_portfolio(conn, uid, "Regr PF")
-            await portfolio_repo.insert_holding(
+            pf = await portfolio.insert_portfolio(conn, uid, "Regr PF")
+            await portfolio.insert_holding(
                 conn, pf["id"], "PACE", 1, STOCK_BUY, now.date()
             )
-            stx = await portfolio_repo.insert_stock_transaction(
+            stx = await portfolio.insert_stock_transaction(
                 conn,
                 user_id=uid,
                 portfolio_id=pf["id"],
@@ -94,7 +94,7 @@ async def test_stock_trade_excluded_from_expense_aggregations() -> None:
                 source="manual",
             )
             # finance reflection of the buy: source='stock_trade', category='Investment'
-            await portfolio_repo.insert_finance_reflection(
+            await portfolio.insert_finance_reflection(
                 conn,
                 user_id=uid,
                 merchant="Buy 1 PACE",
@@ -105,12 +105,12 @@ async def test_stock_trade_excluded_from_expense_aggregations() -> None:
                 stock_transaction_id=stx["id"],
             )
             # budgets for both categories
-            await finance_repo.insert_budget(
+            await finance.insert_budget(
                 conn,
                 {"user_id": uid, "category": "Food", "spent": 0, "limit_amount": 5000.0,
                  "period": "monthly", "tip": None},
             )
-            await finance_repo.insert_budget(
+            await finance.insert_budget(
                 conn,
                 {"user_id": uid, "category": "Investment", "spent": 0, "limit_amount": 100000.0,
                  "period": "monthly", "tip": None},

@@ -315,14 +315,25 @@ class DPSScraper:
         if ttm_div and eps:
             payout = round((ttm_div / eps) * 100, 2)
 
+        # ── P/B & ROE ── parse the labels if present, else derive from the
+        # book value per share on the page (real data only; None when genuinely
+        # unavailable — never a fabricated placeholder).
+        book_value = find(r"Book\s*Value(?:\s*/?\s*Share)?")
+        pb = find(r"P/B\s*Ratio") or find(r"P\s*/\s*B")
+        if pb is None and price and book_value:
+            pb = round(price / book_value, 2)
+        roe = find(r"Return\s*on\s*Equity") or find(r"\bROE\b")
+        if roe is None and eps is not None and book_value:
+            roe = round((eps / book_value) * 100, 2)
+
         return FundamentalsData(
             symbol=sym,
             eps=eps,
             pe=pe,
-            pb=None,
+            pb=pb,
             div_yield=div_yield,
             payout=payout,
-            roe=None,
+            roe=roe,
         )
 
     # ---------- announcements ----------

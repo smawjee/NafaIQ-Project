@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import logging
 
-from app.repositories import alerts_repo as repo
+from app.repositories import alerts as repo
 from app.repositories.base import begin, connect
 from app.services import calculations as calc
 from app.services.alerts.events import record_event

@@ -1,11 +1,11 @@
-"""Finance budgets: business logic over finance_repo (incl. spent recompute)."""
+"""Finance budgets: business logic over finance (incl. spent recompute)."""
 from __future__ import annotations
 
 from typing import Any
 
 from fastapi import HTTPException
 
-from app.repositories import finance_repo as repo
+from app.repositories import finance as repo
 from app.repositories.base import begin, connect
 from app.schemas.finance import BudgetCreate, BudgetUpdate
 from app.services.permissions import check_count_limit

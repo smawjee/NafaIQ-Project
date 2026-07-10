@@ -1,11 +1,11 @@
 """Finance overview: settings, monthly summary, income/expense series, and
-spending-by-category. Business logic over finance_repo."""
+spending-by-category. Business logic over finance."""
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
-from app.repositories import finance_repo as repo
+from app.repositories import finance as repo
 from app.repositories.base import begin, connect
 from app.schemas.finance import (
     FinanceSummaryResponse,
