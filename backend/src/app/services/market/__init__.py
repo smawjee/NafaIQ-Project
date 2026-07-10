@@ -1,7 +1,7 @@
 """Market data service package: quote/reference reads, history, indicators,
 screener/backtest, and the TradingView heatmap. Live external sources are
 orchestrated here; the only own-DB queries (sector averages, history coverage,
-screener metrics) are delegated to app.repositories.market_repo.
+screener metrics) are delegated to app.repositories.market.
 
 Re-exports the public functions so callers keep using
 `from app.services import market as market_service` and call `market_service.<fn>`.

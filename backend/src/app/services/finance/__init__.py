@@ -1,6 +1,6 @@
 """Finance service package: business logic for transactions, goals, budgets,
 bills, settings, summary and series. All DB access is delegated to
-app.repositories.finance_repo; these modules hold no SQL.
+app.repositories.finance; these modules hold no SQL.
 
 Sub-features live in their own modules; this package re-exports the public
 functions so callers can use `from app.services import finance as finance_service`

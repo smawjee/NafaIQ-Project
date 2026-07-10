@@ -107,10 +107,17 @@ app.add_middleware(GZipMiddleware, minimum_size=1024)
 
 app.add_middleware(BearerTokenMiddleware)
 
+# CORS is driven by settings.cors_origins (comma-separated; "*" allows all).
+# A wildcard origin combined with allow_credentials=True is rejected by browsers
+# and unsafe; this API authenticates via Bearer tokens in the Authorization
+# header (not cookies), so credentials are only enabled when specific origins
+# are configured.
+_cors_origins = [o.strip() for o in settings.cors_origins.split(",") if o.strip()]
+_cors_allow_all = not _cors_origins or _cors_origins == ["*"]
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
+    allow_origins=["*"] if _cors_allow_all else _cors_origins,
+    allow_credentials=not _cors_allow_all,
     allow_methods=["*"],
     allow_headers=["*"],
 )

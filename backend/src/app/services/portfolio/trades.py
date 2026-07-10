@@ -7,7 +7,7 @@ from typing import Any
 
 from fastapi import HTTPException
 
-from app.repositories import portfolio_repo as repo
+from app.repositories import portfolio as repo
 from app.repositories.base import connect, session
 from app.schemas.portfolio import StockTransactionCreate
 from app.services.permissions import check_count_limit

@@ -1,11 +1,11 @@
-"""Portfolio & holding CRUD. Business logic over portfolio_repo."""
+"""Portfolio & holding CRUD. Business logic over portfolio."""
 from __future__ import annotations
 
 from typing import Any, Optional
 
 from fastapi import HTTPException
 
-from app.repositories import portfolio_repo as repo
+from app.repositories import portfolio as repo
 from app.repositories.base import begin, connect
 from app.schemas.portfolio import HoldingCreate, HoldingUpdate
 from app.services.permissions import check_count_limit

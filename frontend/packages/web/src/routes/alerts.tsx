@@ -404,8 +404,6 @@ function Alerts() {
                 onChange={(e) => setBudgetThreshold(e.target.value)}
                 className="rounded-[6px] border border-border bg-elevated px-3 py-2 text-sm text-text-primary"
               >
-                <option value="50">{t("50%")}</option>
-                <option value="75">{t("75%")}</option>
                 <option value="80">{t("80%")}</option>
                 <option value="90">{t("90%")}</option>
                 <option value="100">{t("100%")}</option>
@@ -432,7 +430,6 @@ function Alerts() {
                 <option value="25">{t("25%")}</option>
                 <option value="50">{t("50%")}</option>
                 <option value="75">{t("75%")}</option>
-                <option value="90">{t("90%")}</option>
                 <option value="100">{t("100%")}</option>
               </select>
             </div>

@@ -1,11 +1,11 @@
-"""Finance transactions: business logic over finance_repo."""
+"""Finance transactions: business logic over finance."""
 from __future__ import annotations
 
 from typing import Any
 
 from fastapi import HTTPException
 
-from app.repositories import finance_repo as repo
+from app.repositories import finance as repo
 from app.repositories.base import begin, connect
 from app.schemas.finance import TransactionCreate, TransactionUpdate
 from app.services.finance._common import as_timestamp, transaction_type

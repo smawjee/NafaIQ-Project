@@ -87,6 +87,17 @@ async def create_price_alert(
     )
 
 
+@router.delete("/alerts/price/{alert_id}")
+async def delete_price_alert(
+    alert_id: int,
+    user: Annotated[dict, Depends(require_user)],
+):
+    ok = await alerts_service.delete_price_alert(user["user_id"], alert_id)
+    if not ok:
+        raise HTTPException(404, "Price alert not found")
+    return {"deleted": alert_id}
+
+
 # ---------- Events (notification history) ----------
 
 
