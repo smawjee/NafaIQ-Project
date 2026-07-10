@@ -317,19 +317,46 @@ async def screener_metrics() -> list[dict[str, Any]]:
         async with connect() as conn:
             caps = await repo.market_caps(conn)
             closes = await repo.recent_closes(conn, days=60)
-        symbols = set(caps) | set(closes)
+
+        # Market cap source of truth: live listed_shares * price from our DB
+        # when we have it; otherwise TradingView's market_cap_basic (the only
+        # bulk source, since psx_profile.listed_shares is rarely populated).
+        tv_caps = await _tradingview_market_caps()
+
+        symbols = set(caps) | set(closes) | set(tv_caps)
         out: list[dict[str, Any]] = []
         for sym in symbols:
             out.append(
                 {
                     "symbol": sym,
                     "rsi": rsi_from_closes(closes.get(sym, [])),
-                    "market_cap": caps.get(sym),
+                    "market_cap": caps.get(sym) or tv_caps.get(sym),
                 }
             )
         return out
 
     return await mem_cache.get_or_load("screener_metrics", TTL_SCREENER_METRICS, load)
+
+
+async def _tradingview_market_caps() -> dict[str, float]:
+    """Bulk market caps keyed by symbol from the TradingView scanner. Empty on
+    any failure so screener_metrics still returns RSI + DB caps."""
+    from app.scrapers.tradingview import get_scanner
+
+    try:
+        rows = await get_scanner().fetch_market_data()
+    except Exception:
+        return {}
+    out: dict[str, float] = {}
+    for row in rows:
+        sym = row.get("symbol")
+        cap = row.get("market_cap")
+        if sym and cap:
+            try:
+                out[sym.upper()] = float(cap)
+            except (TypeError, ValueError):
+                continue
+    return out
 
 
 async def history_coverage() -> list[dict[str, Any]]:

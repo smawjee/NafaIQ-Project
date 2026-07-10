@@ -284,7 +284,11 @@ export default function PSX() {
       }
       return rows;
     }
-    return STOCK_LIST.map((s) => ({ ...s, rsi: s.rsi as number | null, signal: s.signal as Signal | null }));
+    return STOCK_LIST.map((s) => ({
+      ...s,
+      rsi: s.rsi as number | null,
+      signal: s.signal as Signal | null,
+    }));
   }, [snapshot, symbolsData, sectorFilter, searchFilter, batchSignals, metricsMap]);
 
   const movers = useMemo(() => {
