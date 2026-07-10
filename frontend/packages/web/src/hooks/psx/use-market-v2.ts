@@ -19,7 +19,7 @@ async function publicGet<T>(path: string): Promise<T> {
   // We deliberately do NOT pass a user token here because these endpoints
   // are public and any user (or anonymous) can call them.
   const base = API_BASE_URL;
-  const token = (import.meta as { env?: Record<string, string> }).env?.VITE_PSX_API_TOKEN || "";
+  const token = import.meta.env.VITE_PSX_API_TOKEN || "";
   const headers: Record<string, string> = {};
   if (token) headers["Authorization"] = `Bearer ${token}`;
   const res = await fetch(`${base}${path}`, { headers });
