@@ -80,7 +80,7 @@ async def job_refresh_announcements():
             {
                 "id": item.id,
                 "symbol": item.symbol,
-                "posted_at": item.posted_at,
+                "posted_at": item.posted_at.isoformat() if item.posted_at else None,
                 "title": item.title,
                 "category": item.category,
                 "url": item.url,
