@@ -14,10 +14,8 @@ from app.services.alerts.app_alerts import (  # noqa: F401
 )
 from app.services.alerts.evaluator import (  # noqa: F401
     evaluate_all,
-    evaluate_bill_reminders,
-    evaluate_budget_alerts,
-    evaluate_goal_alerts,
     evaluate_price_alerts,
+    evaluate_user_alerts,
 )
 from app.services.alerts.events import (  # noqa: F401
     list_alert_events,
