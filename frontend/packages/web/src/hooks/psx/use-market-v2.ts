@@ -1,3 +1,4 @@
+import { API_BASE_URL } from "@/lib/api";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 
 export interface LatestPrice {
@@ -17,10 +18,7 @@ async function publicGet<T>(path: string): Promise<T> {
   // Read from PUBLIC PSX API. Reads use the PSX token if available.
   // We deliberately do NOT pass a user token here because these endpoints
   // are public and any user (or anonymous) can call them.
-  // 127.0.0.1, not localhost — avoids Windows' ~2s IPv6-first connect fallback.
-  const base =
-    (import.meta as { env?: Record<string, string> }).env?.VITE_PSX_API_URL ||
-    "http://127.0.0.1:8000";
+  const base = API_BASE_URL;
   const token = (import.meta as { env?: Record<string, string> }).env?.VITE_PSX_API_TOKEN || "";
   const headers: Record<string, string> = {};
   if (token) headers["Authorization"] = `Bearer ${token}`;
