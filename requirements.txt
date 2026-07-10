@@ -1,0 +1,26 @@
+# NafaIQ Monorepo — Python backend dependencies
+# Generated from backend/pyproject.toml
+
+fastapi>=0.115
+uvicorn[standard]>=0.34
+httpx>=0.28
+beautifulsoup4>=4.13
+lxml>=5.3
+pandas>=2.2
+numpy>=2.2
+supabase>=2.14
+pydantic>=2.10
+pydantic-settings>=2.7
+structlog>=24.4
+apscheduler>=3.11
+python-dotenv>=1.0
+scikit-learn>=1.6
+joblib>=1.4
+sqlalchemy[asyncio]>=2.0
+asyncpg>=0.30
+slowapi>=0.1.9
+
+# Dev dependencies
+pytest>=8.3
+pytest-asyncio>=0.25
+httpx-sse>=0.4
