@@ -268,6 +268,7 @@ function HaqeeqiDaulat() {
 function computeSignal(ticker: string, current: number, avgCost: number): Signal {
   const stock = STOCKS[ticker.toUpperCase()];
   if (stock) return stock.signal;
+  if (!avgCost || avgCost <= 0) return "HOLD";
   const gainPct = ((current - avgCost) / avgCost) * 100;
   if (gainPct >= 15) return "STRONG BUY";
   if (gainPct >= 5) return "BUY";
@@ -366,17 +367,33 @@ function Portfolio() {
     ticker: "",
     sector: "",
     shares: "",
+    // Cost basis can be entered as a per-share price OR a total amount paid;
+    // `costMode` picks which field is authoritative (see saveHolding()).
+    costMode: "per_share" as "per_share" | "total",
     buyPrice: "",
+    totalCost: "",
     current: "",
   };
   const [form, setForm] = useState(emptyForm);
   const [formErr, setFormErr] = useState("");
+  // When the entered buy price looks wildly off the live price we require a
+  // second "Add anyway" click instead of silently storing a bad cost basis.
+  const [confirmWarn, setConfirmWarn] = useState(false);
   const [deleteIdx, setDeleteIdx] = useState<number | null>(null);
+
+  // Patch form fields and clear any pending error / warning so the sanity
+  // check re-runs against the new values.
+  function patchForm(p: Partial<typeof emptyForm>) {
+    setForm((f) => ({ ...f, ...p }));
+    setFormErr("");
+    setConfirmWarn(false);
+  }
 
   function openAdd() {
     setEditIdx(null);
     setForm(emptyForm);
     setFormErr("");
+    setConfirmWarn(false);
     setFormOpen(true);
   }
 
@@ -387,10 +404,13 @@ function Portfolio() {
       ticker: h.ticker,
       sector: h.sector,
       shares: String(h.shares),
+      costMode: "per_share",
       buyPrice: String(h.avgCost),
+      totalCost: "",
       current: String(h.current),
     });
     setFormErr("");
+    setConfirmWarn(false);
     setFormOpen(true);
   }
 
@@ -417,15 +437,52 @@ function Portfolio() {
   function saveHolding() {
     setFormErr("");
     const shares = Number(form.shares);
-    const buyPrice = Number(form.buyPrice);
     const current = Number(form.current);
     if (!form.ticker.trim()) return setFormErr(t("Please enter a stock symbol."));
     if (!form.sector.trim()) return setFormErr(t("Please enter a sector."));
     if (!form.shares || Number.isNaN(shares) || shares <= 0)
       return setFormErr(t("Please enter a valid number of shares."));
-    if (!form.buyPrice || Number.isNaN(buyPrice) || buyPrice <= 0)
+
+    // Resolve the per-share buy price from the chosen entry mode. In "total"
+    // mode the user typed the total amount paid, so buyPrice = total / shares.
+    let buyPrice: number;
+    if (form.costMode === "total") {
+      const total = Number(form.totalCost);
+      if (!form.totalCost || Number.isNaN(total) || total <= 0)
+        return setFormErr(t("Please enter a valid total cost."));
+      buyPrice = total / shares;
+    } else {
+      buyPrice = Number(form.buyPrice);
+      if (!form.buyPrice || Number.isNaN(buyPrice) || buyPrice <= 0)
+        return setFormErr(t("Please enter a valid buy price."));
+    }
+    // Round to the stored precision (avg_cost is Numeric(12,2) on the backend).
+    buyPrice = Math.round(buyPrice * 100) / 100;
+    if (!Number.isFinite(buyPrice) || buyPrice <= 0)
       return setFormErr(t("Please enter a valid buy price."));
+
+    // Current price: entered value, else the live/auto price captured when the
+    // stock was picked, else fall back to the buy price.
     const cur = !form.current || Number.isNaN(current) || current <= 0 ? buyPrice : current;
+
+    // Sanity guard against the classic wrong-field mistake (entering a total as
+    // a per-share price, or vice-versa). When a live price is known and the
+    // per-share buy price is >5x off in either direction, require an explicit
+    // confirmation rather than silently storing a bad cost basis.
+    const livePrice = current > 0 ? current : 0;
+    if (
+      livePrice > 0 &&
+      (buyPrice > livePrice * 5 || buyPrice < livePrice / 5) &&
+      !confirmWarn
+    ) {
+      setConfirmWarn(true);
+      return setFormErr(
+        t("Buy price PKR {price} is far from the current price PKR {current}. Add anyway?")
+          .replace("{price}", fmtNum(buyPrice))
+          .replace("{current}", fmtNum(livePrice)),
+      );
+    }
+
     const signal = computeSignal(form.ticker.trim().toUpperCase(), cur, buyPrice);
     const entry: Holding = {
       ticker: form.ticker.trim().toUpperCase(),
@@ -730,7 +787,7 @@ function Portfolio() {
               {holdings.map((h, idx) => {
                 const mv = h.shares * h.current;
                 const gain = h.shares * (h.current - h.avgCost);
-                const gainPct = ((h.current - h.avgCost) / h.avgCost) * 100;
+                const gainPct = h.avgCost > 0 ? ((h.current - h.avgCost) / h.avgCost) * 100 : 0;
                 const isSell = h.signal === "SELL" || h.signal === "STRONG SELL";
                 return (
                   <tr
@@ -842,31 +899,75 @@ function Portfolio() {
           )}
           <input
             value={form.shares}
-            onChange={(e) => setForm({ ...form, shares: e.target.value })}
+            onChange={(e) => patchForm({ shares: e.target.value })}
             inputMode="decimal"
             placeholder={t("Shares")}
             className={fieldClass}
           />
-          <input
-            value={form.buyPrice}
-            onChange={(e) => setForm({ ...form, buyPrice: e.target.value })}
-            inputMode="decimal"
-            placeholder={t("Buy Price per Share (PKR)")}
-            className={fieldClass}
-          />
+          {/* Cost basis: enter a per-share price or the total amount paid. */}
+          <div className="flex rounded-md border border-border bg-elevated p-0.5 text-xs">
+            {(["per_share", "total"] as const).map((m) => (
+              <button
+                key={m}
+                type="button"
+                onClick={() => patchForm({ costMode: m })}
+                className={cn(
+                  "flex-1 rounded-[5px] py-1.5 font-medium transition",
+                  form.costMode === m
+                    ? "bg-bull text-bull-foreground"
+                    : "text-text-secondary hover:text-text-primary",
+                )}
+              >
+                {m === "per_share" ? t("Price per share") : t("Total cost")}
+              </button>
+            ))}
+          </div>
+          {form.costMode === "per_share" ? (
+            <input
+              value={form.buyPrice}
+              onChange={(e) => patchForm({ buyPrice: e.target.value })}
+              inputMode="decimal"
+              placeholder={t("Buy Price per Share (PKR)")}
+              className={fieldClass}
+            />
+          ) : (
+            <div className="space-y-1">
+              <input
+                value={form.totalCost}
+                onChange={(e) => patchForm({ totalCost: e.target.value })}
+                inputMode="decimal"
+                placeholder={t("Total Cost Paid (PKR)")}
+                className={fieldClass}
+              />
+              {Number(form.shares) > 0 && Number(form.totalCost) > 0 && (
+                <p className="px-1 text-[11px] text-text-muted">
+                  {t("= PKR {p} / share").replace(
+                    "{p}",
+                    fmtNum(Number(form.totalCost) / Number(form.shares)),
+                  )}
+                </p>
+              )}
+            </div>
+          )}
           <input
             value={form.current}
-            onChange={(e) => setForm({ ...form, current: e.target.value })}
+            onChange={(e) => patchForm({ current: e.target.value })}
             inputMode="decimal"
             placeholder={t("Current price (PKR, optional)")}
             className={fieldClass}
           />
-          {formErr && <div className="text-xs text-bear">{formErr}</div>}
+          {formErr && (
+            <div className={cn("text-xs", confirmWarn ? "text-gold" : "text-bear")}>{formErr}</div>
+          )}
           <button
             onClick={saveHolding}
             className="w-full rounded-[6px] bg-bull py-2 text-sm font-semibold text-bull-foreground hover:brightness-110"
           >
-            {editIdx == null ? t("Add Holding") : t("Save Changes")}
+            {confirmWarn
+              ? t("Add anyway")
+              : editIdx == null
+                ? t("Add Holding")
+                : t("Save Changes")}
           </button>
         </div>
       </Modal>
