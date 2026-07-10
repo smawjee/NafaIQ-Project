@@ -96,11 +96,19 @@ class SignalEngine:
 
         probs = self._model.predict_proba(X)[0]
         pred_class = int(self._model.predict(X)[0])
-        confidence = float(probs[pred_class] * 100)
+        # predict_proba columns are ordered by self._model.classes_ (the class
+        # LABELS, e.g. [-2,-1,0,1,2]) — NOT by positional index. Map each column
+        # to its label, and take the predicted class's own probability.
+        classes = [int(c) for c in self._model.classes_]
+        try:
+            confidence = float(probs[classes.index(pred_class)] * 100)
+        except ValueError:
+            confidence = float(np.max(probs) * 100)
 
-        probs_map = {}
-        for cls_idx in range(len(probs)):
-            probs_map[LABELS_REV.get(cls_idx, str(cls_idx))] = round(float(probs[cls_idx]) * 100, 1)
+        probs_map = {
+            LABELS_REV.get(cls, str(cls)): round(float(p) * 100, 1)
+            for cls, p in zip(classes, probs)
+        }
 
         # Feature contributions for top 3 features
         importances = self._model.feature_importances_

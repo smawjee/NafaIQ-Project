@@ -23,7 +23,7 @@ import {
 } from "@/hooks/psx/use-psx";
 import { useWatchlist } from "@/hooks/psx/use-watchlist";
 import { useDemo } from "@/hooks/use-demo";
-import { supabase } from "@/integrations/supabase/client";
+import { userPost } from "@/lib/psx/client";
 import { cn } from "@/lib/utils";
 import { useLang } from "@/hooks/use-lang";
 
@@ -139,24 +139,19 @@ function StockDetail() {
     }
     setAlertBusy(true);
     try {
-      const { data: session } = await supabase.auth.getSession();
-      if (!session?.session) {
-        setAlertMsg(t("Please log in to set alerts"));
-        setAlertBusy(false);
-        return;
-      }
-      await supabase.from("price_alerts").upsert({
-        user_id: session.session.user.id,
+      // Route through the backend so plan limits are enforced and duplicate
+      // alerts are de-duplicated (the old direct-Supabase upsert bypassed both).
+      await userPost("/api/alerts/price", {
         symbol: upper,
         condition: alertCondition,
         price: target,
-        enabled: true,
       });
       toast.success(t("Price alert created"));
       setAlertOpen(false);
       setAlertMsg("");
-    } catch {
-      setAlertMsg(t("Failed to set alert"));
+    } catch (error) {
+      console.error("Set alert error:", error);
+      setAlertMsg(t("Could not set alert — you may have reached your plan's alert limit."));
     } finally {
       setAlertBusy(false);
     }

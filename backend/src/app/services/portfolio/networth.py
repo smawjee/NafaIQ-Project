@@ -1,5 +1,5 @@
 """Portfolio valuation & analytics: per-portfolio value, net worth, allocation,
-history, and performance vs KSE-100. Business logic over portfolio_repo."""
+history, and performance vs KSE-100. Business logic over portfolio."""
 from __future__ import annotations
 
 from datetime import datetime, timezone
@@ -7,7 +7,7 @@ from typing import Any
 
 from fastapi import HTTPException
 
-from app.repositories import portfolio_repo as repo
+from app.repositories import portfolio as repo
 from app.repositories.base import connect
 from app.services import calculations as calc
 from app.services.psx.sector_map import get_sector_map

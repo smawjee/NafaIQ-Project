@@ -1,9 +1,9 @@
-"""Watchlist enrichment. Business logic over portfolio_repo."""
+"""Watchlist enrichment. Business logic over portfolio."""
 from __future__ import annotations
 
 from typing import Any
 
-from app.repositories import portfolio_repo as repo
+from app.repositories import portfolio as repo
 from app.repositories.base import connect
 
 

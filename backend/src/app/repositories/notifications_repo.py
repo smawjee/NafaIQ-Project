@@ -93,7 +93,8 @@ async def upsert_prefs(
         text(
             f"""
             INSERT INTO user_notification_prefs (user_id, email_alerts, push_alerts, in_app_alerts)
-            VALUES (:uid, COALESCE(:email, true), COALESCE(:push, false), COALESCE(:inapp, true))
+            -- email/push are opt-in (default off); in-app is on by default.
+            VALUES (:uid, COALESCE(:email, false), COALESCE(:push, false), COALESCE(:inapp, true))
             ON CONFLICT (user_id) DO UPDATE
             SET {update_clause}
             """
