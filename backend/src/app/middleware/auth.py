@@ -25,9 +25,39 @@ USER_PATHS_PREFIXES = (
     "/api/finance-extended",
 )
 
+# Public market-data paths — no authentication required.
+PUBLIC_PATH_PREFIXES = (
+    "/api/market",
+    "/api/quote",
+    "/api/symbols",
+    "/api/index",
+    "/api/sectors",
+    "/api/signal",
+    "/api/signals",
+    "/api/fundamentals",
+    "/api/announcements",
+    "/api/dividends",
+    "/api/indicators",
+    "/api/screener",
+    "/api/backtest",
+)
+
+
+def _matches_prefix(path: str, prefix: str) -> bool:
+    """Safe prefix match — exact or followed by "/".
+
+    Avoids accidental matches like `/api/indexed-something` matching
+    the `/api/index` prefix.
+    """
+    return path == prefix or path.startswith(prefix + "/")
+
 
 def _is_user_path(path: str) -> bool:
-    return any(path.startswith(prefix) for prefix in USER_PATHS_PREFIXES)
+    return any(_matches_prefix(path, prefix) for prefix in USER_PATHS_PREFIXES)
+
+
+def _is_public_path(path: str) -> bool:
+    return any(_matches_prefix(path, prefix) for prefix in PUBLIC_PATH_PREFIXES)
 
 
 class BearerTokenMiddleware(BaseHTTPMiddleware):
@@ -41,6 +71,10 @@ class BearerTokenMiddleware(BaseHTTPMiddleware):
         # User paths: pass through; require_user dependency validates JWT
         if _is_user_path(request.url.path):
             return await call_next(request)
+        # Public market-data paths: no auth required
+        if _is_public_path(request.url.path):
+            return await call_next(request)
+        # Remaining /api/ paths require the shared API token
         if not settings.psx_api_token:
             return JSONResponse(
                 {"detail": "API token not configured on server"}, status_code=503
