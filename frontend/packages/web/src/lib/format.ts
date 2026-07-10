@@ -15,6 +15,9 @@ const GROUPING_LOCALE = "en-US";
 
 /** Western 3-digit grouped number, e.g. 858054 -> "858,054" (Urdu numerals in UR mode). */
 export function formatNumber(value: number, decimals = 0): string {
+  // Defensive: NaN / ±Infinity (e.g. a divide-by-zero % when cost basis is 0)
+  // must never render as "NaN"/"∞" in the UI — coerce to 0.
+  if (!Number.isFinite(value)) value = 0;
   return localizeDigits(
     value.toLocaleString(GROUPING_LOCALE, {
       minimumFractionDigits: decimals,
