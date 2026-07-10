@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import logging
 
 import httpx
@@ -63,9 +64,9 @@ async def create_in_app_notification(
 async def get_user_email(user_id: str) -> str | None:
     """Fetch user email from auth.users via Supabase admin API (service_role)."""
     try:
-        supabase = get_supabase()
-        # user_id may arrive as an asyncpg UUID object; the client expects a str.
-        resp = supabase.auth.admin.get_user_by_id(str(user_id))
+        def _fetch():
+            return get_supabase().auth.admin.get_user_by_id(str(user_id))
+        resp = await asyncio.to_thread(_fetch)
         return resp.user.email if resp and resp.user else None
     except Exception as e:
         log.error("Failed to get user email for %s: %s", user_id, e)

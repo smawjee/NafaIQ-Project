@@ -5,6 +5,7 @@ app.repositories.signals_repo.
 """
 from __future__ import annotations
 
+import asyncio
 from datetime import datetime, timezone
 from typing import Any
 
@@ -37,7 +38,8 @@ async def get_signal(symbol: str) -> dict[str, Any]:
     except Exception:
         pass
 
-    result = get_signal_engine().predict(sym)
+    engine = get_signal_engine()
+    result = await asyncio.to_thread(engine.predict, sym)
 
     try:
         await repo.upsert_signal(sym, result)
@@ -53,7 +55,7 @@ async def batch_signals(limit: int = 50) -> dict[str, Any]:
     results = []
     for sym in symbols:
         try:
-            results.append(engine.predict(sym))
+            results.append(await asyncio.to_thread(engine.predict, sym))
         except Exception:
             pass
     return {"signals": results, "count": len(results)}

@@ -21,19 +21,20 @@ async def run_screener(params: ScreenerParams) -> dict[str, Any]:
 
     # Compute indicators/fundamentals for top 50 symbols by volume (expensive).
     top_symbols = sorted(snapshot, key=lambda x: x.volume or 0, reverse=True)[:50]
+    syms = [item.symbol for item in top_symbols]
     indicators_map: dict[str, Any] = {}
     fundamentals_map: dict[str, Any] = {}
-    for item in top_symbols:
-        try:
-            bars = await cache.get_history(item.symbol, 200)
-            indicators_map[item.symbol] = compute_indicators(bars, DEFAULT_INDICATORS)
-        except Exception:
-            pass
-        try:
-            f = await cache.get_fundamentals(item.symbol)
-            fundamentals_map[item.symbol] = vars(f)
-        except Exception:
-            pass
+
+    histories = await cache.get_histories_batch(syms, 200)
+    fundamentals = await cache.get_fundamentals_batch(syms)
+
+    for sym in syms:
+        bars = histories.get(sym)
+        if bars:
+            indicators_map[sym] = compute_indicators(bars, DEFAULT_INDICATORS)
+        f = fundamentals.get(sym)
+        if f:
+            fundamentals_map[sym] = vars(f)
 
     results = screen_symbols(
         snapshot, symbols_list, indicators_map, fundamentals_map, params

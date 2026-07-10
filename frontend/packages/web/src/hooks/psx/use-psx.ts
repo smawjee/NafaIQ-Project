@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { Candle } from "@/lib/data";
 import type { ApiMarketSnapshotItem, UiTicker, UiIndex, UiSector } from "@/lib/psx/types";
@@ -25,7 +25,7 @@ export function usePsxLiveMarket() {
     queryKey: ["psx", "live"],
     queryFn: () => fetchMarketSnapshot(),
     staleTime: 5_000,
-    refetchInterval: 8_000,
+    refetchInterval: 30_000,
     // Keep showing the last snapshot while a poll is in flight — no blanking.
     placeholderData: keepPreviousData,
   });
@@ -33,6 +33,7 @@ export function usePsxLiveMarket() {
 
 export function usePsxRealtime() {
   const qc = useQueryClient();
+  const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   useEffect(() => {
     const channel = supabase
@@ -41,12 +42,16 @@ export function usePsxRealtime() {
         "postgres_changes",
         { event: "*", schema: "public", table: "psx_market_snapshot" },
         () => {
-          qc.invalidateQueries({ queryKey: ["psx", "live"] });
+          clearTimeout(timer.current);
+          timer.current = setTimeout(() => {
+            qc.invalidateQueries({ queryKey: ["psx", "live"] });
+          }, 10_000);
         },
       )
       .subscribe();
 
     return () => {
+      clearTimeout(timer.current);
       supabase.removeChannel(channel);
     };
   }, [qc]);
