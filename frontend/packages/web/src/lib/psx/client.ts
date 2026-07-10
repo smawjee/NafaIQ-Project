@@ -1,3 +1,5 @@
+import { API_BASE_URL } from "@/lib/api";
+
 import type {
   ApiMarketSnapshotItem,
   ApiOHLCVBar,
@@ -20,9 +22,7 @@ import type {
   ApiBacktestResult,
 } from "./types";
 
-// 127.0.0.1, not localhost: on Windows, "localhost" resolves to IPv6 ::1
-// first and pays a ~2s connect-fallback per request when the API binds IPv4.
-const BASE = import.meta.env.VITE_PSX_API_URL || "http://127.0.0.1:8000";
+const BASE = API_BASE_URL;
 const TOKEN = import.meta.env.VITE_PSX_API_TOKEN || "";
 
 async function get<T>(path: string): Promise<T> {
