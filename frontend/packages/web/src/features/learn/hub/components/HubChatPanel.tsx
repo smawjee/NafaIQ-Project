@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Send, Sparkles } from "lucide-react";
 import { useServerFn } from "@tanstack/react-start";
-import { askTutor } from "@/lib/learn/ai-functions";
+import { askTutor } from "@/features/learn/ai-functions";
 import { cn } from "@/lib/utils";
 import { useLang } from "@/hooks/use-lang";
 import { HUB_PRESETS } from "@/features/learn/hub/hub.data";

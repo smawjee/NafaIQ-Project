@@ -4,7 +4,7 @@ import { Send, Sparkles } from "lucide-react";
 import { AiGlyph } from "@/components/icons/AiGlyph";
 import { Typewriter } from "@/components/shared/Typewriter";
 import { type LessonContent } from "@/lib/learn/data";
-import { askTutor } from "@/lib/learn/ai-functions";
+import { askTutor } from "@/features/learn/ai-functions";
 import { useLang } from "@/hooks/use-lang";
 import { cn } from "@/lib/utils";
 

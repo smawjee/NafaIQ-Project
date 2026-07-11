@@ -32,10 +32,10 @@ import { useLearn } from "@/hooks/learn/use-learn";
 import { AnimatedBar } from "@/components/shared/CountUpNumber";
 import { useLang } from "@/hooks/use-lang";
 import { XP_GOAL } from "@/features/learn/hub/hub.data";
-import { StatPill } from "@/features/learn/hub/StatPill";
-import { CompletionRing } from "@/features/learn/hub/CompletionRing";
-import { HubChatPanel } from "@/features/learn/hub/HubChatPanel";
-import { FlashcardModal } from "@/features/learn/hub/FlashcardModal";
+import { StatPill } from "@/features/learn/hub/components/StatPill";
+import { CompletionRing } from "@/features/learn/hub/components/CompletionRing";
+import { HubChatPanel } from "@/features/learn/hub/components/HubChatPanel";
+import { FlashcardModal } from "@/features/learn/hub/components/FlashcardModal";
 
 export function LearnHub() {
   const { xp, statusOf, pathProgress } = useLearn();

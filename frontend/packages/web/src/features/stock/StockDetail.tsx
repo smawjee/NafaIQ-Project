@@ -26,7 +26,7 @@ import { userPost } from "@/lib/psx/client";
 import { cn } from "@/lib/utils";
 import { useLang } from "@/hooks/use-lang";
 import { formatTimeAgo } from "@/features/stock/stock.utils";
-import { ActionButtons } from "@/features/stock/ActionButtons";
+import { ActionButtons } from "@/features/stock/components/ActionButtons";
 
 export function StockDetail() {
   const { ticker } = useParams({ from: "/stock/$ticker" });
