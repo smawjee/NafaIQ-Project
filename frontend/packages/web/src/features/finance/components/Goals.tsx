@@ -7,7 +7,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { EmojiIcon } from "@/components/icons/icons";
 import { Card } from "@/components/shared/Card";
 import { Modal, fieldClass } from "@/components/shared/Modal";
-import { AnimatedBar } from "@/components/charts/CountUpNumber";
+import { AnimatedBar } from "@/components/shared/CountUpNumber";
 import { fmtPKR } from "@/lib/data";
 import { type Goal } from "@/lib/finance/data";
 import { cn } from "@/lib/utils";

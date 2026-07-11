@@ -29,7 +29,7 @@ import { EmojiIcon } from "@/components/icons/icons";
 import { LESSONS, GLOSSARY } from "@/lib/finance/data";
 import { LEARNING_PATHS, LESSON_CONTENT, lessonId } from "@/lib/learn/data";
 import { useLearn } from "@/hooks/learn/use-learn";
-import { AnimatedBar } from "@/components/charts/CountUpNumber";
+import { AnimatedBar } from "@/components/shared/CountUpNumber";
 import { useLang } from "@/hooks/use-lang";
 import { XP_GOAL } from "@/features/learn/hub/hub.data";
 import { StatPill } from "@/features/learn/hub/StatPill";

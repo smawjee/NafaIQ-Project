@@ -14,11 +14,11 @@ import {
   X,
 } from "lucide-react";
 import { Card, StatCard } from "@/components/shared/Card";
-import { Change } from "@/components/charts/Change";
-import { SignalBadge } from "@/components/charts/SignalBadge";
+import { Change } from "@/components/market/Change";
+import { SignalBadge } from "@/components/market/SignalBadge";
 import { fieldClass } from "@/components/shared/Modal";
 import { EmojiIcon } from "@/components/icons/icons";
-import { AnimatedBar } from "@/components/charts/CountUpNumber";
+import { AnimatedBar } from "@/components/shared/CountUpNumber";
 import type { Signal } from "@/lib/data";
 import { useLang } from "@/hooks/use-lang";
 import { cn } from "@/lib/utils";

@@ -1,9 +1,9 @@
 import { useMemo, useState } from "react";
 import { Sparkles, Loader2, Pencil, Trash2, Plus, AlertTriangle } from "lucide-react";
 import { Card, StatCard } from "@/components/shared/Card";
-import { SignalBadge } from "@/components/charts/SignalBadge";
+import { SignalBadge } from "@/components/market/SignalBadge";
 import { DonutChart, PortfolioAreaChart } from "@/components/charts/charts";
-import { CountUpNumber } from "@/components/charts/CountUpNumber";
+import { CountUpNumber } from "@/components/shared/CountUpNumber";
 import { STOCKS, fmtPKR, fmtNum, type Holding, type Signal } from "@/lib/data";
 import { computeSignal } from "@/lib/market/signal";
 import { cn } from "@/lib/utils";

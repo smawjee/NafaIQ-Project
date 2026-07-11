@@ -1,6 +1,6 @@
 import { motion, useReducedMotion } from "framer-motion";
 import { ArrowUpRight, ArrowDownRight, PiggyBank, Percent } from "lucide-react";
-import { AnimatedBar } from "@/components/charts/CountUpNumber";
+import { AnimatedBar } from "@/components/shared/CountUpNumber";
 import { IncomeExpenseChart, Sparkline } from "@/components/charts/charts";
 import { formatPKR, formatSignedPKR } from "@/lib/format";
 import { cn } from "@/lib/utils";

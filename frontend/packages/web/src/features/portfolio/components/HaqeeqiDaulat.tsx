@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { ShieldAlert, ArrowRight } from "lucide-react";
 import { Card } from "@/components/shared/Card";
-import { CountUpNumber, AnimatedBar } from "@/components/charts/CountUpNumber";
+import { CountUpNumber, AnimatedBar } from "@/components/shared/CountUpNumber";
 import { cn } from "@/lib/utils";
 import { useLang } from "@/hooks/use-lang";
 import { Modal } from "@/components/shared/Modal";
