@@ -9,7 +9,7 @@ import {
 } from "framer-motion";
 import { Check } from "lucide-react";
 import { PkBadge } from "@/components/icons/icons";
-import { SelfDemoPhone } from "@/features/landing/components/SelfDemoPhone";
+import { PhoneMockup } from "@/features/landing/components/PhoneMockup";
 import { Particles } from "@/features/landing/components/Particles";
 import { Reveal, staggerParent, SPRING } from "@/components/shared/animations";
 import { useLandingTheme } from "@/hooks/use-landing-theme";
@@ -129,9 +129,11 @@ export function Hero() {
         />
       </div>
 
-      <div className="relative z-10 mx-auto grid max-w-[1200px] items-center gap-12 px-6 pt-28 pb-16 lg:grid-cols-5 lg:pt-36 lg:pb-24">
+      <motion.div
+        style={{ y: reduce ? 0 : contentY, opacity: reduce ? 1 : contentOpacity }}
+        className="relative z-10 mx-auto grid max-w-[1200px] items-center gap-12 px-6 pt-28 pb-16 lg:grid-cols-5 lg:pt-36 lg:pb-24"
+      >
         <motion.div
-          style={{ y: reduce ? 0 : contentY, opacity: reduce ? 1 : contentOpacity }}
           variants={staggerParent}
           initial="hidden"
           animate="show"
@@ -179,9 +181,9 @@ export function Hero() {
           </Reveal>
         </motion.div>
         <div className="lg:col-span-2">
-          <SelfDemoPhone progress={scrollYProgress} className="mx-auto w-[288px]" />
+          <PhoneMockup startDelay={0.35} className="mx-auto w-[280px]" />
         </div>
-      </div>
+      </motion.div>
 
       {/* scroll to discover cue — fades out once user scrolls */}
       <ScrollCue reduce={!!reduce} />
