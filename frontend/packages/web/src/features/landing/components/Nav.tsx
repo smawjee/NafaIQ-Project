@@ -97,8 +97,10 @@ export function Nav() {
             </Link>
           )}
 
-          {/* Theme toggle — dark/light for the landing page */}
-          <ThemeToggle isDark={isDark} onToggle={toggleTheme} />
+          {/* Theme toggle — dark/light (mobile accesses it in the drawer) */}
+          <div className="hidden md:block">
+            <ThemeToggle isDark={isDark} onToggle={toggleTheme} />
+          </div>
 
           {/* Enter App — dominant CTA, always visible */}
           <Magnetic strength={0.4}>
@@ -116,28 +118,30 @@ export function Nav() {
             </motion.div>
           </Magnetic>
 
-          {/* Try Demo — secondary CTA */}
+          {/* Try Demo — secondary CTA (mobile accesses it in the drawer) */}
           {!user && (
-            <Magnetic strength={0.3}>
-              <motion.div
-                whileHover={{ scale: 1.04 }}
-                whileTap={{ scale: 0.96 }}
-                transition={SPRING_UI}
-              >
-                <button
-                  onClick={async () => {
-                    try {
-                      await signInAsDemo();
-                    } catch {
-                      toast.error("Demo account not configured");
-                    }
-                  }}
-                  className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-full border border-white/[0.12] bg-surface/60 px-4 py-2 text-sm font-medium text-text-secondary backdrop-blur-sm transition hover:border-white/[0.24] hover:text-text-primary"
+            <div className="hidden md:block">
+              <Magnetic strength={0.3}>
+                <motion.div
+                  whileHover={{ scale: 1.04 }}
+                  whileTap={{ scale: 0.96 }}
+                  transition={SPRING_UI}
                 >
-                  Try Demo
-                </button>
-              </motion.div>
-            </Magnetic>
+                  <button
+                    onClick={async () => {
+                      try {
+                        await signInAsDemo();
+                      } catch {
+                        toast.error("Demo account not configured");
+                      }
+                    }}
+                    className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-full border border-white/[0.12] bg-surface/60 px-4 py-2 text-sm font-medium text-text-secondary backdrop-blur-sm transition hover:border-white/[0.24] hover:text-text-primary"
+                  >
+                    Try Demo
+                  </button>
+                </motion.div>
+              </Magnetic>
+            </div>
           )}
 
           {/* hamburger */}
@@ -198,13 +202,30 @@ export function Nav() {
               <StatusPill />
             </div>
           </nav>
-          <Link
-            to="/app"
-            onClick={() => setOpen(false)}
-            className="mt-auto flex items-center justify-center gap-1 rounded-full bg-bull px-4 py-4 text-base font-semibold text-bull-foreground transition hover:bg-[#00efc0]"
-          >
-            {user ? "Open App" : "Get Started"} <ArrowRight className="h-5 w-5" />
-          </Link>
+          <div className="mt-auto flex flex-col gap-3">
+            {!user && (
+              <button
+                onClick={async () => {
+                  setOpen(false);
+                  try {
+                    await signInAsDemo();
+                  } catch {
+                    toast.error("Demo account not configured");
+                  }
+                }}
+                className="flex items-center justify-center gap-1 rounded-full border border-white/[0.14] bg-surface/60 px-4 py-4 text-base font-medium text-text-secondary transition hover:border-white/[0.24] hover:text-text-primary"
+              >
+                Try Demo
+              </button>
+            )}
+            <Link
+              to="/app"
+              onClick={() => setOpen(false)}
+              className="flex items-center justify-center gap-1 rounded-full bg-bull px-4 py-4 text-base font-semibold text-bull-foreground transition hover:bg-[#00efc0]"
+            >
+              {user ? "Open App" : "Get Started"} <ArrowRight className="h-5 w-5" />
+            </Link>
+          </div>
         </div>
       )}
     </header>
