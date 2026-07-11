@@ -39,7 +39,7 @@ export function Nav() {
         className={cn(
           "flex h-14 items-center gap-3 rounded-full border px-3 transition-all duration-300 sm:gap-4 sm:px-4",
           scrolled
-            ? "w-full max-w-[860px] border-white/[0.08] bg-sidebar shadow-[0_8px_40px_rgba(0,0,0,0.45)] backdrop-blur-xl backdrop-saturate-150"
+            ? "w-full max-w-[1120px] border-white/[0.08] bg-sidebar shadow-[0_8px_40px_rgba(0,0,0,0.45)] backdrop-blur-xl backdrop-saturate-150"
             : "w-full max-w-[1120px] border-white/[0.05] bg-sidebar/40 backdrop-blur-md",
         )}
       >
@@ -118,9 +118,9 @@ export function Nav() {
             </motion.div>
           </Magnetic>
 
-          {/* Try Demo — secondary CTA (mobile accesses it in the drawer) */}
+          {/* Try Demo — secondary CTA (smaller screens use the drawer) */}
           {!user && (
-            <div className="hidden md:block">
+            <div className="hidden lg:block">
               <Magnetic strength={0.3}>
                 <motion.div
                   whileHover={{ scale: 1.04 }}
