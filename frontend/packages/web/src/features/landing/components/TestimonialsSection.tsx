@@ -284,7 +284,11 @@ export function TestimonialsSection() {
           <span
             aria-hidden="true"
             className="pointer-events-none absolute left-10 top-10 h-24 w-24 rounded-full opacity-60 blur-3xl"
-            style={{ background: isLight ? "radial-gradient(circle, rgba(10,124,110,0.12), transparent 70%)" : "radial-gradient(circle, rgba(0,212,170,0.25), transparent 70%)" }}
+            style={{
+              background: isLight
+                ? "radial-gradient(circle, rgba(10,124,110,0.12), transparent 70%)"
+                : "radial-gradient(circle, rgba(0,212,170,0.25), transparent 70%)",
+            }}
           />
 
           {/* Live region — screen readers announce new testimonial on change */}
@@ -328,14 +332,20 @@ export function TestimonialsSection() {
                       "h-2 rounded-full transition-all duration-300 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bull/70",
                       active ? "w-6" : "w-2 hover:bg-white/30",
                     )}
-                      style={{
-                        background: active
-                          ? isLight ? "var(--color-primary)" : "rgb(0,212,170)"
-                          : isLight ? "rgba(12,31,26,0.15)" : "rgba(255,255,255,0.18)",
-                        boxShadow: active
-                          ? isLight ? "0 0 10px 2px rgba(10,124,110,0.35)" : "0 0 10px 2px rgba(0,212,170,0.45)"
-                          : "none",
-                      }}
+                    style={{
+                      background: active
+                        ? isLight
+                          ? "var(--color-primary)"
+                          : "rgb(0,212,170)"
+                        : isLight
+                          ? "rgba(12,31,26,0.15)"
+                          : "rgba(255,255,255,0.18)",
+                      boxShadow: active
+                        ? isLight
+                          ? "0 0 10px 2px rgba(10,124,110,0.35)"
+                          : "0 0 10px 2px rgba(0,212,170,0.45)"
+                        : "none",
+                    }}
                   />
                 );
               })}

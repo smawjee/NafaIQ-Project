@@ -39,13 +39,7 @@ export const Route = createFileRoute("/urdu-qa")({
 
 const SIGNALS: Signal[] = ["STRONG BUY", "BUY", "HOLD", "SELL", "STRONG SELL"];
 
-function Section({
-  title,
-  children,
-}: {
-  title: string;
-  children: React.ReactNode;
-}) {
+function Section({ title, children }: { title: string; children: React.ReactNode }) {
   const { t } = useLang();
   return (
     <section className="space-y-3">
@@ -87,7 +81,9 @@ function UrduQaPage() {
                 onClick={() => setLang("ur")}
                 className={cn(
                   "px-3 py-1.5 text-xs font-semibold",
-                  lang === "ur" ? "bg-bull text-bull-foreground" : "text-text-secondary hover:bg-hover",
+                  lang === "ur"
+                    ? "bg-bull text-bull-foreground"
+                    : "text-text-secondary hover:bg-hover",
                 )}
               >
                 اردو
@@ -96,7 +92,9 @@ function UrduQaPage() {
                 onClick={() => setLang("en")}
                 className={cn(
                   "px-3 py-1.5 text-xs font-semibold",
-                  lang === "en" ? "bg-bull text-bull-foreground" : "text-text-secondary hover:bg-hover",
+                  lang === "en"
+                    ? "bg-bull text-bull-foreground"
+                    : "text-text-secondary hover:bg-hover",
                 )}
               >
                 EN
@@ -183,13 +181,13 @@ function UrduQaPage() {
               sub="YTD +12.73%"
               subColor="text-bull"
             />
-            <StatCard label="Monthly Expenses" value="PKR 112,050" sub="-12% vs May" subColor="text-bear" />
             <StatCard
-              label="Today's PSX P/L"
-              value="+17,480"
-              sub="+1.42%"
-              subColor="text-bull"
+              label="Monthly Expenses"
+              value="PKR 112,050"
+              sub="-12% vs May"
+              subColor="text-bear"
             />
+            <StatCard label="Today's PSX P/L" value="+17,480" sub="+1.42%" subColor="text-bull" />
           </div>
         </Section>
 
@@ -207,7 +205,11 @@ function UrduQaPage() {
         <Section title="Form inputs">
           <div className="grid gap-3 sm:grid-cols-2">
             <input className={fieldClass} placeholder={t("Goal name")} />
-            <input className={fieldClass} placeholder={t("Target amount (PKR)")} inputMode="decimal" />
+            <input
+              className={fieldClass}
+              placeholder={t("Target amount (PKR)")}
+              inputMode="decimal"
+            />
             <div className="relative sm:col-span-2">
               <Search className="pointer-events-none absolute top-1/2 ltr:left-3 rtl:right-3 -translate-y-1/2 text-text-muted h-4 w-4" />
               <input
@@ -330,7 +332,10 @@ function UrduQaPage() {
 
       {/* Modal sample */}
       {showModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={() => setShowModal(false)}>
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          onClick={() => setShowModal(false)}
+        >
           <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
           <div
             dir={isUrdu ? dir : "ltr"}
