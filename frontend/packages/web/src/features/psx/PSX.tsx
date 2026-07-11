@@ -14,10 +14,10 @@ import { toast } from "sonner";
 
 import { Card } from "@/components/shared/Card";
 import { InfoTip } from "@/components/shared/InfoTip";
-import { CountUpNumber } from "@/components/charts/CountUpNumber";
+import { CountUpNumber } from "@/components/shared/CountUpNumber";
 import { Typewriter } from "@/components/shared/Typewriter";
-import { Change } from "@/components/charts/Change";
-import { SignalBadge } from "@/components/charts/SignalBadge";
+import { Change } from "@/components/market/Change";
+import { SignalBadge } from "@/components/market/SignalBadge";
 import { CandlestickChart, PriceLineChart, Sparkline } from "@/components/charts/charts";
 import {
   INDICES,

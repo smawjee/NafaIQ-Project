@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Scale, FileDown, Coins } from "lucide-react";
 import { Card } from "@/components/shared/Card";
-import { CountUpNumber } from "@/components/charts/CountUpNumber";
+import { CountUpNumber } from "@/components/shared/CountUpNumber";
 import { cn } from "@/lib/utils";
 import { useLang } from "@/hooks/use-lang";
 import { useAuth } from "@/hooks/use-auth";

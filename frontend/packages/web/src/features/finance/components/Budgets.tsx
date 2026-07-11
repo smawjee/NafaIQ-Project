@@ -3,7 +3,7 @@ import { Plus, Lightbulb } from "lucide-react";
 import { toast } from "sonner";
 import { Card } from "@/components/shared/Card";
 import { Modal, fieldClass } from "@/components/shared/Modal";
-import { AnimatedBar } from "@/components/charts/CountUpNumber";
+import { AnimatedBar } from "@/components/shared/CountUpNumber";
 import { fmtPKR } from "@/lib/data";
 import { cn } from "@/lib/utils";
 import { useLang } from "@/hooks/use-lang";
