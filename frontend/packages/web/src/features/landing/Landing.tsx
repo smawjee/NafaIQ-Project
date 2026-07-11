@@ -6,7 +6,7 @@ import logo from "@/assets/logo.png";
 import { cn } from "@/lib/utils";
 import { Reveal, RevealItem, Magnetic, SPRING_UI } from "@/components/shared/animations";
 import { Tilt3D } from "@/components/shared/Tilt3D";
-import { TestimonialsSection } from "@/components/landing/TestimonialsSection";
+import { TestimonialsSection } from "@/features/landing/components/TestimonialsSection";
 import { useLandingTheme } from "@/hooks/use-landing-theme";
 import { FEATURES } from "@/features/landing/landing.data";
 import { Nav } from "@/features/landing/components/Nav";

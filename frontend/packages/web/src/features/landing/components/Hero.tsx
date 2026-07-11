@@ -9,8 +9,8 @@ import {
 } from "framer-motion";
 import { Check } from "lucide-react";
 import { PkBadge } from "@/components/icons/icons";
-import { PhoneMockup } from "@/components/landing/PhoneMockup";
-import { Particles } from "@/components/landing/Particles";
+import { PhoneMockup } from "@/features/landing/components/PhoneMockup";
+import { Particles } from "@/features/landing/components/Particles";
 import { Reveal, staggerParent, SPRING } from "@/components/shared/animations";
 import { useLandingTheme } from "@/hooks/use-landing-theme";
 import { ScatteredTickers } from "@/features/landing/components/ScatteredTickers";

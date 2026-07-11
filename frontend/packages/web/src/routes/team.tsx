@@ -170,9 +170,7 @@ function TeamPage() {
   const isLight = theme === "light";
 
   return (
-    <div
-      className={`relative min-h-screen ${isLight ? "bg-background" : "bg-[#060B17]"}`}
-    >
+    <div className={`relative min-h-screen ${isLight ? "bg-background" : "bg-[#060B17]"}`}>
       {/* subtle grid pattern — dark only */}
       {!isLight && (
         <div
@@ -353,10 +351,17 @@ function TeamPage() {
       </section>
 
       {/* footer */}
-      <footer className={`border-t ${isLight ? "border-[rgba(12,31,26,0.08)] bg-[#f0ece2]" : "border-white/[0.06] bg-[#060B17]"}`}>
-        <div className={`mx-auto flex max-w-[1200px] flex-col gap-2 px-6 py-5 text-xs sm:flex-row sm:items-center sm:justify-between ${isLight ? "text-text-muted" : "text-[#94A3B8]"}`}>
+      <footer
+        className={`border-t ${isLight ? "border-[rgba(12,31,26,0.08)] bg-[#f0ece2]" : "border-white/[0.06] bg-[#060B17]"}`}
+      >
+        <div
+          className={`mx-auto flex max-w-[1200px] flex-col gap-2 px-6 py-5 text-xs sm:flex-row sm:items-center sm:justify-between ${isLight ? "text-text-muted" : "text-[#94A3B8]"}`}
+        >
           <span>&copy; 2026 NafaIQ &middot; Built in Pakistan</span>
-          <Link to="/" className={`${isLight ? "text-text-muted hover:text-text-primary" : "text-[#94A3B8] hover:text-[#F8FAFC]"} transition`}>
+          <Link
+            to="/"
+            className={`${isLight ? "text-text-muted hover:text-text-primary" : "text-[#94A3B8] hover:text-[#F8FAFC]"} transition`}
+          >
             Back to homepage
           </Link>
         </div>

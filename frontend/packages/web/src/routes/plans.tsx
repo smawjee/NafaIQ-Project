@@ -216,16 +216,13 @@ function PlansPage() {
               {isLoggedIn ? (
                 (() => {
                   const isCurrent = hasConfirmedPlan && plan === tier.name;
-                  const pendingThis =
-                    upgrade.isPending && upgrade.variables === tier.name;
+                  const pendingThis = upgrade.isPending && upgrade.variables === tier.name;
                   return (
                     <button
                       onClick={async () => {
                         try {
                           await upgrade.mutateAsync(tier.name as "Free" | "Pro" | "Premium");
-                          toast.success(
-                            `${t("You are now on the")} ${tier.name} ${t("plan!")}`,
-                          );
+                          toast.success(`${t("You are now on the")} ${tier.name} ${t("plan!")}`);
                           navigate({ to: "/app" });
                         } catch {
                           toast.error(t("Failed to change plan"));
