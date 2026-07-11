@@ -36,18 +36,22 @@ export function StoreButtons({ center = false }: { center?: boolean }) {
       {/* SECONDARY — coming-soon stores, visually de-emphasized */}
       <div className={cn("flex flex-col items-start gap-2.5", center && "items-center")}>
         <div className={cn("flex flex-wrap gap-2", center && "justify-center")}>
-          <div className="flex items-center gap-2 rounded-[10px] border border-white/[0.08] bg-white/[0.02] px-3 py-1.5 text-left opacity-55 grayscale">
+          <div className="flex items-center gap-2 rounded-[10px] border border-border bg-surface/50 px-3 py-1.5 text-left opacity-80">
             <AppleGlyph />
             <span className="flex flex-col leading-tight">
-              <span className="text-[9px] uppercase tracking-wide text-white/50">Coming soon</span>
-              <span className="text-xs font-medium text-white/80">App Store</span>
+              <span className="text-[9px] uppercase tracking-wide text-text-muted">
+                Coming soon
+              </span>
+              <span className="text-xs font-medium text-text-secondary">App Store</span>
             </span>
           </div>
-          <div className="flex items-center gap-2 rounded-[10px] border border-white/[0.08] bg-white/[0.02] px-3 py-1.5 text-left opacity-55 grayscale">
+          <div className="flex items-center gap-2 rounded-[10px] border border-border bg-surface/50 px-3 py-1.5 text-left opacity-80">
             <GooglePlayGlyph />
             <span className="flex flex-col leading-tight">
-              <span className="text-[9px] uppercase tracking-wide text-white/50">Coming soon</span>
-              <span className="text-xs font-medium text-white/80">Google Play</span>
+              <span className="text-[9px] uppercase tracking-wide text-text-muted">
+                Coming soon
+              </span>
+              <span className="text-xs font-medium text-text-secondary">Google Play</span>
             </span>
           </div>
         </div>
@@ -62,11 +66,11 @@ export function StoreButtons({ center = false }: { center?: boolean }) {
               onChange={(e) => setEmail(e.target.value)}
               placeholder="Email me at launch"
               aria-label="Email for native app launch notification"
-              className="h-8 flex-1 rounded-[8px] border border-white/[0.08] bg-transparent px-2.5 font-mono text-xs text-text-secondary outline-none transition-colors placeholder:text-text-muted focus:border-white/20"
+              className="h-8 flex-1 rounded-[8px] border border-border bg-transparent px-2.5 font-mono text-xs text-text-secondary outline-none transition-colors placeholder:text-text-muted focus:border-border-hover"
             />
             <button
               type="submit"
-              className="h-8 shrink-0 rounded-[8px] border border-white/[0.08] px-3 text-xs font-medium text-text-secondary transition hover:border-white/20 hover:text-text-primary"
+              className="h-8 shrink-0 rounded-[8px] border border-border px-3 text-xs font-medium text-text-secondary transition hover:border-border-hover hover:text-text-primary"
             >
               Notify
             </button>
