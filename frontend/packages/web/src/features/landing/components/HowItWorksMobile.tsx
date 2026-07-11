@@ -1,87 +1,147 @@
+import { useEffect, useRef, useState } from "react";
 import { motion, useReducedMotion } from "framer-motion";
-import { RevealItem } from "@/components/shared/animations";
-import { STEPS } from "@/features/landing/landing.data";
+import { StepPanelFrame } from "@/features/landing/components/StepPanelFrame";
 import { STEP_PANELS } from "@/features/landing/components/StepPanels";
+import { STEPS } from "@/features/landing/landing.data";
 
-/* ---------- Mobile/tablet stacked cards (premium: rail + panels + glow) ---------- */
+/**
+ * Mobile / tablet "how it works" — a real scrollytelling.
+ *
+ * Pattern: a sticky preview panel pinned near the top of the viewport that
+ * cross-fades between the three step previews, while the step captions scroll
+ * underneath it. Reuses the same StepPanelFrame + STEP_PANELS as the desktop
+ * version so the two read as one design. Under reduced-motion it degrades to a
+ * plain stacked list (panel + caption per step).
+ */
 export function HowItWorksMobile() {
   const reduce = useReducedMotion();
-  return (
-    <div className="relative mt-12 lg:hidden">
-      {/* Vertical connecting rail down the left edge */}
-      <div className="absolute left-[23px] top-4 bottom-4 w-px bg-gradient-to-b from-bull/50 via-white/10 to-transparent md:hidden" />
+  const [active, setActive] = useState(0);
+  const stepRefs = useRef<(HTMLDivElement | null)[]>([]);
 
-      <div className="grid gap-6 md:grid-cols-3 md:gap-5">
+  useEffect(() => {
+    if (reduce) return;
+    const io = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((e) => {
+          if (e.isIntersecting) {
+            const idx = Number((e.target as HTMLElement).dataset.index);
+            if (!Number.isNaN(idx)) setActive(idx);
+          }
+        });
+      },
+      // Active = the caption currently sitting in the lower half of the viewport,
+      // beneath the pinned preview panel.
+      { rootMargin: "-55% 0px -20% 0px", threshold: 0 },
+    );
+    stepRefs.current.forEach((el) => el && io.observe(el));
+    return () => io.disconnect();
+  }, [reduce]);
+
+  // Reduced motion: simple stacked list, no pinning, no scroll effects.
+  if (reduce) {
+    return (
+      <div className="mt-10 flex flex-col gap-12 lg:hidden">
         {STEPS.map((s, i) => (
-          <RevealItem key={s.step} delay={i * 0.12}>
-            <div className="relative pl-14 md:pl-0">
-              {/* Rail node (mobile single-column only) */}
-              <span
-                className="absolute left-[15px] top-6 flex h-4 w-4 -translate-x-1/2 items-center justify-center md:hidden"
-                aria-hidden
-              >
-                <span
-                  className="h-3 w-3 rounded-full bg-bull"
-                  style={{ boxShadow: "0 0 12px 2px rgba(0,212,170,0.6)" }}
-                />
-              </span>
-
-              <div
-                className="relative h-full overflow-hidden rounded-[18px] border border-white/[0.08] p-6 backdrop-blur-md"
-                style={{ background: "var(--color-mobile-card)" }}
-              >
-                {/* Ambient glow behind the card */}
-                <motion.div
-                  aria-hidden
-                  className="pointer-events-none absolute -right-10 -top-10 h-40 w-40 rounded-full"
-                  style={{
-                    background: "radial-gradient(circle, rgba(0,212,170,0.18) 0%, transparent 70%)",
-                    filter: "blur(24px)",
-                  }}
-                  animate={reduce ? undefined : { opacity: [0.5, 0.9, 0.5], scale: [1, 1.1, 1] }}
-                  transition={{
-                    duration: 4.5,
-                    repeat: Infinity,
-                    ease: "easeInOut",
-                    delay: i * 0.6,
-                  }}
-                />
-
-                <div className="relative flex items-center gap-3">
-                  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[12px] bg-bull/12 text-bull">
-                    <s.Icon className="h-5 w-5" strokeWidth={1.75} />
-                  </div>
-                  <span className="h-px w-5 shrink-0 bg-white/20" aria-hidden />
-                  <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.18em] text-text-muted">
-                    {s.step} · {s.label}
-                  </span>
-                </div>
-
-                <h3 className="relative mt-4 text-xl font-bold leading-tight text-text-primary">
-                  {s.title}
-                </h3>
-                <p className="relative mt-2 text-sm leading-[1.6] text-text-secondary">{s.desc}</p>
-
-                <div className="relative mt-4 flex flex-wrap gap-2">
-                  {s.chips.map((c) => (
-                    <span
-                      key={c}
-                      className="rounded-full border border-bull/20 bg-bull/[0.06] px-2.5 py-1 text-[10px] font-semibold text-bull/90"
-                    >
-                      {c}
-                    </span>
-                  ))}
-                </div>
-
-                {/* Live terminal preview panel */}
-                <div className="relative mt-6 rounded-[14px] border border-white/10 bg-[rgba(9,14,26,0.6)] p-4 dark-surface">
-                  {STEP_PANELS[i]}
-                </div>
-              </div>
+          <div key={s.step}>
+            <StepCaption index={i} />
+            <div className="mt-5 flex justify-center">
+              <StepPanelFrame>{STEP_PANELS[i]}</StepPanelFrame>
             </div>
-          </RevealItem>
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  return (
+    <div className="relative mt-8 lg:hidden">
+      {/* Pinned preview: cross-fades between the three step panels */}
+      <div className="pointer-events-none sticky top-[calc(var(--nav-h)+14px)] z-20 flex justify-center">
+        <div className="relative h-[320px] w-full max-w-[360px]">
+          {STEPS.map((s, i) => (
+            <motion.div
+              key={s.step}
+              className="absolute inset-0 flex justify-center"
+              animate={{
+                opacity: active === i ? 1 : 0,
+                scale: active === i ? 1 : 0.97,
+              }}
+              transition={{ duration: 0.45, ease: "easeOut" }}
+              style={{ pointerEvents: active === i ? "auto" : "none" }}
+            >
+              <StepPanelFrame>{STEP_PANELS[i]}</StepPanelFrame>
+            </motion.div>
+          ))}
+        </div>
+      </div>
+
+      {/* Progress dots under the pinned panel */}
+      <div className="pointer-events-none sticky top-[calc(var(--nav-h)+340px)] z-20 mb-2 flex justify-center gap-2">
+        {STEPS.map((s, i) => (
+          <span
+            key={s.step}
+            className="h-1.5 rounded-full transition-all duration-500"
+            style={{
+              width: active === i ? 22 : 6,
+              background: active === i ? "rgb(0,212,170)" : "rgba(148,166,194,0.3)",
+              boxShadow: active === i ? "0 0 10px 1px rgba(0,212,170,0.5)" : "none",
+            }}
+          />
+        ))}
+      </div>
+
+      {/* Scrolling captions — each drives `active` via the observer */}
+      <div className="relative z-10 -mt-[40px]">
+        {STEPS.map((s, i) => (
+          <div
+            key={s.step}
+            data-index={i}
+            ref={(el) => {
+              stepRefs.current[i] = el;
+            }}
+            className="flex min-h-[78vh] flex-col justify-end pb-[8vh]"
+          >
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: false, margin: "-30% 0px -30% 0px" }}
+              transition={{ duration: 0.5, ease: "easeOut" }}
+              className="rounded-[18px] border border-border bg-surface/60 p-6 backdrop-blur-sm"
+            >
+              <StepCaption index={i} />
+            </motion.div>
+          </div>
         ))}
       </div>
     </div>
+  );
+}
+
+function StepCaption({ index }: { index: number }) {
+  const s = STEPS[index];
+  return (
+    <>
+      <div className="flex items-center gap-3">
+        <div className="flex h-11 w-11 items-center justify-center rounded-[12px] bg-bull/[0.08]">
+          <s.Icon className="h-5 w-5 text-bull" strokeWidth={1.75} />
+        </div>
+        <span className="h-px w-5 bg-white/20" aria-hidden />
+        <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.2em] text-text-muted">
+          {s.step} · {s.label}
+        </span>
+      </div>
+      <h3 className="mt-4 text-2xl font-bold leading-tight text-text-primary">{s.title}</h3>
+      <p className="mt-2 text-sm leading-[1.6] text-text-secondary">{s.desc}</p>
+      <div className="mt-4 flex flex-wrap gap-2">
+        {s.chips.map((c) => (
+          <span
+            key={c}
+            className="rounded-full border border-bull/20 bg-bull/[0.06] px-2.5 py-1 text-[10px] font-semibold text-bull/90"
+          >
+            {c}
+          </span>
+        ))}
+      </div>
+    </>
   );
 }
