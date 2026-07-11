@@ -56,7 +56,7 @@ import {
 } from "@/hooks/psx/use-watchlist";
 import { StockLogo } from "@/components/search/StockLogo";
 import { logoUrlFor } from "@/lib/psx/stock-search";
-import { usePsxIndexCards, useMarketTickers } from "@/hooks/psx/use-psx";
+import { usePsxIndexCards } from "@/hooks/psx/use-psx";
 import { Modal, fieldClass } from "@/components/shared/Modal";
 import { Checkbox } from "@/components/ui/checkbox";
 
@@ -156,7 +156,6 @@ function Dashboard() {
   const { symbols: userWatchlist, remove: removeFromWatchlist } = useWatchlist();
   const { data: enrichedWatchlist, isLoading: watchlistLoading } =
     useEnrichedWatchlist(realUserEnabled);
-  const liveTickers = useMarketTickers(50);
   // Lightweight cards endpoint — latest/prev close only, not full history.
   const { data: indexCards } = usePsxIndexCards();
   const kse100ChangePct = indexCards?.find((c) => c.code === "KSE100")?.change_pct ?? null;
@@ -173,7 +172,6 @@ function Dashboard() {
   const dashboardWatchlist = useShowcaseDashboard
     ? showcase.watchlistSymbols
     : (enrichedWatchlist ?? []);
-  const liveTickerMap = new Map(liveTickers.map((t) => [t.symbol, t]));
   const dashboardGoals = !useShowcaseDashboard
     ? (userGoals ?? []).slice(0, 3).map((g) => ({
         emoji: g.emoji || "",
@@ -576,7 +574,11 @@ function Dashboard() {
                   >
                     <div className="flex items-center justify-between">
                       <span className="flex items-center gap-1.5 font-semibold text-text-primary">
-                        <StockLogo symbol={item.symbol} logoUrl={logoUrlFor(item.logoid)} size={18} />
+                        <StockLogo
+                          symbol={item.symbol}
+                          logoUrl={logoUrlFor(item.logoid)}
+                          size={18}
+                        />
                         {item.symbol}
                       </span>
                       {hasPrice && <Change pct={changePct} pill />}
@@ -596,7 +598,9 @@ function Dashboard() {
                         {changePct.toFixed(2)}%
                       </div>
                     ) : (
-                      <div className="mt-1 text-[11px] text-text-muted">{t("Price unavailable")}</div>
+                      <div className="mt-1 text-[11px] text-text-muted">
+                        {t("Price unavailable")}
+                      </div>
                     )}
                   </Link>
                   <button

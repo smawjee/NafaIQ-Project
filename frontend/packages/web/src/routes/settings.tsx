@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Moon,
   Sun,
@@ -67,11 +67,13 @@ function Settings() {
   const [currency, setCurrency] = useState<string>("PKR");
   const [hydrated, setHydrated] = useState(false);
 
-  if (isLoggedIn && settings.data && !hydrated) {
-    setIncome(String(settings.data.monthly_income || ""));
-    setCurrency(settings.data.currency || "PKR");
-    setHydrated(true);
-  }
+  useEffect(() => {
+    if (isLoggedIn && settings.data && !hydrated) {
+      setIncome(String(settings.data.monthly_income || ""));
+      setCurrency(settings.data.currency || "PKR");
+      setHydrated(true);
+    }
+  }, [isLoggedIn, settings.data, hydrated]);
 
   const name = profile?.display_name || user?.email?.split("@")[0] || "User";
 
@@ -278,9 +280,7 @@ function Settings() {
       <Card className="p-5">
         <div className="mb-4 flex items-center gap-2">
           <Bell className="h-4 w-4 text-primary" strokeWidth={1.75} />
-          <h2 className="text-sm font-semibold text-text-primary">
-            {t("Notifications")}
-          </h2>
+          <h2 className="text-sm font-semibold text-text-primary">{t("Notifications")}</h2>
         </div>
         <p className="mb-4 text-[13px] text-text-secondary">
           {t("Choose how you want to be notified when alerts trigger.")}

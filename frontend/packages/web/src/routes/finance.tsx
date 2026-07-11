@@ -851,13 +851,7 @@ function Budgets() {
         {displayBudgets.map((b) => {
           const pct = b.limit > 0 ? Math.round((b.spent / b.limit) * 100) : 0;
           const over = b.spent > b.limit;
-          const color = over
-            ? "bg-bear"
-            : pct >= 90
-              ? "bg-warning"
-              : pct >= 80
-                ? "bg-warning"
-                : "bg-bull";
+          const color = over ? "bg-bear" : pct >= 80 ? "bg-warning" : "bg-bull";
           return (
             <Card key={b.category}>
               <div className="flex items-center justify-between">

@@ -500,10 +500,10 @@ function Alerts() {
         </Card>
       </section>
 
-      {/* Alert events / notification history */}
+      {/* Alert events — triggered price/signal alerts */}
       <section>
         <div className="mb-3 flex items-center justify-between">
-          <h3 className="text-sm font-semibold text-text-primary">{t("Notification History")}</h3>
+          <h3 className="text-sm font-semibold text-text-primary">{t("Alert Events")}</h3>
           {isLoggedIn ? (
             <button
               onClick={() => evaluateAlerts.mutate()}
