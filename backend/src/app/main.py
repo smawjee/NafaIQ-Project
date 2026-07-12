@@ -11,6 +11,7 @@ import structlog
 
 from app.config import settings
 from app.api import (
+    ai,
     health,
     market,
     signals,
@@ -156,3 +157,4 @@ app.include_router(alerts.router, prefix="/api")
 app.include_router(market_v2.router, prefix="/api")
 app.include_router(finance_sync.router, prefix="/api")
 app.include_router(profile.router, prefix="/api")
+app.include_router(ai.router, prefix="/api")

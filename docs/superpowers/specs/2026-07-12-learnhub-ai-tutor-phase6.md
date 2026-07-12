@@ -77,7 +77,13 @@ alerts, and zakat.
 
 | Role | Provider | Endpoint (OpenAI-compatible `/chat/completions`) | Model (config default) |
 |---|---|---|---|
-| Primary | Google Gemini (free) | `https://generativelanguage.googleapis.com/v1beta/openai/chat/completions` | `gemini-2.5-flash` |
+| Primary | Google Gemini (free) | `https://generativelanguage.googleapis.com/v1beta/openai/chat/completions` | `gemini-3.1-flash-lite` |
+
+> **Amended 2026-07-12 during implementation:** `gemini-2.5-flash` returns 404
+> ("no longer available to new users") on fresh AI Studio keys, and the
+> account's real free limits are 5 RPM / 20 RPD on mainline Flash models.
+> `gemini-3.1-flash-lite` (15 RPM / 250K TPM / **500 RPD**) is the verified
+> default; models remain config-overridable via `AI_TUTOR_MODEL_PRIMARY`.
 | Fallback | Groq (free) | `https://api.groq.com/openai/v1/chat/completions` | `llama-3.3-70b-versatile` |
 
 **Fallback rule:** attempt Gemini with `stream:true`. If it fails to *open* the
@@ -308,7 +314,9 @@ deployment config beyond adding these env vars.
 - **Gemini OpenAI-compat quirks:** confirm SSE `data: [DONE]` handling and that
   `stream:true` is honored on the compat endpoint; `providers.py` must tolerate
   both providers' chunk shapes.
-- **Free-tier limits (per earlier research):** Gemini free ≈ 10 RPM / 250k TPM /
-  1500 RPD; Groq free ≈ 30 RPM / low TPM. Per-user daily caps (10/100) keep us
-  well within these for classroom scale; revisit if concurrency grows.
+- **Free-tier limits (corrected 2026-07-12 against the account's real rate
+  dashboard):** mainline Gemini Flash models allow only 5 RPM / 20 RPD free;
+  `gemini-3.1-flash-lite` allows 15 RPM / 250K TPM / 500 RPD (hence the default).
+  Groq `llama-3.3-70b-versatile` ≈ 30 RPM / ~1K RPD as fallback. Per-user daily
+  caps (10/100) keep total spend inside ~1.5K replies/day; revisit if usage grows.
 ```

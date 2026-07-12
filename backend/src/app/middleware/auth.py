@@ -16,6 +16,7 @@ PUBLIC_PATHS = {
 
 # User-authenticated paths — validated by require_user dependency, not the API token
 USER_PATHS_PREFIXES = (
+    "/api/ai",
     "/api/portfolio",
     "/api/profile",
     "/api/watchlist",

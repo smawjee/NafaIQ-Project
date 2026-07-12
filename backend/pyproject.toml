@@ -40,5 +40,8 @@ where = ["src"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
+# Session-scoped loop: the SQLAlchemy engine is process-global; per-function
+# loops intermittently close under it on Windows (event-loop-closed flakes).
+asyncio_default_test_loop_scope = "session"
 testpaths = ["tests"]
 pythonpath = ["src"]
