@@ -57,6 +57,14 @@ class Settings(BaseSettings):
     resend_api_key: str = ""
     resend_from_email: str = "alerts@nafaiq.app"
 
+    # AI tutor providers (Phase 6). Keys live ONLY in backend env (Railway) —
+    # never shipped to any client bundle. Gemini is primary, Groq is fallback.
+    gemini_api_key: str = ""
+    groq_api_key: str = ""
+    ai_tutor_model_primary: str = "gemini-3.1-flash-lite"
+    ai_tutor_model_fallback: str = "llama-3.3-70b-versatile"
+    ai_tutor_request_timeout_s: float = 30.0
+
     ahletrade_base_url: str = "http://feed.ahletrade.com/HTTPFeedServer/FeedFetcher"
     dps_base_url: str = "https://dps.psx.com.pk"
     log_level: str = "INFO"

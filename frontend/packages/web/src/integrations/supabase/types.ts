@@ -14,6 +14,75 @@ export type Database = {
   }
   public: {
     Tables: {
+      ai_chat_history: {
+        Row: {
+          content: string
+          created_at: string
+          id: number
+          lang: string | null
+          lesson_title: string | null
+          model: string | null
+          provider: string | null
+          role: string
+          tokens_in: number | null
+          tokens_out: number | null
+          user_id: string
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          id?: never
+          lang?: string | null
+          lesson_title?: string | null
+          model?: string | null
+          provider?: string | null
+          role: string
+          tokens_in?: number | null
+          tokens_out?: number | null
+          user_id: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          id?: never
+          lang?: string | null
+          lesson_title?: string | null
+          model?: string | null
+          provider?: string | null
+          role?: string
+          tokens_in?: number | null
+          tokens_out?: number | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      ai_usage: {
+        Row: {
+          message_count: number
+          tokens_in: number
+          tokens_out: number
+          updated_at: string
+          usage_date: string
+          user_id: string
+        }
+        Insert: {
+          message_count?: number
+          tokens_in?: number
+          tokens_out?: number
+          updated_at?: string
+          usage_date: string
+          user_id: string
+        }
+        Update: {
+          message_count?: number
+          tokens_in?: number
+          tokens_out?: number
+          updated_at?: string
+          usage_date?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       alert_events: {
         Row: {
           alert_id: number | null

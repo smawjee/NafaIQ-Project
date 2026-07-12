@@ -12,7 +12,7 @@ _bearer = HTTPBearer(auto_error=False)
 async def require_user(
     credentials: HTTPAuthorizationCredentials | None = Depends(_bearer),
 ) -> dict:
-    """Validate Supabase JWT and return {user_id, email, plan}.
+    """Validate Supabase JWT and return {user_id, email, plan, features}.
 
     Expects: Authorization: Bearer <supabase_jwt>
 

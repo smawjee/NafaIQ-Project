@@ -31,7 +31,11 @@ async def get_plan_features(conn: Executor, user_id: str) -> Optional[dict[str, 
                     COALESCE(f.has_export, FALSE) AS has_export,
                     COALESCE(f.has_multi_currency, FALSE) AS has_multi_currency,
                     COALESCE(f.has_realtime_psx, FALSE) AS has_realtime_psx,
-                    COALESCE(f.has_screener_full, FALSE) AS has_screener_full
+                    COALESCE(f.has_screener_full, FALSE) AS has_screener_full,
+                    -- NULL means unlimited (Pro/Premium), so no COALESCE; only a
+                    -- plan_features join miss falls back to the Free cap of 10.
+                    CASE WHEN f.plan IS NULL THEN 10
+                         ELSE f.ai_tutor_daily_limit END AS ai_tutor_daily_limit
                 FROM profiles p
                 LEFT JOIN plan_features f ON f.plan = p.plan
                 WHERE p.id = :uid
