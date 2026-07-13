@@ -15,6 +15,7 @@ export type Profile = {
   id: string;
   display_name: string | null;
   plan: string;
+  plan_selected_at: string | null;
   avatar_url: string | null;
 };
 
@@ -29,6 +30,7 @@ type AuthContextValue = {
   signUpWithPassword: (email: string, password: string, displayName: string) => Promise<Result>;
   signInWithGoogle: () => Promise<Result>;
   signOut: () => Promise<void>;
+  refreshProfile: () => Promise<void>;
 };
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
@@ -41,7 +43,7 @@ const redirectTo = makeRedirectUri({ scheme: "nafaiqmobile", path: "auth/callbac
 async function fetchProfile(userId: string): Promise<Profile | null> {
   const { data } = await supabase
     .from("profiles")
-    .select("id, display_name, plan, avatar_url")
+    .select("id, display_name, plan, plan_selected_at, avatar_url")
     .eq("id", userId)
     .maybeSingle();
   return (data as Profile) ?? null;
@@ -112,12 +114,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const signInWithGoogle: AuthContextValue["signInWithGoogle"] = async () => {
+    // Must be listed EXACTLY in Supabase Dashboard > Auth > URL Configuration >
+    // Redirect URLs, or Supabase silently falls back to the Site URL (web app).
+    if (__DEV__) console.log("[auth] Google redirectTo:", redirectTo);
     const { data, error } = await supabase.auth.signInWithOAuth({
       provider: "google",
       options: { redirectTo, skipBrowserRedirect: true },
     });
     if (error) return { error: error.message };
     if (!data?.url) return { error: "Could not start Google sign-in" };
+    if (__DEV__) console.log("[auth] authorize URL:", data.url);
 
     const res = await WebBrowser.openAuthSessionAsync(data.url, redirectTo);
     if (res.type === "cancel" || res.type === "dismiss") return { error: null };
@@ -128,6 +134,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signOut = async () => {
     await supabase.auth.signOut();
     setProfile(null);
+  };
+
+  // Re-fetch the profile row (e.g. after a plan change) — mirrors web.
+  const refreshProfile = async () => {
+    const { data } = await supabase.auth.getSession();
+    const uid = data.session?.user?.id;
+    if (!uid) return;
+    const p = await fetchProfile(uid);
+    if (p) setProfile(p);
   };
 
   return (
@@ -141,6 +156,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         signUpWithPassword,
         signInWithGoogle,
         signOut,
+        refreshProfile,
       }}
     >
       {children}

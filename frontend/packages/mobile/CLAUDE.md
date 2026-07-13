@@ -1,9 +1,9 @@
 # NafaIQ Mobile — Project Directives (CLAUDE.md)
 
-React Native **Expo** app that mirrors the NafaIQ web app (TanStack Start +
-Supabase), carried in this repo's **`zenith-main` branch** (see §0). The web app
-is the **source of truth** for every feature. This file governs ALL work in
-this repo — read it before each task and keep it under 300 lines.
+React Native **Expo** app that mirrors the NafaIQ web app, which lives in this
+monorepo at **`frontend/packages/web`** (see §0). The web app is the **source
+of truth** for every feature. This file governs ALL work in this package —
+read it before each task and keep it under 300 lines.
 
 Dev environment is **Windows + Linux only**. Never add macOS- or Swift-specific
 dependencies, native modules, or build steps. iOS is built via Expo
@@ -11,25 +11,19 @@ dependencies, native modules, or build steps. iOS is built via Expo
 
 ---
 
-## 0. Branch & Remote Policy (HARD)
+## 0. Web Source of Truth (HARD)
 
-- **At any time this repo has exactly 3 branches:** `main`,
-  `feat/mobile-scaffold` (the current default), and `zenith-main`. Do not
-  create long-lived branches beyond these; delete any others.
-- **`zenith-main` must track only the web app's `main` branch at
-  <https://github.com/usmankhalidj15-glitch/nafa-iq-zenith-1>** (the `zenith`
-  remote). Keep it a pristine fast-forward mirror — never commit to it.
-  Refresh with `git fetch zenith && git fetch . zenith/main:zenith-main`,
-  then push the mirror to the fork with `git push origin zenith-main` so
-  `origin/zenith-main` always matches `zenith/main` too.
-- The similarly named repo **without** the `-1` suffix
-  (`usmankhalidj15-glitch/nafa-iq-zenith`) is a **stale copy**. If any remote,
-  branch, or local checkout is found tracking it, delete that copy and repoint
-  to `nafa-iq-zenith-1`. (The old `../nafa-iq-zenith` sibling checkout tracked
-  it and has been deleted.)
-- Consult web sources via `zenith-main`, e.g.
-  `git show zenith-main:src/routes/psx.tsx`, or a throwaway worktree:
-  `git worktree add /tmp/zenith zenith-main` (remove after use).
+- This package lives in the **nafaiq-monorepo**; the web app is a sibling
+  package at `frontend/packages/web` and the FastAPI backend at `backend/`.
+  Consult them directly — the old standalone-repo `zenith-main` mirror-branch
+  workflow is obsolete.
+- Before building or changing any screen, open the corresponding web source
+  (`frontend/packages/web/src/routes/*`, `src/features/*`, `src/hooks/*`) and
+  match functionality and data contracts. Backend endpoint contracts live in
+  `backend/src/app/api/*.py`.
+- Shared pure-TS types/content live in `@nafaiq/shared`
+  (`frontend/packages/shared`) — API DTOs (`api.ts`, kept in sync with web's
+  `src/lib/psx/types.ts`), formatters, and Learn content.
 
 ## 1. Framework Rules (HARD)
 
@@ -135,8 +129,9 @@ src/
   components/          # shared UI: Card, StatCard, Change, SignalBadge,
                        # charts/, icons, primitives (Button, Sheet, Tabs…)
   hooks/               # useAuth, useLearn, useColorScheme…
-  lib/                 # data.ts, finance-data.ts, learn-data.ts (ported),
-                       # supabase.ts, formatters, theme
+    queries/           # React Query hooks per domain (live backend data)
+  lib/                 # api.ts (FastAPI client), supabase.ts,
+                       # database.types.ts, plan-features.ts, theme
   constants/theme.ts   # design tokens
 ```
 
@@ -146,20 +141,36 @@ src/
   drawer/menu for Alerts, Plans, Settings, sign-out — mirrors web `AppShell`'s
   `BottomNav` + sidebar.
 
-## Data Model (Supabase)
+## Data Layer (live — no mock domain data)
 
-Single table `public.profiles` (RLS: users see only their own row):
-`id uuid PK (=auth.users.id)`, `display_name text?`, `plan text='Free'`,
-`avatar_url text?`, `created_at`, `updated_at`. A `handle_new_user` trigger
-auto-creates the row on signup from `display_name` metadata. **No other tables**
-— all portfolio/finance/market/alerts data is mock/seeded, not persisted.
+The app shares the web app's Supabase project (auth + `profiles` +
+`user_watchlist` direct; realtime on `psx_market_snapshot`) and the FastAPI
+backend for everything else. Two auth tiers in `src/lib/api.ts`, mirroring
+web `src/lib/psx/client.ts`:
+
+- **Public market/reference routes** (`/api/market/*`, `/api/quote/*`,
+  `/api/signal*`, `/api/sectors`, …) — optional shared PSX token.
+- **User-owned routes** (`/api/portfolio/*`, `/api/finance/*`, `/api/alerts*`,
+  `/api/profile/plan`, `/api/watchlist`) — Supabase session JWT.
+
+React Query hooks live in `src/hooks/queries/` (use-market, use-watchlist,
+use-portfolio, use-finance, use-finance-series, use-alerts, use-plan) and
+mirror the web hooks' query keys/invalidation. Full generated schema types:
+`src/lib/database.types.ts` (copy of web `integrations/supabase/types.ts` —
+regenerate there, then re-copy). Learn-hub content stays static from
+`@nafaiq/shared` by design. Do not reintroduce mock/seeded domain data.
 
 ## Environment Variables
 
-Expo exposes client vars prefixed `EXPO_PUBLIC_`. Create `.env` (gitignored):
+Expo exposes client vars prefixed `EXPO_PUBLIC_`. Create `.env.local`
+(gitignored); use the SAME Supabase project as the web app so accounts work
+on both platforms:
 ```
 EXPO_PUBLIC_SUPABASE_URL=...
 EXPO_PUBLIC_SUPABASE_ANON_KEY=...   # the publishable (sb_publishable_) key
+EXPO_PUBLIC_API_URL=...             # FastAPI base URL; blank in dev =
+                                    # auto-derive http://<metro-host>:8000
+EXPO_PUBLIC_PSX_API_TOKEN=...       # optional shared token, public PSX routes
 ```
 The AI tutor's `LOVABLE_API_KEY` must **never** ship in the client bundle — wrap
 the AI gateway call in a Supabase Edge Function and call that from the app.
@@ -232,9 +243,15 @@ All primary screens are built against the web app's structure:
 - **AI tutor:** `supabase/functions/ask-tutor` Edge Function + `src/lib/ai-tutor.ts`
   client (deploy + set `LOVABLE_API_KEY` secret to activate).
 
-*Remaining polish (nice-to-have):* movers tabs & candle/line toggle on PSX, AI
-report modal on Portfolio, count-up/flip animations, live data wiring, tests,
-Higgsfield-generated icon/splash assets.
+- **Live data (2026-07-13):** all domain screens wired to the real backend —
+  see §Data Layer. Mock AsyncStorage stores removed.
+
+*Remaining polish (nice-to-have):* movers tabs & candle/line toggle on PSX
+(useMarketMovers hook is ready), AI report modal on Portfolio, KSE-100 candles
+on the PSX chart, price-alert wiring on stock detail, count-up/flip
+animations, component tests for rewired screens, Higgsfield-generated
+icon/splash assets, streaming AI tutor via `/api/ai/tutor` (currently Edge
+Function).
 
 ## Porting Gotchas (from web audit)
 

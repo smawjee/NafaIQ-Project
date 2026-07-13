@@ -23,8 +23,7 @@ import { useLang } from "@/hooks/use-lang";
 import { useLearn, XP_GOAL } from "@/hooks/use-learn";
 import { useTheme } from "@/hooks/use-theme";
 import { askTutor, type TutorMessage } from "@/lib/ai-tutor";
-import { GLOSSARY, LESSONS } from "@nafaiq/shared";
-import { FLASHCARDS, LEARNING_PATHS, LESSON_ID_BY_TITLE, VIDEO_LESSON_IDS } from "@nafaiq/shared";
+import { FLASHCARDS, GLOSSARY, LEARNING_PATHS, LESSON_ID_BY_TITLE, LESSONS, VIDEO_LESSON_IDS } from "@nafaiq/shared";
 import {
   ArrowRight,
   Bot,
