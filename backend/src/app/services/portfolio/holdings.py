@@ -1,14 +1,30 @@
-"""Portfolio & holding CRUD. Business logic over portfolio."""
+"""Portfolio & holding CRUD. Business logic over portfolio.
+
+Every holding mutation here routes a `stock_transactions` lot through the trade
+core (`trades.record_trade_atomic`) so `psx_holdings` can always be reconciled
+from history:
+
+- add_holding    -> `buy`   lot + finance reflection (an opening position is a
+                            real cash movement, consistent with the trade path).
+- update_holding -> `adjust` lot (absolute snapshot of the corrected shares/
+                            avg_cost), NO finance reflection — a correction is
+                            not a trade and must not book phantom cash.
+- delete_holding -> `sell`  lot for the full remaining quantity (the exit in
+                            history; `adjust`-to-zero is impossible under the DB
+                            CHECK quantity > 0), NO finance reflection.
+"""
 from __future__ import annotations
 
+from datetime import datetime, timezone
 from typing import Any, Optional
 
 from fastapi import HTTPException
 
 from app.repositories import portfolio as repo
-from app.repositories.base import begin, connect
-from app.schemas.portfolio import HoldingCreate, HoldingUpdate
+from app.repositories.base import begin, connect, session
+from app.schemas.portfolio import HoldingCreate, HoldingUpdate, StockTransactionCreate
 from app.services.permissions import check_count_limit
+from app.services.portfolio.trades import record_trade_atomic
 from app.services.symbols import require_known_symbol
 
 
@@ -37,24 +53,59 @@ async def list_holdings_owned(user_id: str, portfolio_id: int) -> list[dict[str,
         return await repo.list_holdings(conn, portfolio_id)
 
 
+def _parse_purchased_at(purchased_at: Optional[str]) -> datetime:
+    """A holding's purchased_at (date string) becomes the lot's executed_at.
+    Falls back to now() when absent or unparseable."""
+    if purchased_at:
+        try:
+            return datetime.fromisoformat(purchased_at)
+        except ValueError:
+            pass
+    return datetime.now(timezone.utc)
+
+
 async def add_holding(user: dict, portfolio_id: int, body: HoldingCreate) -> dict[str, Any]:
+    """Manual add: record a `buy` lot + finance reflection through the trade
+    core, then return the resulting holding. Preserves the ownership check,
+    known-symbol validation, and the max-holdings quota."""
     user_id = user["user_id"]
-    async with begin() as conn:
-        if not await repo.is_portfolio_owned(conn, user_id, portfolio_id):
+    async with session() as sess:
+        if not await repo.is_portfolio_owned(sess, user_id, portfolio_id):
             raise HTTPException(404, "Portfolio not found")
-        await require_known_symbol(conn, body.symbol)
-        current = await repo.count_holdings(conn, portfolio_id, body.symbol)
+        await require_known_symbol(sess, body.symbol)
+        current = await repo.count_holdings(sess, portfolio_id, body.symbol)
         check_count_limit(
             user, feature_key="max_holdings_per_portfolio", current=current, label="Holdings"
         )
-        return await repo.upsert_holding_add(
-            conn, portfolio_id, body.symbol, body.shares, body.avg_cost, body.purchased_at
+
+        executed = _parse_purchased_at(body.purchased_at)
+        trade = StockTransactionCreate(
+            portfolio_id=portfolio_id,
+            symbol=body.symbol,
+            side="buy",
+            quantity=int(body.shares),
+            price=float(body.avg_cost),
+            fees=0.0,
+            executed_at=executed,
+            notes="Manual holding add",
+            source="manual",
         )
+        await record_trade_atomic(
+            sess, user_id=user_id, body=trade, executed=executed,
+            apply_holding=True, reflect_finance=True,
+        )
+        holding = await repo.get_holding_by_symbol_full(sess, portfolio_id, body.symbol)
+        await sess.commit()
+    return holding
 
 
 async def update_holding(
     user_id: str, portfolio_id: int, holding_id: int, body: HoldingUpdate
 ) -> dict[str, Any]:
+    """PATCH a holding as a CORRECTION: record an `adjust` lot capturing the
+    corrected absolute shares/avg_cost so the change is in history and the
+    holding stays reconstructable, then apply the field update. No finance
+    reflection — a correction is not a cash movement."""
     fields: dict[str, Any] = {}
     if body.shares is not None:
         fields["shares"] = body.shares
@@ -65,17 +116,75 @@ async def update_holding(
     if not fields:
         raise HTTPException(400, "No fields to update")
 
-    async with begin() as conn:
-        if not await repo.is_holding_owned(conn, user_id, portfolio_id, holding_id):
+    async with session() as sess:
+        holding = await repo.get_owned_holding(sess, user_id, portfolio_id, holding_id)
+        if holding is None:
             raise HTTPException(404, "Holding not found")
-        return await repo.update_holding_fields(conn, holding_id, fields)
+
+        # Record an adjust lot only when a drift-relevant field (shares/avg_cost)
+        # changes; a purchased_at-only edit does not affect reconstruction.
+        if body.shares is not None or body.avg_cost is not None:
+            new_shares = int(body.shares) if body.shares is not None else int(holding["shares"])
+            new_avg = float(body.avg_cost) if body.avg_cost is not None else float(holding["avg_cost"])
+            # Correction time = now, so the adjust snapshot orders AFTER any prior
+            # lots and acts as the authoritative reset in the fold.
+            executed = datetime.now(timezone.utc)
+            note = (
+                "Holding correction (avg_cost only)"
+                if body.shares is None
+                else "Holding correction (shares/avg_cost)"
+            )
+            trade = StockTransactionCreate(
+                portfolio_id=portfolio_id,
+                symbol=holding["symbol"],
+                side="adjust",
+                quantity=new_shares,
+                price=new_avg,
+                fees=0.0,
+                executed_at=executed,
+                notes=note,
+                source="manual",
+            )
+            await record_trade_atomic(
+                sess, user_id=user_id, body=trade, executed=executed,
+                apply_holding=False, reflect_finance=False,
+            )
+
+        updated = await repo.update_holding_fields(sess, holding_id, fields)
+        await sess.commit()
+    return updated
 
 
 async def delete_holding(user_id: str, portfolio_id: int, holding_id: int) -> dict[str, Any]:
-    async with begin() as conn:
-        deleted = await repo.delete_holding(conn, user_id, portfolio_id, holding_id)
-    if deleted is None:
-        raise HTTPException(404, "Holding not found")
+    """DELETE a holding: record a closing `sell` lot for the full remaining
+    quantity (so the exit is in history and the fold reconstructs a flat
+    position), then delete the row. No finance reflection — a correction/exit
+    is not booked as realised cash."""
+    async with session() as sess:
+        holding = await repo.get_owned_holding(sess, user_id, portfolio_id, holding_id)
+        if holding is None:
+            raise HTTPException(404, "Holding not found")
+
+        shares = int(holding["shares"])
+        if shares > 0:
+            executed = datetime.now(timezone.utc)
+            trade = StockTransactionCreate(
+                portfolio_id=portfolio_id,
+                symbol=holding["symbol"],
+                side="sell",
+                quantity=shares,
+                price=float(holding["avg_cost"]),
+                fees=0.0,
+                executed_at=executed,
+                notes="Holding deleted (closing lot)",
+                source="manual",
+            )
+            await record_trade_atomic(
+                sess, user_id=user_id, body=trade, executed=executed,
+                apply_holding=False, reflect_finance=False,
+            )
+        await repo.delete_holding_by_id(sess, holding_id)
+        await sess.commit()
     return {"deleted": holding_id}
 
 

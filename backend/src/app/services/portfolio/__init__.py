@@ -27,6 +27,9 @@ from app.services.portfolio.networth import (  # noqa: F401
 )
 from app.services.portfolio.trades import (  # noqa: F401
     create_stock_transaction,
+    detect_holding_drift,
     list_stock_transactions,
+    rebuild_holdings_from_transactions,
+    record_trade_atomic,
 )
 from app.services.portfolio.watchlist import enriched_watchlist  # noqa: F401

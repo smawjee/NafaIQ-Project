@@ -71,8 +71,11 @@ CHECKS: List[MigrationCheck] = [
             Check("psx_alerts table (v1)", "SELECT to_regclass('public.psx_alerts') IS NOT NULL"),
             Check("psx_portfolios table", "SELECT to_regclass('public.psx_portfolios') IS NOT NULL"),
             Check("psx_holdings table", "SELECT to_regclass('public.psx_holdings') IS NOT NULL"),
-            Check("idx_psx_ms_sym index", "SELECT to_regclass('public.idx_psx_ms_sym') IS NOT NULL"),
-            Check("idx_psx_ohlcv_sym_date index", "SELECT to_regclass('public.idx_psx_ohlcv_sym_date') IS NOT NULL"),
+            # idx_psx_ms_sym and idx_psx_ohlcv_sym_date were dropped by the
+            # 20260714130000_db_integrity_cleanup migration as duplicates; assert
+            # the surviving index of each pair (kept for the symbol/date reads).
+            Check("psx_market_snapshot(symbol) index", "SELECT to_regclass('public.idx_psx_market_snapshot_symbol') IS NOT NULL"),
+            Check("psx_ohlcv(symbol,date) index", "SELECT to_regclass('public.idx_psx_ohlcv_symbol_date_desc') IS NOT NULL"),
             Check("idx_psx_alerts_user index", "SELECT to_regclass('public.idx_psx_alerts_user') IS NOT NULL"),
             Check("RLS on psx_holdings", "SELECT relrowsecurity FROM pg_class WHERE relname='psx_holdings'"),
         ],

@@ -34,6 +34,9 @@ import { RANGES, ALLOCATION_PALETTE } from "@/features/portfolio/portfolio.data"
 import { series, relativeBenchmarkDiff } from "@/features/portfolio/portfolio.utils";
 import { HaqeeqiDaulat } from "@/features/portfolio/components/HaqeeqiDaulat";
 import { ReportModal } from "@/features/portfolio/components/ReportModal";
+import { toast } from "sonner";
+import { usePortfolioReport } from "@/hooks/ai/use-ai-report";
+import { reportErrorKey } from "@/lib/ai/reports-client";
 
 export function Portfolio() {
   const { t } = useLang();
@@ -106,9 +109,10 @@ export function Portfolio() {
   }, [useDemoPortfolio, local.stockAllocation, holdings]);
 
   const [range, setRange] = useState<(typeof RANGES)[number]>("6M");
-  const [reportState, setReportState] = useState<"idle" | "loading" | "open">("idle");
+  const [reportOpen, setReportOpen] = useState(false);
   const n = range === "1M" ? 2 : range === "3M" ? 3 : range === "6M" ? 6 : 12;
   const historyDays = range === "1M" ? 30 : range === "3M" ? 90 : range === "1Y" ? 365 : 180;
+  const reportMutation = usePortfolioReport(historyDays);
   const shouldUseUserPerformance = isLoggedIn && !isDemo;
   const { data: portfolioHistory, isLoading: portfolioHistoryLoading } = usePortfolioHistory(
     historyDays,
@@ -286,8 +290,10 @@ export function Portfolio() {
   }
 
   function generate() {
-    setReportState("loading");
-    setTimeout(() => setReportState("open"), 2000);
+    reportMutation.mutate(undefined, {
+      onSuccess: () => setReportOpen(true),
+      onError: (e) => toast.error(t(reportErrorKey(e))),
+    });
   }
 
   return (
@@ -734,10 +740,10 @@ export function Portfolio() {
           </div>
           <button
             onClick={generate}
-            disabled={reportState === "loading"}
+            disabled={reportMutation.isPending}
             className="flex items-center gap-2 rounded-[6px] bg-ai px-4 py-2 text-sm font-semibold text-white hover:brightness-110 disabled:opacity-70"
           >
-            {reportState === "loading" ? (
+            {reportMutation.isPending ? (
               <>
                 <Loader2 className="h-4 w-4 animate-spin" />
                 {t("Analyzing…")}
@@ -749,7 +755,9 @@ export function Portfolio() {
         </div>
       </div>
 
-      {reportState === "open" && <ReportModal onClose={() => setReportState("idle")} />}
+      {reportOpen && reportMutation.data && (
+        <ReportModal report={reportMutation.data.content} onClose={() => setReportOpen(false)} />
+      )}
 
       <ConfirmDialog
         open={deleteIdx !== null}

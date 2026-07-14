@@ -9,6 +9,9 @@ import { Bills } from "@/features/finance/components/Bills";
 import { Goals } from "@/features/finance/components/Goals";
 import { FinanceReportModal } from "@/features/finance/components/FinanceReportModal";
 import { Zakat } from "@/features/finance/zakat/Zakat";
+import { toast } from "sonner";
+import { useFinanceReport } from "@/hooks/ai/use-ai-report";
+import { reportErrorKey } from "@/lib/ai/reports-client";
 
 const TABS = ["Overview", "Transactions", "Budgets", "Bills", "Goals", "Zakat"] as const;
 type Tab = (typeof TABS)[number];
@@ -16,11 +19,14 @@ type Tab = (typeof TABS)[number];
 export function Finance() {
   const { t: tr } = useLang();
   const [tab, setTab] = useState<Tab>("Overview");
-  const [reportState, setReportState] = useState<"idle" | "loading" | "open">("idle");
+  const [reportOpen, setReportOpen] = useState(false);
+  const reportMutation = useFinanceReport();
 
   function generate() {
-    setReportState("loading");
-    setTimeout(() => setReportState("open"), 2000);
+    reportMutation.mutate(undefined, {
+      onSuccess: () => setReportOpen(true),
+      onError: (e) => toast.error(tr(reportErrorKey(e))),
+    });
   }
 
   return (
@@ -71,10 +77,10 @@ export function Finance() {
           </div>
           <button
             onClick={generate}
-            disabled={reportState === "loading"}
+            disabled={reportMutation.isPending}
             className="flex items-center gap-2 rounded-[6px] bg-ai px-4 py-2 text-sm font-semibold text-white hover:brightness-110 disabled:opacity-70"
           >
-            {reportState === "loading" ? (
+            {reportMutation.isPending ? (
               <>
                 <Loader2 className="h-4 w-4 animate-spin" />
                 {tr("Analyzing…")}
@@ -86,7 +92,12 @@ export function Finance() {
         </div>
       </div>
 
-      {reportState === "open" && <FinanceReportModal onClose={() => setReportState("idle")} />}
+      {reportOpen && reportMutation.data && (
+        <FinanceReportModal
+          report={reportMutation.data.content}
+          onClose={() => setReportOpen(false)}
+        />
+      )}
     </div>
   );
 }

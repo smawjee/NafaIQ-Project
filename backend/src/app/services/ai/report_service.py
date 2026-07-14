@@ -1,0 +1,180 @@
+"""Business layer for AI reports — the routes delegate here for caching,
+persistence, quota gating, retention pruning, and error mapping. The engine
+does the actual (DB-free) generation; this wraps it and returns a ReportResponse.
+
+Three persistence modes:
+- SHARED (market-brief, stock): one row per report/subject/day, served to everyone.
+- USER_QUOTA (portfolio, finance): per-user, quota-gated (429), pruned.
+- USER_DAILY (dashboard-rec): per-user, one row per day. Pruned, but does NOT
+  count against the deep-report quota.
+"""
+from __future__ import annotations
+
+import hashlib
+import json
+from datetime import date
+from typing import Any, Optional
+
+from fastapi import HTTPException
+
+from app.repositories import reports_repo
+from app.repositories.base import begin, connect
+from app.schemas.reports import ReportResponse
+from app.services.ai import engine, quota
+from app.services.ai.engine import ReportUnavailable
+from app.services.ai.providers import ProviderError
+
+_UNAVAILABLE = "This report is temporarily unavailable. Please try again shortly."
+_QUOTA_MSG = (
+    "You've reached your AI report limit for this period. "
+    "Upgrade your plan to generate more."
+)
+
+# Persistence modes.
+SHARED = "shared"
+USER_QUOTA = "user_quota"
+USER_DAILY = "user_daily"
+
+
+def resolve_lang(lang: Optional[str]) -> str:
+    """Clamp the optional ?lang= override to en|ur (default en)."""
+    return lang if lang in ("en", "ur") else "en"
+
+
+def _context_hash(bundle: dict[str, Any]) -> str:
+    return hashlib.sha256(
+        json.dumps(bundle, sort_keys=True, default=str).encode("utf-8")
+    ).hexdigest()
+
+
+def _response(
+    *,
+    report_type: str,
+    content: Any,
+    provider: Any,
+    model: Any,
+    verified: Any,
+    created_at: Any,
+) -> ReportResponse:
+    return ReportResponse(
+        report_type=report_type,
+        content=content,
+        provider=provider,
+        model=model,
+        verified=bool(verified),
+        created_at=None if created_at is None else str(created_at),
+    )
+
+
+def _from_row(row: dict[str, Any], report_type: str) -> ReportResponse:
+    return _response(
+        report_type=report_type,
+        content=row.get("content"),
+        provider=row.get("provider"),
+        model=row.get("model"),
+        verified=row.get("verified"),
+        created_at=row.get("created_at"),
+    )
+
+
+async def _generate(spec, **kwargs) -> engine.GeneratedReport:
+    """Run the engine, turning fail-closed / provider errors into a clean 503."""
+    try:
+        return await engine.generate_report(spec, **kwargs)
+    except (ReportUnavailable, ProviderError):
+        raise HTTPException(status_code=503, detail=_UNAVAILABLE)
+
+
+async def serve(
+    spec,
+    *,
+    mode: str,
+    user: dict[str, Any],
+    lang: str,
+    subject: Optional[str] = None,
+    days: Optional[int] = None,
+) -> ReportResponse:
+    """The one serve path: cache check -> engine -> persist -> response."""
+    today = date.today().isoformat()
+    user_id = user["user_id"]
+
+    # Serve today's cached row if we have one; quota-gate the per-user modes.
+    if mode == SHARED:
+        async with connect() as conn:
+            cached = await reports_repo.get_latest_report(
+                conn, user_id=None, report_type=spec.report_type, subject=subject
+            )
+        if cached and cached.get("trading_date") == today:
+            return _from_row(cached, spec.report_type)
+    elif mode == USER_DAILY:
+        async with connect() as conn:
+            cached = await reports_repo.get_latest_report(
+                conn, user_id=user_id, report_type=spec.report_type
+            )
+        if cached and cached.get("trading_date") == today:
+            return _from_row(cached, spec.report_type)
+    elif mode == USER_QUOTA:
+        allowed, _used, _limit = await quota.check_report_quota(user)
+        if not allowed:
+            raise HTTPException(status_code=429, detail=_QUOTA_MSG)
+
+    # Generate (the one verified path).
+    gen = await _generate(
+        spec,
+        user_id=None if mode == SHARED else user_id,
+        subject=subject,
+        days=days,
+        lang=lang,
+    )
+    content = gen.report.model_dump()
+    context_hash = _context_hash(gen.bundle)
+
+    if mode == SHARED:
+        async with begin() as conn:
+            row = await reports_repo.get_or_create_shared(
+                conn,
+                report_type=spec.report_type,
+                subject=subject,
+                trading_date=today,
+                content=content,
+                context_hash=context_hash,
+                verified=gen.verification.verified,
+                provider=gen.provider,
+                model=gen.model,
+            )
+        if row:
+            return _from_row(row, spec.report_type)
+        return _response(
+            report_type=spec.report_type, content=content, provider=gen.provider,
+            model=gen.model, verified=gen.verification.verified, created_at=today,
+        )
+
+    # Per-user modes: insert + prune (confidential rows must never grow unbounded).
+    # Usage is counted only for the quota surfaces — the daily dashboard nudge must
+    # not eat into the Portfolio/Finance limit.
+    async with begin() as conn:
+        row = await reports_repo.insert_report(
+            conn,
+            user_id=user_id,
+            report_type=spec.report_type,
+            subject=subject,
+            period_days=days,
+            content=content,
+            context_hash=context_hash,
+            verified=gen.verification.verified,
+            provider=gen.provider,
+            model=gen.model,
+            trading_date=today if mode == USER_DAILY else None,
+        )
+        if mode == USER_QUOTA:
+            await reports_repo.increment_report_usage(conn, user_id)
+        await reports_repo.prune_reports(conn, user_id, spec.report_type)
+
+    return _response(
+        report_type=spec.report_type,
+        content=content,
+        provider=gen.provider,
+        model=gen.model,
+        verified=gen.verification.verified,
+        created_at=(row or {}).get("created_at"),
+    )

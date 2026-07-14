@@ -7,16 +7,19 @@ Re-exports the public functions so callers keep using
 """
 from app.repositories.portfolio.holdings import (  # noqa: F401
     count_holdings,
-    delete_holding,
     delete_holding_by_id,
+    delete_holding_by_symbol,
+    fetch_holdings_for_drift,
     get_holding_by_symbol,
+    get_holding_by_symbol_full,
+    get_owned_holding,
     insert_holding,
     is_holding_owned,
     list_holdings,
+    set_holding_position_by_symbol,
     set_holding_shares,
     update_holding_fields,
     update_holding_position,
-    upsert_holding_add,
 )
 from app.repositories.portfolio.portfolios import (  # noqa: F401
     count_user_portfolios,
@@ -27,6 +30,8 @@ from app.repositories.portfolio.portfolios import (  # noqa: F401
     list_portfolios,
 )
 from app.repositories.portfolio.trades import (  # noqa: F401
+    fetch_portfolio_lots,
+    fetch_symbol_lots,
     insert_finance_reflection,
     insert_stock_transaction,
     list_stock_transactions,

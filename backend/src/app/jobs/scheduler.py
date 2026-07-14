@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
+import json
 from collections.abc import Awaitable, Callable
 from datetime import datetime, timedelta, timezone
 
@@ -15,6 +17,12 @@ from app.scrapers.tradingview import TradingViewScraper
 from app.services.cache import CacheLayer
 from app.api.health import set_market_refresh_time
 from app.db.supabase import async_execute
+from app.repositories import reports_repo
+from app.repositories.base import begin
+from app.services.ai import engine
+from app.services.ai.engine import ReportUnavailable
+from app.services.ai.providers import ProviderError
+from app.services.ai.specs import REPORT_SPECS
 
 log = structlog.get_logger()
 
@@ -271,6 +279,50 @@ async def job_check_alerts():
         log.exception("job:check_alerts:failed")
 
 
+def _context_hash(bundle: dict) -> str:
+    """sha256 of the assembled bundle — the report's cache/provenance key."""
+    return hashlib.sha256(
+        json.dumps(bundle, sort_keys=True, default=str).encode("utf-8")
+    ).hexdigest()
+
+
+async def job_generate_market_brief():
+    """Generate the once-per-trading-day SHARED Market Brief and persist it (§11).
+
+    Runs after the daily market data is refreshed. The Market Brief is shared
+    (no user, `confidential=False` -> free/shared provider) and cache-keyed by
+    trading_date via `get_or_create_shared`, so the read endpoint only fetches
+    the latest. A failed brief must NEVER crash the scheduler, so every failure
+    mode (fail-closed `ReportUnavailable`, `ProviderError`, or anything else) is
+    logged and swallowed — mirroring `job_check_alerts`.
+    """
+    try:
+        log.info("job:generate_market_brief:start")
+        gen = await engine.generate_report(REPORT_SPECS["market_brief"], lang="en")
+        trading_date = datetime.now(PTK_TZ).date().isoformat()
+        async with begin() as conn:
+            await reports_repo.get_or_create_shared(
+                conn,
+                report_type="market_brief",
+                subject=None,
+                trading_date=trading_date,
+                content=gen.report.model_dump(),
+                context_hash=_context_hash(gen.bundle),
+                verified=gen.verification.verified,
+                provider=gen.provider,
+                model=gen.model,
+            )
+        log.info(
+            "job:generate_market_brief:done",
+            trading_date=trading_date,
+            verified=gen.verification.verified,
+        )
+    except (ReportUnavailable, ProviderError):
+        log.warning("job:generate_market_brief:unavailable")
+    except Exception:
+        log.exception("job:generate_market_brief:failed")
+
+
 # ----- init -----
 
 def init_scheduler():
@@ -282,6 +334,14 @@ def init_scheduler():
     scheduler.add_job(job_refresh_index_eod, CronTrigger(hour=1, minute=0), id="refresh_index_eod", replace_existing=True)
     scheduler.add_job(job_check_alerts, IntervalTrigger(seconds=60), id="check_alerts", replace_existing=True)
     scheduler.add_job(job_refresh_tv_data, IntervalTrigger(minutes=5), id="refresh_tv_data", replace_existing=True)
+    # Shared, once-per-trading-day Market Brief — weekdays ~09:45 PKT, after the
+    # morning market data refresh (§11). Runs in Asia/Karachi (PSX) time.
+    scheduler.add_job(
+        job_generate_market_brief,
+        CronTrigger(day_of_week="mon-fri", hour=9, minute=45, timezone="Asia/Karachi"),
+        id="generate_market_brief",
+        replace_existing=True,
+    )
     scheduler.start()
     log.info("scheduler:started")
 

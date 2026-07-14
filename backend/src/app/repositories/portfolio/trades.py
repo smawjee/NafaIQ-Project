@@ -81,6 +81,59 @@ async def insert_stock_transaction(
     return _stock_txn_dict(result.mappings().first())
 
 
+async def fetch_portfolio_lots(conn: Executor, portfolio_id: int) -> list[dict[str, Any]]:
+    """Every stock_transactions lot for a portfolio, ordered so a fold
+    reconstructs each symbol's holding: by symbol, then chronologically.
+
+    Ordering by (executed_at, id) makes `adjust` snapshots authoritative at
+    their point in time and keeps buy/sell weighted-average maths deterministic.
+    """
+    result = await conn.execute(
+        text(
+            "SELECT symbol, side, quantity, price, fees, executed_at "
+            "FROM stock_transactions WHERE portfolio_id = :pid "
+            "ORDER BY symbol ASC, executed_at ASC, id ASC"
+        ),
+        {"pid": portfolio_id},
+    )
+    return [
+        {
+            "symbol": r["symbol"],
+            "side": r["side"],
+            "quantity": int(r["quantity"]),
+            "price": float(r["price"]),
+            "fees": float(r["fees"]),
+            "executed_at": r["executed_at"],
+        }
+        for r in result.mappings().all()
+    ]
+
+
+async def fetch_symbol_lots(
+    conn: Executor, portfolio_id: int, symbol: str
+) -> list[dict[str, Any]]:
+    """Ordered lots for a single (portfolio, symbol) — used by drift detection."""
+    result = await conn.execute(
+        text(
+            "SELECT symbol, side, quantity, price, fees, executed_at "
+            "FROM stock_transactions WHERE portfolio_id = :pid AND symbol = :sym "
+            "ORDER BY executed_at ASC, id ASC"
+        ),
+        {"pid": portfolio_id, "sym": symbol.upper()},
+    )
+    return [
+        {
+            "symbol": r["symbol"],
+            "side": r["side"],
+            "quantity": int(r["quantity"]),
+            "price": float(r["price"]),
+            "fees": float(r["fees"]),
+            "executed_at": r["executed_at"],
+        }
+        for r in result.mappings().all()
+    ]
+
+
 async def insert_finance_reflection(
     conn: Executor,
     *,

@@ -112,6 +112,15 @@ export const UR: Record<string, string> = {
     "سادہ زبان میں تجزیہ حاصل کریں — تنوع اسکور، خطرے کا جائزہ، بہترین مواقع اور تجویز کردہ ری بیلنسنگ۔",
   "Generate Report": "رپورٹ بنائیں",
   "Analyzing…": "تجزیہ ہو رہا ہے…",
+  "AI Finance Report": "اے آئی مالیاتی رپورٹ",
+  "Things to consider": "غور کرنے کی باتیں",
+  "Please sign in to generate your report.": "اپنی رپورٹ بنانے کے لیے براہ کرم سائن اِن کریں۔",
+  "You've reached your AI report limit for this period. Upgrade your plan to generate more.":
+    "آپ اس مدت کے لیے اپنی اے آئی رپورٹ کی حد تک پہنچ چکے ہیں۔ مزید بنانے کے لیے اپنا پلان اپ گریڈ کریں۔",
+  "This report is temporarily unavailable. Please try again shortly.":
+    "یہ رپورٹ عارضی طور پر دستیاب نہیں ہے۔ براہ کرم تھوڑی دیر بعد دوبارہ کوشش کریں۔",
+  "Couldn't generate your report. Please try again.":
+    "آپ کی رپورٹ نہیں بن سکی۔ براہ کرم دوبارہ کوشش کریں۔",
   "Health Score": "ہیلتھ اسکور",
   "Export as PDF": "پی ڈی ایف ایکسپورٹ کریں",
   Close: "بند کریں",

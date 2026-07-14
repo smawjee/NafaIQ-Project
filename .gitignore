@@ -69,3 +69,19 @@ dev-server.log
 
 # Recall (local project context — gitignored)
 recall/
+
+# Local machine-specific agent guides (paths differ per machine)
+CLAUDE.md
+AGENTS.md
+
+# Visual brainstorm mockups (local)
+.superpowers/
+
+# Claude Code local state (settings, plugin cache, transcripts)
+.claude/
+.zcode/
+
+# Design docs, specs, plans, and mockups (not part of the shipped app)
+docs/
+AI FEATURE PLANS.md
+Ai features/

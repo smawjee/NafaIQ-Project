@@ -35,7 +35,15 @@ async def get_plan_features(conn: Executor, user_id: str) -> Optional[dict[str, 
                     -- NULL means unlimited (Pro/Premium), so no COALESCE; only a
                     -- plan_features join miss falls back to the Free cap of 10.
                     CASE WHEN f.plan IS NULL THEN 10
-                         ELSE f.ai_tutor_daily_limit END AS ai_tutor_daily_limit
+                         ELSE f.ai_tutor_daily_limit END AS ai_tutor_daily_limit,
+                    -- Report quota (period-aware). NULL means unlimited
+                    -- (Premium), so — like ai_tutor_daily_limit above — only a
+                    -- plan_features join MISS (f.plan IS NULL) falls back to the
+                    -- Free caps. A plain COALESCE would wrongly cap Premium at 3.
+                    CASE WHEN f.plan IS NULL THEN 3
+                         ELSE f.ai_reports_per_period END AS ai_reports_per_period,
+                    CASE WHEN f.plan IS NULL THEN 'month'
+                         ELSE f.ai_reports_period END AS ai_reports_period
                 FROM profiles p
                 LEFT JOIN plan_features f ON f.plan = p.plan
                 WHERE p.id = :uid

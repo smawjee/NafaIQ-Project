@@ -33,3 +33,34 @@ async def test_plan_features_include_ai_tutor_daily_limit():
             )
         ).scalar()
     assert features["ai_tutor_daily_limit"] == expected
+
+
+@pytest.mark.asyncio
+async def test_plan_features_include_ai_report_quota_columns():
+    """Regression companion to the tutor-limit bug: get_plan_features must also
+    expose the period-aware report quota columns, or check_report_quota reads
+    None and every user is silently unlimited for reports."""
+    async with connect() as conn:
+        row = (await conn.execute(text("SELECT id FROM profiles LIMIT 1"))).first()
+        if not row:
+            pytest.skip("no profiles row in DB")
+        user_id = str(row[0])
+        features = await user_repo.get_plan_features(conn, user_id)
+    assert features is not None
+    assert "ai_reports_per_period" in features
+    assert "ai_reports_period" in features
+    # Values must match the plan_features seed for the user's plan. NULL
+    # (Premium/unlimited) must be preserved, not COALESCED to the Free cap.
+    async with connect() as conn:
+        seed = (
+            await conn.execute(
+                text(
+                    "SELECT ai_reports_per_period, ai_reports_period "
+                    "FROM plan_features WHERE plan = :p"
+                ),
+                {"p": features["plan"]},
+            )
+        ).mappings().first()
+    assert seed is not None
+    assert features["ai_reports_per_period"] == seed["ai_reports_per_period"]
+    assert features["ai_reports_period"] == seed["ai_reports_period"]
