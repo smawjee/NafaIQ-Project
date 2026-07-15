@@ -3,16 +3,19 @@
 // aware.
 import { useRouter } from "expo-router";
 import { useMemo, useState } from "react";
-import { Linking, Platform, Pressable, ScrollView, StyleSheet, View } from "react-native";
+import { Alert, Platform, Pressable, ScrollView, StyleSheet, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { GlassCard } from "@/components/glass/GlassCard";
 import { GlassScreen } from "@/components/glass/GlassScreen";
 import { Button, Text } from "@/components/ui";
 import { fonts, type ThemeColors } from "@/constants/theme";
+import { useAuth } from "@/hooks/use-auth";
 import { useLang } from "@/hooks/use-lang";
+import { usePlan, useUpgradePlan } from "@/hooks/queries/use-plan";
 import { useTheme } from "@/hooks/use-theme";
 import { Check, Minus, Star, X } from "@/lib/icons";
+import type { Plan } from "@/lib/plan-features";
 
 const AVENIR = Platform.select({ ios: "Avenir-Heavy", default: fonts.sans });
 
@@ -48,17 +51,50 @@ export default function PlansScreen() {
   const router = useRouter();
   const styles = useMemo(() => makeStyles(colors), [colors]);
 
-  const enterApp = () => router.replace("/(tabs)/app");
-  const contact = () => Linking.openURL("mailto:hello@nafaiq.com?subject=NafaIQ%20Premium%20Inquiry");
+  const { user, profile, signOut } = useAuth();
+  const { plan } = usePlan();
+  const upgrade = useUpgradePlan();
+  // Onboarding = logged in but hasn't confirmed a plan yet. New profiles default
+  // to "Free", so during onboarding we must NOT lock the Free button as the
+  // "current plan" — the user still needs to tap it to stamp plan_selected_at
+  // and leave the plan gate. Only lock a tier once a plan has been confirmed.
+  const hasConfirmedPlan = !!profile?.plan_selected_at;
+  const onboarding = !!user && !hasConfirmedPlan;
+
+  const selectTier = async (tierName: string) => {
+    try {
+      await upgrade.mutateAsync(tierName as Plan);
+      router.replace("/(tabs)/app");
+    } catch {
+      Alert.alert(t("Failed to change plan"), t("Please try again."));
+    }
+  };
 
   return (
     <GlassScreen>
       <SafeAreaView style={{ flex: 1 }} edges={["top", "left", "right"]}>
         <View style={styles.topbar}>
           <Text variant="title">{t("Plans & Pricing")}</Text>
-          <Pressable onPress={() => router.back()} hitSlop={8} accessibilityRole="button" accessibilityLabel="Close">
-            <X color={colors.textSecondary} size={22} />
-          </Pressable>
+          {onboarding ? (
+            // The plan gate bounces users without a confirmed plan back here,
+            // so during onboarding offer sign-out instead of a dead close button.
+            <Pressable
+              onPress={async () => {
+                await signOut();
+                router.replace("/auth");
+              }}
+              hitSlop={12}
+              style={styles.signOutBtn}
+              accessibilityRole="button"
+              accessibilityLabel={t("Sign out")}
+            >
+              <Text variant="secondary" style={{ fontWeight: "600" }}>{t("Sign out")}</Text>
+            </Pressable>
+          ) : (
+            <Pressable onPress={() => router.back()} hitSlop={12} accessibilityRole="button" accessibilityLabel="Close">
+              <X color={colors.textSecondary} size={22} />
+            </Pressable>
+          )}
         </View>
 
         <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
@@ -112,7 +148,35 @@ export default function PlansScreen() {
                 <Text style={{ color: colors.gold, fontSize: 11 }}>{t("Billed annually — 20% off")}</Text>
               )}
               <View style={{ marginTop: 14 }}>
-                <Button title={t(tier.cta)} variant={tier.highlight ? "primary" : "outline"} onPress={tier.mail ? contact : enterApp} />
+                {user ? (
+                  (() => {
+                    const isCurrent = hasConfirmedPlan && plan === tier.name;
+                    const pendingThis = upgrade.isPending && upgrade.variables === tier.name;
+                    return (
+                      <Button
+                        title={
+                          pendingThis
+                            ? t("Saving…")
+                            : isCurrent
+                              ? t("Current Plan")
+                              : !hasConfirmedPlan && tier.id === "free"
+                                ? t("Get Started")
+                                : `${t("Choose")} ${tier.name}`
+                        }
+                        variant={tier.highlight ? "primary" : "outline"}
+                        loading={pendingThis}
+                        disabled={isCurrent || upgrade.isPending}
+                        onPress={() => selectTier(tier.name)}
+                      />
+                    );
+                  })()
+                ) : (
+                  <Button
+                    title={t(tier.cta)}
+                    variant={tier.highlight ? "primary" : "outline"}
+                    onPress={() => router.replace("/auth")}
+                  />
+                )}
               </View>
               <View style={{ gap: 10, marginTop: 16 }}>
                 {tier.features.map((f) => (
@@ -162,6 +226,7 @@ export default function PlansScreen() {
 const makeStyles = (c: ThemeColors) =>
   StyleSheet.create({
     topbar: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingHorizontal: 16, paddingVertical: 12 },
+    signOutBtn: { minHeight: 44, justifyContent: "center", paddingHorizontal: 8 },
     content: { padding: 16, gap: 16 },
     heading: { fontFamily: AVENIR, fontSize: 22, fontWeight: "800", color: c.textPrimary, textAlign: "center", letterSpacing: -0.3, lineHeight: 28 },
     toggle: { flexDirection: "row", alignSelf: "center", borderWidth: 1, borderColor: c.input, borderRadius: 999, padding: 4, backgroundColor: c.surface },

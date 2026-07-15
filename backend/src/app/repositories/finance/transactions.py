@@ -4,6 +4,7 @@ from __future__ import annotations
 from typing import Any, Optional
 
 from sqlalchemy import delete, insert, select, update
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 
 from app.repositories.finance._common import table
 
@@ -40,6 +41,29 @@ async def insert_transaction(conn: Executor, values: dict[str, Any]) -> dict[str
     txns = await table("user_transactions")
     result = await conn.execute(insert(txns).values(**values).returning(txns))
     return _transaction(result.mappings().first())
+
+
+async def insert_transaction_dedup(
+    conn: Executor, values: dict[str, Any]
+) -> Optional[dict[str, Any]]:
+    """Insert an email-sourced transaction, ignoring one we've already imported.
+
+    Targets the partial unique index on (user_id, email_message_id) so re-polling
+    the same bank email can never duplicate a transaction. Returns None when the
+    row already existed (DO NOTHING yields no RETURNING row).
+    """
+    txns = await table("user_transactions")
+    result = await conn.execute(
+        pg_insert(txns)
+        .values(**values)
+        .on_conflict_do_nothing(
+            index_elements=["user_id", "email_message_id"],
+            index_where=txns.c.email_message_id.isnot(None),
+        )
+        .returning(txns)
+    )
+    row = result.mappings().first()
+    return _transaction(row) if row else None
 
 
 async def update_transaction(

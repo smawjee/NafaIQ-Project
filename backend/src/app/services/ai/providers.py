@@ -3,10 +3,19 @@
 Gemini (primary) and Groq (fallback) both speak OpenAI-compatible
 /chat/completions, so one SDK serves both via base_url.
 
-- stream_gemini / stream_groq yield text deltas and raise ProviderError when a
-  provider is unusable.
+Three call shapes are supported:
+- streaming (`stream_gemini`/`stream_groq`) — yields text deltas; used by the
+  AI tutor.
+- one-shot JSON (`complete_gemini_json`/`complete_groq_json`) — `stream=False`
+  with response_format=json_object, returning raw JSON text; used by the
+  bank-email parser, which needs a whole object rather than a token stream.
+- structured reports (`make_report_client`/`generate_structured`) — Instructor
+  wraps the same clients for Pydantic-validated output.
+
+Notes:
 - SDK retries are off (max_retries=0): the caller handles failover, and silent
   same-provider retries would fight it.
+- Any provider being unusable raises ProviderError.
 - The `transport` kwarg is only for test injection (httpx.MockTransport).
 """
 from __future__ import annotations
@@ -101,6 +110,76 @@ def stream_groq(
     transport: Optional[httpx.AsyncBaseTransport] = None,
 ) -> AsyncIterator[str]:
     return _stream_chat(
+        GROQ_BASE_URL,
+        settings.groq_api_key,
+        settings.ai_tutor_model_fallback,
+        messages,
+        transport,
+    )
+
+
+# ===========================================================================
+# One-shot JSON completions — used by the bank-email transaction parser
+# ===========================================================================
+#
+# Ported onto the OpenAI SDK during the dev merge. `dev` implemented these on
+# raw httpx before this module was refactored to the SDK; keeping that version
+# would have meant two transports, two error-mapping paths and two timeout
+# settings in one file. Signatures are unchanged, so
+# services/email_import/llm.py needs no edit.
+
+
+async def _complete_json(
+    base_url: str,
+    api_key: str,
+    model: str,
+    messages: list[dict[str, str]],
+    transport: Optional[httpx.AsyncBaseTransport] = None,
+) -> str:
+    """One-shot completion constrained to a JSON object. Returns raw JSON text."""
+    if not api_key:
+        raise ProviderError(f"no API key configured for {base_url}")
+    try:
+        async with _client(base_url, api_key, transport) as client:
+            res = await client.chat.completions.create(
+                model=model,
+                messages=messages,  # type: ignore[arg-type]
+                stream=False,
+                response_format={"type": "json_object"},
+            )
+    except openai.OpenAIError as e:
+        raise ProviderError(f"{base_url}: {e}") from e
+    except httpx.HTTPError as e:
+        raise ProviderError(f"{base_url}: {e}") from e
+
+    if not res.choices:
+        raise ProviderError(f"{base_url}: no choices in response")
+    content = res.choices[0].message.content
+    if not content:
+        raise ProviderError(f"{base_url}: empty completion")
+    return content
+
+
+async def complete_gemini_json(
+    messages: list[dict[str, str]],
+    *,
+    transport: Optional[httpx.AsyncBaseTransport] = None,
+) -> str:
+    return await _complete_json(
+        GEMINI_BASE_URL,
+        settings.gemini_api_key,
+        settings.ai_tutor_model_primary,
+        messages,
+        transport,
+    )
+
+
+async def complete_groq_json(
+    messages: list[dict[str, str]],
+    *,
+    transport: Optional[httpx.AsyncBaseTransport] = None,
+) -> str:
+    return await _complete_json(
         GROQ_BASE_URL,
         settings.groq_api_key,
         settings.ai_tutor_model_fallback,

@@ -24,7 +24,7 @@ export const unstable_settings = { initialRouteName: "index" };
 const PUBLIC_ROUTES = ["", "index", "auth", "plans"];
 
 function RootNavigator() {
-  const { user, loading } = useAuth();
+  const { user, profile, loading } = useAuth();
   const { colors, mode } = useTheme();
   const segments = useSegments();
   const router = useRouter();
@@ -32,14 +32,22 @@ function RootNavigator() {
   const top = segments[0] ?? "";
   const inPublic = PUBLIC_ROUTES.includes(top);
 
+  // Onboarding plan gate — mirrors web Dashboard's needsPlanSelection:
+  // a signed-in user whose profile has no plan_selected_at must pick a plan
+  // before entering the app. (profile !== null waits for the profile fetch so
+  // we never redirect on a not-yet-loaded profile.)
+  const needsPlanSelection = !!user && profile !== null && !profile.plan_selected_at;
+
   useEffect(() => {
     if (loading) return;
     if (!user && !inPublic) {
       router.replace("/auth");
+    } else if (needsPlanSelection && top !== "plans") {
+      router.replace("/plans");
     } else if (user && top === "auth") {
       router.replace("/(tabs)/app");
     }
-  }, [user, loading, inPublic, top, router]);
+  }, [user, loading, inPublic, top, needsPlanSelection, router]);
 
   if (loading) {
     return (

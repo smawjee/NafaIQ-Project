@@ -23,6 +23,11 @@ from app.services.psx.prices import get_latest_price
 
 log = logging.getLogger(__name__)
 
+# A watchlisted stock moving at least this % (up or down) on the day fires an
+# automatic alert, without the user having created one. Deduped to once per
+# user per symbol per 24h.
+WATCHLIST_MOVE_PCT = 5.0
+
 
 def _num(value: Any) -> Optional[float]:
     try:
@@ -221,8 +226,50 @@ async def evaluate_user_alerts() -> int:
     return triggered
 
 
+async def evaluate_watchlist_moves() -> int:
+    """Auto-alert on big daily moves of watchlisted symbols — no user-created
+    alert needed. Fires (once per user per symbol per 24h) when |change_pct| >=
+    WATCHLIST_MOVE_PCT. Lands in the alerts bucket (gated by email_alerts)."""
+    async with connect() as conn:
+        rows = await repo.fetch_watchlist_with_snapshot(conn)
+
+    triggered = 0
+    for r in rows:
+        change_pct = _num(r.get("change_pct"))
+        price = _num(r.get("price"))
+        if change_pct is None or abs(change_pct) < WATCHLIST_MOVE_PCT:
+            continue
+        user_id, symbol = r["user_id"], r["symbol"]
+        try:
+            async with connect() as conn:
+                if await repo.recent_watchlist_event(conn, user_id, symbol):
+                    continue
+            direction = "up" if change_pct >= 0 else "down"
+            price_str = f" to PKR {price:,.2f}" if price is not None else ""
+            title = f"{symbol} {direction} {abs(change_pct):.1f}% today"
+            body = (
+                f"{symbol} on your watchlist moved {direction} {abs(change_pct):.1f}%"
+                f"{price_str} today."
+            )
+            await record_event(
+                user_id,
+                alert_id=None,
+                alert_type="stock_price",
+                symbol=symbol,
+                title=title,
+                body=body,
+                payload={"symbol": symbol, "change_pct": change_pct, "price": price,
+                         "source": "watchlist"},
+            )
+            triggered += 1
+        except Exception:
+            log.exception("watchlist-move evaluation failed for %s/%s", user_id, symbol)
+    return triggered
+
+
 async def evaluate_all() -> dict[str, int]:
     return {
         "user_alerts": await evaluate_user_alerts(),
         "price_alerts": await evaluate_price_alerts(),
+        "watchlist_moves": await evaluate_watchlist_moves(),
     }

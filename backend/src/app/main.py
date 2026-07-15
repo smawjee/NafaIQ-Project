@@ -31,6 +31,7 @@ from app.api import (
     unusual,
     financials_extended,
     funds,
+    integrations,
 )
 from app.jobs.scheduler import close_scrapers, init_scheduler, shutdown_scheduler
 from app.middleware.auth import BearerTokenMiddleware
@@ -173,3 +174,4 @@ app.include_router(filings.router, prefix="/api")
 app.include_router(unusual.router, prefix="/api")
 app.include_router(funds.router, prefix="/api")
 app.include_router(financials_extended.router, prefix="/api")
+app.include_router(integrations.router, prefix="/api")

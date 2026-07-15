@@ -2,39 +2,60 @@
 // Top ribbon (search / notifications / account) + greeting + action row
 // (Explore PSX → market screen, Add Transaction/Holding/Alert) + AI rec + net
 // worth + stat cards + portfolio area chart + spending donut + watchlist +
-// savings goals. Always dark (glass system). Mirrors zenith-main:src/routes/app.tsx.
+// savings goals. Always dark (glass system). Mirrors web
+// features/dashboard/Dashboard.tsx, backed by the live API (React Query).
 import { useRouter } from "expo-router";
 import { useMemo, useRef, useState } from "react";
-import { Platform, Pressable, ScrollView, StyleSheet, useWindowDimensions, View } from "react-native";
+import {
+  ActivityIndicator,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  useWindowDimensions,
+  View,
+} from "react-native";
 import Animated, { FadeIn, FadeInDown, FadeOut, ZoomIn } from "react-native-reanimated";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { AreaChart } from "@/components/charts/AreaChart";
 import { DonutChart } from "@/components/charts/DonutChart";
-import { Sparkline } from "@/components/charts/Sparkline";
 import { QuickAddSheets, type QuickAdd } from "@/components/dashboard/QuickAddSheets";
 import { TopRibbon } from "@/components/dashboard/TopRibbon";
 import { GlassButton, GlassPrimaryButton } from "@/components/glass/GlassButtons";
 import { GlassCard } from "@/components/glass/GlassCard";
 import { GlassScreen } from "@/components/glass/GlassScreen";
-import { Change, SignalBadge, Text } from "@/components/ui";
+import { Change, Text } from "@/components/ui";
 import { Segmented } from "@/components/ui/controls";
 import { ProgressBar } from "@/components/ui/ProgressBar";
 import { fonts, type ThemeColors } from "@/constants/theme";
 import { useAuth } from "@/hooks/use-auth";
 import { useTheme } from "@/hooks/use-theme";
-import { useFinanceStore } from "@/hooks/use-finance-store";
-import { fmtNum, fmtPKR, generateOHLCV, INDICES, STOCKS, WATCHLIST } from "@nafaiq/shared";
-import { SPENDING } from "@nafaiq/shared";
-import { ArrowUpRight, iconFor, Plus, Sparkles, TrendingUp } from "@/lib/icons";
+import { useFinanceGoals, useFinanceSummary } from "@/hooks/queries/use-finance";
+import { useSpendingByCategory } from "@/hooks/queries/use-finance-series";
+import { usePsxIndexCards } from "@/hooks/queries/use-market";
+import { usePortfolioHistory, usePortfolioNetworth } from "@/hooks/queries/use-portfolio";
+import { useEnrichedWatchlist, useRemoveFromWatchlist } from "@/hooks/queries/use-watchlist";
+import { fmtNum, fmtPKR } from "@nafaiq/shared";
+import { ArrowUpRight, iconFor, Plus, Sparkles, TrendingUp, X } from "@/lib/icons";
 
-const RANGES: Record<string, number> = { "1M": 30, "3M": 90, "6M": 180, "1Y": 260 };
+// Backend bounds /api/portfolio/history days to [7, 365] — same map as web.
+const RANGES: Record<string, number> = { "1M": 30, "3M": 90, "6M": 180, "1Y": 365 };
 
-type PeekData = { label: string; value: string; sub: string; x: number; y: number };
+type PeekData = { label: string; value: string; sub: string; subColor?: string; x: number; y: number };
+
+function pctLabel(v: number) {
+  return `${v >= 0 ? "+" : ""}${v.toFixed(2)}%`;
+}
+
+/** "+PKR 2,500" / "-PKR 1,200" — matches web formatSignedPKR intent. */
+function signedPKR(n: number) {
+  return `${n >= 0 ? "+" : "-"}${fmtPKR(Math.abs(n))}`;
+}
 
 export default function Dashboard() {
   const { profile, user } = useAuth();
-  const { goals } = useFinanceStore();
+  const signedIn = !!user;
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const router = useRouter();
@@ -60,20 +81,53 @@ export default function Dashboard() {
     toastTimer.current = setTimeout(() => setToast(null), 2200);
   }
 
-  const portfolioSeries = useMemo(() => generateOHLCV(7, 761190, 858054, RANGES[range]).map((c) => c.close), [range]);
-  const benchmark = useMemo(
-    () => generateOHLCV(1, INDICES[0].start, INDICES[0].end, RANGES[range]).map((c) => c.close),
-    [range],
-  );
-  const watch = useMemo(
+  /* Live data — same feeds as web Dashboard.tsx (real-user path). */
+  const { data: indexCards } = usePsxIndexCards();
+  const { data: networth, isLoading: networthLoading } = usePortfolioNetworth(signedIn);
+  const historyQuery = usePortfolioHistory(RANGES[range] ?? 180, signedIn);
+  const { data: financeSummary } = useFinanceSummary(undefined, signedIn);
+  const { data: spendingByCat, isLoading: spendingLoading } = useSpendingByCategory(30, signedIn);
+  const { data: userGoals, isLoading: goalsLoading } = useFinanceGoals(signedIn);
+  const { data: watchlist, isLoading: watchlistLoading } = useEnrichedWatchlist(signedIn);
+  const removeFromWatchlist = useRemoveFromWatchlist();
+
+  const kse100ChangePct = indexCards?.find((c) => c.code === "KSE100")?.change_pct ?? null;
+  const kse100Label = kse100ChangePct == null ? "--" : pctLabel(kse100ChangePct);
+  const kse100Color =
+    kse100ChangePct == null ? colors.textMuted : kse100ChangePct >= 0 ? colors.bull : colors.bear;
+
+  const points = useMemo(() => historyQuery.data?.points ?? [], [historyQuery.data]);
+  const portfolioSeries = useMemo(() => points.map((p) => p.value ?? 0), [points]);
+  const benchmark = useMemo(() => points.map((p) => p.benchmark ?? 0), [points]);
+
+  // KPI values — web Dashboard.tsx real-user mappings.
+  const netWorth = networth?.total_market_value ?? 0;
+  const todayPnl = networth?.today_pnl ?? 0;
+  const todayPnlPct = networth?.today_pnl_pct ?? 0;
+  const unrealizedPct = networth?.total_unrealized_pnl_pct ?? 0;
+  const monthlySpending = financeSummary?.expenses ?? 0;
+  const spendingDeltaPct =
+    financeSummary && financeSummary.last_month_expense > 0
+      ? Math.round(
+          ((financeSummary.expenses - financeSummary.last_month_expense) /
+            financeSummary.last_month_expense) *
+            100,
+        )
+      : 0;
+  const hasNoHoldings = signedIn && !!networth && networth.holding_count === 0;
+
+  const donut = useMemo(
     () =>
-      WATCHLIST.map((tk) => {
-        const s = STOCKS[tk];
-        return { ...s, series: generateOHLCV(s.seed, s.start, s.price, 7).map((c) => c.close) };
-      }),
-    [],
+      (spendingByCat?.categories ?? []).slice(0, 5).map((c, i) => ({
+        label: c.category,
+        value: c.pct,
+        color: colors.chart[i % colors.chart.length],
+      })),
+    [spendingByCat, colors.chart],
   );
-  const donut = useMemo(() => SPENDING.map((s) => ({ label: s.name, value: s.value, color: s.color })), []);
+
+  const goals = (userGoals ?? []).slice(0, 3);
+  const watch = watchlist ?? [];
 
   return (
     <GlassScreen>
@@ -89,7 +143,7 @@ export default function Dashboard() {
               Asalam-o-Alaikum, {firstName}
             </Text>
             <Text variant="secondary" style={{ marginTop: 4 }}>
-              {today} · KSE-100 <Text style={{ color: colors.bull, fontWeight: "700" }}>+1.24%</Text> today
+              {today} · KSE-100 <Text style={{ color: kse100Color, fontWeight: "700" }}>{kse100Label}</Text> today
             </Text>
           </View>
 
@@ -105,21 +159,71 @@ export default function Dashboard() {
             <GlassButton label="Add Alert" icon={<Plus color={colors.textPrimary} size={15} />} onPress={() => setQuickAdd("alert")} />
           </ScrollView>
 
-          {/* Net worth */}
-          <GlassCard style={styles.card}>
-            <Text variant="muted">Total Net Worth</Text>
-            <Text style={styles.netWorth}>{fmtPKR(4280500)}</Text>
-            <Text style={{ color: colors.bull, fontFamily: fonts.mono, fontSize: 13, marginTop: 4 }}>
-              +PKR 56,000 (+1.32%) this month
-            </Text>
-          </GlassCard>
+          {hasNoHoldings ? (
+            /* First-run welcome — mirrors web's holding_count === 0 card. */
+            <GlassCard style={[styles.card, { alignItems: "center", gap: 8 }]}>
+              <Text variant="title" style={{ fontSize: 17 }}>Welcome to NafaIQ!</Text>
+              <Text variant="secondary" style={{ textAlign: "center", lineHeight: 20 }}>
+                Add your first holding, transaction, or goal to get started with real insights.
+              </Text>
+              <View style={{ flexDirection: "row", gap: 10, marginTop: 6 }}>
+                <GlassPrimaryButton label="Add Holding" compact onPress={() => setQuickAdd("holding")} />
+                <GlassButton label="Add Transaction" compact onPress={() => setQuickAdd("tx")} />
+              </View>
+            </GlassCard>
+          ) : (
+            <>
+              {/* Net worth */}
+              <GlassCard style={styles.card}>
+                <Text variant="muted">Total Net Worth</Text>
+                {networthLoading && signedIn ? (
+                  <ActivityIndicator color={colors.primary} style={{ marginVertical: 14 }} accessibilityLabel="Loading net worth" />
+                ) : (
+                  <>
+                    <Text style={styles.netWorth}>{fmtPKR(netWorth)}</Text>
+                    <Text
+                      style={{
+                        color: todayPnl >= 0 ? colors.bull : colors.bear,
+                        fontFamily: fonts.mono,
+                        fontSize: 13,
+                        marginTop: 4,
+                      }}
+                    >
+                      {signedPKR(Math.round(todayPnl))} ({pctLabel(todayPnlPct)}) today
+                    </Text>
+                  </>
+                )}
+              </GlassCard>
 
-          {/* Stat cards */}
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.statRow}>
-            <GlassStat label="Portfolio Value" value={fmtPKR(858054)} sub="+12.73% YTD" onPeek={setPeek} onPeekEnd={() => setPeek(null)} />
-            <GlassStat label="Monthly Spending" value={fmtPKR(112050)} sub="-12% vs May" onPeek={setPeek} onPeekEnd={() => setPeek(null)} />
-            <GlassStat label="Today's PSX P/L" value={`+${fmtNum(17480, 0)}`} sub="+1.42%" onPeek={setPeek} onPeekEnd={() => setPeek(null)} />
-          </ScrollView>
+              {/* Stat cards */}
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.statRow}>
+                <GlassStat
+                  label="Portfolio Value"
+                  value={fmtPKR(netWorth)}
+                  sub={`${pctLabel(unrealizedPct)} all time`}
+                  subColor={unrealizedPct >= 0 ? colors.bull : colors.bear}
+                  onPeek={setPeek}
+                  onPeekEnd={() => setPeek(null)}
+                />
+                <GlassStat
+                  label="Monthly Spending"
+                  value={fmtPKR(monthlySpending)}
+                  sub={`${spendingDeltaPct >= 0 ? "+" : ""}${spendingDeltaPct}% vs last month`}
+                  subColor={spendingDeltaPct > 0 ? colors.bear : colors.bull}
+                  onPeek={setPeek}
+                  onPeekEnd={() => setPeek(null)}
+                />
+                <GlassStat
+                  label="Today's PSX P/L"
+                  value={`${todayPnl >= 0 ? "+" : "-"}${fmtNum(Math.abs(Math.round(todayPnl)), 0)}`}
+                  sub={pctLabel(todayPnlPct)}
+                  subColor={todayPnl >= 0 ? colors.bull : colors.bear}
+                  onPeek={setPeek}
+                  onPeekEnd={() => setPeek(null)}
+                />
+              </ScrollView>
+            </>
+          )}
 
           {/* Portfolio value chart */}
           <GlassCard style={styles.card}>
@@ -129,11 +233,30 @@ export default function Dashboard() {
                 <Segmented options={Object.keys(RANGES)} value={range} onChange={setRange} />
               </View>
             </View>
-            <AreaChart data={portfolioSeries} benchmark={benchmark} width={chartW} />
-            <View style={{ flexDirection: "row", gap: 16, marginTop: 6 }}>
-              <Legend color={colors.primary} label="Portfolio" />
-              <Legend color={colors.textMuted} label="KSE-100" />
-            </View>
+            {historyQuery.isLoading && signedIn ? (
+              <View style={styles.chartState}>
+                <ActivityIndicator color={colors.primary} accessibilityLabel="Loading portfolio history" />
+              </View>
+            ) : historyQuery.isError ? (
+              <View style={styles.chartState}>
+                <Text variant="secondary">Could not load portfolio history.</Text>
+                <GlassButton label="Retry" compact onPress={() => historyQuery.refetch()} />
+              </View>
+            ) : portfolioSeries.length === 0 ? (
+              <View style={styles.chartState}>
+                <Text variant="secondary" style={{ textAlign: "center" }}>
+                  No portfolio history yet. Add holdings to build your chart.
+                </Text>
+              </View>
+            ) : (
+              <>
+                <AreaChart data={portfolioSeries} benchmark={benchmark} width={chartW} />
+                <View style={{ flexDirection: "row", gap: 16, marginTop: 6 }}>
+                  <Legend color={colors.primary} label="Portfolio" />
+                  <Legend color={colors.textMuted} label="KSE-100" />
+                </View>
+              </>
+            )}
           </GlassCard>
 
           {/* AI Recommendation — below the graph */}
@@ -167,18 +290,38 @@ export default function Dashboard() {
           {/* Spending breakdown */}
           <GlassCard style={styles.card}>
             <Text variant="title" style={{ fontSize: 16 }}>Spending Breakdown</Text>
-            <View style={{ alignItems: "center", marginVertical: 6 }}>
-              <DonutChart segments={donut} size={156} strokeWidth={24} centerLabel="132,000" centerSub="PKR total" />
-            </View>
-            <View style={styles.legendGrid}>
-              {SPENDING.map((s) => (
-                <View key={s.name} style={styles.legendRow}>
-                  <View style={[styles.swatch, { backgroundColor: s.color }]} />
-                  <Text variant="secondary" style={{ flex: 1, fontSize: 12.5 }} numberOfLines={1}>{s.name}</Text>
-                  <Text style={{ fontFamily: fonts.mono, fontSize: 12.5, color: colors.textSecondary }}>{s.value}%</Text>
+            {spendingLoading && signedIn ? (
+              <View style={styles.chartState}>
+                <ActivityIndicator color={colors.primary} accessibilityLabel="Loading spending breakdown" />
+              </View>
+            ) : donut.length === 0 ? (
+              <View style={styles.chartState}>
+                <Text variant="secondary" style={{ textAlign: "center" }}>
+                  No spending data yet. Add transactions to see your breakdown.
+                </Text>
+              </View>
+            ) : (
+              <>
+                <View style={{ alignItems: "center", marginVertical: 6 }}>
+                  <DonutChart
+                    segments={donut}
+                    size={156}
+                    strokeWidth={24}
+                    centerLabel={Math.round(spendingByCat?.total ?? 0).toLocaleString()}
+                    centerSub="PKR total"
+                  />
                 </View>
-              ))}
-            </View>
+                <View style={styles.legendGrid}>
+                  {donut.map((s) => (
+                    <View key={s.label} style={styles.legendRow}>
+                      <View style={[styles.swatch, { backgroundColor: s.color }]} />
+                      <Text variant="secondary" style={{ flex: 1, fontSize: 12.5 }} numberOfLines={1}>{s.label}</Text>
+                      <Text style={{ fontFamily: fonts.mono, fontSize: 12.5, color: colors.textSecondary }}>{s.value}%</Text>
+                    </View>
+                  ))}
+                </View>
+              </>
+            )}
           </GlassCard>
 
           {/* Watchlist */}
@@ -189,50 +332,85 @@ export default function Dashboard() {
                 <Text style={{ color: colors.primary, fontWeight: "600", fontSize: 13 }}>View all</Text>
               </Pressable>
             </View>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 10, paddingTop: 4 }}>
-              {watch.map((s) => (
-                <Pressable key={s.ticker} onPress={() => router.push(`/stock/${s.ticker}`)} accessibilityRole="button" accessibilityLabel={`${s.ticker} ${s.name}`}>
-                  <GlassCard radius={16} intensity={18} style={styles.watchCard}>
-                    <View style={styles.between}>
-                      <Text style={{ fontWeight: "800", fontSize: 14 }}>{s.ticker}</Text>
-                      <Change pct={s.changePct} />
-                    </View>
-                    <Text variant="muted" numberOfLines={1}>{s.name}</Text>
-                    <Text style={{ fontFamily: fonts.mono, fontSize: 16, marginTop: 2 }}>{fmtNum(s.price)}</Text>
-                    <View style={{ marginTop: 6 }}>
-                      <Sparkline data={s.series} width={126} height={30} />
-                    </View>
-                    <View style={{ marginTop: 6 }}>
-                      <SignalBadge signal={s.signal} />
-                    </View>
-                  </GlassCard>
-                </Pressable>
-              ))}
-            </ScrollView>
+            {watchlistLoading && signedIn ? (
+              <View style={styles.chartState}>
+                <ActivityIndicator color={colors.primary} accessibilityLabel="Loading watchlist" />
+              </View>
+            ) : watch.length === 0 ? (
+              <Text variant="secondary" style={{ paddingVertical: 10 }}>
+                Your watchlist is empty. Add stocks from the PSX page to track them here.
+              </Text>
+            ) : (
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 10, paddingTop: 4 }}>
+                {watch.map((s) => {
+                  const hasPrice = s.price != null && s.price > 0;
+                  const changePct = s.change_pct ?? 0;
+                  return (
+                    <Pressable key={s.symbol} onPress={() => router.push(`/stock/${s.symbol}`)} accessibilityRole="button" accessibilityLabel={`${s.symbol} ${s.company_name}`}>
+                      <GlassCard radius={16} intensity={18} style={styles.watchCard}>
+                        <View style={styles.between}>
+                          <Text style={{ fontWeight: "800", fontSize: 14 }}>{s.symbol}</Text>
+                          <Pressable
+                            onPress={() => {
+                              removeFromWatchlist.mutate(s.symbol);
+                              showToast(`${s.symbol} removed from watchlist`);
+                            }}
+                            hitSlop={14}
+                            accessibilityRole="button"
+                            accessibilityLabel={`Remove ${s.symbol} from watchlist`}
+                          >
+                            <X color={colors.textMuted} size={14} />
+                          </Pressable>
+                        </View>
+                        <Text variant="muted" numberOfLines={1}>{s.company_name}</Text>
+                        <Text style={{ fontFamily: fonts.mono, fontSize: 16, marginTop: 2 }}>
+                          {hasPrice ? fmtNum(s.price as number) : "—"}
+                        </Text>
+                        <View style={{ marginTop: 6 }}>
+                          {hasPrice ? (
+                            <Change pct={changePct} />
+                          ) : (
+                            <Text variant="muted">Price unavailable</Text>
+                          )}
+                        </View>
+                      </GlassCard>
+                    </Pressable>
+                  );
+                })}
+              </ScrollView>
+            )}
           </GlassCard>
 
           {/* Savings goals */}
           <GlassCard style={styles.card}>
             <Text variant="title" style={{ fontSize: 16 }}>Savings Goals</Text>
-            {goals.slice(0, 3).map((g) => {
-              const pct = g.saved / g.target;
-              const c = g.color === "warning" ? colors.gold : colors.bull;
-              const Icon = iconFor(g.emoji);
-              return (
-                <View key={g.name} style={{ gap: 6, marginTop: 8 }}>
-                  <View style={styles.goalHead}>
-                    <View style={[styles.goalIcon, { backgroundColor: c + "1f" }]}>
-                      <Icon color={c} size={16} />
+            {goalsLoading && signedIn ? (
+              <ActivityIndicator color={colors.primary} style={{ marginVertical: 14 }} accessibilityLabel="Loading savings goals" />
+            ) : goals.length === 0 ? (
+              <Text variant="secondary" style={{ paddingVertical: 10 }}>
+                No savings goals yet. Add a goal from Finance to track progress here.
+              </Text>
+            ) : (
+              goals.map((g) => {
+                const pct = g.target > 0 ? g.saved / g.target : 0;
+                const c = g.color === "warning" ? colors.gold : colors.bull;
+                const Icon = iconFor(g.emoji ?? "");
+                return (
+                  <View key={g.id} style={{ gap: 6, marginTop: 8 }}>
+                    <View style={styles.goalHead}>
+                      <View style={[styles.goalIcon, { backgroundColor: c + "1f" }]}>
+                        <Icon color={c} size={16} />
+                      </View>
+                      <Text style={{ flex: 1, fontWeight: "600", fontSize: 13.5 }}>{g.name}</Text>
+                      <Text style={{ color: c, fontFamily: fonts.mono, fontSize: 13 }}>{Math.round(pct * 100)}%</Text>
                     </View>
-                    <Text style={{ flex: 1, fontWeight: "600", fontSize: 13.5 }}>{g.name}</Text>
-                    <Text style={{ color: c, fontFamily: fonts.mono, fontSize: 13 }}>{Math.round(pct * 100)}%</Text>
+                    <ProgressBar value={pct} color={c} />
+                    <Text variant="muted">{fmtPKR(g.saved)} of {fmtPKR(g.target)}</Text>
+                    {g.ai_tip ? <Text variant="muted" style={{ fontStyle: "italic" }}>{g.ai_tip}</Text> : null}
                   </View>
-                  <ProgressBar value={pct} color={c} />
-                  <Text variant="muted">{fmtPKR(g.saved)} of {fmtPKR(g.target)}</Text>
-                  {g.ai ? <Text variant="muted" style={{ fontStyle: "italic" }}>{g.ai}</Text> : null}
-                </View>
-              );
-            })}
+                );
+              })
+            )}
           </GlassCard>
         </ScrollView>
 
@@ -262,7 +440,7 @@ export default function Dashboard() {
                 <View style={[StyleSheet.absoluteFill, { backgroundColor: "rgba(9,14,28,0.6)" }]} pointerEvents="none" />
                 <Text variant="muted">{peek.label}</Text>
                 <Text style={styles.peekValue}>{peek.value}</Text>
-                <Text style={{ color: colors.bull, fontFamily: fonts.mono, fontSize: 13, marginTop: 4 }}>{peek.sub}</Text>
+                <Text style={{ color: peek.subColor ?? colors.bull, fontFamily: fonts.mono, fontSize: 13, marginTop: 4 }}>{peek.sub}</Text>
               </GlassCard>
             </Animated.View>
           </>
@@ -276,12 +454,14 @@ function GlassStat({
   label,
   value,
   sub,
+  subColor,
   onPeek,
   onPeekEnd,
 }: {
   label: string;
   value: string;
   sub: string;
+  subColor?: string;
   onPeek: (p: PeekData) => void;
   onPeekEnd: () => void;
 }) {
@@ -289,7 +469,7 @@ function GlassStat({
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const ref = useRef<View>(null);
   function peek() {
-    ref.current?.measureInWindow((x, y) => onPeek({ label, value, sub, x, y }));
+    ref.current?.measureInWindow((x, y) => onPeek({ label, value, sub, subColor, x, y }));
   }
   return (
     <Pressable
@@ -303,7 +483,7 @@ function GlassStat({
       <GlassCard radius={18} intensity={20} style={styles.statCard}>
         <Text variant="muted" numberOfLines={1}>{label}</Text>
         <Text style={{ fontFamily: fonts.mono, fontSize: 18, marginTop: 6 }} numberOfLines={1}>{value}</Text>
-        <Text style={{ color: colors.bull, fontFamily: fonts.mono, fontSize: 12, marginTop: 4 }}>{sub}</Text>
+        <Text style={{ color: subColor ?? colors.bull, fontFamily: fonts.mono, fontSize: 12, marginTop: 4 }}>{sub}</Text>
       </GlassCard>
     </Pressable>
   );
@@ -336,6 +516,8 @@ const makeStyles = (c: ThemeColors) =>
     statCard: { width: 158, padding: 14 },
 
     between: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
+
+    chartState: { minHeight: 120, alignItems: "center", justifyContent: "center", gap: 10, paddingVertical: 12 },
 
     legendGrid: { flexDirection: "row", flexWrap: "wrap", marginTop: 4 },
     legendRow: { flexDirection: "row", alignItems: "center", gap: 8, width: "50%", paddingVertical: 4, paddingRight: 8 },

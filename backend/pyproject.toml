@@ -29,6 +29,10 @@ dependencies = [
     "openai>=2.45",
     "instructor>=1.15",
     "pdfplumber>=0.11",
+    # Fernet encryption for mailbox credentials at rest (services/crypto.py).
+    # Also pulled in transitively by PyJWT for RS256/ES256 — declared here
+    # because we import it directly.
+    "cryptography>=44",
 ]
 
 [project.optional-dependencies]

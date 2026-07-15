@@ -16,10 +16,12 @@ from app.repositories.alerts.evaluator import (  # noqa: F401
     fetch_all_goals,
     fetch_due_bills,
     fetch_enabled_user_alerts,
+    fetch_watchlist_with_snapshot,
     get_bill_by_name,
     get_budget_by_category,
     get_goal_by_name,
     recent_event_for_alert,
+    recent_watchlist_event,
 )
 from app.repositories.alerts.events import (  # noqa: F401
     insert_alert_event,

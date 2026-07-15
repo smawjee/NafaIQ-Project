@@ -7,31 +7,44 @@ import { Alert, Pressable, ScrollView, StyleSheet, TextInput, View } from "react
 
 import { GlassCard } from "@/components/glass/GlassCard";
 import { GlassSheet } from "@/components/glass/GlassSheet";
-import { SignalBadge, Text } from "@/components/ui";
+import { Text } from "@/components/ui";
 import { fonts, radii, type ThemeColors } from "@/constants/theme";
+import { matchStocks, useStockUniverse } from "@/hooks/queries/use-market";
+import { useMarkNotificationRead, useNotifications } from "@/hooks/queries/use-notifications";
 import { useTheme } from "@/hooks/use-theme";
 import { useAuth } from "@/hooks/use-auth";
-import { useFinanceStore } from "@/hooks/use-finance-store";
-import { Bell, ChevronRight, Crown, iconFor, LogOut, Search, Settings, X } from "@/lib/icons";
-import { fmtNum, STOCK_LIST } from "@nafaiq/shared";
+import { Bell, ChevronRight, Crown, LogOut, Search, Settings, TrendingUp, X } from "@/lib/icons";
+import { fmtNum } from "@nafaiq/shared";
+
+function formatWhen(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+  return d.toLocaleString("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
+}
 
 export function TopRibbon() {
   const { colors, mode } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const router = useRouter();
   const { profile, user, signOut } = useAuth();
-  const { notifications } = useFinanceStore();
+  // Live in-app notifications (web NotificationBell parity — /api/notifications).
+  const { data: notifData } = useNotifications(!!user);
+  const markRead = useMarkNotificationRead();
+  const notifications = useMemo(() => (notifData ?? []).slice(0, 9), [notifData]);
   const [q, setQ] = useState("");
   const [notifOpen, setNotifOpen] = useState(false);
   const [acctOpen, setAcctOpen] = useState(false);
 
+  // Live symbol/price universe: /api/symbols joined with the market snapshot
+  // (single cached snapshot request — never one request per stock).
+  const universe = useStockUniverse();
   const matches = useMemo(() => {
-    const s = q.trim().toLowerCase();
+    const s = q.trim();
     if (!s) return [];
-    return STOCK_LIST.filter((k) => k.ticker.toLowerCase().includes(s) || k.name.toLowerCase().includes(s)).slice(0, 6);
-  }, [q]);
+    return matchStocks(universe, s, 6);
+  }, [q, universe]);
 
-  const unread = notifications.filter((n) => !n.read).length;
+  const unread = (notifData ?? []).filter((n) => !n.read).length;
   const initial = (profile?.display_name || user?.email || "U").trim().charAt(0).toUpperCase();
 
   function openStock(ticker: string) {
@@ -99,18 +112,29 @@ export function TopRibbon() {
           <View style={[StyleSheet.absoluteFill, { backgroundColor: mode === "light" ? "rgba(255,255,255,0.6)" : "rgba(7,12,26,0.55)" }]} pointerEvents="none" />
           {matches.map((m, i) => (
             <Pressable
-              key={m.ticker}
-              onPress={() => openStock(m.ticker)}
+              key={m.symbol}
+              onPress={() => openStock(m.symbol)}
               style={[styles.suggest, i > 0 && styles.suggestBorder]}
               accessibilityRole="button"
-              accessibilityLabel={`${m.ticker}, ${m.name}`}
+              accessibilityLabel={`${m.symbol}, ${m.name}`}
             >
               <View style={{ flex: 1 }}>
-                <Text style={{ fontWeight: "700", fontSize: 14 }}>{m.ticker}</Text>
+                <Text style={{ fontWeight: "700", fontSize: 14 }}>{m.symbol}</Text>
                 <Text variant="muted" numberOfLines={1}>{m.name}</Text>
               </View>
-              <Text style={styles.suggestPrice}>{fmtNum(m.price)}</Text>
-              <SignalBadge signal={m.signal} />
+              <Text style={styles.suggestPrice}>{m.price != null ? fmtNum(m.price) : "—"}</Text>
+              {m.changePct != null && (
+                <Text
+                  style={{
+                    fontFamily: fonts.mono,
+                    fontSize: 12,
+                    color: m.changePct >= 0 ? colors.bull : colors.bear,
+                  }}
+                >
+                  {m.changePct >= 0 ? "+" : ""}
+                  {m.changePct.toFixed(2)}%
+                </Text>
+              )}
             </Pressable>
           ))}
         </GlassCard>
@@ -122,19 +146,28 @@ export function TopRibbon() {
           <Text variant="secondary" style={{ paddingVertical: 12 }}>You&apos;re all caught up.</Text>
         ) : (
           <ScrollView style={{ maxHeight: 360 }} showsVerticalScrollIndicator={false}>
-            {notifications.map((n, i) => {
-              const Icon = iconFor(n.emoji);
+            {notifications.map((n) => {
+              const Icon = n.kind === "price_alert" ? TrendingUp : Bell;
               return (
-                <View key={i} style={[styles.notif, !n.read && { backgroundColor: colors.primary + "0f" }]}>
+                <Pressable
+                  key={n.id}
+                  onPress={() => {
+                    if (!n.read) markRead.mutate(n.id);
+                  }}
+                  disabled={n.read}
+                  accessibilityRole="button"
+                  accessibilityLabel={`${n.read ? "Notification" : "Unread notification"}: ${n.title}${n.read ? "" : ". Tap to mark as read."}`}
+                  style={[styles.notif, !n.read && { backgroundColor: colors.primary + "0f" }]}
+                >
                   <View style={styles.notifIcon}>
                     <Icon color={colors.primary} size={16} />
                   </View>
                   <View style={{ flex: 1 }}>
-                    <Text style={{ fontSize: 13.5 }}>{n.msg}</Text>
-                    <Text variant="muted" style={{ marginTop: 2 }}>{n.time}</Text>
+                    <Text style={{ fontSize: 13.5 }}>{n.title}</Text>
+                    <Text variant="muted" style={{ marginTop: 2 }}>{formatWhen(n.created_at)}</Text>
                   </View>
                   {!n.read && <View style={styles.unreadDot} />}
-                </View>
+                </Pressable>
               );
             })}
           </ScrollView>

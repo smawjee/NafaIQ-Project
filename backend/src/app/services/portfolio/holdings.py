@@ -23,6 +23,7 @@ from fastapi import HTTPException
 from app.repositories import portfolio as repo
 from app.repositories.base import begin, connect, session
 from app.schemas.portfolio import HoldingCreate, HoldingUpdate, StockTransactionCreate
+from app.services.notifier import fire_and_forget, notify_activity
 from app.services.permissions import check_count_limit
 from app.services.portfolio.trades import record_trade_atomic
 from app.services.symbols import require_known_symbol
@@ -96,6 +97,21 @@ async def add_holding(user: dict, portfolio_id: int, body: HoldingCreate) -> dic
         )
         holding = await repo.get_holding_by_symbol_full(sess, portfolio_id, body.symbol)
         await sess.commit()
+
+    # Activity notification (from dev). Fired only after the transaction has
+    # committed, so a rolled-back add cannot notify the user about a holding
+    # that does not exist. dev raised it on the older repo.upsert_holding_add
+    # path; that path is not restored here — this module's contract is that
+    # every holding mutation goes through record_trade_atomic, so psx_holdings
+    # stays reconcilable from stock_transactions history.
+    fire_and_forget(
+        notify_activity(
+            user_id,
+            "trade",
+            f"Holding added: {body.symbol.upper()}",
+            f"Added {body.shares} {body.symbol.upper()} at PKR {float(body.avg_cost):,.2f} average cost.",
+        )
+    )
     return holding
 
 

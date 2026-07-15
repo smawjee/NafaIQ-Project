@@ -24,6 +24,7 @@ USER_PATHS_PREFIXES = (
     "/api/alerts",
     "/api/finance",
     "/api/finance-extended",
+    "/api/integrations",
 )
 
 # Write/admin endpoints that live under an otherwise-public prefix.

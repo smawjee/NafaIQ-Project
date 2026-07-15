@@ -12,9 +12,9 @@ from apscheduler.triggers.interval import IntervalTrigger
 from apscheduler.triggers.cron import CronTrigger
 import structlog
 
+from app.config import settings
 from app.scrapers.dps import DPSScraper
 from app.scrapers.ahletrade import AhleTradePoller
-from app.config import settings
 # SECTOR OWNERSHIP (psx_profile.sector)
 #   DPS is authoritative. job_refresh_fundamentals writes PSX's own
 #   classification ("Commercial Banks", "Cement", "Oil & Gas Exploration
@@ -432,6 +432,25 @@ async def job_refresh_tv_data():
     except Exception as e:
         log.exception("job:refresh_tv_data:failed")
         await _record_health("tradingview", success=False, error=str(e))
+
+
+async def job_poll_inboxes():
+    """Poll every connected mailbox for new bank transaction alerts.
+
+    Deliberately NOT market-gated — bank alerts arrive 24/7. Per-user failures
+    are recorded on the integration row inside the pipeline, so one bad mailbox
+    never stops the rest.
+    """
+    if not settings.email_import_configured:
+        return
+    try:
+        from app.services.email_import import sync_all
+
+        result = await sync_all()
+        if result.get("imported") or result.get("scanned"):
+            log.info("job:poll_inboxes:done", **result)
+    except Exception:
+        log.exception("job:poll_inboxes:failed")
 
 
 async def job_check_alerts():
@@ -859,6 +878,15 @@ def init_scheduler():
         misfire_grace_time=3600,
         next_run_time=datetime.now(PTK_TZ),
     )
+    # Bank-email transaction import poller (from dev). Gated on config so it
+    # never runs unless Gmail OAuth + the encryption key are set.
+    if settings.email_import_configured:
+        scheduler.add_job(
+            job_poll_inboxes,
+            IntervalTrigger(minutes=settings.email_poll_interval_minutes),
+            id="poll_inboxes",
+            replace_existing=True,
+        )
     scheduler.start()
     log.info("scheduler:started")
 

@@ -1,6 +1,8 @@
-// Portfolio (`/portfolio`): summary stats, performance vs KSE-100, Haqeeqi
-// Daulat™, sector allocation donut, holdings with add/edit/delete (local CRUD,
-// matching web), + form modal.
+// Portfolio (`/portfolio`): live backend data — networth/value stat cards,
+// /api/portfolio/performance chart vs KSE-100, /api/portfolio/allocation
+// donut, and real holdings CRUD against /api/portfolio/:id/holdings.
+// Mirrors web features/portfolio/Portfolio.tsx (auto-creates a "Main"
+// portfolio on first add, like web).
 import { useRouter } from "expo-router";
 import { useMemo, useState } from "react";
 import { FlatList, Platform, Pressable, StyleSheet, View, useWindowDimensions } from "react-native";
@@ -13,18 +15,31 @@ import { GlassScreen } from "@/components/glass/GlassScreen";
 import { GlassSheet } from "@/components/glass/GlassSheet";
 import { Field } from "@/components/Modal";
 import { Button, Change, Text } from "@/components/ui";
-import { ChipRow, Segmented } from "@/components/ui/controls";
+import { Segmented } from "@/components/ui/controls";
 import { fonts, type ThemeColors } from "@/constants/theme";
-import { holdingsActions, useHoldings } from "@/hooks/use-holdings-store";
+import { useAuth } from "@/hooks/use-auth";
+import {
+  useAddHolding,
+  useCreatePortfolio,
+  usePortfolioAllocation,
+  usePortfolioList,
+  usePortfolioNetworth,
+  usePortfolioPerformance,
+  usePortfolioValue,
+  useRemoveHolding,
+  useUpdateHolding,
+  type HoldingValue,
+} from "@/hooks/queries/use-portfolio";
+import { usePsxSymbols } from "@/hooks/queries/use-market";
 import { useTheme } from "@/hooks/use-theme";
-import { fmtPKR, generateOHLCV, type Holding, INDICES, type Signal } from "@nafaiq/shared";
+import { fmtPKR } from "@nafaiq/shared";
 import { ArrowRight, Pencil, Plus, Trash2 } from "@/lib/icons";
 
 const AVENIR = Platform.select({ ios: "Avenir-Heavy", default: fonts.sans });
 const AVENIR_MED = Platform.select({ ios: "Avenir-Medium", default: fonts.sans });
-const RANGES: Record<string, number> = { "1M": 30, "3M": 90, "6M": 180, "1Y": 260 };
-const SIGNALS: Signal[] = ["STRONG BUY", "BUY", "HOLD", "SELL", "STRONG SELL"];
-const emptyForm = { ticker: "", sector: "", shares: "", avgCost: "", current: "", signal: "HOLD" as Signal };
+// Backend bounds /api/portfolio/performance days to [7, 365].
+const RANGES: Record<string, number> = { "1M": 30, "3M": 90, "6M": 180, "1Y": 365 };
+const emptyForm = { ticker: "", shares: "", avgCost: "" };
 
 export default function PortfolioScreen() {
   const router = useRouter();
@@ -34,74 +49,119 @@ export default function PortfolioScreen() {
   const chartW = width - 64;
   const [range, setRange] = useState("6M");
 
-  const holdings = useHoldings();
+  const { user } = useAuth();
+  const isLoggedIn = !!user;
+
+  const {
+    data: portfolios,
+    isLoading: portfoliosLoading,
+    isError: portfoliosError,
+    refetch: refetchPortfolios,
+  } = usePortfolioList(isLoggedIn);
+  const portfolioId = portfolios?.[0]?.id ?? null;
+  const { data: portfolioValue, isLoading: valueLoading } = usePortfolioValue(
+    portfolioId,
+    isLoggedIn,
+  );
+  const { data: networth } = usePortfolioNetworth(isLoggedIn);
+  const { data: performance, isLoading: perfLoading } = usePortfolioPerformance(
+    RANGES[range] ?? 180,
+    isLoggedIn,
+  );
+  const { data: allocationData } = usePortfolioAllocation("sector", isLoggedIn);
+  // Per-symbol sector labels from /api/symbols (web Portfolio.tsx sectorMap).
+  const { data: symbols } = usePsxSymbols();
+  const sectorMap = useMemo(
+    () => new Map((symbols ?? []).map((s) => [s.symbol, s.sector ?? "Other"])),
+    [symbols],
+  );
+
+  const addHoldingApi = useAddHolding(portfolioId);
+  const updateHoldingApi = useUpdateHolding(portfolioId);
+  const removeHoldingApi = useRemoveHolding(portfolioId);
+  const createPortfolio = useCreatePortfolio();
+
   const [formOpen, setFormOpen] = useState(false);
-  const [editIdx, setEditIdx] = useState<number | null>(null);
+  const [editingId, setEditingId] = useState<number | null>(null);
   const [form, setForm] = useState(emptyForm);
   const [formErr, setFormErr] = useState("");
 
-  const computed = useMemo(() => {
-    const rows = holdings.map((h) => {
-      const mkt = h.shares * h.current;
-      const cost = h.shares * h.avgCost;
-      const gain = mkt - cost;
-      return { ...h, mkt, cost, gain, gainPct: cost > 0 ? (gain / cost) * 100 : 0 };
-    });
-    const value = rows.reduce((s, r) => s + r.mkt, 0);
-    const invested = rows.reduce((s, r) => s + r.cost, 0);
-    const gain = value - invested;
-    return { rows, value, invested, gain, gainPct: invested > 0 ? (gain / invested) * 100 : 0 };
-  }, [holdings]);
+  const holdings: HoldingValue[] = portfolioValue?.holdings ?? [];
+  const listLoading = portfoliosLoading || (!!portfolioId && valueLoading && !portfolioValue);
 
-  const series = useMemo(
-    () => generateOHLCV(7, computed.invested || 1, computed.value || 1, RANGES[range]).map((c) => c.close),
-    [computed, range],
-  );
-  const benchmark = useMemo(
-    () => generateOHLCV(1, INDICES[0].start, INDICES[0].end, RANGES[range]).map((c) => c.close),
-    [range],
+  // Stat card totals — /:id/value first, /networth as fallback (matches web).
+  const totals = {
+    value: portfolioValue?.totals.market_value ?? networth?.total_market_value ?? 0,
+    invested: portfolioValue?.totals.cost_basis ?? networth?.total_cost_basis ?? 0,
+    gain: portfolioValue?.totals.unrealized_pnl ?? networth?.total_unrealized_pnl ?? 0,
+    gainPct: portfolioValue?.totals.pnl_pct ?? networth?.total_unrealized_pnl_pct ?? 0,
+    today: networth?.today_pnl ?? 0,
+    todayPct: networth?.today_pnl_pct ?? 0,
+  };
+
+  const perfPoints = useMemo(() => performance?.points ?? [], [performance]);
+  const series = useMemo(() => perfPoints.map((p) => p.value ?? 0), [perfPoints]);
+  const benchmark = useMemo(() => perfPoints.map((p) => p.benchmark ?? 0), [perfPoints]);
+
+  const allocation = useMemo<(DonutSegment & { pct: number })[]>(
+    () =>
+      (allocationData?.items ?? []).map((it, i) => ({
+        label: it.sector ?? it.symbol ?? "Other",
+        value: it.value ?? 0,
+        pct: it.pct ?? 0,
+        color: colors.chart[i % colors.chart.length],
+      })),
+    [allocationData, colors.chart],
   );
 
-  const allocation = useMemo<DonutSegment[]>(() => {
-    const bySector = new Map<string, number>();
-    computed.rows.forEach((r) => bySector.set(r.sector, (bySector.get(r.sector) ?? 0) + r.mkt));
-    return [...bySector.entries()].map(([label, value], i) => ({
-      label,
-      value,
-      color: colors.chart[i % colors.chart.length],
-    }));
-  }, [computed, colors.chart]);
+  const saving =
+    addHoldingApi.isPending || updateHoldingApi.isPending || createPortfolio.isPending;
 
   function openAdd() {
-    setEditIdx(null);
+    setEditingId(null);
     setForm(emptyForm);
     setFormErr("");
     setFormOpen(true);
   }
-  function openEdit(idx: number) {
-    const h = holdings[idx];
-    setEditIdx(idx);
-    setForm({ ticker: h.ticker, sector: h.sector, shares: String(h.shares), avgCost: String(h.avgCost), current: String(h.current), signal: h.signal });
+  function openEdit(h: HoldingValue) {
+    setEditingId(h.id);
+    setForm({ ticker: h.symbol, shares: String(h.shares ?? ""), avgCost: String(h.avg_cost ?? "") });
     setFormErr("");
     setFormOpen(true);
   }
-  function remove(idx: number) {
-    holdingsActions.removeHolding(idx);
+  function remove(h: HoldingValue) {
+    removeHoldingApi.mutate(h.id);
   }
   function saveHolding() {
     setFormErr("");
     const shares = Number(form.shares);
     const avgCost = Number(form.avgCost);
-    const current = Number(form.current);
     if (!form.ticker.trim()) return setFormErr("Please enter a stock symbol.");
-    if (!form.sector.trim()) return setFormErr("Please enter a sector.");
-    if (!form.shares || Number.isNaN(shares) || shares <= 0) return setFormErr("Please enter a valid number of shares.");
-    if (!form.avgCost || Number.isNaN(avgCost) || avgCost <= 0) return setFormErr("Please enter a valid average cost.");
-    const cur = !form.current || Number.isNaN(current) || current <= 0 ? avgCost : current;
-    const entry: Holding = { ticker: form.ticker.trim().toUpperCase(), sector: form.sector.trim(), shares, avgCost, current: cur, signal: form.signal };
-    if (editIdx == null) holdingsActions.addHolding(entry);
-    else holdingsActions.updateHolding(editIdx, entry);
-    setFormOpen(false);
+    if (!form.shares || Number.isNaN(shares) || shares <= 0)
+      return setFormErr("Please enter a valid number of shares.");
+    if (!form.avgCost || Number.isNaN(avgCost) || avgCost <= 0)
+      return setFormErr("Please enter a valid buy price.");
+    // avg_cost is Numeric(12,2) on the backend — round to stored precision.
+    const avg_cost = Math.round(avgCost * 100) / 100;
+    const symbol = form.ticker.trim().toUpperCase();
+    const onError = () => setFormErr("Could not save the holding. Please try again.");
+    const onSuccess = () => setFormOpen(false);
+
+    if (editingId != null) {
+      updateHoldingApi.mutate({ holdingId: editingId, shares, avg_cost }, { onSuccess, onError });
+    } else if (portfolioId) {
+      addHoldingApi.mutate({ symbol, shares, avg_cost }, { onSuccess, onError });
+    } else {
+      // First holding ever: auto-create the default portfolio (like web).
+      createPortfolio.mutate("Main", {
+        onSuccess: (p) =>
+          addHoldingApi.mutate(
+            { portfolioId: p.id, symbol, shares, avg_cost },
+            { onSuccess, onError },
+          ),
+        onError,
+      });
+    }
   }
 
   const header = (
@@ -109,18 +169,34 @@ export default function PortfolioScreen() {
       <Text variant="display" style={{ fontFamily: AVENIR }}>Portfolio</Text>
 
       <View style={styles.row}>
-        <PStat label="Portfolio Value" value={fmtPKR(computed.value)} />
-        <PStat label="Total Invested" value={fmtPKR(computed.invested)} />
+        <PStat label="Portfolio Value" value={fmtPKR(totals.value)} />
+        <PStat label="Total Invested" value={fmtPKR(totals.invested)} />
       </View>
       <View style={styles.row}>
-        <PStat label="Total Gain" value={fmtPKR(computed.gain)} delta={computed.gainPct} />
-        <PStat label="Today's P/L" value={fmtPKR(17480)} delta={2.08} />
+        <PStat label="Total Gain" value={fmtPKR(totals.gain)} delta={totals.gainPct} />
+        <PStat
+          label="Today's P/L"
+          value={fmtPKR(totals.today)}
+          delta={networth ? totals.todayPct : undefined}
+        />
       </View>
 
       <GlassCard style={{ gap: 12, padding: 16 }}>
         <Text variant="title">Performance vs KSE-100</Text>
         <Segmented options={Object.keys(RANGES)} value={range} onChange={setRange} />
-        <AreaChart data={series} benchmark={benchmark} width={chartW} />
+        {perfLoading ? (
+          <View style={[styles.chartPlaceholder, { width: chartW }]}>
+            <Text variant="muted">Loading portfolio history…</Text>
+          </View>
+        ) : series.length < 2 ? (
+          <View style={[styles.chartPlaceholder, { width: chartW }]}>
+            <Text variant="muted" style={{ textAlign: "center" }}>
+              No portfolio history yet. Add holdings to build your performance chart.
+            </Text>
+          </View>
+        ) : (
+          <AreaChart data={series} benchmark={benchmark} width={chartW} />
+        )}
         <View style={{ flexDirection: "row", gap: 16 }}>
           <Legend color={colors.primary} label="Portfolio" />
           <Legend color={colors.textMuted} label="KSE-100" />
@@ -141,7 +217,7 @@ export default function PortfolioScreen() {
       {allocation.length > 0 && (
         <GlassCard style={{ alignItems: "center", gap: 12, padding: 16 }}>
           <Text variant="title" style={{ alignSelf: "flex-start" }}>Allocation by Sector</Text>
-          <DonutChart segments={allocation} size={190} strokeWidth={20} centerLabel={fmtPKR(computed.value)} centerSub="value" />
+          <DonutChart segments={allocation} size={190} strokeWidth={20} centerLabel={fmtPKR(totals.value)} centerSub="value" />
           <View style={{ gap: 6, alignSelf: "stretch" }}>
             {allocation.map((a) => (
               <View key={a.label} style={styles.between}>
@@ -149,9 +225,7 @@ export default function PortfolioScreen() {
                   <View style={{ width: 10, height: 10, borderRadius: 2, backgroundColor: a.color }} />
                   <Text variant="secondary">{a.label}</Text>
                 </View>
-                <Text variant="mono" style={{ fontSize: 13 }}>
-                  {computed.value > 0 ? ((a.value / computed.value) * 100).toFixed(1) : "0.0"}%
-                </Text>
+                <Text variant="mono" style={{ fontSize: 13 }}>{a.pct.toFixed(1)}%</Text>
               </View>
             ))}
           </View>
@@ -164,11 +238,22 @@ export default function PortfolioScreen() {
 
   const footer = (
     <View style={{ marginTop: 12 }}>
-      {holdings.length === 0 && (
+      {portfoliosError ? (
+        <View style={{ gap: 10, marginBottom: 12 }}>
+          <Text variant="muted" style={{ textAlign: "center" }}>
+            Could not load your portfolio. Check your connection and try again.
+          </Text>
+          <Button title="Retry" variant="outline" onPress={() => refetchPortfolios()} />
+        </View>
+      ) : listLoading ? (
+        <Text variant="muted" style={{ textAlign: "center", marginBottom: 12 }}>
+          Loading portfolio…
+        </Text>
+      ) : holdings.length === 0 ? (
         <Text variant="muted" style={{ textAlign: "center", marginBottom: 12 }}>
           No holdings yet. Add your first position.
         </Text>
-      )}
+      ) : null}
       <Button title="Add Holding" onPress={openAdd} icon={<Plus color={colors.primaryForeground} size={16} />} />
       <View style={{ height: 20 }} />
     </View>
@@ -178,32 +263,34 @@ export default function PortfolioScreen() {
     <GlassScreen>
       <SafeAreaView style={styles.safe} edges={["top", "left", "right"]}>
         <FlatList
-          data={computed.rows}
-          keyExtractor={(h, i) => h.ticker + i}
+          data={holdings}
+          keyExtractor={(h) => String(h.id)}
           ListHeaderComponent={header}
           ListFooterComponent={footer}
           contentContainerStyle={{ padding: 16, paddingBottom: 28, gap: 8 }}
           showsVerticalScrollIndicator={false}
-        renderItem={({ item, index }) => (
+        renderItem={({ item }) => (
           <View style={styles.holdingWrap}>
             <View style={styles.holding}>
               <View style={{ flex: 1.2 }}>
-                <Text style={{ fontWeight: "700", fontSize: 15 }}>{item.ticker}</Text>
-                <Text variant="muted" style={{ marginTop: 2 }} numberOfLines={1}>{item.sector}</Text>
+                <Text style={{ fontWeight: "700", fontSize: 15 }}>{item.symbol}</Text>
+                <Text variant="muted" style={{ marginTop: 2 }} numberOfLines={1}>
+                  {sectorMap.get(item.symbol) ?? "Other"}
+                </Text>
               </View>
               <View style={{ flex: 1, alignItems: "flex-end" }}>
-                <Text variant="mono" style={{ fontSize: 13 }}>{fmtPKR(item.mkt)}</Text>
-                <Text variant="muted">{item.shares} sh</Text>
+                <Text variant="mono" style={{ fontSize: 13 }}>{fmtPKR(item.market_value ?? 0)}</Text>
+                <Text variant="muted">{item.shares ?? 0} sh</Text>
               </View>
               <View style={{ flex: 1, alignItems: "flex-end" }}>
-                <Change pct={item.gainPct} />
-                <Text variant="muted">{fmtPKR(item.gain)}</Text>
+                <Change pct={item.pnl_pct ?? 0} />
+                <Text variant="muted">{fmtPKR(item.unrealized_pnl ?? 0)}</Text>
               </View>
               <View style={styles.actions}>
-                <Pressable onPress={() => openEdit(index)} hitSlop={6} accessibilityRole="button" accessibilityLabel={`Edit ${item.ticker}`}>
+                <Pressable onPress={() => openEdit(item)} hitSlop={12} accessibilityRole="button" accessibilityLabel={`Edit ${item.symbol}`}>
                   <Pencil color={colors.textMuted} size={15} />
                 </Pressable>
-                <Pressable onPress={() => remove(index)} hitSlop={6} accessibilityRole="button" accessibilityLabel={`Delete ${item.ticker}`}>
+                <Pressable onPress={() => remove(item)} hitSlop={12} accessibilityRole="button" accessibilityLabel={`Delete ${item.symbol}`}>
                   <Trash2 color={colors.textMuted} size={15} />
                 </Pressable>
               </View>
@@ -212,7 +299,7 @@ export default function PortfolioScreen() {
               style={styles.aiLink}
               onPress={() => router.push("/(tabs)/psx")}
               accessibilityRole="button"
-              accessibilityLabel={`${item.ticker}: go to PSX Market for AI analysis`}
+              accessibilityLabel={`${item.symbol}: go to PSX Market for AI analysis`}
             >
               <Text style={styles.aiLinkText}>Go to PSX Market for AI analysis</Text>
               <ArrowRight color={colors.primary} size={13} />
@@ -221,16 +308,23 @@ export default function PortfolioScreen() {
         )}
       />
 
-      <GlassSheet open={formOpen} onClose={() => setFormOpen(false)} title={editIdx == null ? "Add Holding" : "Edit Holding"}>
-        <Field label="Stock symbol" value={form.ticker} onChangeText={(v) => setForm({ ...form, ticker: v })} placeholder="e.g. HBL" autoCapitalize="characters" />
-        <Field label="Sector" value={form.sector} onChangeText={(v) => setForm({ ...form, sector: v })} placeholder="e.g. Banking" />
+      <GlassSheet open={formOpen} onClose={() => setFormOpen(false)} title={editingId == null ? "Add Holding" : "Edit Holding"}>
+        <Field
+          label="Stock symbol"
+          value={form.ticker}
+          onChangeText={(v) => setForm({ ...form, ticker: v })}
+          placeholder="e.g. HBL"
+          autoCapitalize="characters"
+          editable={editingId == null}
+        />
         <Field label="Shares" value={form.shares} onChangeText={(v) => setForm({ ...form, shares: v })} keyboardType="numeric" placeholder="0" />
         <Field label="Avg Cost (PKR)" value={form.avgCost} onChangeText={(v) => setForm({ ...form, avgCost: v })} keyboardType="numeric" placeholder="0" />
-        <Field label="Current price (optional)" value={form.current} onChangeText={(v) => setForm({ ...form, current: v })} keyboardType="numeric" placeholder="0" />
-        <Text variant="secondary">Signal</Text>
-        <ChipRow options={SIGNALS} value={form.signal} onChange={(v) => setForm({ ...form, signal: v as Signal })} />
         {formErr ? <Text style={{ color: colors.bear, fontSize: 12 }}>{formErr}</Text> : null}
-        <Button title={editIdx == null ? "Add Holding" : "Save Changes"} onPress={saveHolding} />
+        <Button
+          title={editingId == null ? "Add Holding" : "Save Changes"}
+          onPress={saveHolding}
+          loading={saving}
+        />
       </GlassSheet>
       </SafeAreaView>
     </GlassScreen>
@@ -282,6 +376,16 @@ const makeStyles = (c: ThemeColors) =>
     statCard: { flex: 1, padding: 14 },
     row: { flexDirection: "row", gap: 12 },
     between: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
+    chartPlaceholder: {
+      height: 180,
+      alignItems: "center",
+      justifyContent: "center",
+      borderRadius: 8,
+      borderWidth: 1,
+      borderStyle: "dashed",
+      borderColor: c.border,
+      paddingHorizontal: 16,
+    },
     holdingWrap: { paddingVertical: 12, borderBottomColor: c.border, borderBottomWidth: 1 },
     holding: { flexDirection: "row", alignItems: "center" },
     aiLink: { flexDirection: "row", alignItems: "center", gap: 4, marginTop: 8, alignSelf: "flex-start" },

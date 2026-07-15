@@ -1,16 +1,44 @@
+"""Email + notification delivery primitives.
+
+Two delivery buckets share the Resend sender here:
+- Threshold/condition ALERTS go through app.services.alerts.events.record_event
+  (gated by email_alerts).
+- User-action ACTIVITY/receipts go through notify_activity below (gated by
+  email_activity), fired fire-and-forget from service mutation points.
+"""
 from __future__ import annotations
 
 import asyncio
 import logging
+from typing import Any, Awaitable
 
 import httpx
-from sqlalchemy import text
 
 from app.config import settings
-from app.db.sqlalchemy import get_engine
 from app.db.supabase import get_supabase
+from app.repositories import alerts as alerts_repo
+from app.repositories import notifications_repo
+from app.repositories.base import begin, connect
 
 log = logging.getLogger(__name__)
+
+
+def email_html(title: str, body: str, link: str | None = None) -> str:
+    """Shared NafaIQ email template."""
+    link_html = (
+        f'<p><a href="{link}" style="color:#00d4aa;">View details</a></p>'
+        if link
+        else ""
+    )
+    return (
+        '<div style="font-family:sans-serif;padding:20px;max-width:600px;">'
+        f'<h2 style="color:#00d4aa;">{title}</h2>'
+        f"<p>{body}</p>"
+        f"{link_html}"
+        '<hr style="border-color:rgba(255,255,255,0.1);" />'
+        '<p style="font-size:12px;color:#64748b;">NafaIQ — Pakistan Stock Exchange Intelligence</p>'
+        "</div>"
+    )
 
 
 async def send_email(to: str, subject: str, html: str) -> bool:
@@ -42,25 +70,6 @@ async def send_email(to: str, subject: str, html: str) -> bool:
         return False
 
 
-async def create_in_app_notification(
-    user_id: str,
-    kind: str,
-    title: str,
-    body: str,
-    link: str | None = None,
-) -> None:
-    """Insert a row into in_app_notifications."""
-    engine = get_engine()
-    async with engine.begin() as conn:
-        await conn.execute(
-            text("""
-                INSERT INTO in_app_notifications (user_id, kind, title, body, link)
-                VALUES (:uid, :kind, :title, :body, :link)
-            """),
-            {"uid": user_id, "kind": kind, "title": title, "body": body, "link": link},
-        )
-
-
 async def get_user_email(user_id: str) -> str | None:
     """Fetch user email from auth.users via Supabase admin API (service_role)."""
     try:
@@ -73,43 +82,46 @@ async def get_user_email(user_id: str) -> str | None:
         return None
 
 
-async def get_notification_prefs(user_id: str) -> dict[str, bool]:
-    """Fetch user notification prefs. Returns defaults if no row."""
-    engine = get_engine()
-    async with engine.connect() as conn:
-        result = await conn.execute(
-            text("SELECT email_alerts, push_alerts, in_app_alerts FROM user_notification_prefs WHERE user_id = :uid"),
-            {"uid": user_id},
-        )
-        row = result.mappings().first()
-    if not row:
-        return {"email_alerts": True, "push_alerts": False, "in_app_alerts": True}
-    return dict(row)
-
-
-async def fire_alert(
+async def notify_activity(
     user_id: str,
-    alert_type: str,
+    kind: str,
     title: str,
     body: str,
     link: str | None = None,
 ) -> None:
-    """Fire an alert: in-app notification + email (if user prefs allow)."""
-    prefs = await get_notification_prefs(user_id)
-    if prefs.get("in_app_alerts", True):
-        # in_app_notifications.kind uses "price_alert" (alert_type is "stock_price")
-        kind = "price_alert" if alert_type == "stock_price" else alert_type
-        await create_in_app_notification(user_id, kind, title, body, link)
-    if prefs.get("email_alerts", False):
-        email = await get_user_email(user_id)
-        if email:
-            html = f"""
-            <div style="font-family: sans-serif; padding: 20px; max-width: 600px;">
-                <h2 style="color: #00d4aa;">{title}</h2>
-                <p>{body}</p>
-                {f'<p><a href="{link}" style="color: #00d4aa;">View details</a></p>' if link else ''}
-                <hr style="border-color: rgba(255,255,255,0.1);" />
-                <p style="font-size: 12px; color: #64748b;">NafaIQ — Pakistan Stock Exchange Intelligence</p>
-            </div>
-            """
-            await send_email(email, title, html)
+    """Deliver a user-activity notification (in-app + email), each gated by the
+    user's prefs. Self-contained (own DB connections) so it is safe to run
+    detached via fire_and_forget, and resilient — a failure here must never
+    surface to the triggering request.
+    """
+    try:
+        async with connect() as conn:
+            prefs = await notifications_repo.get_prefs(conn, user_id)
+        in_app = prefs.get("in_app_alerts", True) if prefs else True
+        email_on = prefs.get("email_activity", False) if prefs else False
+
+        if in_app:
+            async with begin() as conn:
+                await alerts_repo.insert_in_app_notification(
+                    conn, user_id, kind, title, body, link
+                )
+        if email_on:
+            email = await get_user_email(user_id)
+            if email:
+                await send_email(email, title, email_html(title, body, link))
+    except Exception:
+        log.warning("activity notification failed for %s", user_id, exc_info=True)
+
+
+def fire_and_forget(coro: Awaitable[Any]) -> None:
+    """Schedule a coroutine to run detached from the request lifecycle, logging
+    any exception instead of raising. Use for best-effort side effects (e.g.
+    activity notifications) that must not block or break the caller."""
+    task = asyncio.ensure_future(coro)
+
+    def _log_exc(t: "asyncio.Future[Any]") -> None:
+        exc = t.exception()
+        if exc is not None:
+            log.warning("fire_and_forget task failed: %s", exc)
+
+    task.add_done_callback(_log_exc)

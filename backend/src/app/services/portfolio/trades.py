@@ -18,6 +18,7 @@ from fastapi import HTTPException
 from app.repositories import portfolio as repo
 from app.repositories.base import begin, connect, session
 from app.schemas.portfolio import StockTransactionCreate
+from app.services.notifier import fire_and_forget, notify_activity
 from app.services.permissions import check_count_limit
 from app.services.symbols import require_known_symbol
 
@@ -182,6 +183,15 @@ async def create_stock_transaction(user: dict, body: StockTransactionCreate) -> 
             reflect_finance=do_side,
         )
         await sess.commit()
+    verb = {"buy": "Bought", "sell": "Sold", "adjust": "Adjusted"}.get(body.side, body.side)
+    fire_and_forget(
+        notify_activity(
+            user["user_id"],
+            "trade",
+            f"Trade executed: {verb} {body.symbol.upper()}",
+            f"{verb} {int(body.quantity)} {body.symbol.upper()} @ PKR {float(body.price):,.2f}.",
+        )
+    )
     return r
 
 

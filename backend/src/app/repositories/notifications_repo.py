@@ -53,7 +53,7 @@ async def mark_read(conn: Executor, user_id: str, notification_id: int) -> Optio
 async def get_prefs(conn: Executor, user_id: str) -> Optional[dict[str, Any]]:
     result = await conn.execute(
         text(
-            "SELECT email_alerts, push_alerts, in_app_alerts "
+            "SELECT email_alerts, email_activity, push_alerts, in_app_alerts "
             "FROM user_notification_prefs WHERE user_id = :uid"
         ),
         {"uid": user_id},
@@ -67,20 +67,24 @@ async def upsert_prefs(
     user_id: str,
     *,
     email_alerts: Optional[bool],
+    email_activity: Optional[bool],
     push_alerts: Optional[bool],
     in_app_alerts: Optional[bool],
 ) -> None:
     sets = []
-    # INSERT binds :email/:push/:inapp unconditionally, so all keys must be
-    # present even when only one preference changes.
+    # INSERT binds :email/:activity/:push/:inapp unconditionally, so all keys
+    # must be present even when only one preference changes.
     params: dict[str, Any] = {
         "uid": user_id,
         "email": email_alerts,
+        "activity": email_activity,
         "push": push_alerts,
         "inapp": in_app_alerts,
     }
     if email_alerts is not None:
         sets.append("email_alerts = :email")
+    if email_activity is not None:
+        sets.append("email_activity = :activity")
     if push_alerts is not None:
         sets.append("push_alerts = :push")
     if in_app_alerts is not None:
@@ -92,9 +96,11 @@ async def upsert_prefs(
     await conn.execute(
         text(
             f"""
-            INSERT INTO user_notification_prefs (user_id, email_alerts, push_alerts, in_app_alerts)
-            -- email/push are opt-in (default off); in-app is on by default.
-            VALUES (:uid, COALESCE(:email, false), COALESCE(:push, false), COALESCE(:inapp, true))
+            INSERT INTO user_notification_prefs
+                (user_id, email_alerts, email_activity, push_alerts, in_app_alerts)
+            -- email/activity/push are opt-in (default off); in-app is on by default.
+            VALUES (:uid, COALESCE(:email, false), COALESCE(:activity, false),
+                    COALESCE(:push, false), COALESCE(:inapp, true))
             ON CONFLICT (user_id) DO UPDATE
             SET {update_clause}
             """

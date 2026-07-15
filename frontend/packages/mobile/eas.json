@@ -9,8 +9,8 @@
       "distribution": "internal",
       "channel": "development",
       "env": {
-        "EXPO_PUBLIC_SUPABASE_URL": "https://roghazhcpyyxkwzrewmw.supabase.co",
-        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "sb_publishable_5a8aF1V_x9YtA3UfN6Aq3Q_bfsyA5r4"
+        "EXPO_PUBLIC_SUPABASE_URL": "https://gmonfgxmjgzipnbhgimv.supabase.co",
+        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "sb_publishable_aJUwvjC4anq5dmtlbMcTjA_4y_pvfE1"
       }
     },
     "preview": {
@@ -20,16 +20,18 @@
         "buildType": "apk"
       },
       "env": {
-        "EXPO_PUBLIC_SUPABASE_URL": "https://roghazhcpyyxkwzrewmw.supabase.co",
-        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "sb_publishable_5a8aF1V_x9YtA3UfN6Aq3Q_bfsyA5r4"
+        "EXPO_PUBLIC_SUPABASE_URL": "https://gmonfgxmjgzipnbhgimv.supabase.co",
+        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "sb_publishable_aJUwvjC4anq5dmtlbMcTjA_4y_pvfE1",
+        "EXPO_PUBLIC_API_URL": "https://illustrious-vitality-production-fb80.up.railway.app"
       }
     },
     "production": {
       "autoIncrement": true,
       "channel": "production",
       "env": {
-        "EXPO_PUBLIC_SUPABASE_URL": "https://roghazhcpyyxkwzrewmw.supabase.co",
-        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "sb_publishable_5a8aF1V_x9YtA3UfN6Aq3Q_bfsyA5r4"
+        "EXPO_PUBLIC_SUPABASE_URL": "https://gmonfgxmjgzipnbhgimv.supabase.co",
+        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "sb_publishable_aJUwvjC4anq5dmtlbMcTjA_4y_pvfE1",
+        "EXPO_PUBLIC_API_URL": "https://illustrious-vitality-production-fb80.up.railway.app"
       }
     }
   },
