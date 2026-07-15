@@ -524,6 +524,26 @@ class DPSScraper:
             ))
         return bars
 
+    # ---------- index constituents ----------
+
+    async def fetch_index_constituents(self, code: str) -> list[str]:
+        """Symbols in a PSX index (KMIALLSHR, KMI30, KSE100, ...).
+
+        The page's DataTables paging is client-side, so every constituent is in
+        the served HTML — no JS needed. Order is preserved and duplicates are
+        dropped; callers size-check the result before trusting it.
+        """
+        html = await self._get(f"/indices/{code.upper()}")
+        soup = BeautifulSoup(html, "lxml")
+        symbols: list[str] = []
+        seen: set[str] = set()
+        for a in soup.select("a.tbl__symbol"):
+            sym = a.get_text(strip=True).upper()
+            if sym and sym not in seen:
+                seen.add(sym)
+                symbols.append(sym)
+        return symbols
+
 
 # ---------- helpers ----------
 

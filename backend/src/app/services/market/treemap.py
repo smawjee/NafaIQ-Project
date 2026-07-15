@@ -23,7 +23,7 @@ import structlog
 
 import time
 
-from app.db.supabase import async_execute
+from app.db.supabase import select_all
 
 log = structlog.get_logger()
 
@@ -76,17 +76,16 @@ async def get_treemap() -> dict[str, Any]:
     if _last_treemap_cache is not None and now - _last_treemap_time < _TREEMAP_CACHE_TTL:
         return _last_treemap_cache
     try:
-        snap_res = await async_execute(
-            lambda c: c.table("psx_market_snapshot").select("symbol,price,change_pct,volume")
+        # Both reads page: psx_profile is already past PostgREST's ~1000-row
+        # cap, and a clipped profile read drops those symbols into "Other"
+        # rather than their real sector.
+        snapshot_rows = await select_all(
+            "psx_market_snapshot", "symbol,price,change_pct,volume", order_by="symbol"
         )
-        snapshot_rows = snap_res.data or []
 
-        prof_res = await async_execute(
-            lambda c: c.table("psx_profile").select(
-                "symbol,sector,name,listed_shares,logoid"
-            )
+        profile_rows = await select_all(
+            "psx_profile", "symbol,sector,name,listed_shares,logoid", order_by="symbol"
         )
-        profile_rows = prof_res.data or []
         profile_by_symbol = {p["symbol"]: p for p in profile_rows if p.get("symbol")}
 
         sectors: dict[str, dict[str, Any]] = {}

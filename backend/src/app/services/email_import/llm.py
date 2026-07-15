@@ -105,5 +105,8 @@ async def parse(
 
 def is_configured() -> bool:
     """True if any provider key is set — lets the poller skip the LLM path
-    entirely (rules-only) rather than logging a failure per message."""
-    return bool(settings.gemini_api_key or settings.groq_api_key)
+    entirely (rules-only) rather than logging a failure per message.
+
+    Reads the pools, so a deployment that only sets GEMINI_API_KEYS/GROQ_API_KEYS
+    (no singular var) still counts as configured."""
+    return bool(settings.gemini_api_key_pool or settings.groq_api_key_pool)

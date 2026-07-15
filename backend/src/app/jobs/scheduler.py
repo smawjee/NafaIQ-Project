@@ -38,7 +38,7 @@ from app.services.signals.volume_spikes import VolumeSpikeDetector
 import os
 from app.services.market._base import get_cache, ALL_PSX_INDICES
 from app.api.health import set_market_refresh_time
-from app.db.supabase import async_execute
+from app.db.supabase import async_execute, select_all
 from app.repositories import reports_repo
 from app.repositories.base import begin
 from app.services.ai import engine
@@ -112,8 +112,8 @@ async def _get_all_symbols() -> list[str]:
     record an error, not quietly process a stub list.
     """
     try:
-        result = await async_execute(lambda c: c.table("psx_profile").select("symbol"))
-        symbols = [r["symbol"] for r in (result.data or []) if r.get("symbol")]
+        rows = await select_all("psx_profile", "symbol", order_by="symbol")
+        symbols = [r["symbol"] for r in rows if r.get("symbol")]
         if symbols:
             return symbols
         log.warning("get_all_symbols_empty")
@@ -186,8 +186,8 @@ async def job_poll_ahletrade():
     if not await _is_market_open():
         return
     try:
-        symbols = await async_execute(lambda c: c.table("psx_profile").select("symbol"))
-        sym_list = [r["symbol"] for r in (symbols.data or [])]
+        rows = await select_all("psx_profile", "symbol", order_by="symbol")
+        sym_list = [r["symbol"] for r in rows]
 
         # Poll top 20 by volume (avoid hammering AhleTrade with 500 symbols)
         snapshot = await async_execute(lambda c: c.table("psx_market_snapshot").select("symbol,volume").order("volume", desc=True).limit(20))
@@ -243,8 +243,8 @@ async def job_backfill_history():
     total_bars = 0
     try:
         log.info("job:backfill_history:start")
-        result = await async_execute(lambda c: c.table("psx_profile").select("symbol"))
-        symbols = [r["symbol"] for r in (result.data or [])]
+        rows = await select_all("psx_profile", "symbol", order_by="symbol")
+        symbols = [r["symbol"] for r in rows]
         if not symbols:
             return
 
@@ -272,8 +272,8 @@ async def job_refresh_fundamentals():
     total = 0
     try:
         log.info("job:refresh_fundamentals:start")
-        result = await async_execute(lambda c: c.table("psx_profile").select("symbol"))
-        symbols = [r["symbol"] for r in (result.data or [])]
+        rows = await select_all("psx_profile", "symbol", order_by="symbol")
+        symbols = [r["symbol"] for r in rows]
         if not symbols:
             return
         now = datetime.now(timezone.utc).isoformat()
@@ -374,20 +374,21 @@ async def job_refresh_tv_data():
             return
         now = datetime.now(timezone.utc).isoformat()
 
-        # Shariah-compliant stock universe lives on app.config.settings (single
-        # source of truth shared with the rest of the app). The TV job consults
-        # it to populate psx_profile.is_shariah on every 5-min refresh.
+        # psx_profile.is_shariah is NOT written here — job_refresh_shariah owns
+        # it, sourced from the live KMIALLSHR constituents. This job used to
+        # derive it from a hardcoded config set on every 5-min refresh.
         # Pre-load existing listed_shares/free_float so the TV job doesn't
         # nullify them (the TV scanner has no shares-outstanding column), and
         # existing sector so it doesn't overwrite DPS's authoritative value.
-        existing_rows: list[dict] = []
-        try:
-            res = await async_execute(
-                lambda c: c.table("psx_profile").select("symbol,listed_shares,free_float,sector")
-            )
-            existing_rows = res.data or []
-        except Exception:
-            log.debug("job:refresh_tv_data:existing_profile_load_failed", exc_info=True)
+        # This read MUST page and MUST NOT be swallowed. psx_profile is past
+        # PostgREST's ~1000-row cap, and every symbol missing from this map
+        # resolves to the TV bucket below and is upserted over DPS's value —
+        # so a truncated or empty map silently clobbers the sector column
+        # market-wide. Let a failure propagate to the handler, which records
+        # the job unhealthy instead of reporting a green clobber.
+        existing_rows = await select_all(
+            "psx_profile", "symbol,listed_shares,free_float,sector", order_by="symbol"
+        )
         existing_by_sym: dict[str, dict] = {
             r["symbol"].upper(): r for r in existing_rows if r.get("symbol")
         }
@@ -413,7 +414,6 @@ async def job_refresh_tv_data():
                 "symbol": sym,
                 "name": item.get("name", item["symbol"]),
                 "logoid": item.get("logoid"),
-                "is_shariah": sym in settings.SHARIAH_STOCKS,
                 "refreshed_at": now,
             }
             if sector:
@@ -432,6 +432,56 @@ async def job_refresh_tv_data():
     except Exception as e:
         log.exception("job:refresh_tv_data:failed")
         await _record_health("tradingview", success=False, error=str(e))
+
+
+async def job_refresh_shariah():
+    """Refresh psx_profile.is_shariah from the live KMI All-Share constituents.
+
+    KMIALLSHR is PSX's own Shariah-screened index, so it is authoritative. The
+    flag was previously derived from a hardcoded 124-symbol set in config that
+    marked conventional interest-based banks (HBL, UBL, NBP, ...) compliant.
+
+    Cadence is daily because index membership is reviewed periodically, not
+    intraday — it does not belong in the 5-minute TV job that used to own it.
+    """
+    try:
+        log.info("job:refresh_shariah:start")
+        members = await dps.fetch_index_constituents("KMIALLSHR")
+        # is_shariah is NOT NULL DEFAULT false and this job writes `false` for
+        # every non-member, so a failed or partial scrape would silently mark
+        # the ENTIRE market non-Shariah — worse than stale data in a
+        # Muslim-audience app. A per-field `if value:` guard cannot catch this.
+        # The real index is ~310 members; anything near-empty is a broken
+        # scrape, so leave the last-known-good flags untouched.
+        if len(members) < 200:
+            await _record_health(
+                "shariah_universe",
+                success=False,
+                error=f"suspiciously small constituent set: {len(members)}",
+            )
+            return
+
+        symbols = await _get_all_symbols()
+        if not symbols:
+            await _record_health(
+                "shariah_universe", success=False, error="no symbols available"
+            )
+            return
+
+        member_set = set(members)
+        now = datetime.now(timezone.utc).isoformat()
+        rows = [
+            {"symbol": sym, "is_shariah": sym in member_set, "refreshed_at": now}
+            for sym in symbols
+        ]
+        await async_execute(
+            lambda c: c.table("psx_profile").upsert(rows, on_conflict="symbol")
+        )
+        log.info("job:refresh_shariah:done", members=len(members), symbols=len(symbols))
+        await _record_health("shariah_universe", success=True, rows_updated=len(rows))
+    except Exception as e:
+        log.exception("job:refresh_shariah:failed")
+        await _record_health("shariah_universe", success=False, error=str(e))
 
 
 async def job_poll_inboxes():
@@ -591,10 +641,8 @@ async def job_refresh_brecorder_news():
         # Build the known-symbols set from the live PSX profile table.
         known: set[str] = set()
         try:
-            result = await async_execute(
-                lambda c: c.table("psx_profile").select("symbol").limit(1000)
-            )
-            known = {r["symbol"] for r in (result.data or []) if r.get("symbol")}
+            rows = await select_all("psx_profile", "symbol", order_by="symbol")
+            known = {r["symbol"] for r in rows if r.get("symbol")}
         except Exception:
             pass
 
@@ -694,8 +742,8 @@ async def job_refresh_financials_5y():
     """Weekly refresh of 5y annual + quarterly financials for every symbol."""
     try:
         log.info("job:refresh_financials_5y:start")
-        result = await async_execute(lambda c: c.table("psx_profile").select("symbol"))
-        symbols = [r["symbol"] for r in (result.data or [])]
+        rows = await select_all("psx_profile", "symbol", order_by="symbol")
+        symbols = [r["symbol"] for r in rows]
         if not symbols:
             return
         now_iso = datetime.now(timezone.utc).isoformat()
@@ -805,6 +853,10 @@ def init_scheduler():
     scheduler.add_job(job_refresh_index_eod, CronTrigger(hour=1, minute=0, timezone="Asia/Karachi"), id="refresh_index_eod", replace_existing=True)
     scheduler.add_job(job_check_alerts, IntervalTrigger(seconds=60), id="check_alerts", replace_existing=True)
     scheduler.add_job(job_refresh_tv_data, IntervalTrigger(minutes=5), id="refresh_tv_data", replace_existing=True)
+    # Shariah universe from the live KMIALLSHR index. Daily 03:30 PKT — index
+    # membership is reviewed periodically, and this is the only writer of
+    # psx_profile.is_shariah.
+    scheduler.add_job(job_refresh_shariah, CronTrigger(hour=3, minute=30, timezone="Asia/Karachi"), id="refresh_shariah", replace_existing=True)
     # Shared, once-per-trading-day Market Brief — weekdays ~09:45 PKT, after the
     # morning market data refresh (§11). Runs in Asia/Karachi (PSX) time.
     scheduler.add_job(

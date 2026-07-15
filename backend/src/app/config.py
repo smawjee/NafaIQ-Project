@@ -17,6 +17,23 @@ def _env_files() -> list[str]:
     return [p for p in candidates if os.path.isfile(p)]
 
 
+def merge_key_pool(primary: str, pool: str) -> list[str]:
+    """Build an ordered LLM key pool from the singular var + the comma-separated
+    pool var.
+
+    The singular `*_API_KEY` is always the first key, so existing single-key
+    deployments keep the exact behaviour they had. Blanks are stripped and
+    duplicates dropped (first occurrence wins) so a key listed in both vars is
+    only tried once.
+    """
+    keys: list[str] = []
+    for raw in [primary or "", *(pool or "").split(",")]:
+        key = raw.strip()
+        if key and key not in keys:
+            keys.append(key)
+    return keys
+
+
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
         env_file=_env_files(),
@@ -46,8 +63,16 @@ class Settings(BaseSettings):
     supabase_pooler_port: int = 6543
     supabase_pooler_user: str = "postgres.gmonfgxmjgzipnbhgimv"
 
-    # API authentication — shared bearer token for Python API
+    # API authentication — shared bearer token for Python API.
+    # NOT a secret: the web app ships it as VITE_PSX_API_TOKEN, which Vite
+    # inlines into the public browser bundle. Treat it as a coarse filter, not
+    # an authorization boundary.
     psx_api_token: str = ""
+
+    # Backend-only token for admin/write endpoints (middleware/auth.py
+    # ADMIN_PATHS). Must never be exposed to any client bundle — do not add a
+    # VITE_ alias. Generate with: python -c "import secrets; print(secrets.token_urlsafe(32))"
+    psx_admin_token: str = ""
 
     # Supabase JWT secret — for validating user session tokens on /api/portfolio/* and /api/notifications/*
     # Get from Supabase Dashboard > Settings > API > JWT Secret
@@ -61,9 +86,21 @@ class Settings(BaseSettings):
     # never shipped to any client bundle. Gemini is primary, Groq is fallback.
     gemini_api_key: str = ""
     groq_api_key: str = ""
+    # Spare keys for free-tier quota fallback, comma-separated
+    # (GEMINI_API_KEYS / GROQ_API_KEYS). providers.py rotates to the next key
+    # when one is rate-limited/exhausted. The singular vars above still work on
+    # their own and are always tried first — see `merge_key_pool`.
+    gemini_api_keys: str = ""
+    groq_api_keys: str = ""
     ai_tutor_model_primary: str = "gemini-3.1-flash-lite"
     ai_tutor_model_fallback: str = "llama-3.3-70b-versatile"
     ai_tutor_request_timeout_s: float = 30.0
+    # Total wall-clock budget for one generate_report call. The per-request
+    # timeout above bounds a single HTTP call, not the pipeline: 2 Instructor
+    # attempts x 2 generate_structured calls is already ~120s on one key, and a
+    # K-key pool that 429s slowly multiplies that by K. Callers get
+    # ReportUnavailable at this deadline instead of holding a request open.
+    ai_report_deadline_s: float = 90.0
 
     # Bank-email transaction import (Gmail API OAuth). Keys live ONLY in
     # backend env — never shipped to any client bundle.
@@ -98,29 +135,6 @@ class Settings(BaseSettings):
     cors_origins: str = "*"
     port: int = 8000
 
-
-    # Hardcoded Shariah-compliant stock universe (PSX Shariah Index constituents).
-    # Used by the scheduler's job_refresh_tv_data to derive is_shariah for each profile.
-    # TODO: Replace with dynamic fetches from PSX's official Shariah list when available.
-    SHARIAH_STOCKS: set[str] = {
-        "MARI", "OGDC", "PPL", "POL", "LUCK", "SEARL", "HBL", "MEBL",
-        "UBL", "FABL", "EFERT", "FFC", "ENGRO", "NESTLE", "COLG", "LINDE",
-        "NCL", "SCBPL", "BAHL", "BAFL", "HUMNL", "GHGL", "MLCF",
-        "PIOC", "ASTL", "AMBL", "KTML", "CHCC", "FLYNG", "PSX", "FCCL",
-        "DCR", "EPCL", "LOTCHEM", "RPL", "TREET", "UNITY", "WAHUN", "GATI",
-        "AGL", "BIFO", "BIPL", "BML", "BRR", "CASH", "CNERGY", "DOL",
-        "DWAE", "DYNO", "ELCM", "FFL", "FRSM", "GAL", "GLAXO", "HAEL",
-        "HASCOL", "HSPI", "HZAN", "ICL", "IDYM", "ILP", "IMCO", "INDU",
-        "ISL", "JKL", "JSCL", "KAPCO", "KOHE", "KOHC", "LEUL", "LPGL",
-        "MACFL", "MERIT", "MFTM", "MLOD", "MUREB", "NATF", "NBP", "NCPL",
-        "NML", "NRL", "NTCL", "OBOY", "PAEL", "PAKRI", "PGIL", "PICT",
-        "PKGS", "PMI", "PNER", "PRFG", "PRWM", "PSMC", "PTC", "QUICE",
-        "RMFL", "SANL", "SAPT", "SGF", "SHEL", "SHJD", "SIMG", "SITC",
-        "SMCPL", "SPWL", "SRVI", "SSGC", "STJT", "STPL", "SYM", "SYS",
-        "TATM", "TAUS", "TCORP", "TGL", "THALL", "TPLP", "TRG", "TRIPF",
-        "UPFL", "WAVES", "WTL", "YOUSP", "ZIL",
-    }
-
     @property
     def supabase_service_key(self) -> str:
         """Return the active server-side service key (bypasses RLS).
@@ -134,6 +148,16 @@ class Settings(BaseSettings):
         client-side publishable key (anon role), not a server-side secret.
         """
         return self.supabase_secret_key or self.supabase_service_role_key
+
+    @property
+    def gemini_api_key_pool(self) -> list[str]:
+        """Gemini keys in try-order: GEMINI_API_KEY first, then GEMINI_API_KEYS."""
+        return merge_key_pool(self.gemini_api_key, self.gemini_api_keys)
+
+    @property
+    def groq_api_key_pool(self) -> list[str]:
+        """Groq keys in try-order: GROQ_API_KEY first, then GROQ_API_KEYS."""
+        return merge_key_pool(self.groq_api_key, self.groq_api_keys)
 
     @property
     def supabase_configured(self) -> bool:

@@ -14,8 +14,12 @@ migration 20260716010000 looked like a no-op. These tests pin the rule:
 """
 from __future__ import annotations
 
+import asyncio
+from types import SimpleNamespace
+
 import pytest
 
+from app.jobs import scheduler as sched
 from app.scrapers.tradingview import TV_SECTOR_MAP
 
 
@@ -67,3 +71,93 @@ def test_fundamentals_writes_sector_when_dps_returns_one():
     if scraped_sector:
         row["sector"] = scraped_sector
     assert row["sector"] == "Commercial Banks"
+
+
+# The tests above assert against `_tv_sector_for`, a copy of the rule. They pass
+# whether or not job_refresh_tv_data still applies it, so they cannot catch a
+# regression in the job itself. The tests below drive the real function and
+# assert on the rows it actually upserts.
+
+
+def _drive_tv_job(monkeypatch, *, existing, tv_items, preload_raises=None):
+    """Run job_refresh_tv_data against fakes; return (upserted_rows, health)."""
+    upserted: list[list[dict]] = []
+    health: list[dict] = []
+
+    async def _fake_select_all(_table, _cols, **_kw):
+        if preload_raises is not None:
+            raise preload_raises
+        return existing
+
+    async def _fake_fetch():
+        return tv_items
+
+    async def _fake_async_execute(builder):
+        class _Tbl:
+            def upsert(self, rows, **_kw):
+                upserted.append(rows)
+                return self
+
+        builder(SimpleNamespace(table=lambda _n: _Tbl()))
+        return SimpleNamespace(data=[])
+
+    async def _fake_health(source, success, rows_updated=0, error=None):
+        health.append({"source": source, "success": success, "error": error})
+
+    monkeypatch.setattr(sched, "select_all", _fake_select_all)
+    monkeypatch.setattr(sched.tv, "fetch_market_data", _fake_fetch)
+    monkeypatch.setattr(sched, "async_execute", _fake_async_execute)
+    monkeypatch.setattr(sched, "_record_health", _fake_health)
+
+    asyncio.get_event_loop()
+    return upserted, health
+
+
+@pytest.mark.asyncio
+async def test_job_preserves_dps_sector_end_to_end(monkeypatch):
+    """The real job must not write a TV bucket over a DPS-classified symbol."""
+    upserted, _ = _drive_tv_job(
+        monkeypatch,
+        existing=[{"symbol": "HBL", "sector": "COMMERCIAL BANKS"}],
+        tv_items=[{"symbol": "HBL", "name": "Habib Bank", "sector": "Finance"}],
+    )
+
+    await sched.job_refresh_tv_data()
+
+    assert upserted, "job wrote nothing"
+    assert upserted[0][0]["sector"] == "COMMERCIAL BANKS"
+
+
+@pytest.mark.asyncio
+async def test_job_fills_sector_only_when_dps_has_none(monkeypatch):
+    upserted, _ = _drive_tv_job(
+        monkeypatch,
+        existing=[{"symbol": "NEWCO", "sector": None}],
+        tv_items=[{"symbol": "NEWCO", "name": "New Co", "sector": "Finance"}],
+    )
+
+    await sched.job_refresh_tv_data()
+
+    assert upserted[0][0]["sector"] == "BANKING & FINANCE"
+
+
+@pytest.mark.asyncio
+async def test_preload_failure_never_clobbers_sectors_market_wide(monkeypatch):
+    """A failed pre-load must abort the job, not proceed with an empty map.
+
+    The bug: the pre-load was wrapped in a bare `except Exception` that logged
+    at DEBUG and continued. With an empty map every symbol falls through to the
+    TV bucket and gets upserted, replacing PSX's taxonomy market-wide — while
+    the job reported itself healthy.
+    """
+    upserted, health = _drive_tv_job(
+        monkeypatch,
+        existing=[],
+        tv_items=[{"symbol": "HBL", "name": "Habib Bank", "sector": "Finance"}],
+        preload_raises=RuntimeError("supabase 503"),
+    )
+
+    await sched.job_refresh_tv_data()
+
+    assert not upserted, "job clobbered sectors after failing to read existing ones"
+    assert health and health[-1]["success"] is False, "a failed pre-load reported healthy"

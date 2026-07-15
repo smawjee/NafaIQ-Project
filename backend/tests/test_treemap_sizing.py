@@ -25,13 +25,13 @@ def _clear_cache():
 
 
 def _fake_async_execute(snapshot_rows, profile_rows):
-    """Return the snapshot rows on the 1st call, profile rows on the 2nd."""
-    calls = {"n": 0}
+    """Serve each table's rows to get_treemap's paged reads.
 
-    async def _fake(_builder):
-        calls["n"] += 1
-        data = snapshot_rows if calls["n"] == 1 else profile_rows
-        return SimpleNamespace(data=data)
+    Keyed by table name rather than call order: both reads now page via
+    select_all, so call count is an implementation detail.
+    """
+    async def _fake(table, _columns, **_kwargs):
+        return snapshot_rows if table == "psx_market_snapshot" else profile_rows
 
     return _fake
 
@@ -40,7 +40,7 @@ def _fake_async_execute(snapshot_rows, profile_rows):
 async def test_real_market_cap_when_listed_shares_present(monkeypatch):
     monkeypatch.setattr(
         tm,
-        "async_execute",
+        "select_all",
         _fake_async_execute(
             [{"symbol": "HBL", "price": 100.0, "change_pct": 1.0, "volume": 1000}],
             [{"symbol": "HBL", "sector": "BANKING", "name": "Habib Bank",
@@ -62,7 +62,7 @@ async def test_market_cap_is_none_when_listed_shares_missing(monkeypatch):
     """The regression this guards: a proxy leaking into `market_cap`."""
     monkeypatch.setattr(
         tm,
-        "async_execute",
+        "select_all",
         _fake_async_execute(
             [{"symbol": "OGDC", "price": 100.0, "change_pct": 2.0, "volume": 10_000}],
             [{"symbol": "OGDC", "sector": "OIL & GAS", "name": "Oil & Gas Dev",
@@ -87,7 +87,7 @@ async def test_market_cap_is_none_when_listed_shares_missing(monkeypatch):
 async def test_sector_cap_withheld_when_only_some_stocks_have_real_caps(monkeypatch):
     monkeypatch.setattr(
         tm,
-        "async_execute",
+        "select_all",
         _fake_async_execute(
             [
                 {"symbol": "AAA", "price": 10.0, "change_pct": 1.0, "volume": 100},
@@ -113,7 +113,7 @@ async def test_sector_cap_withheld_when_only_some_stocks_have_real_caps(monkeypa
 async def test_stock_skipped_only_when_both_signals_absent(monkeypatch):
     monkeypatch.setattr(
         tm,
-        "async_execute",
+        "select_all",
         _fake_async_execute(
             [{"symbol": "DEAD", "price": 5.0, "change_pct": 0.0, "volume": 0}],
             [{"symbol": "DEAD", "sector": "X", "name": "Dead Co",

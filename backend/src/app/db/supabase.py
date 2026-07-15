@@ -29,3 +29,31 @@ async def async_execute(query_fn):
         client = create_client(settings.supabase_url, settings.supabase_service_key)
         return query_fn(client).execute()
     return await asyncio.to_thread(_run)
+
+
+# PostgREST serves at most ~1000 rows per response (Supabase's default
+# max-rows) however many a query asks for, and reports no error when it clips.
+# Any read of a table that can exceed this MUST page.
+PAGE_SIZE = 1000
+
+
+async def select_all(table: str, columns: str, *, order_by: str, page_size: int = PAGE_SIZE) -> list[dict]:
+    """Read every row of ``table``, paging past PostgREST's ~1000-row cap.
+
+    ``order_by`` must name a unique column: paging is offset-based, so without a
+    total order Postgres may return a row on two pages or on none.
+    """
+    rows: list[dict] = []
+    offset = 0
+    while True:
+        res = await async_execute(
+            lambda c, o=offset: c.table(table)
+            .select(columns)
+            .order(order_by)
+            .range(o, o + page_size - 1)
+        )
+        page = res.data or []
+        rows.extend(page)
+        if len(page) < page_size:
+            return rows
+        offset += page_size

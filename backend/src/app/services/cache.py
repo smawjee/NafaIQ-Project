@@ -7,7 +7,7 @@ from typing import Awaitable, Callable, Optional
 
 import structlog
 
-from app.db.supabase import async_execute, get_supabase
+from app.db.supabase import async_execute, get_supabase, select_all
 from app.scrapers.dps import DPSScraper
 from app.models import (
     MarketSnapshotItem,
@@ -76,8 +76,7 @@ class CacheLayer:
 
     async def get_market_snapshot(self, max_age_seconds: int = 5) -> list[MarketSnapshotItem]:
         try:
-            result = await async_execute(lambda c: c.table("psx_market_snapshot").select("*"))
-            rows = result.data or []
+            rows = await select_all("psx_market_snapshot", "*", order_by="symbol")
             if rows:
                 newest = max((r.get("refreshed_at") or "" for r in rows), default="")
                 stale = True
@@ -164,10 +163,9 @@ class CacheLayer:
 
     async def get_symbols(self, max_age_seconds: int = 86400) -> list[SymbolInfo]:
         try:
-            result = await async_execute(
-                lambda c: c.table("psx_profile").select("symbol,name,sector,logoid,refreshed_at")
+            rows = await select_all(
+                "psx_profile", "symbol,name,sector,logoid,refreshed_at", order_by="symbol"
             )
-            rows = result.data or []
             if rows:
                 newest = max((r.get("refreshed_at") or "" for r in rows), default="")
                 stale = True
@@ -519,15 +517,15 @@ class CacheLayer:
     async def get_sectors(self) -> list[SectorDataItem]:
         """Build sector aggregates from cached snapshot + profile data."""
         try:
-            result = await async_execute(lambda c: c.table("psx_market_snapshot").select("*"))
-            snapshot = [_row_to_market_snapshot(r) for r in (result.data or [])]
+            rows = await select_all("psx_market_snapshot", "*", order_by="symbol")
+            snapshot = [_row_to_market_snapshot(r) for r in rows]
         except Exception:
             snapshot = await self.dps.fetch_market_watch()
 
         sector_map: dict[str, str] = {}
         try:
-            profiles = await async_execute(lambda c: c.table("psx_profile").select("symbol,sector"))
-            for p in (profiles.data or []):
+            profiles = await select_all("psx_profile", "symbol,sector", order_by="symbol")
+            for p in profiles:
                 if p.get("symbol") and p.get("sector"):
                     sector_map[p["symbol"]] = p["sector"]
         except Exception:

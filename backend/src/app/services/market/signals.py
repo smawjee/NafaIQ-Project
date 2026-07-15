@@ -50,12 +50,14 @@ async def get_signal(symbol: str) -> dict[str, Any]:
 
 
 async def batch_signals(limit: int = 50) -> dict[str, Any]:
-    engine = get_signal_engine()
     symbols = await repo.top_symbols_by_volume(limit)
     results = []
     for sym in symbols:
         try:
-            results.append(await asyncio.to_thread(engine.predict, sym))
+            # Via get_signal, not engine.predict: this went straight to the
+            # model and bypassed the 4h cache above, so every batch call paid
+            # full inference for symbols already predicted minutes earlier.
+            results.append(await get_signal(sym))
         except Exception:
             pass
     return {"signals": results, "count": len(results)}

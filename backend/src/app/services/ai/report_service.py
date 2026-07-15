@@ -102,14 +102,15 @@ async def serve(
     if mode == SHARED:
         async with connect() as conn:
             cached = await reports_repo.get_latest_report(
-                conn, user_id=None, report_type=spec.report_type, subject=subject
+                conn, user_id=None, report_type=spec.report_type,
+                subject=subject, lang=lang,
             )
         if cached and cached.get("trading_date") == today:
             return _from_row(cached, spec.report_type)
     elif mode == USER_DAILY:
         async with connect() as conn:
             cached = await reports_repo.get_latest_report(
-                conn, user_id=user_id, report_type=spec.report_type
+                conn, user_id=user_id, report_type=spec.report_type, lang=lang
             )
         if cached and cached.get("trading_date") == today:
             return _from_row(cached, spec.report_type)
@@ -161,6 +162,7 @@ async def serve(
             period_days=days,
             content=content,
             context_hash=context_hash,
+            lang=lang,
             verified=gen.verification.verified,
             provider=gen.provider,
             model=gen.model,

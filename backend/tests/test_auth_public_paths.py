@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import pytest
 
-from app.middleware.auth import PROTECTED_PATHS, _is_public_path, _is_user_path
+from app.middleware.auth import ADMIN_PATHS, _is_public_path, _is_user_path
 
 
 @pytest.mark.parametrize(
@@ -35,7 +35,7 @@ def test_public_market_paths_are_public(path: str) -> None:
     assert _is_public_path(path) is True
 
 
-@pytest.mark.parametrize("path", sorted(PROTECTED_PATHS))
+@pytest.mark.parametrize("path", sorted(ADMIN_PATHS))
 def test_protected_paths_are_not_public(path: str) -> None:
     """Write/admin endpoints under a public prefix fall through to the token check."""
     assert _is_public_path(path) is False
@@ -43,7 +43,7 @@ def test_protected_paths_are_not_public(path: str) -> None:
 
 def test_funds_import_is_protected() -> None:
     # Explicit: this is the endpoint that was anonymously writable.
-    assert "/api/funds/import" in PROTECTED_PATHS
+    assert "/api/funds/import" in ADMIN_PATHS
     assert _is_public_path("/api/funds/import") is False
     # ...while the sibling read endpoints stay public.
     assert _is_public_path("/api/funds") is True
@@ -80,3 +80,57 @@ def test_prefix_matching_respects_boundaries() -> None:
     assert _is_public_path("/api/index") is True
     assert _is_public_path("/api/index/KSE100") is True
     assert _is_public_path("/api/indexed-something") is False
+
+
+# The classification tests above prove /api/funds/import is not public. They do
+# NOT prove which credential it accepts. It used to accept PSX_API_TOKEN, which
+# the web app ships as VITE_PSX_API_TOKEN — inlined into the public browser
+# bundle and readable in DevTools, so the guard authenticated nobody. These
+# drive the middleware and pin the credential itself.
+
+
+def _client(api_token: str = "public-bundle-token", admin_token: str = "backend-only-token"):
+    from fastapi import FastAPI
+    from fastapi.testclient import TestClient
+
+    from app.config import settings
+    from app.middleware.auth import BearerTokenMiddleware
+
+    settings.psx_api_token = api_token
+    settings.psx_admin_token = admin_token
+
+    app = FastAPI()
+    app.add_middleware(BearerTokenMiddleware)
+
+    @app.post("/api/funds/import")
+    async def _import():
+        return {"ok": True}
+
+    return TestClient(app)
+
+
+def test_admin_path_rejects_the_browser_readable_api_token() -> None:
+    """The token Vite inlines into the public bundle must NOT open an admin write."""
+    r = _client().post(
+        "/api/funds/import", headers={"Authorization": "Bearer public-bundle-token"}
+    )
+    assert r.status_code == 401, "the public VITE_PSX_API_TOKEN was accepted as admin"
+
+
+def test_admin_path_accepts_the_admin_token() -> None:
+    r = _client().post(
+        "/api/funds/import", headers={"Authorization": "Bearer backend-only-token"}
+    )
+    assert r.status_code == 200
+
+
+def test_admin_path_rejects_anonymous() -> None:
+    assert _client().post("/api/funds/import").status_code == 401
+
+
+def test_admin_path_fails_closed_when_admin_token_unset() -> None:
+    """An unconfigured server must refuse, not fall back to the shared token."""
+    r = _client(admin_token="").post(
+        "/api/funds/import", headers={"Authorization": "Bearer public-bundle-token"}
+    )
+    assert r.status_code == 503

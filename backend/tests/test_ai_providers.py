@@ -14,6 +14,24 @@ SSE_BODY = (
 MESSAGES = [{"role": "user", "content": "hi"}]
 
 
+@pytest.fixture(autouse=True)
+def _isolate_key_pools(monkeypatch):
+    """Blank the multi-key pool vars for every test in this module.
+
+    providers.py tries GEMINI_API_KEY first, then every key in GEMINI_API_KEYS.
+    Any developer or CI box with those populated made these tests exercise the
+    real pool: the 429 test rotated through live production keys instead of
+    testing rotation, and the missing-key test could not reach the no-keys
+    branch at all. Each test opts back in to exactly the keys it means to test.
+    """
+    from app.config import settings
+
+    monkeypatch.setattr(settings, "gemini_api_key", "")
+    monkeypatch.setattr(settings, "gemini_api_keys", "")
+    monkeypatch.setattr(settings, "groq_api_key", "")
+    monkeypatch.setattr(settings, "groq_api_keys", "")
+
+
 def _ok_transport() -> httpx.MockTransport:
     return httpx.MockTransport(
         lambda request: httpx.Response(

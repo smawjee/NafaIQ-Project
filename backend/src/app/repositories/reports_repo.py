@@ -33,6 +33,7 @@ async def insert_report(
     period_days: Optional[int],
     content: dict[str, Any],
     context_hash: str,
+    lang: str = "en",
     verified: bool = False,
     provider: Optional[str] = None,
     model: Optional[str] = None,
@@ -44,15 +45,17 @@ async def insert_report(
             """
             INSERT INTO ai_reports
                 (user_id, report_type, subject, period_days, trading_date,
-                 content, context_hash, verified, provider, model)
+                 content, context_hash, verified, provider, model, lang)
             VALUES
                 (:uid, :report_type, :subject, :period_days, :trading_date,
-                 :content::jsonb, :context_hash, :verified, :provider, :model)
+                 :content::jsonb, :context_hash, :verified, :provider, :model,
+                 :lang)
             RETURNING id, created_at
             """
         ),
         {
             "uid": user_id,
+            "lang": lang,
             "report_type": report_type,
             "subject": subject,
             "period_days": period_days,
@@ -137,22 +140,31 @@ async def get_latest_report(
     user_id: Optional[str],
     report_type: str,
     subject: Optional[str] = None,
+    lang: str = "en",
 ) -> Optional[dict[str, Any]]:
-    """Latest report for a (user_id, report_type[, subject])."""
+    """Latest report for a (user_id, report_type, lang[, subject]).
+
+    `lang` is part of the key, not a filter you may omit: the cached content is
+    written in that language, so serving it to a reader who asked for another
+    is a wrong answer, not a stale one.
+    """
     result = await conn.execute(
         text(
             """
             SELECT id, user_id, report_type, subject, period_days, trading_date,
-                   content, context_hash, verified, provider, model, created_at
+                   content, context_hash, verified, provider, model, created_at,
+                   lang
             FROM ai_reports
             WHERE user_id IS NOT DISTINCT FROM :uid
               AND report_type = :report_type
               AND subject IS NOT DISTINCT FROM :subject
+              AND lang = :lang
             ORDER BY created_at DESC
             LIMIT 1
             """
         ),
-        {"uid": user_id, "report_type": report_type, "subject": subject},
+        {"uid": user_id, "report_type": report_type, "subject": subject,
+         "lang": lang},
     )
     row = result.mappings().first()
     return dict(row) if row else None

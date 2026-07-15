@@ -55,8 +55,8 @@ async def list_holdings_owned(user_id: str, portfolio_id: int) -> list[dict[str,
 
 
 def _parse_purchased_at(purchased_at: Optional[str]) -> datetime:
-    """A holding's purchased_at (date string) becomes the lot's executed_at.
-    Falls back to now() when absent or unparseable."""
+    """Parse a holding's purchased_at (date string) for the display-only
+    purchased_at column. Falls back to now() when absent or unparseable."""
     if purchased_at:
         try:
             return datetime.fromisoformat(purchased_at)
@@ -79,7 +79,12 @@ async def add_holding(user: dict, portfolio_id: int, body: HoldingCreate) -> dic
             user, feature_key="max_holdings_per_portfolio", current=current, label="Holdings"
         )
 
-        executed = _parse_purchased_at(body.purchased_at)
+        # Lot time = now, never body.purchased_at. `_fold_lots` reads an `adjust`
+        # lot as an absolute snapshot, so a back-dated buy would sort ahead of a
+        # prior correction and be folded away — the buy would vanish from the
+        # reconstruction. A back-dated buy is therefore no longer economically
+        # meaningful; purchased_at survives as display metadata only (below).
+        executed = datetime.now(timezone.utc)
         trade = StockTransactionCreate(
             portfolio_id=portfolio_id,
             symbol=body.symbol,
@@ -96,6 +101,13 @@ async def add_holding(user: dict, portfolio_id: int, body: HoldingCreate) -> dic
             apply_holding=True, reflect_finance=True,
         )
         holding = await repo.get_holding_by_symbol_full(sess, portfolio_id, body.symbol)
+        # `_apply_holding_change` stamped purchased_at from the lot time; restore
+        # the user's date, which is what this column is for.
+        purchased = _parse_purchased_at(body.purchased_at).date()
+        if holding is not None and purchased != executed.date():
+            holding = await repo.update_holding_fields(
+                sess, holding["id"], {"purchased_at": purchased}
+            )
         await sess.commit()
 
     # Activity notification (from dev). Fired only after the transaction has

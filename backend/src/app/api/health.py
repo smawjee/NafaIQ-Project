@@ -43,8 +43,14 @@ async def health_sources(request: Request):
     """
     from app.db.supabase import async_execute
     try:
+        # Explicit columns, NOT select("*"): last_error_message holds the raw
+        # str(e) that _record_health captured from the job, which can carry the
+        # Supabase project URL, table names and connection detail. This
+        # endpoint is anonymous, so the widget gets the error *timestamp* to
+        # show a source as unhealthy; the text stays in the logs.
         result = await async_execute(lambda c: c.table("psx_data_source_health")
-                                     .select("*")
+                                     .select("source,last_success,last_error,"
+                                             "rows_updated,refreshed_at")
                                      .order("source"))
         rows = result.data or []
         return {"sources": rows, "healthy": True}

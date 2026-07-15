@@ -21,13 +21,15 @@ async def list_filings(
     symbol: str,
     limit: int = Query(50, ge=1, le=200),
 ):
-    """List filings for ``symbol`` (most recent first)."""
+    """List filings for ``symbol`` (most recent first), without the PDF body —
+    up to 200 full texts per response is megabytes of payload the list view has
+    no use for. ``get_filing`` serves the body for the one filing being read."""
     from app.db.supabase import async_execute
 
     sym = symbol.upper()
     result = await async_execute(
         lambda c: c.table("filings")
-        .select("announcement_id,symbol,type,filed_at,pdf_url,text_content,page_count,refreshed_at")
+        .select("announcement_id,symbol,type,filed_at,pdf_url,page_count,refreshed_at")
         .eq("symbol", sym)
         .order("filed_at", desc=True)
         .limit(limit)

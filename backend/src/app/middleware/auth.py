@@ -27,10 +27,16 @@ USER_PATHS_PREFIXES = (
     "/api/integrations",
 )
 
-# Write/admin endpoints that live under an otherwise-public prefix.
-# Checked BEFORE PUBLIC_PATH_PREFIXES so they fall through to the shared
-# API-token check instead of being exposed anonymously.
-PROTECTED_PATHS = {
+# Write/admin endpoints that live under an otherwise-public prefix. Checked
+# BEFORE PUBLIC_PATH_PREFIXES so they are not exposed anonymously.
+#
+# These validate PSX_ADMIN_TOKEN, NOT the shared PSX_API_TOKEN. The shared
+# token is not a secret: frontend/packages/web/.env.example ships it as
+# VITE_PSX_API_TOKEN, and Vite inlines every VITE_-prefixed var into the public
+# browser bundle, so anyone can read it in DevTools. Gating a service-role
+# write on it would only look like authentication. PSX_ADMIN_TOKEN is
+# backend-only and must never be given a VITE_ alias.
+ADMIN_PATHS = {
     "/api/funds/import",
 }
 
@@ -72,7 +78,7 @@ def _is_user_path(path: str) -> bool:
 
 
 def _is_public_path(path: str) -> bool:
-    if path in PROTECTED_PATHS:
+    if path in ADMIN_PATHS:
         return False
     return any(_matches_prefix(path, prefix) for prefix in PUBLIC_PATH_PREFIXES)
 
@@ -84,6 +90,19 @@ class BearerTokenMiddleware(BaseHTTPMiddleware):
         if not request.url.path.startswith("/api/"):
             return await call_next(request)
         if request.url.path in PUBLIC_PATHS:
+            return await call_next(request)
+        # Admin writes: backend-only token, checked before anything else can
+        # let the path through. Fails closed when unset — an unconfigured
+        # server must not fall back to the browser-readable shared token.
+        if request.url.path in ADMIN_PATHS:
+            if not settings.psx_admin_token:
+                return JSONResponse(
+                    {"detail": "Admin token not configured on server"}, status_code=503
+                )
+            if request.headers.get("Authorization", "") != f"Bearer {settings.psx_admin_token}":
+                return JSONResponse(
+                    {"detail": "Invalid or missing admin token"}, status_code=401
+                )
             return await call_next(request)
         # User paths: pass through; require_user dependency validates JWT
         if _is_user_path(request.url.path):

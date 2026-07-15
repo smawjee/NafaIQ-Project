@@ -15,7 +15,7 @@ from datetime import date, datetime, timedelta, timezone
 
 import structlog
 
-from app.db.supabase import async_execute
+from app.db.supabase import async_execute, select_all
 
 log = structlog.get_logger()
 
@@ -35,12 +35,11 @@ class VolumeSpikeDetector:
 
     async def detect(self) -> list[dict]:
         try:
-            snapshot = await async_execute(
-                lambda c: c.table("psx_market_snapshot").select(
-                    "symbol,price,change_pct,volume,refreshed_at"
-                )
+            rows = await select_all(
+                "psx_market_snapshot",
+                "symbol,price,change_pct,volume,refreshed_at",
+                order_by="symbol",
             )
-            rows = snapshot.data or []
             if not rows:
                 return []
         except Exception:
