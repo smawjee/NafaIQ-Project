@@ -3,17 +3,21 @@ import { Link } from "@tanstack/react-router";
 import { ArrowDown, ArrowUp } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { formatCompact } from "@/lib/format";
-import type { ApiTreemap } from "@/lib/psx/types";
 
-export function TopMoversView({ data }: { data: ApiTreemap }) {
+/** One row of the movers table. Presentational — the caller ranks and slices;
+ * this view must not be fed the treemap payload, which the backend caps to the
+ * 20 largest stocks per sector and so hides small-cap movers entirely. */
+export type TopMover = {
+  symbol: string;
+  sector: string;
+  price: number;
+  change_pct: number;
+  volume: number;
+  market_cap: number | null;
+};
+
+export function TopMoversView({ movers }: { movers: TopMover[] }) {
   const { t } = useLang();
-
-  const allStocks = data.sectors.flatMap((s) =>
-    s.stocks.map((st) => ({ ...st, sector: s.name }))
-  );
-  const top30 = [...allStocks]
-    .sort((a, b) => Math.abs(b.change_pct) - Math.abs(a.change_pct))
-    .slice(0, 30);
 
   return (
     <div className="overflow-x-auto rounded-[8px] border border-border">
@@ -30,7 +34,7 @@ export function TopMoversView({ data }: { data: ApiTreemap }) {
           </tr>
         </thead>
         <tbody>
-          {top30.map((s, i) => {
+          {movers.map((s, i) => {
             const isUp = s.change_pct >= 0;
             return (
               <tr

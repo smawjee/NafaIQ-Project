@@ -133,6 +133,11 @@ export const UR: Record<string, string> = {
   "Mkt Cap": "مارکیٹ کیپ",
   "Sector Heatmap": "سیکٹر ہیٹ میپ",
   "Add Stock": "اسٹاک شامل کریں",
+  // Heatmap tiles are sized by size_metric — a real market cap where we have
+  // listed_shares, a volume proxy otherwise. "By Size" over "By Market Cap".
+  "By Size": "سائز کے حساب سے",
+  "Tile size": "ٹائل کا سائز",
+  "Volume-based estimate": "حجم پر مبنی تخمینہ",
 
   // ---- Finance ----
   "Saved this month": "اس ماہ بچایا",

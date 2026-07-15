@@ -99,7 +99,7 @@ export function DashboardRecommendation({
             <h2 className="text-sm font-semibold text-text-primary">{t("AI Recommendation")}</h2>
             {data.confidence != null && (
               <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold text-primary">
-                {Math.round(data.confidence)}% confidence
+                {Math.round(data.confidence)}% {t("Confidence")}
               </span>
             )}
           </div>

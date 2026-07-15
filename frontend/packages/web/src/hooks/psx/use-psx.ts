@@ -116,7 +116,10 @@ export function useMarketTickers(limit = 20): UiTicker[] {
   }, [snapshot, symbols, limit]);
 }
 
-export function useMarketMovers(sort: "gainers" | "losers" | "volume", limit = 6): UiTicker[] {
+export function useMarketMovers(
+  sort: "gainers" | "losers" | "volume" | "abs",
+  limit = 6,
+): UiTicker[] {
   const { data: snapshot } = usePsxLiveMarket();
   const { data: symbols } = usePsxSymbols();
   if (!snapshot || !symbols) return [];
@@ -137,6 +140,10 @@ export function useMarketMovers(sort: "gainers" | "losers" | "volume", limit = 6
       .sort((a, b) => b.changePct - a.changePct)
       .slice(0, limit);
   if (sort === "losers") return arr.sort((a, b) => a.changePct - b.changePct).slice(0, limit);
+  // "abs": biggest movers in either direction. Distinct from "gainers", which
+  // filters to changePct > 0 and so can never surface a faller.
+  if (sort === "abs")
+    return arr.sort((a, b) => Math.abs(b.changePct) - Math.abs(a.changePct)).slice(0, limit);
   return arr.sort((a, b) => b.volume - a.volume).slice(0, limit);
 }
 

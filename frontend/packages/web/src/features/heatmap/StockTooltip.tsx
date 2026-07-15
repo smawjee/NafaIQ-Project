@@ -22,6 +22,11 @@ export function StockTooltip({
   const isUp = stock.change_pct >= 0;
   const logoUrl = logoUrlFor(stock.logoid);
   const sign = isUp ? "+" : "";
+  // The backend leaves market_cap null rather than inventing one when
+  // listed_shares is unknown, and sizes the tile off a price*sqrt(volume)
+  // proxy instead. Say so — an unlabelled "—" reads as missing data when the
+  // real answer is "the tile is sized on something other than market cap".
+  const isVolumeProxy = stock.sizing_basis === "volume_proxy";
 
   return (
     <div
@@ -74,11 +79,15 @@ export function StockTooltip({
             {stock.volume.toLocaleString()}
           </span>
         </div>
-        <div className="flex items-center justify-between">
-          <span className="text-text-muted">{t("Mkt Cap")}</span>
-          <span className="font-mono tabular-nums text-text-secondary">
-            {stock.market_cap != null ? formatCompact(stock.market_cap) : "—"}
-          </span>
+        <div className="flex items-center justify-between gap-2">
+          <span className="text-text-muted">{isVolumeProxy ? t("Tile size") : t("Mkt Cap")}</span>
+          {isVolumeProxy ? (
+            <span className="text-right text-text-secondary">{t("Volume-based estimate")}</span>
+          ) : (
+            <span className="font-mono tabular-nums text-text-secondary">
+              {stock.market_cap != null ? formatCompact(stock.market_cap) : "—"}
+            </span>
+          )}
         </div>
       </div>
       <div className="mt-2 flex items-center gap-1 border-t border-border pt-2 text-[10px] text-text-muted">

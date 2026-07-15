@@ -159,7 +159,9 @@ export function Treemap({
   }
 
   const sectors = layout.root?.children ?? [];
-  const totalStocks = data.stock_count;
+  // Per-sector counts are post-cap; the payload's top-level stock_count is not.
+  // Summing keeps the label honest about how many tiles are actually drawn.
+  const totalStocks = data.sectors.reduce((n, s) => n + s.stock_count, 0);
   const sectorCount = data.sectors.length;
 
   const renderLeaf = (
@@ -184,7 +186,8 @@ export function Treemap({
       sizing_basis: leaf.data.sizing_basis,
       logoid: leaf.data.logoid ?? null,
     };
-    const headerOffset = drilledSector ? 0 : SECTOR_HEADER_HEIGHT;
+    // No header offset here: d3's .paddingTop() already insets a sector's
+    // children, so `offsetY` (leaf.y0 - sector.y0) clears the label band.
     return (
       <g
         key={`${keyPrefix}-${leaf.data.symbol}`}
@@ -192,9 +195,9 @@ export function Treemap({
       >
         <rect
           x={0}
-          y={headerOffset}
+          y={0}
           width={w}
-          height={h - headerOffset}
+          height={h}
           fill={tileColor(leaf.data.change_pct)}
           stroke="var(--color-border)"
           strokeWidth={0.5}
@@ -222,7 +225,7 @@ export function Treemap({
         {showSymbol && (
           <text
             x={4}
-            y={headerOffset + 12}
+            y={12}
             fontSize={11}
             fontWeight={600}
             fill="currentColor"
@@ -234,7 +237,7 @@ export function Treemap({
         {showPct && (
           <text
             x={4}
-            y={headerOffset + 24}
+            y={24}
             fontSize={10}
             fill="currentColor"
             className="pointer-events-none select-none"

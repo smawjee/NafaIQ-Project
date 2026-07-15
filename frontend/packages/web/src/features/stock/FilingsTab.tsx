@@ -1,5 +1,13 @@
 import { useState, useCallback } from "react";
-import { ChevronDown, ChevronRight, FileText, ExternalLink, Loader2 } from "lucide-react";
+import {
+  ChevronDown,
+  ChevronRight,
+  FileText,
+  ExternalLink,
+  Loader2,
+  AlertTriangle,
+  RefreshCw,
+} from "lucide-react";
 import { useFilings } from "@/hooks/psx/use-extras";
 import { fetchFiling } from "@/lib/psx/client";
 import type { ApiFiling } from "@/lib/psx/client";
@@ -15,24 +23,35 @@ export function FilingsTab({ symbol }: { symbol: string }) {
   const [openId, setOpenId] = useState<string | null>(null);
   const [expandedFiling, setExpandedFiling] = useState<ApiFiling | null>(null);
   const [expandedLoading, setExpandedLoading] = useState(false);
+  const [expandedFailed, setExpandedFailed] = useState(false);
+
+  // The list response carries no text_content (the body is megabytes the list
+  // never renders), so this detail fetch is the ONLY source of a filing's text.
+  // A failure here must therefore surface as a failure — the old silent
+  // fallback to the list row made a broken endpoint look like an empty filing.
+  const loadFiling = useCallback(async (announcementId: string) => {
+    setExpandedLoading(true);
+    setExpandedFailed(false);
+    try {
+      setExpandedFiling(await fetchFiling(symbol, announcementId));
+    } catch {
+      setExpandedFiling(null);
+      setExpandedFailed(true);
+    } finally {
+      setExpandedLoading(false);
+    }
+  }, [symbol]);
 
   const handleToggle = useCallback(async (announcementId: string) => {
     const willOpen = openId !== announcementId;
     setOpenId((cur) => (cur === announcementId ? null : announcementId));
     if (willOpen) {
-      setExpandedLoading(true);
-      try {
-        const filing = await fetchFiling(symbol, announcementId);
-        setExpandedFiling(filing);
-      } catch {
-        setExpandedFiling(null);
-      } finally {
-        setExpandedLoading(false);
-      }
+      await loadFiling(announcementId);
     } else {
       setExpandedFiling(null);
+      setExpandedFailed(false);
     }
-  }, [symbol, openId]);
+  }, [openId, loadFiling]);
 
   if (isLoading) {
     return (
@@ -58,6 +77,8 @@ export function FilingsTab({ symbol }: { symbol: string }) {
           onToggle={() => handleToggle(f.announcement_id)}
           t={t}
           isLoading={expandedLoading && openId === f.announcement_id}
+          isFailed={expandedFailed && openId === f.announcement_id}
+          onRetry={() => loadFiling(f.announcement_id)}
         />
       ))}
     </div>
@@ -70,12 +91,16 @@ function FilingRow({
   onToggle,
   t,
   isLoading,
+  isFailed,
+  onRetry,
 }: {
   filing: ApiFiling;
   isOpen: boolean;
   onToggle: () => void;
   t: (k: string) => string;
   isLoading?: boolean;
+  isFailed?: boolean;
+  onRetry?: () => void;
 }) {
   return (
     <div className="rounded-[8px] border border-border bg-surface-alt">
@@ -121,13 +146,31 @@ function FilingRow({
           {t("Loading filing text...")}
         </div>
       )}
-      {isOpen && !isLoading && filing.text_content && (
+      {isOpen && !isLoading && isFailed && (
+        <div className="flex items-center gap-2 border-t border-border px-4 py-6 text-sm text-text-secondary">
+          <AlertTriangle className="h-4 w-4 shrink-0 text-warning" />
+          <span className="flex-1 leading-relaxed">
+            {t("Couldn't load this filing's text. Please try again.")}
+          </span>
+          {onRetry && (
+            <button
+              type="button"
+              onClick={onRetry}
+              className="flex shrink-0 items-center gap-1.5 rounded-[6px] border border-border bg-surface px-3 py-1.5 text-xs font-semibold text-text-secondary transition hover:border-text-secondary/40"
+            >
+              <RefreshCw className="h-3.5 w-3.5" />
+              {t("Try again")}
+            </button>
+          )}
+        </div>
+      )}
+      {isOpen && !isLoading && !isFailed && filing.text_content && (
         <pre className="max-h-80 overflow-auto whitespace-pre-wrap border-t border-border bg-surface px-4 py-3 font-mono text-[11px] leading-relaxed text-text-secondary">
           {filing.text_content.slice(0, 4000)}
           {filing.text_content.length > 4000 ? `\n\n\u2026 (${t("truncated")})` : ""}
         </pre>
       )}
-      {isOpen && !isLoading && !filing.text_content && (
+      {isOpen && !isLoading && !isFailed && !filing.text_content && (
         <div className="flex items-center justify-center border-t border-border px-4 py-6 text-text-muted text-sm">
           {t("No text content available for this filing.")}
         </div>

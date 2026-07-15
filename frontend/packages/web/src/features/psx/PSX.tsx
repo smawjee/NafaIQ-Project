@@ -38,7 +38,7 @@ import { Treemap } from "@/features/heatmap/Treemap";
 import { HeatmapLegend } from "@/features/heatmap/HeatmapLegend";
 import { HeatmapSkeleton } from "@/features/heatmap/HeatmapSkeleton";
 import { HeatmapEmptyState } from "@/features/heatmap/HeatmapEmptyState";
-import { TopMoversView } from "@/features/heatmap/TopMoversView";
+import { TopMoversView, type TopMover } from "@/features/heatmap/TopMoversView";
 import { SYMBOLS, INDEX_INFO } from "@/features/psx/psx.data";
 import { tfDays, symbolMeta } from "@/features/psx/psx.utils";
 
@@ -59,7 +59,7 @@ export function PSX() {
   const [showAllIndices, setShowAllIndices] = useState(false);
   const [heatmapView, setHeatmapView] = useState<"treemap" | "sectors" | "movers">("treemap");
   const [drilledSector, setDrilledSector] = useState<string | null>(null);
-  const [heatmapSort, setHeatmapSort] = useState<"cap" | "change" | "volume">("cap");
+  const [heatmapSort, setHeatmapSort] = useState<"size" | "change" | "volume">("size");
   const watchlist = useWatchlist();
   const { isDemo } = useDemo();
   const [addOpen, setAddOpen] = useState(false);
@@ -135,8 +135,11 @@ export function PSX() {
         }));
       }
     } else if (ohlcvData && ohlcvData.length > 0) {
-      // Real OHLCV, oldest -> newest, most recent 250 bars.
-      return asc(ohlcvData).slice(-250);
+      // Real OHLCV, oldest -> newest. Do NOT cap here: `full` is the whole
+      // fetched series and `data` below slices it to the selected timeframe.
+      // A .slice(-250) here silently pinned "All" (tfDays = 3650) to 250 bars,
+      // defeating the deep-history paging all the way from get_history.
+      return asc(ohlcvData);
     }
     // Demo users see realistic generated candles; real users never see dummy data
     // (an empty array renders a clean "no data" state below).
@@ -279,7 +282,9 @@ export function PSX() {
 
   const sortedTreemapData = useMemo(() => {
     if (!treemapData) return null;
-    if (heatmapSort === "cap") return treemapData; // already sorted by market cap
+    // The backend already orders sectors by total_size_metric — a real market
+    // cap for most stocks, a volume proxy for the rest. Not a pure cap sort.
+    if (heatmapSort === "size") return treemapData;
 
     // Sectors carry no total_volume, so derive it from their stocks.
     const sectorVolume = (s: typeof treemapData.sectors[0]) =>
@@ -294,6 +299,33 @@ export function PSX() {
       sectors: [...treemapData.sectors].sort(sortKey),
     };
   }, [treemapData, heatmapSort]);
+
+  // The payload's top-level stock_count is pre-cap, but each sector only ships
+  // its 20 largest stocks — so summing the per-sector counts is the only figure
+  // that matches the tiles actually on screen.
+  const renderedStockCount = useMemo(
+    () => (treemapData?.sectors ?? []).reduce((n, s) => n + s.stock_count, 0),
+    [treemapData],
+  );
+
+  // Top Movers spans the whole market, so it reads the uncapped snapshot rather
+  // than the treemap payload — a small-cap limit-up never survives the backend's
+  // per-sector cap. "abs" ranks by |change| so fallers appear too; "gainers"
+  // filters to changePct > 0 and could only ever show half the movers.
+  const allMovers = useMarketMovers("abs", 30);
+  const topMovers = useMemo<TopMover[]>(
+    () =>
+      allMovers
+        .map((m) => ({
+          symbol: m.symbol,
+          sector: m.sector,
+          price: m.price,
+          change_pct: m.changePct,
+          volume: m.volume,
+          market_cap: metricsMap.get(m.symbol)?.market_cap ?? null,
+        })),
+    [allMovers, metricsMap],
+  );
 
   useEffect(() => {
     setScreenerPage(1);
@@ -747,7 +779,7 @@ export function PSX() {
             </h3>
             <p className="text-[11px] text-text-muted">
               {treemapData
-                ? `${treemapData.sectors.length} ${t("sectors")} · ${treemapData.stock_count} ${t("stocks")}`
+                ? `${treemapData.sectors.length} ${t("sectors")} · ${renderedStockCount} ${t("stocks")}`
                 : t("Loading…")}
             </p>
           </div>
@@ -755,11 +787,11 @@ export function PSX() {
             {/* Sort dropdown */}
             <select
               value={heatmapSort}
-              onChange={(e) => setHeatmapSort(e.target.value as "cap" | "change" | "volume")}
+              onChange={(e) => setHeatmapSort(e.target.value as "size" | "change" | "volume")}
               className="rounded-[6px] border border-border bg-surface px-2 py-1 text-xs text-text-primary"
               disabled={!!drilledSector}
             >
-              <option value="cap">{t("By Market Cap")}</option>
+              <option value="size">{t("By Size")}</option>
               <option value="change">{t("By % Change")}</option>
               <option value="volume">{t("By Volume")}</option>
             </select>
@@ -863,8 +895,8 @@ export function PSX() {
               ))}
             </div>
           ) : (
-            sortedTreemapData ? (
-              <TopMoversView data={sortedTreemapData} />
+            topMovers.length > 0 ? (
+              <TopMoversView movers={topMovers} />
             ) : (
               <HeatmapSkeleton height={560} />
             )
