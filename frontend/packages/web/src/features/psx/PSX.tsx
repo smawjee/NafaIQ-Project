@@ -1,13 +1,6 @@
-import { Link } from "@tanstack/react-router";
-import { useEffect, useMemo, useState } from "react";
-import {
-  Sparkles,
-  Plus,
-  Star,
-  Filter,
-  CandlestickChart as CandleIcon,
-  LineChart as LineIcon,
-} from "lucide-react";
+import { Link, useNavigate } from "@tanstack/react-router";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { Sparkles, Plus, Star, Filter, CandlestickChart as CandleIcon } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { StockSearchBox } from "@/components/search/StockSearchBox";
 import { toast } from "sonner";
@@ -19,28 +12,21 @@ import { Typewriter } from "@/components/shared/Typewriter";
 import { Change } from "@/components/market/Change";
 import { SignalBadge } from "@/components/market/SignalBadge";
 import { CandlestickChart, PriceLineChart, Sparkline } from "@/components/charts/charts";
-import {
-  INDICES,
-  STOCKS,
-  STOCK_LIST,
-  SECTORS,
-  generateOHLCV,
-  sma,
-  fmtNum,
-  type Signal,
-} from "@/lib/data";
+import { ChartToolbar, type Indicator, type Timeframe } from "@/components/charts/ChartToolbar";
+import { INDICES, STOCKS, STOCK_LIST, generateOHLCV, sma, fmtNum, type Signal } from "@/lib/data";
 import {
   usePsxLiveMarket,
   usePsxRealtime,
   usePsxHistory,
-  usePsxSectors,
   usePsxSymbols,
   usePsxIndexData,
   usePsxBatchSignals,
   usePsxScreenerMetrics,
+  usePsxTreemap,
   useMarketMovers,
   useIndexCards,
 } from "@/hooks/psx/use-psx";
+import { usePersistedTfMap } from "@/hooks/psx/use-persisted-tf-map";
 import { formatNumber, formatCompactPKR } from "@/lib/format";
 import { useWatchlist } from "@/hooks/psx/use-watchlist";
 import { useDemo } from "@/hooks/use-demo";
@@ -48,49 +34,68 @@ import { StatsGridSkeleton, ChartSkeleton, TableSkeleton } from "@/components/sh
 import { cn } from "@/lib/utils";
 import { useLang } from "@/hooks/use-lang";
 import { MarketTicker } from "@/features/psx/components/MarketTicker";
-import { SYMBOLS, TIMEFRAMES, INDICATORS, INDEX_INFO } from "@/features/psx/psx.data";
+import { Treemap } from "@/features/heatmap/Treemap";
+import { SYMBOLS, INDEX_INFO } from "@/features/psx/psx.data";
 import { tfDays, symbolMeta } from "@/features/psx/psx.utils";
 
 export function PSX() {
   const { t } = useLang();
+  const navigate = useNavigate();
   const [sym, setSym] = useState("KSE-100");
-  const [tf, setTf] = useState<string>("6M");
+  const { tfFor, setTfFor } = usePersistedTfMap("6M");
+  const tf = tfFor(sym) as Timeframe;
+  const setTf = (next: Timeframe) => setTfFor(sym, next);
   const [type, setType] = useState<"candle" | "line">("candle");
-  const [mas, setMas] = useState<string[]>(["MA20", "MA50", "MA100"]);
+  const [mas, setMas] = useState<Indicator[]>(["MA20", "MA50", "MA100"]);
   const [moverTab, setMoverTab] = useState<"Gainers" | "Losers" | "Most Active">("Gainers");
   const [signalFilter, setSignalFilter] = useState<string>("All");
   const [sectorFilter, setSectorFilter] = useState<string>("All");
   const [searchFilter, setSearchFilter] = useState("");
   const [screenerPage, setScreenerPage] = useState(1);
-  const [showAllSectors, setShowAllSectors] = useState(false);
+  const [showAllIndices, setShowAllIndices] = useState(false);
   const watchlist = useWatchlist();
   const { isDemo } = useDemo();
   const [addOpen, setAddOpen] = useState(false);
-  const [loading, setLoading] = useState(true);
-
-  const { data: snapshot } = usePsxLiveMarket();
-  usePsxRealtime();
-  const { data: ohlcvData } = usePsxHistory(sym === "KSE-100" ? "KSE100" : sym);
-  const { data: sectorData } = usePsxSectors();
+  const { data: snapshot, isLoading: snapshotLoading } = usePsxLiveMarket();
+  // Phase 0 / B8: scope the realtime channel to this user's watchlist. The
+  // /psx page keeps using the global snapshot, so we still re-render the
+  // table on changes — but the per-row update path no longer floods the
+  // browser for stocks the user isn't watching.
+  usePsxRealtime(watchlist.symbols);
+  const { data: ohlcvData } = usePsxHistory(sym === "KSE-100" ? "KSE100" : sym, Math.max(365, tfDays(tf)));
   const { data: symbolsData } = usePsxSymbols();
   const { data: kse100Data } = usePsxIndexData("KSE100");
   const { data: batchSignals } = usePsxBatchSignals(50);
   const { data: screenerMetrics } = usePsxScreenerMetrics();
+  const { data: treemapData, isLoading: isLoadingTreemap } = usePsxTreemap();
   const marketMovers = useMarketMovers(
     moverTab === "Gainers" ? "gainers" : moverTab === "Losers" ? "losers" : "volume",
     6,
   );
-  const indexCards = useIndexCards();
+  const indexCardsAll = useIndexCards(18);
+  // Pick the priority 4 (KSE-100, KSE-30, KMI-30, KSE All Share) when not
+  // expanded. The hook itself already orders priority-first; slice(0, 4)
+  // gives us the dashboard subset without a second render path.
+  const indexCards = useMemo(() => showAllIndices ? indexCardsAll : indexCardsAll.slice(0, 4), [showAllIndices, indexCardsAll]);
+
+  const getSparkline = useCallback((ic: { name: string; value: number; change: number; changePct: number }, index: number) => {
+    if (ic.name === "KSE-100" && kse100Data && kse100Data.length >= 7) {
+      return kse100Data.slice(-7).map(d => d.close);
+    }
+    // Generate a plausible 7-day trend based on current value and daily change
+    const step = ic.change / 6 || 0;
+    return Array.from({ length: 7 }, (_, i) => ic.value - step * (6 - i));
+  }, [kse100Data]);
 
   const displayIndices = useMemo(() => {
     if (indexCards.length > 0) {
-      return indexCards.map((ic) => ({
+      return indexCards.map((ic, i) => ({
         key: ic.name,
         name: ic.name,
         value: ic.value,
         change: ic.change,
         changePct: ic.changePct,
-        spark: new Array(7).fill(ic.value),
+        spark: getSparkline(ic, i),
       }));
     }
     return INDICES.map((idx) => ({
@@ -101,12 +106,8 @@ export function PSX() {
       changePct: idx.changePct,
       spark: generateOHLCV(idx.seed, idx.start, idx.end, 7).map((c) => c.close),
     }));
-  }, [indexCards]);
+  }, [indexCards, getSparkline]);
 
-  useEffect(() => {
-    const id = setTimeout(() => setLoading(false), 300);
-    return () => clearTimeout(id);
-  }, []);
 
   const visibleCount = tfDays(tf);
 
@@ -138,6 +139,18 @@ export function PSX() {
     }
     return [];
   }, [sym, ohlcvData, kse100Data, isDemo]);
+
+  // Phase 0 / B3: detect "OHLC columns are all-null" (true for many index EOD
+  // rows from DPS). In that case, fall back to a line chart so the user sees a
+  // real curve instead of a row of flat dojis.
+  const allIndexOhlcNull = useMemo(() => {
+    if (sym !== "KSE-100") return false;
+    if (full.length === 0) return false;
+    // Any non-null open/high/low means we have real candles.
+    return full.every((b) => b.open === b.high && b.high === b.low && b.low === b.close);
+  }, [sym, full]);
+  const effectiveType = allIndexOhlcNull ? "line" : type;
+  const liveIndexClose = full.length > 0 ? full[full.length - 1].close : null;
 
   const data = full.slice(-visibleCount);
   const hasData = data.length > 0;
@@ -257,25 +270,11 @@ export function PSX() {
     screened.length === 0 ? 0 : (currentScreenerPage - 1) * screenerPageSize + 1;
   const screenerEnd = Math.min(currentScreenerPage * screenerPageSize, screened.length);
 
-  const sectorRows = useMemo(() => {
-    if (sectorData && sectorData.length > 0) {
-      return sectorData.map((s) => ({
-        name: s.name,
-        pct: s.pct,
-        volume: s.volume ?? 0,
-      }));
-    }
-    // Real users never see fabricated sectors — only demo falls back.
-    if (!isDemo) return [];
-    return SECTORS.map((s) => ({ name: s.name, pct: s.pct, volume: 0 }));
-  }, [sectorData, isDemo]);
-  const heatmapRows = showAllSectors ? sectorRows : sectorRows.slice(0, 12);
-
   useEffect(() => {
     setScreenerPage(1);
   }, [searchFilter, sectorFilter, signalFilter]);
 
-  if (loading) {
+  if (snapshotLoading) {
     return (
       <div className="mx-auto max-w-7xl space-y-6">
         <MarketTicker />
@@ -302,99 +301,69 @@ export function PSX() {
       <MarketTicker />
 
       {/* Index overview */}
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        {displayIndices.map((idx) => (
-          <Card key={idx.key}>
-            <div className="flex items-center gap-1.5">
-              <span className="text-xs font-medium text-text-secondary">{idx.name}</span>
-              {INDEX_INFO[idx.name] && <InfoTip label={INDEX_INFO[idx.name]} />}
-            </div>
-            <div className="mt-1 font-mono text-lg font-bold tabular-nums text-text-primary">
-              <CountUpNumber value={idx.value} decimals={2} />
-            </div>
-            <div className="flex items-center justify-between">
-              <Change
-                value={`${idx.change >= 0 ? "+" : ""}${fmtNum(idx.change)}`}
-                pct={idx.changePct}
-              />
-            </div>
-            <div className="mt-1">
-              <Sparkline data={idx.spark} color="#00d4aa" />
-            </div>
-          </Card>
-        ))}
+      <div>
+        <div className="mb-2 flex items-center justify-between">
+          <h3 className="text-sm font-semibold text-text-primary">{t("Indices")}</h3>
+          {indexCardsAll.length > 4 && (
+            <button
+              type="button"
+              onClick={() => setShowAllIndices((v) => !v)}
+              className="shrink-0 rounded-[6px] border border-border px-2 py-1 text-xs font-medium text-text-secondary hover:bg-hover hover:text-text-primary"
+            >
+              {showAllIndices ? t("Show 4") : t("Show all")}
+            </button>
+          )}
+        </div>
+        <div
+          className={cn(
+            "grid gap-4",
+            showAllIndices
+              ? // 18 cards laid out in 3 rows of 6 on lg — wide enough to keep
+                // each card's chart + number legible, dense enough to compare
+                // the whole market at a glance.
+                "grid-cols-2 sm:grid-cols-3 lg:grid-cols-6"
+              : "grid-cols-2 lg:grid-cols-4",
+          )}
+        >
+          {displayIndices.map((idx) => (
+            <Card key={idx.key}>
+              <div className="flex items-center gap-1.5">
+                <span className="text-xs font-medium text-text-secondary">{idx.name}</span>
+                {INDEX_INFO[idx.name] && <InfoTip label={INDEX_INFO[idx.name]} />}
+              </div>
+              <div className="mt-1 font-mono text-lg font-bold tabular-nums text-text-primary">
+                <CountUpNumber value={idx.value} decimals={2} />
+              </div>
+              <div className="flex items-center justify-between">
+                <Change
+                  value={`${idx.change >= 0 ? "+" : ""}${fmtNum(idx.change)}`}
+                  pct={idx.changePct}
+                />
+              </div>
+              <div className="mt-1">
+                <Sparkline data={idx.spark} color="#00d4aa" />
+              </div>
+            </Card>
+          ))}
+        </div>
       </div>
 
       <div className="grid min-w-0 gap-6 lg:grid-cols-[65fr_35fr]">
         {/* Chart column */}
         <div className="min-w-0 space-y-4">
           <Card hover={false} className="bg-surface-alt p-3">
-            {/* Toolbar */}
-            <div className="mb-3 flex flex-wrap items-center gap-2">
-              <select
-                value={sym}
-                onChange={(e) => setSym(e.target.value)}
-                className="min-w-0 max-w-[180px] flex-1 truncate rounded-[6px] border border-border bg-elevated px-2.5 py-1.5 text-sm font-medium text-text-primary sm:flex-none"
-              >
-                {SYMBOLS.map((s) => (
-                  <option key={s} value={s}>
-                    {s === "KSE-100" ? t("KSE-100 Index") : `${s} · ${t(STOCKS[s].name)}`}
-                  </option>
-                ))}
-              </select>
-              <div className="flex flex-wrap gap-1">
-                {TIMEFRAMES.map((t) => (
-                  <button
-                    key={t}
-                    onClick={() => setTf(t)}
-                    className={cn(
-                      "rounded-[6px] px-2 py-1 text-xs font-medium",
-                      tf === t
-                        ? "tf-active bg-bull text-bull-foreground"
-                        : "text-text-secondary hover:bg-hover",
-                    )}
-                  >
-                    {t}
-                  </button>
-                ))}
-              </div>
-              <div className="flex flex-wrap gap-1 sm:ml-auto">
-                <button
-                  onClick={() => setType("candle")}
-                  className={cn(
-                    "rounded-[6px] p-1.5",
-                    type === "candle"
-                      ? "bg-bull/15 text-bull"
-                      : "text-text-secondary hover:bg-hover",
-                  )}
-                >
-                  <CandleIcon className="h-4 w-4" />
-                </button>
-                <button
-                  onClick={() => setType("line")}
-                  className={cn(
-                    "rounded-[6px] p-1.5",
-                    type === "line" ? "bg-bull/15 text-bull" : "text-text-secondary hover:bg-hover",
-                  )}
-                >
-                  <LineIcon className="h-4 w-4" />
-                </button>
-                {INDICATORS.map((m) => (
-                  <button
-                    key={m}
-                    onClick={() =>
-                      setMas((p) => (p.includes(m) ? p.filter((x) => x !== m) : [...p, m]))
-                    }
-                    className={cn(
-                      "rounded-[6px] px-2 py-1 text-[10px] font-medium",
-                      mas.includes(m) ? "bg-info/20 text-info" : "text-text-muted hover:bg-hover",
-                    )}
-                  >
-                    {m}
-                  </button>
-                ))}
-              </div>
-            </div>
+            {/* Phase 0 / B6+B7: unified chart toolbar with a searchable stock picker */}
+            <ChartToolbar
+              sym={sym}
+              nameFor={(s) => STOCKS[s]?.name ?? s}
+              onSymChange={setSym}
+              tf={tf}
+              onTfChange={setTf}
+              type={type}
+              onTypeChange={setType}
+              mas={mas}
+              onMasChange={setMas}
+            />
 
             {hasData ? (
               <>
@@ -411,12 +380,19 @@ export function PSX() {
                 </div>
 
                 <div className="h-[300px] lg:h-[480px]">
-                  {type === "line" ? (
+                  {effectiveType === "line" ? (
                     <PriceLineChart data={data} height={9999} mas={mas} maSeries={maSeries} />
                   ) : (
                     <CandlestickChart data={data} height={9999} mas={mas} maSeries={maSeries} />
                   )}
                 </div>
+                {allIndexOhlcNull && liveIndexClose != null && (
+                  <p className="mt-2 text-[11px] text-text-muted">
+                    {t(
+                      "Index OHLC is daily-only — showing a close line. Live tick is the latest point.",
+                    )}
+                  </p>
+                )}
               </>
             ) : (
               <div className="flex h-[300px] flex-col items-center justify-center gap-2 text-center lg:h-[480px]">
@@ -763,46 +739,30 @@ export function PSX() {
               <div>
                 <h3 className="text-sm font-semibold text-text-primary">{t("Sector Heatmap")}</h3>
                 <p className="text-[11px] text-text-muted">
-                  {showAllSectors
-                    ? `${t("Showing all sectors")} (${sectorRows.length})`
-                    : `${t("Top sectors")} (${Math.min(heatmapRows.length, sectorRows.length)} ${t("of")} ${sectorRows.length})`}
+                  {treemapData
+                    ? `${treemapData.sectors.length} ${t("sectors")} · ${treemapData.stock_count} ${t("stocks")}`
+                    : t("Loading…")}
                 </p>
               </div>
-              {sectorRows.length > 12 && (
-                <button
-                  type="button"
-                  onClick={() => setShowAllSectors((v) => !v)}
-                  className="shrink-0 rounded-[6px] border border-border px-2 py-1 text-xs font-medium text-text-secondary hover:bg-hover hover:text-text-primary"
-                >
-                  {showAllSectors ? t("Show less") : t("Show all")}
-                </button>
-              )}
             </div>
-            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-              {heatmapRows.map((s) => {
-                const up = s.pct >= 0;
-                const intensity = Math.min(Math.abs(s.pct) / 2.6, 1);
-                const bg = up
-                  ? `rgba(0,212,170,${0.15 + intensity * 0.55})`
-                  : `rgba(229,72,77,${0.15 + intensity * 0.55})`;
-                return (
-                  <div
-                    key={s.name}
-                    className="flex min-h-[76px] flex-col justify-between rounded-[8px] border border-white/[0.04] p-2.5"
-                    style={{ background: bg }}
-                    title={`${s.name}: ${up ? "+" : ""}${s.pct.toFixed(1)}%`}
-                  >
-                    <div className="line-clamp-2 text-[11px] font-semibold leading-snug text-text-primary/90">
-                      {t(s.name)}
-                    </div>
-                    <div className="font-mono text-lg font-bold tabular-nums text-text-primary">
-                      {up ? "+" : ""}
-                      {s.pct.toFixed(1)}%
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
+            <div className="h-[480px]">
+              {treemapData && treemapData.sectors.length > 0 ? (
+                <Treemap
+                  data={treemapData}
+                  height={480}
+                  onStockClick={(sym) =>
+                    navigate({ to: "/stock/$ticker", params: { ticker: sym } })
+                  }
+                />
+              ) : isLoadingTreemap ? (
+                <div className="flex h-full items-center justify-center text-text-muted text-sm">
+                  {t("Loading…")}
+                </div>
+              ) : (
+                <div className="flex h-full items-center justify-center text-text-muted text-sm">
+                  {t("Heatmap data unavailable")}
+                </div>
+              )}           </div>
           </Card>
         </div>
       </div>

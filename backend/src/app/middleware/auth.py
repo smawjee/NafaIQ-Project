@@ -41,6 +41,11 @@ PUBLIC_PATH_PREFIXES = (
     "/api/indicators",
     "/api/screener",
     "/api/backtest",
+    "/api/macro",
+    "/api/news",
+    "/api/filings",
+    "/api/financials",
+    "/api/funds",
 )
 
 

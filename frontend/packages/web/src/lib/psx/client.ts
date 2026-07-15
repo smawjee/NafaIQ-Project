@@ -12,7 +12,7 @@ import type {
   ApiIndexCard,
   ApiScreenerMetric,
   ApiSectorDataItem,
-  ApiHeatmapResponse,
+  ApiTreemap,
   ApiIndicatorPayload,
   ApiSignal,
   BatchSignalsResponse,
@@ -20,7 +20,12 @@ import type {
   ScreenerResponse,
   BacktestRequest,
   ApiBacktestResult,
+  ApiMutualFund,
+  ApiFundNavHistory,
 } from "./types";
+
+// Re-export mutual fund types for use in hooks
+export type { ApiMutualFund, ApiFundNavHistory };
 
 const BASE = API_BASE_URL;
 const TOKEN = import.meta.env.VITE_PSX_API_TOKEN || "";
@@ -158,12 +163,9 @@ export function fetchScreenerMetrics(): Promise<ApiScreenerMetric[]> {
   return get<ApiScreenerMetric[]>("/api/market/metrics");
 }
 
-export function fetchSectors(): Promise<ApiSectorDataItem[]> {
-  return get<ApiSectorDataItem[]>("/api/sectors");
-}
 
-export function fetchHeatmap(): Promise<ApiHeatmapResponse> {
-  return get<ApiHeatmapResponse>("/api/market/heatmap");
+export function fetchTreemap(): Promise<ApiTreemap> {
+  return get<ApiTreemap>("/api/market/treemap");
 }
 
 export function fetchIndicators(
@@ -355,4 +357,156 @@ export function evaluateAlerts(): Promise<{
     budget_alerts: number;
     goal_alerts: number;
   }>("/api/alerts/evaluate", {});
+}
+
+// === Macro (SBP) ===
+
+export interface ApiMacroRate {
+  series: string;
+  date: string;
+  value: number | null;
+  refreshed_at?: string;
+}
+
+export interface ApiMacroFx {
+  currency: string;
+  date: string | null;
+  buy: number | null;
+  sell: number | null;
+}
+
+export function fetchMacroRates(series?: string): Promise<ApiMacroRate[]> {
+  const qs = series ? `?series=${encodeURIComponent(series)}` : "";
+  return get<ApiMacroRate[]>(`/api/macro/rates${qs}`);
+}
+
+export function fetchMacroFx(): Promise<ApiMacroFx[]> {
+  return get<ApiMacroFx[]>("/api/macro/fx");
+}
+
+export function fetchPolicyRate(): Promise<ApiMacroRate> {
+  return get<ApiMacroRate>("/api/macro/policy-rate");
+}
+
+// === News (Business Recorder) ===
+
+export interface ApiNewsItem {
+  id: number;
+  headline: string;
+  url: string;
+  source: string | null;
+  published_at: string | null;
+  tickers: string[] | null;
+  body: string | null;
+  summary: string | null;
+  refreshed_at?: string;
+}
+
+export function fetchNews(symbol?: string, limit = 20): Promise<ApiNewsItem[]> {
+  const params = new URLSearchParams();
+  if (symbol) params.set("symbol", symbol);
+  params.set("limit", String(limit));
+  return get<ApiNewsItem[]>(`/api/news?${params.toString()}`);
+}
+
+export function fetchLatestNews(limit = 10): Promise<ApiNewsItem[]> {
+  return get<ApiNewsItem[]>(`/api/news/latest?limit=${limit}`);
+}
+
+// === Filings ===
+
+export interface ApiFiling {
+  announcement_id: string;
+  symbol: string | null;
+  type: string | null;
+  filed_at: string | null;
+  pdf_url: string | null;
+  pdf_path?: string | null;
+  text_content?: string | null;
+  page_count?: number | null;
+  refreshed_at?: string;
+}
+
+export function fetchFilings(symbol: string, limit = 50): Promise<ApiFiling[]> {
+  return get<ApiFiling[]>(`/api/filings/${symbol}?limit=${limit}`);
+}
+
+export function searchFilings(symbol: string, q: string, limit = 20): Promise<ApiFiling[]> {
+  return get<ApiFiling[]>(
+    `/api/filings/${symbol}/search?q=${encodeURIComponent(q)}&limit=${limit}`,
+  );
+}
+
+export function fetchFiling(symbol: string, announcementId: string): Promise<ApiFiling> {
+  return get<ApiFiling>(`/api/filings/${symbol}/${announcementId}`);
+}
+
+// === Mutual Funds (MUFAP) ===
+
+export function fetchMutualFunds(): Promise<ApiMutualFund[]> {
+  return get<ApiMutualFund[]>("/api/funds");
+}
+
+export function fetchFundNavHistory(fundCode: string, limit = 100): Promise<ApiFundNavHistory[]> {
+  return get<ApiFundNavHistory[]>(`/api/funds/${fundCode}/nav?limit=${limit}`);
+}
+
+// === Unusual activity ===
+
+export interface ApiUnusualActivity {
+  symbol: string;
+  ts: string;
+  price: number | null;
+  change_pct: number | null;
+  volume: number | null;
+  volume_ratio: number | null;
+  reason: string | null;
+}
+
+export function fetchUnusualActivity(limit = 20): Promise<ApiUnusualActivity[]> {
+  return get<ApiUnusualActivity[]>(`/api/market/unusual?limit=${limit}`);
+}
+
+// === Financials (5y annual + quarterly) ===
+
+export interface ApiFinancialAnnual {
+  symbol: string;
+  year: number;
+  sales: number | null;
+  cogs: number | null;
+  gp: number | null;
+  op_income: number | null;
+  net_income: number | null;
+  eps: number | null;
+  total_assets: number | null;
+  total_equity: number | null;
+  total_debt: number | null;
+  current_assets: number | null;
+  current_liabilities: number | null;
+  gpm: number | null;
+  npm: number | null;
+  roe: number | null;
+  roa: number | null;
+  refreshed_at?: string;
+}
+
+export interface ApiFinancialQuarterly {
+  symbol: string;
+  period: string;
+  end_date: string | null;
+  sales: number | null;
+  net_income: number | null;
+  eps: number | null;
+  refreshed_at?: string;
+}
+
+export function fetchAnnualFinancials(symbol: string, limit = 10): Promise<ApiFinancialAnnual[]> {
+  return get<ApiFinancialAnnual[]>(`/api/financials/${symbol}/annual?limit=${limit}`);
+}
+
+export function fetchQuarterlyFinancials(
+  symbol: string,
+  limit = 20,
+): Promise<ApiFinancialQuarterly[]> {
+  return get<ApiFinancialQuarterly[]>(`/api/financials/${symbol}/quarterly?limit=${limit}`);
 }

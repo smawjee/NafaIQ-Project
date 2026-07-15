@@ -1,4 +1,4 @@
-"""Pytest: verify required migrations are applied to Supabase.
+﻿"""Pytest: verify required migrations are applied to Supabase.
 
 Checks each migration's expected schema changes against the live DB.
 """
@@ -186,6 +186,66 @@ CHECKS: List[MigrationCheck] = [
                   "SELECT 1 FROM pg_trigger WHERE tgname='enforce_user_watchlist_plan_limit'"),
             Check("profile plan self-update trigger",
                   "SELECT 1 FROM pg_trigger WHERE tgname='prevent_profile_plan_self_update'"),
+        ],
+    ),
+    MigrationCheck(
+        filename="20260716000000_add_listed_in.sql",
+        description="Add listed_in column to psx_profile",
+        checks=[
+            Check("psx_profile.listed_in column exists",
+                  "SELECT 1 FROM information_schema.columns WHERE table_name='psx_profile' AND column_name='listed_in'"),
+        ],
+    ),
+    MigrationCheck(
+        filename="20260716010000_apply_sector_map.sql",
+        description="Map TV sectors to DPS taxonomy",
+        checks=[
+            Check("No TV-style 'Finance' sector remains",
+                  "SELECT (COUNT(*)=0)::int FROM psx_profile WHERE sector='Finance'"),
+        ],
+    ),
+    MigrationCheck(
+        filename="20260716020000_mufap_performance_indexes.sql",
+        description="MUFAP performance indexes",
+        checks=[
+            Check("psx_mutual_funds table exists",
+                  "SELECT to_regclass('public.psx_mutual_funds') IS NOT NULL"),
+            Check("psx_fund_nav_history table exists",
+                  "SELECT to_regclass('public.psx_fund_nav_history') IS NOT NULL"),
+            Check("idx_psx_mutual_funds_category index",
+                  "SELECT to_regclass('public.idx_psx_mutual_funds_category') IS NOT NULL"),
+            Check("idx_psx_fund_nav_history_fund_code index",
+                  "SELECT to_regclass('public.idx_psx_fund_nav_history_fund_code') IS NOT NULL"),
+            Check("idx_psx_fund_nav_history_date index",
+                  "SELECT to_regclass('public.idx_psx_fund_nav_history_date') IS NOT NULL"),
+        ],
+    ),
+    MigrationCheck(
+        filename="20260716030000_tighten_grants.sql",
+        description="Tighten grants to SELECT-only for anon/authenticated",
+        checks=[
+            Check("macro_rates table exists with RLS",
+                  "SELECT relrowsecurity FROM pg_class WHERE relname='macro_rates'"),
+            Check("psx_news table exists with RLS",
+                  "SELECT relrowsecurity FROM pg_class WHERE relname='psx_news'"),
+            Check("filings table exists with RLS",
+                  "SELECT relrowsecurity FROM pg_class WHERE relname='filings'"),
+            Check("psx_unusual_activity table exists with RLS",
+                  "SELECT relrowsecurity FROM pg_class WHERE relname='psx_unusual_activity'"),
+            Check("psx_financials_annual table exists with RLS",
+                  "SELECT relrowsecurity FROM pg_class WHERE relname='psx_financials_annual'"),
+            Check("psx_financials_quarterly table exists with RLS",
+                  "SELECT relrowsecurity FROM pg_class WHERE relname='psx_financials_quarterly'"),
+        ],
+    ),
+    MigrationCheck(
+        filename="20260716050000_data_source_health.sql",
+        description="Data source health table",
+        checks=[
+            Check("psx_data_source_health table exists",
+                  "SELECT to_regclass('public.psx_data_source_health') IS NOT NULL"),
+            Check("psx_data_source_health has RLS enabled",
+                  "SELECT relrowsecurity FROM pg_class WHERE relname='psx_data_source_health'"),
         ],
     ),
 ]

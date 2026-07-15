@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { Candle } from "@/lib/data";
 import type { ApiMarketSnapshotItem, UiTicker, UiIndex, UiSector } from "@/lib/psx/types";
@@ -11,11 +11,10 @@ import {
   fetchFundamentals,
   fetchProfile,
   fetchAnnouncements,
-  fetchDividends,
   fetchIndexData,
   fetchIndexCards,
   fetchScreenerMetrics,
-  fetchHeatmap,
+  fetchTreemap,
   fetchSignal,
   fetchBatchSignals,
 } from "@/lib/psx/client";
@@ -31,17 +30,54 @@ export function usePsxLiveMarket() {
   });
 }
 
-export function usePsxRealtime() {
+/**
+ * Phase 0 / B8: scope the realtime channel to the watchlist (or to a single
+ * symbol, in the per-stock detail page). With 500+ symbols, listening to
+ * every change on `psx_market_snapshot` floods the global invalidation
+ * queue; this filter keeps the channel narrow.
+ *
+ * If `watchlist` is empty, the channel still subscribes (no filter) so
+ * `/psx` and the global ticker strip still update on every DPS poll.
+ */
+export function usePsxRealtime(watchlist?: string[] | null) {
   const qc = useQueryClient();
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const symKey = (watchlist ?? []).slice().sort().join(",");
 
   useEffect(() => {
+    const symbols = (watchlist ?? []).map((s) => s.toUpperCase()).filter(Boolean);
+    // Supabase realtime filter: "symbol=in.(HBL,OGDC,...)" with values quoted
+    // to survive any reserved characters. An empty `symbols` array means
+    // "no filter" — the channel still receives every change.
+    const filter =
+      symbols.length > 0
+        ? `symbol=in.(${symbols.map((s) => `"${s.replace(/"/g, "")}"`).join(",")})`
+        : undefined;
+
     const channel = supabase
       .channel("psx:market")
       .on(
         "postgres_changes",
-        { event: "*", schema: "public", table: "psx_market_snapshot" },
-        () => {
+        {
+          event: "*",
+          schema: "public",
+          table: "psx_market_snapshot",
+          ...(filter ? { filter } : {}),
+        },
+        (payload) => {
+          const sym = (payload.new as { symbol?: string } | undefined)?.symbol;
+          // Phase 0 / B8: splice the new row into the per-symbol + watchlist
+          // caches in place so the UI updates inside the debounce window
+          // without waiting for a refetch.
+          if (sym) {
+            qc.setQueryData(["psx", "quote", sym], payload.new);
+            qc.setQueryData(["enriched-watchlist"], (prev: unknown) => {
+              if (!Array.isArray(prev)) return prev;
+              return (prev as { symbol: string }[]).map((row) =>
+                row.symbol === sym ? { ...row, ...(payload.new as object) } : row,
+              );
+            });
+          }
           clearTimeout(timer.current);
           timer.current = setTimeout(() => {
             qc.invalidateQueries({ queryKey: ["psx", "live"] });
@@ -54,28 +90,30 @@ export function usePsxRealtime() {
       clearTimeout(timer.current);
       supabase.removeChannel(channel);
     };
-  }, [qc]);
+  }, [qc, symKey]);
 }
 
 export function useMarketTickers(limit = 20): UiTicker[] {
   const { data: snapshot } = usePsxLiveMarket();
   const { data: symbols } = usePsxSymbols();
-  if (!snapshot || !symbols) return [];
-  const sectorMap = new Map(symbols.map((s) => [s.symbol, s.sector ?? "Other"]));
-  const nameMap = new Map(symbols.map((s) => [s.symbol, s.name]));
-  return snapshot
-    .slice()
-    .sort((a, b) => (b.volume ?? 0) - (a.volume ?? 0))
-    .slice(0, limit)
-    .map((s) => ({
-      symbol: s.symbol,
-      name: nameMap.get(s.symbol) ?? s.symbol,
-      sector: sectorMap.get(s.symbol) ?? "Other",
-      price: s.price ?? 0,
-      change: s.change ?? 0,
-      changePct: s.change_pct ?? 0,
-      volume: s.volume ?? 0,
-    }));
+  return useMemo(() => {
+    if (!snapshot || !symbols) return [];
+    const sectorMap = new Map(symbols.map((s) => [s.symbol, s.sector ?? "Other"]));
+    const nameMap = new Map(symbols.map((s) => [s.symbol, s.name]));
+    return snapshot
+      .slice()
+      .sort((a, b) => (b.volume ?? 0) - (a.volume ?? 0))
+      .slice(0, limit)
+      .map((s) => ({
+        symbol: s.symbol,
+        name: nameMap.get(s.symbol) ?? s.symbol,
+        sector: sectorMap.get(s.symbol) ?? "Other",
+        price: s.price ?? 0,
+        change: s.change ?? 0,
+        changePct: s.change_pct ?? 0,
+        volume: s.volume ?? 0,
+      }));
+  }, [snapshot, symbols, limit]);
 }
 
 export function useMarketMovers(sort: "gainers" | "losers" | "volume", limit = 6): UiTicker[] {
@@ -102,28 +140,30 @@ export function useMarketMovers(sort: "gainers" | "losers" | "volume", limit = 6
   return arr.sort((a, b) => b.volume - a.volume).slice(0, limit);
 }
 
-export function useMarketTickerForSymbol(symbol: string | undefined): UiTicker | null {
-  const { data: snapshot } = usePsxLiveMarket();
-  if (!snapshot || !symbol) return null;
-  const found = snapshot.find((s) => s.symbol === symbol.toUpperCase());
-  if (!found) return null;
-  return {
-    symbol: found.symbol,
-    name: found.symbol,
-    sector: "Other",
-    price: found.price ?? 0,
-    change: found.change ?? 0,
-    changePct: found.change_pct ?? 0,
-    volume: found.volume ?? 0,
-  };
-}
-
 const INDEX_CARD_NAMES: Record<string, string> = {
   KSE100: "KSE-100",
+  KSE100PR: "KSE-100 PR",
   KSE30: "KSE-30",
   KMI30: "KMI-30",
+  KMIALLSHR: "KMI All Share",
   ALLSHR: "KSE All Share",
+  BKTI: "BKTI",
+  OGTI: "OGTI",
+  PSXDIV20: "PSX Div 20",
+  UPP9: "UPP9",
+  NITPGI: "NITPGI",
+  NBPPGI: "NBPPGI",
+  MZNPI: "MZNPI",
+  JSMFI: "JSMFI",
+  ACI: "ACI",
+  JSGBKTI: "JSGBKTI",
+  HBLTTI: "HBLTTI",
+  MII30: "MII30",
 };
+
+// Priority 4 — the dashboard's default cards. The PSX index grid renders
+// these first when the user hasn't expanded the "show all" view.
+const PRIORITY_INDEX_CODES = ["KSE100", "KSE30", "KMI30", "ALLSHR"] as const;
 
 /** Latest + previous close per benchmark index from the lightweight
  * /api/index/cards endpoint (one small request instead of four full
@@ -138,10 +178,18 @@ export function usePsxIndexCards() {
   });
 }
 
-export function useIndexCards(): UiIndex[] {
+export function useIndexCards(limit = 4): UiIndex[] {
   const { data: cards } = usePsxIndexCards();
 
-  return Object.entries(INDEX_CARD_NAMES).map(([code, name]) => {
+  const orderedCodes = [
+    ...PRIORITY_INDEX_CODES,
+    ...Object.keys(INDEX_CARD_NAMES).filter(
+      (c) => !(PRIORITY_INDEX_CODES as readonly string[]).includes(c),
+    ),
+  ].slice(0, limit);
+
+  return orderedCodes.map((code) => {
+    const name = INDEX_CARD_NAMES[code];
     const card = cards?.find((c) => c.code === code);
     if (!card) return { name, value: 0, change: 0, changePct: 0 };
     return {
@@ -151,12 +199,6 @@ export function useIndexCards(): UiIndex[] {
       changePct: card.change_pct,
     };
   });
-}
-
-/** Alias of usePsxLiveMarket — same query key/cache, so components using
- * either hook share one snapshot request instead of polling twice. */
-export function usePsxSnapshot() {
-  return usePsxLiveMarket();
 }
 
 export function usePsxQuote(symbol: string | undefined) {
@@ -177,10 +219,11 @@ export function usePsxQuote(symbol: string | undefined) {
 }
 
 export function usePsxHistory(symbol: string | undefined, days = 180) {
+  const sym = symbol?.toUpperCase();
   return useQuery({
-    queryKey: ["psx", "history", symbol, days],
+    queryKey: ["psx", "history", sym, days],
     queryFn: async () => {
-      const bars = await fetchHistory(symbol!, days);
+      const bars = await fetchHistory(sym!, days);
       return bars
         .slice()
         .reverse()
@@ -208,56 +251,41 @@ export function usePsxSymbols() {
 }
 
 export function usePsxFundamentals(symbol: string | undefined) {
+  const sym = symbol?.toUpperCase();
   return useQuery({
-    queryKey: ["psx", "fundamentals", symbol],
-    queryFn: () => fetchFundamentals(symbol!),
+    queryKey: ["psx", "fundamentals", sym],
+    queryFn: () => fetchFundamentals(sym!),
     enabled: !!symbol,
     staleTime: 60_000,
   });
 }
 
 export function usePsxProfile(symbol: string | undefined) {
+  const sym = symbol?.toUpperCase();
   return useQuery({
-    queryKey: ["psx", "profile", symbol],
-    queryFn: () => fetchProfile(symbol!),
+    queryKey: ["psx", "profile", sym],
+    queryFn: () => fetchProfile(sym!),
     enabled: !!symbol,
     staleTime: 300_000,
   });
 }
 
 export function usePsxAnnouncements(symbol?: string, limit = 50) {
+  const sym = symbol?.toUpperCase();
   return useQuery({
-    queryKey: ["psx", "announcements", symbol, limit],
-    queryFn: () => fetchAnnouncements(symbol, limit),
+    queryKey: ["psx", "announcements", sym, limit],
+    queryFn: () => fetchAnnouncements(sym, limit),
     staleTime: 60_000,
-  });
-}
-
-export function usePsxDividends(symbol: string | undefined) {
-  return useQuery({
-    queryKey: ["psx", "dividends", symbol],
-    queryFn: () => fetchDividends(symbol!),
-    enabled: !!symbol,
-    staleTime: 300_000,
   });
 }
 
 export function usePsxIndexData(code: string | undefined) {
+  const sym = code?.toUpperCase();
   return useQuery({
-    queryKey: ["psx", "index", code],
-    queryFn: async () => (await fetchIndexData(code!)).slice().reverse(),
+    queryKey: ["psx", "index", sym],
+    queryFn: async () => (await fetchIndexData(sym!)).slice().reverse(),
     enabled: !!code,
     staleTime: 60_000,
-    placeholderData: keepPreviousData,
-  });
-}
-
-export function usePsxSectors() {
-  return useQuery({
-    queryKey: ["psx", "sectors"],
-    queryFn: async () => (await fetchHeatmap()).sectors,
-    staleTime: 15_000,
-    refetchInterval: 30_000,
     placeholderData: keepPreviousData,
   });
 }
@@ -275,9 +303,10 @@ export function usePsxScreenerMetrics() {
 }
 
 export function usePsxSignal(symbol: string | undefined) {
+  const sym = symbol?.toUpperCase();
   return useQuery({
-    queryKey: ["psx", "signal", symbol],
-    queryFn: () => fetchSignal(symbol!),
+    queryKey: ["psx", "signal", sym],
+    queryFn: () => fetchSignal(sym!),
     enabled: !!symbol,
     staleTime: 300_000,
   });
@@ -288,5 +317,19 @@ export function usePsxBatchSignals(limit = 50) {
     queryKey: ["psx", "signals", "batch", limit],
     queryFn: () => fetchBatchSignals(limit),
     staleTime: 300_000,
+  });
+}
+
+/** Google-Finance-style treemap payload: sectors → stocks sized by market
+ * cap, colored by % change. Polled at 2m with a 60s stale window — the
+ * payload is heavy (~500 stocks) so we deliberately don't refetch on every
+ * `usePsxRealtime` tick. */
+export function usePsxTreemap() {
+  return useQuery({
+    queryKey: ["psx", "treemap"],
+    queryFn: () => fetchTreemap(),
+    staleTime: 60_000,
+    refetchInterval: 120_000,
+    placeholderData: keepPreviousData,
   });
 }

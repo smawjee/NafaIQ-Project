@@ -49,6 +49,18 @@ async def market_heatmap(
     return await market_service.heatmap()
 
 
+@router.get("/market/treemap")
+@limiter.limit("30/minute")
+async def market_treemap(
+    request: Request,
+    _user: Annotated[Optional[dict], Depends(optional_user)] = None,
+):
+    """Return a Google-Finance-style treemap: sectors + stock tiles sized by
+    market cap, colored by % change. Computed from psx_market_snapshot joined
+    with psx_profile."""
+    return await market_service.get_treemap()
+
+
 @router.get("/market/sector/{symbol}")
 @limiter.limit("60/minute")
 async def sector_for_symbol(

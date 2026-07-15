@@ -1,4 +1,4 @@
-<p align="center">
+﻿<p align="center">
   <br>
   <img src="frontend/packages/web/src/assets/logo.png" alt="NafaIQ" height="84">
   <br>
@@ -9,7 +9,7 @@
 <p align="center">
   <b>Smart Trading, Smarter Wealth.</b><br>
   A Pakistan Stock Exchange terminal, AI investment signals, and inflation-aware
-  personal finance — in one bilingual, installable Progressive Web App.
+  personal finance â€” in one bilingual, installable Progressive Web App.
 </p>
 
 <p align="center">
@@ -50,12 +50,12 @@
 NafaIQ combines three things most Pakistani investors juggle across separate apps
 and spreadsheets into a single terminal:
 
-1. **A market terminal** for the Pakistan Stock Exchange (PSX) — live prices,
+1. **A market terminal** for the Pakistan Stock Exchange (PSX) â€” live prices,
    charts, screeners, and heatmaps.
-2. **AI signals & guidance** — a machine-learning model for buy/sell/hold
+2. **AI signals & guidance** â€” a machine-learning model for buy/sell/hold
    signals, plus an LLM tutor that answers questions about the market or your own
    portfolio.
-3. **Inflation-aware personal finance** — budgets, goals, Zakat, and the flagship
+3. **Inflation-aware personal finance** â€” budgets, goals, Zakat, and the flagship
    **Haqeeqi Daulat** engine that shows your *real*, devaluation-adjusted wealth
    rather than a nominal rupee figure.
 
@@ -71,13 +71,31 @@ dark** themes.
 |---|---|
 | **Market Terminal** | Live ticker strip, interactive candlestick charts, stock screener, sector heatmap, and top movers for every listed symbol. |
 | **AI Trading Signals** | ML model over price trend, momentum, volatility, and fundamentals generates buy/sell/hold signals across the market. |
-| **Portfolio & Watchlist** | Holdings with live P&L, custom price alerts, and personalized watchlists — persisted and synced across devices. |
-| **Haqeeqi Daulat™** | Devaluation-adjusted net-worth engine that surfaces purchasing power, not just a nominal PKR number. |
+| **Portfolio & Watchlist** | Holdings with live P&L, custom price alerts, and personalized watchlists â€” persisted and synced across devices. |
+| **Haqeeqi Daulatâ„¢** | Devaluation-adjusted net-worth engine that surfaces purchasing power, not just a nominal PKR number. |
 | **Personal Finance** | Budgets, expense tracking, savings goals, bill reminders, and a Zakat calculator built around PKR realities. |
 | **Financial Education** | Urdu-first interactive lessons on stocks, funds, saving, and Islamic finance. |
 | **AI Financial Tutor** | Contextual, LLM-powered answers about the market, a stock, or your portfolio. |
 | **Bilingual & Themed** | Full English/Urdu (RTL) support and light/dark themes across the app. |
 
+
+## New Data Sources (Workstream D — July 2026)
+
+- **SBP Macro Rates** — KIBOR, FX rates, and policy rate from the State Bank of Pakistan
+- **Business Recorder News** — Market news feed
+- **PSX Filings** — Company announcements with full-text search (FTS) 
+- **Unusual Volume Activity** — Volume spike detection (3× 30-day average)
+- **5-Year Financials** — Annual and quarterly financial data from financials.psx.com.pk
+- **MUFAP Mutual Funds** — Fund catalog and NAV history from the Mutual Funds Association of Pakistan
+
+## Recent Improvements (Workstream E — July 2026)
+
+- **Stock Splits** — OHLCV adjustment for historical stock splits (columns: is_adjusted, djustment_factor, split_date)
+- **Shariah Screening** — is_shariah flag on psx_profile derived from PSX Shariah Index constituents
+- **PSX Index Expansion** — From 4 to 18 indices tracked (BKTI, OGTI, PSXDIV20, and more)
+- **Sector Taxonomy Fix** — TV sectors mapped to DPS taxonomy for consistency
+- **Treemap Heatmap** — Google-Finance-style market heatmap by sector
+- **Realtime Scope** — Supabase channel filtered to watchlist symbols only
 ---
 
 ## Tech Stack
@@ -95,23 +113,23 @@ dark** themes.
 ## Architecture
 
 ```
-        ┌──────────────┐          ┌──────────────┐
-        │   Web PWA    │          │  Mobile App  │
-        │  (TanStack   │          │   (React     │
-        │  Start / SSR)│          │   Native)    │
-        └──────┬───────┘          └──────┬───────┘
-               │                         │
-               │   HTTPS (Bearer JWT)    │
-               └────────────┬────────────┘
-                            ▼
-                  ┌────────────────────┐
-                  │   FastAPI Backend  │  market data · ML signals · finance
-                  │      (Python)      │  scheduled scrapers & jobs
-                  └─────────┬──────────┘
-                            │
-                  ┌─────────▼──────────┐
-                  │ Supabase Postgres  │  Auth · RLS · Realtime · PostgREST
-                  └────────────────────┘
+        â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”          â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”
+        â”‚   Web PWA    â”‚          â”‚  Mobile App  â”‚
+        â”‚  (TanStack   â”‚          â”‚   (React     â”‚
+        â”‚  Start / SSR)â”‚          â”‚   Native)    â”‚
+        â””â”€â”€â”€â”€â”€â”€â”¬â”€â”€â”€â”€â”€â”€â”€â”˜          â””â”€â”€â”€â”€â”€â”€â”¬â”€â”€â”€â”€â”€â”€â”€â”˜
+               â”‚                         â”‚
+               â”‚   HTTPS (Bearer JWT)    â”‚
+               â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”¬â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜
+                            â–¼
+                  â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”
+                  â”‚   FastAPI Backend  â”‚  market data Â· ML signals Â· finance
+                  â”‚      (Python)      â”‚  scheduled scrapers & jobs
+                  â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”¬â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜
+                            â”‚
+                  â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â–¼â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”
+                  â”‚ Supabase Postgres  â”‚  Auth Â· RLS Â· Realtime Â· PostgREST
+                  â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜
 ```
 
 - **Auth** is issued by Supabase; the frontend attaches the user's JWT as a
@@ -129,25 +147,25 @@ A Turborepo + pnpm monorepo:
 
 ```
 NafaIQ-MainProject/
-├── frontend/
-│   └── packages/
-│       ├── web/          # React 19 PWA — TanStack Start (primary app)
-│       ├── mobile/       # React Native + Expo app
-│       └── shared/       # Types & API contracts shared with mobile
-├── backend/
-│   ├── src/app/          # FastAPI application (see Backend Architecture)
-│   ├── scripts/          # ML training / data utilities
-│   ├── tests/            # pytest suite
-│   ├── database/
-│   │   └── migrations/   # Supabase SQL migrations
-│   ├── Dockerfile
-│   ├── pyproject.toml    # Python package + dependencies
-│   └── requirements.txt
-├── supabase/             # Supabase local config
-├── docs/                 # Design specs & documentation
-├── turbo.json            # Turborepo task pipeline
-├── pnpm-workspace.yaml   # Workspace definition
-└── tsconfig.base.json    # Shared TypeScript config
+â”œâ”€â”€ frontend/
+â”‚   â””â”€â”€ packages/
+â”‚       â”œâ”€â”€ web/          # React 19 PWA â€” TanStack Start (primary app)
+â”‚       â”œâ”€â”€ mobile/       # React Native + Expo app
+â”‚       â””â”€â”€ shared/       # Types & API contracts shared with mobile
+â”œâ”€â”€ backend/
+â”‚   â”œâ”€â”€ src/app/          # FastAPI application (see Backend Architecture)
+â”‚   â”œâ”€â”€ scripts/          # ML training / data utilities
+â”‚   â”œâ”€â”€ tests/            # pytest suite
+â”‚   â”œâ”€â”€ database/
+â”‚   â”‚   â””â”€â”€ migrations/   # Supabase SQL migrations
+â”‚   â”œâ”€â”€ Dockerfile
+â”‚   â”œâ”€â”€ pyproject.toml    # Python package + dependencies
+â”‚   â””â”€â”€ requirements.txt
+â”œâ”€â”€ supabase/             # Supabase local config
+â”œâ”€â”€ docs/                 # Design specs & documentation
+â”œâ”€â”€ turbo.json            # Turborepo task pipeline
+â”œâ”€â”€ pnpm-workspace.yaml   # Workspace definition
+â””â”€â”€ tsconfig.base.json    # Shared TypeScript config
 ```
 
 ---
@@ -160,20 +178,20 @@ in its own feature module.
 
 ```
 src/
-├── routes/            # Thin TanStack route definitions only
-├── features/          # One self-contained module per page
-│   ├── dashboard/     #   <Page>.tsx + components/ + *.data.ts / *.utils.ts
-│   ├── landing/       #   (public marketing page)
-│   ├── psx/  finance/  portfolio/  learn/  auth/  alerts/  stock/
-├── components/        # Cross-feature UI
-│   ├── layout/        #   app shell, sidebar, header, nav
-│   ├── charts/  market/  search/  icons/  shared/  ui/  (shadcn primitives)
-├── hooks/             # Shared React hooks (data + client)
-├── store/             # Redux Toolkit slices (demo/client state)
-├── services/          # Pure calculation layer (mirrors backend logic)
-├── integrations/      # Supabase clients (browser + server)
-├── lib/               # Utilities: api client, formatters, errors, i18n
-└── styles.css         # Design tokens (light/dark) + global styles
+â”œâ”€â”€ routes/            # Thin TanStack route definitions only
+â”œâ”€â”€ features/          # One self-contained module per page
+â”‚   â”œâ”€â”€ dashboard/     #   <Page>.tsx + components/ + *.data.ts / *.utils.ts
+â”‚   â”œâ”€â”€ landing/       #   (public marketing page)
+â”‚   â”œâ”€â”€ psx/  finance/  portfolio/  learn/  auth/  alerts/  stock/
+â”œâ”€â”€ components/        # Cross-feature UI
+â”‚   â”œâ”€â”€ layout/        #   app shell, sidebar, header, nav
+â”‚   â”œâ”€â”€ charts/  market/  search/  icons/  shared/  ui/  (shadcn primitives)
+â”œâ”€â”€ hooks/             # Shared React hooks (data + client)
+â”œâ”€â”€ store/             # Redux Toolkit slices (demo/client state)
+â”œâ”€â”€ services/          # Pure calculation layer (mirrors backend logic)
+â”œâ”€â”€ integrations/      # Supabase clients (browser + server)
+â”œâ”€â”€ lib/               # Utilities: api client, formatters, errors, i18n
+â””â”€â”€ styles.css         # Design tokens (light/dark) + global styles
 ```
 
 **Conventions**
@@ -191,17 +209,17 @@ The FastAPI service (`backend/src/app`) is organized by responsibility:
 
 ```
 app/
-├── api/            # Route handlers (market, signals, finance, alerts, …)
-├── schemas/        # Pydantic request/response models
-├── services/       # Business logic (calculations, signal generation)
-├── ml/             # Machine-learning model & feature pipeline
-├── repositories/   # Data access
-├── models/         # Domain models
-├── db/             # Database connection & session management
-├── scrapers/       # PSX market-data collectors
-├── jobs/           # Scheduled tasks (APScheduler)
-├── middleware/     # Auth (JWT/Bearer), timing, error handling
-└── main.py         # App entrypoint, CORS, middleware wiring
+â”œâ”€â”€ api/            # Route handlers (market, signals, finance, alerts, â€¦)
+â”œâ”€â”€ schemas/        # Pydantic request/response models
+â”œâ”€â”€ services/       # Business logic (calculations, signal generation)
+â”œâ”€â”€ ml/             # Machine-learning model & feature pipeline
+â”œâ”€â”€ repositories/   # Data access
+â”œâ”€â”€ models/         # Domain models
+â”œâ”€â”€ db/             # Database connection & session management
+â”œâ”€â”€ scrapers/       # PSX market-data collectors
+â”œâ”€â”€ jobs/           # Scheduled tasks (APScheduler)
+â”œâ”€â”€ middleware/     # Auth (JWT/Bearer), timing, error handling
+â””â”€â”€ main.py         # App entrypoint, CORS, middleware wiring
 ```
 
 ---
@@ -210,8 +228,8 @@ app/
 
 ### Prerequisites
 
-- **Node.js** ≥ 20 and **pnpm** ≥ 9
-- **Python** ≥ 3.12
+- **Node.js** â‰¥ 20 and **pnpm** â‰¥ 9
+- **Python** â‰¥ 3.12
 - A **Supabase** project (Postgres + Auth + Realtime)
 
 ### 1. Install
@@ -237,10 +255,10 @@ cp backend/.env.example backend/.env
 ### 3. Run
 
 ```bash
-# Web PWA      → http://localhost:8080
+# Web PWA      â†’ http://localhost:8080
 pnpm run dev
 
-# Backend API  → http://localhost:8000  (interactive docs at /docs)
+# Backend API  â†’ http://localhost:8000  (interactive docs at /docs)
 cd backend && python -m uvicorn app.main:app --reload --port 8000
 ```
 
@@ -251,10 +269,10 @@ To run the web app against a **deployed** backend instead of a local one, point
 
 ## Environment Variables
 
-Never commit real secrets — `.env` files are git-ignored. The checked-in
+Never commit real secrets â€” `.env` files are git-ignored. The checked-in
 `.env.example` files are the source of truth. Variable **names** only:
 
-**`frontend/packages/web/.env`** — all values are browser-safe / public
+**`frontend/packages/web/.env`** â€” all values are browser-safe / public
 
 | Variable | Purpose |
 |---|---|
@@ -265,9 +283,9 @@ Never commit real secrets — `.env` files are git-ignored. The checked-in
 | `VITE_DEMO_EMAIL` / `VITE_DEMO_PASSWORD` | Credentials for the "Try Demo" account |
 
 > Only publishable/anon keys belong in the frontend. Never place a service-role
-> or secret key in a `VITE_*` variable — it ships to the browser.
+> or secret key in a `VITE_*` variable â€” it ships to the browser.
 
-**`backend/.env`** — server-side secrets, keep private
+**`backend/.env`** â€” server-side secrets, keep private
 
 | Variable | Purpose |
 |---|---|
@@ -330,23 +348,23 @@ is covered by a pytest suite.
 
 ## Deployment
 
-- **Web app** — a TanStack Start / Nitro build (deployed to a serverless host).
+- **Web app** â€” a TanStack Start / Nitro build (deployed to a serverless host).
   Set production environment variables (notably `VITE_API_URL`) in the hosting
   provider; local `.env` files are not shipped.
-- **Backend API** — containerized via the provided `Dockerfile` and deployed to a
+- **Backend API** â€” containerized via the provided `Dockerfile` and deployed to a
   container host (`railway.json` is included for that platform). Ensure
   `CORS_ORIGINS` allows your web app's origin.
-- **Database** — a managed Supabase project.
+- **Database** â€” a managed Supabase project.
 
 ---
 
 ## Development Workflow
 
-- **Branches** — each contributor works on their own branch and opens a pull
+- **Branches** â€” each contributor works on their own branch and opens a pull
   request into the shared integration branch; releases are cut from `main`.
-- **Commits** — Conventional-Commit-style prefixes:
+- **Commits** â€” Conventional-Commit-style prefixes:
   `feat(scope):`, `fix(scope):`, `refactor(scope):`, `docs(scope):`, etc.
-- **Before opening a PR** — `pnpm run typecheck && pnpm run lint` (and `pytest`
+- **Before opening a PR** â€” `pnpm run typecheck && pnpm run lint` (and `pytest`
   for backend changes) should pass.
 
 ---
@@ -355,7 +373,7 @@ is covered by a pytest suite.
 
 | Focus area | Owner |
 |---|---|
-| Architecture · ML signals · cross-cutting | Usman |
+| Architecture Â· ML signals Â· cross-cutting | Usman |
 | Personal finance module | Shakir |
 | Mobile app | Tayyab |
 | Product & QA | Misbah |
@@ -364,4 +382,6 @@ is covered by a pytest suite.
 
 ## License
 
-© NafaIQ. All rights reserved. Proprietary — built for Pakistani investors.
+Â© NafaIQ. All rights reserved. Proprietary â€” built for Pakistani investors.
+
+

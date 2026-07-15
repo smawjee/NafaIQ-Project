@@ -33,6 +33,9 @@ import { portfolioSeries, formatToday } from "@/features/dashboard/dashboard.uti
 import { QuickAddTransactionModal } from "@/features/dashboard/components/QuickAddTransactionModal";
 import { QuickAddHoldingModal } from "@/features/dashboard/components/QuickAddHoldingModal";
 import { QuickAddAlertModal } from "@/features/dashboard/components/QuickAddAlertModal";
+import { MacroWidget } from "@/features/dashboard/MacroWidget";
+import { UnusualActivityWidget } from "@/features/psx/UnusualActivityWidget";
+import { NewsFeed } from "@/features/psx/NewsFeed";
 
 export function Dashboard() {
   const { profile, user } = useAuth();
@@ -418,6 +421,13 @@ export function Dashboard() {
             </>
           )}
         </Card>
+      </div>
+
+      {/* Workstream D: macro snapshot + unusual activity + latest news */}
+      <div className="grid gap-4 lg:grid-cols-3">
+        <MacroWidget />
+        <UnusualActivityWidget />
+        <NewsFeed limit={6} />
       </div>
 
       {/* Watchlist strip */}

@@ -23,7 +23,15 @@ TTL_FUNDAMENTALS = 1800.0
 TTL_SECTOR_AVG = 30.0
 TTL_SCREENER_METRICS = 120.0
 
-INDEX_CARD_CODES = ["KSE100", "KSE30", "KMI30", "ALLSHR"]
+# All 18 PSX indices. Single source of truth: this is the leaf module with
+# no back-edge into the import graph, so both the scheduler job and the
+# services layer can import it without creating a cycle.
+ALL_PSX_INDICES = (
+    "KSE100", "KSE100PR", "KSE30", "KMI30", "KMIALLSHR", "ALLSHR",
+    "BKTI", "OGTI", "PSXDIV20", "UPP9", "NITPGI", "NBPPGI",
+    "MZNPI", "JSMFI", "ACI", "JSGBKTI", "HBLTTI", "MII30",
+)
+INDEX_CARD_CODES = list(ALL_PSX_INDICES)
 
 
 @lru_cache(maxsize=1)

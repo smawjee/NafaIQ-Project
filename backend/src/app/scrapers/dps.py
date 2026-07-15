@@ -393,6 +393,19 @@ class DPSScraper:
 
     # ---------- payouts / dividends ----------
 
+    # TODO (Workstream E, follow-up): split detection. The psx_ohlcv table now
+    # has `is_adjusted`, `adjustment_factor`, and `split_date` columns to track
+    # split-adjusted bars. This scraper is the right place to populate them
+    # from the payout feed — `payout_type == "right"` (R) entries are right
+    # issues, not splits, so a real detector needs to look elsewhere. Candidates:
+    #   1. Parse the DPS "Corporate Actions" / "Stock Splits" page if/when PSX
+    #      publishes one, or
+    #   2. Detect splits from the ex_date discontinuity in fetch_payouts (a
+    #      right issue has no per_share for cash, but a true split has no
+    #      announcement_id collision and a clean price/2 or price/3 on the
+    #      following bar from fetch_historical).
+    # Until then, freshly written bars default to is_adjusted=true and
+    # adjustment_factor=1.0, which is what the migration guarantees.
     async def fetch_payouts(self, symbol: str) -> list[DividendEvent]:
         html = await self._post("/company/payouts", {"symbol": symbol.upper()})
         soup = BeautifulSoup(html, "lxml")

@@ -8,6 +8,7 @@ import {
   Cell,
   Pie,
   PieChart,
+  ReferenceLine,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -21,7 +22,7 @@ import { useLang } from "@/hooks/use-lang";
 import { useId } from "react";
 
 /** Theme-aware chart colors. Dark values are unchanged from the original design. */
-function useChartTheme() {
+export function useChartTheme() {
   const { theme } = useTheme();
   const light = theme === "light";
   return {
@@ -138,11 +139,13 @@ export function CandlestickChart({
   height = 480,
   mas = ["MA20", "MA50", "MA100"],
   maSeries,
+  currentPrice,
 }: {
   data: Candle[];
   height?: number;
   mas?: string[];
   maSeries?: { ma20: (number | null)[]; ma50: (number | null)[]; ma100: (number | null)[]; ma200: (number | null)[] };
+  currentPrice?: number;
 }) {
   const ct = useChartTheme();
   const ma20 = maSeries?.ma20 ?? sma(data, 20);
@@ -231,6 +234,20 @@ export function CandlestickChart({
             isAnimationActive={false}
           />
         )}
+        {currentPrice !== undefined && (
+          <ReferenceLine
+            y={currentPrice}
+            stroke="#00d4aa"
+            strokeDasharray="6 4"
+            strokeWidth={1.5}
+            label={{
+              value: `PKR ${currentPrice.toFixed(2)}`,
+              position: "right",
+              fill: "#00d4aa",
+              fontSize: 10,
+            }}
+          />
+        )}
       </ComposedChart>
     </ResponsiveContainer>
   );
@@ -241,11 +258,13 @@ export function PriceLineChart({
   height = 480,
   mas = ["MA20", "MA50", "MA100"],
   maSeries,
+  currentPrice,
 }: {
   data: Candle[];
   height?: number;
   mas?: string[];
   maSeries?: { ma20: (number | null)[]; ma50: (number | null)[]; ma100: (number | null)[]; ma200: (number | null)[] };
+  currentPrice?: number;
 }) {
   const ct = useChartTheme();
   const { t } = useLang();
@@ -359,6 +378,20 @@ export function PriceLineChart({
             dot={false}
             strokeWidth={1.2}
             isAnimationActive={false}
+          />
+        )}
+        {currentPrice !== undefined && (
+          <ReferenceLine
+            y={currentPrice}
+            stroke="#00d4aa"
+            strokeDasharray="6 4"
+            strokeWidth={1.5}
+            label={{
+              value: `PKR ${currentPrice.toFixed(2)}`,
+              position: "right",
+              fill: "#00d4aa",
+              fontSize: 10,
+            }}
           />
         )}
       </ComposedChart>

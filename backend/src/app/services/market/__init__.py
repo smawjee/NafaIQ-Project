@@ -27,3 +27,4 @@ from app.services.market.screener import (  # noqa: F401
     run_screener,
     screener_metrics,
 )
+from app.services.market.treemap import get_treemap  # noqa: F401

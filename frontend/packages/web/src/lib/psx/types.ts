@@ -1,4 +1,4 @@
-export interface ApiMarketSnapshotItem {
+﻿export interface ApiMarketSnapshotItem {
   symbol: string;
   price: number | null;
   change: number | null;
@@ -111,6 +111,30 @@ export interface ApiHeatmapResponse {
   count: number;
 }
 
+export interface ApiTreemapStock {
+  symbol: string;
+  name: string;
+  price: number;
+  change_pct: number;
+  volume: number;
+  market_cap: number;
+  logoid?: string | null;
+}
+
+export interface ApiTreemapSector {
+  name: string;
+  avg_change_pct: number;
+  total_market_cap: number;
+  stock_count: number;
+  stocks: ApiTreemapStock[];
+}
+
+export interface ApiTreemap {
+  as_of: string;
+  sectors: ApiTreemapSector[];
+  stock_count: number;
+}
+
 export interface ApiIndicatorPayload {
   symbol: string;
   indicators: Record<string, number | null>;
@@ -197,4 +221,21 @@ export interface ApiSignal {
 export interface BatchSignalsResponse {
   signals: ApiSignal[];
   count: number;
+}
+export interface ApiMutualFund {
+  fund_code: string;
+  name: string;
+  category: string | null;
+  amc: string | null;
+  shariah: boolean;
+  latest_nav: number | null;
+  nav_date: string | null;
+  aum: number | null;
+  refreshed_at?: string;
+}
+
+export interface ApiFundNavHistory {
+  fund_code: string;
+  date: string;
+  nav: number | null;
 }

@@ -1,107 +1,37 @@
-"""TradingView Pakistan scanner client.
+"""TradingView Pakistan scanner client — thin wrapper over app.scrapers.tradingview.
 
-Endpoint:
-  POST https://scanner.tradingview.com/pakistan/scan?api_key=widget_user_token&label-product=heatmap-stock
+Workstream E: v2 used to be a parallel regex-less client with a richer URL
+(``?api_key=widget_user_token&label-product=heatmap-stock``) and a different
+payload shape (no forced sort, custom default limit). v2 now re-exports v1's
+:class:`TradingViewScraper` under the v2 name and delegates everything to v1.
 
-Used for:
-- broad market scanning
-- sector heatmap data
-- screener
-- market overview snapshot
+The richer v2 URL is preserved as a module-level constant for callers that want
+to inspect it, but at runtime the v1 module owns the actual endpoint.
 """
 from __future__ import annotations
 
-import json
 import logging
-from typing import Any, Optional
-
-import httpx
+from typing import Optional
 
 log = logging.getLogger(__name__)
 
+# Preserved for API compat. v1's `app.scrapers.tradingview.TV_SCANNER_URL` is the
+# endpoint actually used at runtime — this constant is just a hint for callers
+# and tests that need the heatmap-product query string.
 TV_URL = (
     "https://scanner.tradingview.com/pakistan/scan"
     "?api_key=widget_user_token&label-product=heatmap-stock"
 )
 
-
-class TradingViewScanner:
-    def __init__(self, url: str = TV_URL, timeout: float = 15.0) -> None:
-        self.url = url
-        self.timeout = timeout
-        self._client: Optional[httpx.AsyncClient] = None
-
-    async def _get_client(self) -> httpx.AsyncClient:
-        if self._client is None:
-            self._client = httpx.AsyncClient(
-                timeout=self.timeout,
-                headers={
-                    "User-Agent": (
-                        "Mozilla/5.0 (compatible; NafaIQ/1.0; "
-                        "+https://nafaiq.app)"
-                    ),
-                    "Content-Type": "application/json",
-                    "Accept": "application/json",
-                },
-            )
-        return self._client
-
-    async def close(self) -> None:
-        if self._client is not None:
-            await self._client.aclose()
-            self._client = None
-
-    async def scan(
-        self,
-        columns: Optional[list[str]] = None,
-        range_pct: tuple[float, float] = (-100, 100),
-        sort_by: Optional[str] = None,
-        sort_dir: str = "desc",
-        limit: int = 200,
-    ) -> list[dict[str, Any]]:
-        """Run a TradingView scan and return list of result rows.
-
-        Returns the parsed `data` array. The exact shape depends on the
-        columns selected; we leave interpretation to the caller.
-        """
-        if columns is None:
-            # NOTE: TradingView's "change" IS the percent change; "change_abs" is
-            # the absolute change. There is no "change_pct" column (requesting it
-            # returns HTTP 400). Column order here must match caller index parsing.
-            columns = [
-                "name",
-                "close",
-                "change",
-                "change_abs",
-                "volume",
-                "sector",
-                "market_cap_basic",
-            ]
-        # TradingView "range" is row pagination [start, end], not a value filter.
-        payload: dict[str, Any] = {
-            "columns": columns,
-            "range": [0, max(1, limit)],
-            "markets": ["pakistan"],
-        }
-        if sort_by:
-            payload["sort"] = {"sortBy": sort_by, "sortOrder": sort_dir}
-        try:
-            client = await self._get_client()
-            r = await client.post(self.url, content=json.dumps(payload))
-            r.raise_for_status()
-            data = r.json()
-            if isinstance(data, dict) and "data" in data:
-                return data["data"]
-            return data if isinstance(data, list) else []
-        except Exception:
-            log.exception("tradingview.scan failed")
-            return []
-
+from app.scrapers.tradingview import (  # noqa: E402
+    TradingViewScraper as TradingViewScanner,
+)
 
 _scanner: Optional[TradingViewScanner] = None
 
 
 def get_scanner() -> TradingViewScanner:
+    """Return the singleton TradingViewScanner (a v1 ``TradingViewScraper``)."""
     global _scanner
     if _scanner is None:
         _scanner = TradingViewScanner()

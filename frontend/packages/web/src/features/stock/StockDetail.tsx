@@ -1,15 +1,17 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "@tanstack/react-router";
-import { ArrowLeft, Sparkles, X, Loader2 } from "lucide-react";
+import { ArrowLeft, Sparkles, X, Loader2, FileText, BarChart3 } from "lucide-react";
+import { ReferenceLine } from "recharts";
 import { toast } from "sonner";
 import { Card } from "@/components/shared/Card";
 import { SignalBadge } from "@/components/market/SignalBadge";
-import { CandlestickChart } from "@/components/charts/charts";
+import { CandlestickChart, PriceLineChart } from "@/components/charts/charts";
+import { ChartToolbar, type Indicator, type Timeframe } from "@/components/charts/ChartToolbar";
 import { CountUpNumber } from "@/components/shared/CountUpNumber";
 import { Typewriter } from "@/components/shared/Typewriter";
 import { StockLogo } from "@/components/search/StockLogo";
 import { logoUrlFor } from "@/lib/psx/stock-search";
-import { STOCKS } from "@/lib/data";
+import { STOCKS, sma, fmtNum, type Candle } from "@/lib/data";
 import { formatNumber, formatSigned, formatSignedPercent, formatCompactPKR } from "@/lib/format";
 import {
   usePsxQuote,
@@ -19,7 +21,9 @@ import {
   usePsxAnnouncements,
   usePsxSignal,
   usePsxSymbols,
+  usePsxRealtime,
 } from "@/hooks/psx/use-psx";
+import { usePersistedTfMap } from "@/hooks/psx/use-persisted-tf-map";
 import { useWatchlist } from "@/hooks/psx/use-watchlist";
 import { useDemo } from "@/hooks/use-demo";
 import { userPost } from "@/lib/psx/client";
@@ -27,6 +31,9 @@ import { cn } from "@/lib/utils";
 import { useLang } from "@/hooks/use-lang";
 import { formatTimeAgo } from "@/features/stock/stock.utils";
 import { ActionButtons } from "@/features/stock/components/ActionButtons";
+import { FilingsTab } from "@/features/stock/FilingsTab";
+import { FinancialsTab } from "@/features/stock/FinancialsTab";
+import { tfDays } from "@/features/psx/psx.utils";
 
 export function StockDetail() {
   const { ticker } = useParams({ from: "/stock/$ticker" });
@@ -36,8 +43,10 @@ export function StockDetail() {
   const upper = ticker.toUpperCase();
   const s = STOCKS[ticker];
 
+  // Phase 0 / B5: per-symbol timeframe persistence
+  const { tfFor, setTfFor } = usePersistedTfMap("6M");
   const { data: quote } = usePsxQuote(ticker);
-  const { data: ohlcvData } = usePsxHistory(ticker);
+  const { data: ohlcvData } = usePsxHistory(ticker, Math.max(365, tfDays(tfFor(ticker))));
   const { data: profile } = usePsxProfile(ticker);
   const { data: fundamentals } = usePsxFundamentals(ticker);
   const { data: announcements } = usePsxAnnouncements(ticker, 5);
@@ -45,12 +54,19 @@ export function StockDetail() {
   const { data: symbolsData } = usePsxSymbols();
   const wl = useWatchlist();
 
+  const [chartType, setChartType] = useState<"candle" | "line">("candle");
+  const [chartMas, setChartMas] = useState<Indicator[]>(["MA20", "MA50", "MA100"]);
+  const tf = tfFor(upper) as Timeframe;
+  const setTf = (next: Timeframe) => setTfFor(upper, next);
+
   const [alertOpen, setAlertOpen] = useState(false);
   const [alertCondition, setAlertCondition] = useState<"above" | "below">("above");
   const [alertPrice, setAlertPrice] = useState("");
   const [alertMsg, setAlertMsg] = useState("");
+  const [alertSeverity, setAlertSeverity] = useState<"success" | "error" | "info">("info");
   const [alertBusy, setAlertBusy] = useState(false);
   const [wlBusy, setWlBusy] = useState(false);
+  const [tab, setTab] = useState<"announcements" | "filings" | "financials">("announcements");
 
   const symbolInfo = symbolsData?.find((x) => x.symbol === upper);
 
@@ -74,7 +90,32 @@ export function StockDetail() {
   const confidence = signal?.confidence ?? 0;
   const signalPending = !modelReady && !isDemo;
 
-  const data = ohlcvData ?? [];
+  // Phase 0 / B4: derive a chart-ready series from the per-stock history
+  // and slice it by the persisted timeframe. The last bar is yesterday's EOD
+  // close; the live `quote.price` is overlaid as a horizontal reference line
+  // so the user can see how today's tick sits vs. the recent bars.
+  // Phase 0 / B8: subscribe to the realtime channel filtered to this single
+  // symbol so small-caps that aren't in the top-20 AHL poll still update
+  // in <1s when the user is on their detail page.
+  usePsxRealtime([upper]);
+  const data = useMemo(() => {
+    const full = (ohlcvData ?? []) as Candle[];
+    const visibleCount = tfDays(tf);
+    return full.slice(-visibleCount);
+  }, [ohlcvData, tf]);
+  const maSeries = useMemo(() => {
+    const full = (ohlcvData ?? []) as Candle[];
+    const visibleCount = tfDays(tf);
+    const start = Math.max(0, full.length - visibleCount);
+    return {
+      ma20: sma(full, 20).slice(start),
+      ma50: sma(full, 50).slice(start),
+      ma100: sma(full, 100).slice(start),
+      ma200: sma(full, 200).slice(start),
+    };
+  }, [ohlcvData, tf]);
+  const lastBar = data[data.length - 1];
+  const isLive = quote?.price != null && quote.price > 0;
 
   const marketCap =
     profile?.listed_shares && price ? formatCompactPKR(profile.listed_shares * price) : "—";
@@ -111,6 +152,7 @@ export function StockDetail() {
     const target = parseFloat(alertPrice);
     if (isNaN(target) || target <= 0) {
       setAlertMsg(t("Please enter a valid price"));
+      setAlertSeverity("error");
       return;
     }
     setAlertBusy(true);
@@ -125,9 +167,11 @@ export function StockDetail() {
       toast.success(t("Price alert created"));
       setAlertOpen(false);
       setAlertMsg("");
+      setAlertSeverity("success");
     } catch (error) {
       console.error("Set alert error:", error);
       setAlertMsg(t("Could not set alert — you may have reached your plan's alert limit."));
+            setAlertSeverity("error");
     } finally {
       setAlertBusy(false);
     }
@@ -156,9 +200,26 @@ export function StockDetail() {
             </p>
             <div className="mt-2 flex items-baseline gap-3">
               {price != null ? (
-                <span className="font-mono text-3xl font-bold tabular-nums text-text-primary">
-                  <CountUpNumber value={price} decimals={2} prefix="PKR " />
-                </span>
+                <>
+                  <span className="font-mono text-3xl font-bold tabular-nums text-text-primary">
+                    <CountUpNumber value={price} decimals={2} prefix="PKR " />
+                  </span>
+                  {/* Phase 0 / B4: live tick is the "true right-now" price; the
+                      chart's last bar is yesterday's EOD close. The badge makes
+                      the distinction explicit. */}
+                  <span
+                    className={cn(
+                      "rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide",
+                      isLive ? "bg-bull/15 text-bull" : "bg-text-secondary/15 text-text-secondary",
+                    )}
+                    title={
+                      isLive ? t("Live tick from PSX snapshot") : t("EOD close — live unavailable")
+                    }
+                    aria-label={isLive ? t("Live tick from PSX snapshot") : t("EOD close — live unavailable")}
+                  >
+                    {isLive ? t("LIVE") : t("EOD")}
+                  </span>
+                </>
               ) : (
                 <span className="font-mono text-3xl font-bold tabular-nums text-text-muted">—</span>
               )}
@@ -194,15 +255,38 @@ export function StockDetail() {
       </div>
 
       <Card hover={false} className="bg-surface-alt">
+        {/* Phase 0 / B7: stock-detail now uses the same ChartToolbar as /psx */}
+        <ChartToolbar
+          sym={upper}
+          nameFor={() => ""}
+          onSymChange={() => {}}
+          tf={tf}
+          onTfChange={setTf}
+          type={chartType}
+          onTypeChange={setChartType}
+          mas={chartMas}
+          onMasChange={setChartMas}
+          hideSymbolPicker
+        />
         <div className="h-[300px] lg:h-[440px]">
           {data.length > 0 ? (
-            <CandlestickChart data={data} height={9999} mas={["MA20", "MA50", "MA100"]} />
+            chartType === "line" ? (
+              <PriceLineChart data={data} height={9999} mas={chartMas} maSeries={maSeries} currentPrice={price} />
+            ) : (
+              <CandlestickChart data={data} height={9999} mas={chartMas} maSeries={maSeries} currentPrice={price} />
+            )
           ) : (
             <div className="flex h-full items-center justify-center text-text-muted text-sm">
               {t("Loading chart data...")}
             </div>
           )}
         </div>
+        {data.length > 0 && isLive && lastBar && (
+          <p className="mt-2 text-[11px] text-text-muted">
+            {t("Dashed line: today's live tick. Bars: EOD history. Last bar close = ")}
+            <span className="font-mono">{fmtNum(lastBar.close)}</span>.
+          </p>
+        )}
       </Card>
 
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
@@ -285,53 +369,94 @@ export function StockDetail() {
       </Card>
 
       <Card>
-        <h3 className="mb-3 text-sm font-semibold text-text-primary">
-          {t("Recent Announcements")}
-        </h3>
-        {announcements && announcements.length > 0 ? (
-          <div className="space-y-2">
-            {announcements.map((n) => {
-              const RowInner = (
-                <>
-                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[8px] bg-elevated text-xs font-bold text-text-secondary">
-                    {(n.symbol ?? upper)[0]}
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="line-clamp-2 text-sm leading-snug text-text-primary">
-                      {t(n.title)}
+        <div className="mb-3 flex items-center gap-1.5">
+          <button
+            type="button"
+            onClick={() => setTab("announcements")}
+            className={cn(
+              "rounded-[6px] px-2.5 py-1 text-xs font-semibold transition",
+              tab === "announcements"
+                ? "bg-bull text-bull-foreground"
+                : "text-text-secondary hover:bg-hover",
+            )}
+          >
+            {t("Announcements")}
+          </button>
+          <button
+            type="button"
+            onClick={() => setTab("filings")}
+            className={cn(
+              "inline-flex items-center gap-1 rounded-[6px] px-2.5 py-1 text-xs font-semibold transition",
+              tab === "filings"
+                ? "bg-bull text-bull-foreground"
+                : "text-text-secondary hover:bg-hover",
+            )}
+          >
+            <FileText className="h-3 w-3" /> {t("Filings")}
+          </button>
+          <button
+            type="button"
+            onClick={() => setTab("financials")}
+            className={cn(
+              "inline-flex items-center gap-1 rounded-[6px] px-2.5 py-1 text-xs font-semibold transition",
+              tab === "financials"
+                ? "bg-bull text-bull-foreground"
+                : "text-text-secondary hover:bg-hover",
+            )}
+          >
+            <BarChart3 className="h-3 w-3" /> {t("Financials")}
+          </button>
+        </div>
+        {tab === "announcements" ? (
+          announcements && announcements.length > 0 ? (
+            <div className="space-y-2">
+              {announcements.map((n) => {
+                const RowInner = (
+                  <>
+                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[8px] bg-elevated text-xs font-bold text-text-secondary">
+                      {(n.symbol ?? upper)[0]}
                     </div>
-                    <div className="mt-0.5 text-[11px] text-text-muted">
-                      {formatTimeAgo(n.posted_at)}
+                    <div className="min-w-0 flex-1">
+                      <div className="line-clamp-2 text-sm leading-snug text-text-primary">
+                        {t(n.title)}
+                      </div>
+                      <div className="mt-0.5 text-[11px] text-text-muted">
+                        {formatTimeAgo(n.posted_at)}
+                      </div>
                     </div>
+                    <span className="shrink-0 self-start rounded-[4px] bg-neutral/20 px-2 py-0.5 text-[10px] font-medium text-text-secondary">
+                      {t(n.category ?? "Corporate")}
+                    </span>
+                  </>
+                );
+                const rowClass =
+                  "flex items-start gap-3 rounded-[8px] border border-border bg-surface-alt p-3 transition-colors";
+                return n.url ? (
+                  <a
+                    key={n.id}
+                    href={n.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className={cn(rowClass, "hover:border-white/[0.16] hover:bg-hover")}
+                  >
+                    {RowInner}
+                  </a>
+                ) : (
+                  <div key={n.id} className={rowClass}>
+                    {RowInner}
                   </div>
-                  <span className="shrink-0 self-start rounded-[4px] bg-neutral/20 px-2 py-0.5 text-[10px] font-medium text-text-secondary">
-                    {t(n.category ?? "Corporate")}
-                  </span>
-                </>
-              );
-              const rowClass =
-                "flex items-start gap-3 rounded-[8px] border border-border bg-surface-alt p-3 transition-colors";
-              return n.url ? (
-                <a
-                  key={n.id}
-                  href={n.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className={cn(rowClass, "hover:border-white/[0.16] hover:bg-hover")}
-                >
-                  {RowInner}
-                </a>
-              ) : (
-                <div key={n.id} className={rowClass}>
-                  {RowInner}
-                </div>
-              );
-            })}
-          </div>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="py-4 text-center text-text-muted text-sm">
+              {t("No recent announcements.")}
+            </div>
+          )
+        ) : tab === "filings" ? (
+          <FilingsTab symbol={upper} />
         ) : (
-          <div className="py-4 text-center text-text-muted text-sm">
-            {t("No recent announcements.")}
-          </div>
+          <FinancialsTab symbol={upper} />
         )}
       </Card>
 
@@ -413,11 +538,11 @@ export function StockDetail() {
               <p
                 className={cn(
                   "mb-2 text-xs",
-                  alertMsg.includes("Failed") ||
-                    alertMsg.includes("valid") ||
-                    alertMsg.includes("log in")
+                  alertSeverity === "error"
                     ? "text-bear"
-                    : "text-bull",
+                    : alertSeverity === "success"
+                      ? "text-bull"
+                      : "text-text-muted",
                 )}
               >
                 {alertMsg}
@@ -437,3 +562,4 @@ export function StockDetail() {
     </div>
   );
 }
+

@@ -73,6 +73,29 @@ class Settings(BaseSettings):
     cors_origins: str = "*"
     port: int = 8000
 
+
+    # Hardcoded Shariah-compliant stock universe (PSX Shariah Index constituents).
+    # Used by the scheduler's job_refresh_tv_data to derive is_shariah for each profile.
+    # TODO: Replace with dynamic fetches from PSX's official Shariah list when available.
+    SHARIAH_STOCKS: set[str] = {
+        "MARI", "OGDC", "PPL", "POL", "LUCK", "SEARL", "HBL", "MEBL",
+        "UBL", "FABL", "EFERT", "FFC", "ENGRO", "NESTLE", "COLG", "LINDE",
+        "NCL", "SCBPL", "BAHL", "BAFL", "TGL", "HUMNL", "GHGL", "MLCF",
+        "PIOC", "ASTL", "AMBL", "KTML", "CHCC", "FLYNG", "PSX", "FCCL",
+        "DCR", "EPCL", "LOTCHEM", "RPL", "TREET", "UNITY", "WAHUN", "GATI",
+        "AGL", "BIFO", "BIPL", "BML", "BRR", "CASH", "CNERGY", "DOL",
+        "DWAE", "DYNO", "ELCM", "FFL", "FRSM", "GAL", "GLAXO", "HAEL",
+        "HASCOL", "HSPI", "HZAN", "ICL", "IDYM", "ILP", "IMCO", "INDU",
+        "ISL", "JKL", "JSCL", "KAPCO", "KOHE", "KOHC", "LEUL", "LPGL",
+        "MACFL", "MERIT", "MFTM", "MLOD", "MUREB", "NATF", "NBP", "NCPL",
+        "NML", "NRL", "NTCL", "OBOY", "PAEL", "PAKRI", "PGIL", "PICT",
+        "PKGS", "PMI", "PNER", "PRFG", "PRWM", "PSMC", "PTC", "QUICE",
+        "RMFL", "SANL", "SAPT", "SGF", "SHEL", "SHJD", "SIMG", "SITC",
+        "SMCPL", "SPWL", "SRVI", "SSGC", "STJT", "STPL", "SYM", "SYS",
+        "TATM", "TAUS", "TCORP", "TGL", "THALL", "TPLP", "TRG", "TRIPF",
+        "UPFL", "WAVES", "WTL", "YOUSP", "ZIL",
+    }
+
     @property
     def supabase_service_key(self) -> str:
         """Return the active server-side service key (bypasses RLS).
@@ -93,3 +116,4 @@ class Settings(BaseSettings):
 
 
 settings = Settings()
+

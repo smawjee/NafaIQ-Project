@@ -25,6 +25,12 @@ from app.api import (
     finance_sync,
     profile,
     reports,
+    macro,
+    news,
+    filings,
+    unusual,
+    financials_extended,
+    funds,
 )
 from app.jobs.scheduler import init_scheduler, shutdown_scheduler
 from app.middleware.auth import BearerTokenMiddleware
@@ -125,7 +131,7 @@ app.add_middleware(
 )
 
 # Timing log for hot market endpoints, to compare before/after cache work.
-_HOT_PATH_PREFIXES = ("/api/market", "/api/quote", "/api/symbols", "/api/index", "/api/sectors")
+_HOT_PATH_PREFIXES = ("/api/market", "/api/quote", "/api/symbols", "/api/index", "/api/sectors", "/api/macro", "/api/news", "/api/filings", "/api/financials", "/api/funds")
 
 
 @app.middleware("http")
@@ -160,3 +166,9 @@ app.include_router(finance_sync.router, prefix="/api")
 app.include_router(profile.router, prefix="/api")
 app.include_router(ai.router, prefix="/api")
 app.include_router(reports.router, prefix="/api")
+app.include_router(macro.router, prefix="/api")
+app.include_router(news.router, prefix="/api")
+app.include_router(filings.router, prefix="/api")
+app.include_router(unusual.router, prefix="/api")
+app.include_router(funds.router, prefix="/api")
+app.include_router(financials_extended.router, prefix="/api")
