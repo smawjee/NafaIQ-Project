@@ -21,4 +21,3 @@ openai>=2.45
 instructor>=1.15
 PyJWT>=2.8
 resend>=0.1
-asyncpg>=0.29

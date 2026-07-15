@@ -23,6 +23,12 @@ VOLUME_RATIO_THRESHOLD = 3.0
 PCT_CHANGE_THRESHOLD = 2.0
 WINDOW_DAYS = 30
 
+# Paging for the batch OHLCV read. PostgREST's default max-rows is 1000, so a
+# single select cannot cover ~500 symbols x ~21 trading days.
+_OHLCV_PAGE_SIZE = 1000
+# Runaway guard: ~500 symbols x 31 days ≈ 15.5k rows, so 60k is generous.
+_OHLCV_MAX_ROWS = 60_000
+
 
 class VolumeSpikeDetector:
     """Detect symbols whose volume is ≫ 30d average."""
@@ -47,19 +53,38 @@ class VolumeSpikeDetector:
         thirty_one_days_ago = (date.today() - timedelta(days=31)).isoformat()
         today_iso = date.today().isoformat()
 
-        try:
-            ohlcv_res = await async_execute(
-                lambda c: c.table("psx_ohlcv")
-                .select("symbol,volume,date")
-                .gte("date", thirty_one_days_ago)
-                .lt("date", today_iso)
-                .gte("volume", 1)
-            )
-        except Exception:
-            log.warning("volume_spike_ohlcv_failed", exc_info=True)
-            return []
+        # PostgREST caps a single response at ~1000 rows. ~500 symbols x ~21
+        # trading days is well past that, so page explicitly — an unpaginated
+        # select would silently see ~5% of the market and still report success.
+        # Order by (symbol, date) so the vols[-30:] slice below is chronological.
+        ohlcv_rows: list[dict] = []
+        offset = 0
+        while offset < _OHLCV_MAX_ROWS:
+            try:
+                ohlcv_res = await async_execute(
+                    lambda c, o=offset: c.table("psx_ohlcv")
+                    .select("symbol,volume,date")
+                    .gte("date", thirty_one_days_ago)
+                    .lt("date", today_iso)
+                    .gte("volume", 1)
+                    .order("symbol")
+                    .order("date")
+                    .range(o, o + _OHLCV_PAGE_SIZE - 1)
+                )
+            except Exception:
+                log.warning("volume_spike_ohlcv_failed", exc_info=True)
+                return []
 
-        ohlcv_rows = ohlcv_res.data or []
+            batch = ohlcv_res.data or []
+            ohlcv_rows.extend(batch)
+            if len(batch) < _OHLCV_PAGE_SIZE:
+                break
+            offset += _OHLCV_PAGE_SIZE
+        else:
+            log.warning(
+                "volume_spike_ohlcv_truncated",
+                extra={"max_rows": _OHLCV_MAX_ROWS},
+            )
 
         # Group by symbol, compute avg of last 30 days
         vol_by_sym: dict[str, list[float]] = defaultdict(list)

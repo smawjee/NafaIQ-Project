@@ -80,7 +80,7 @@ class Settings(BaseSettings):
     SHARIAH_STOCKS: set[str] = {
         "MARI", "OGDC", "PPL", "POL", "LUCK", "SEARL", "HBL", "MEBL",
         "UBL", "FABL", "EFERT", "FFC", "ENGRO", "NESTLE", "COLG", "LINDE",
-        "NCL", "SCBPL", "BAHL", "BAFL", "TGL", "HUMNL", "GHGL", "MLCF",
+        "NCL", "SCBPL", "BAHL", "BAFL", "HUMNL", "GHGL", "MLCF",
         "PIOC", "ASTL", "AMBL", "KTML", "CHCC", "FLYNG", "PSX", "FCCL",
         "DCR", "EPCL", "LOTCHEM", "RPL", "TREET", "UNITY", "WAHUN", "GATI",
         "AGL", "BIFO", "BIPL", "BML", "BRR", "CASH", "CNERGY", "DOL",

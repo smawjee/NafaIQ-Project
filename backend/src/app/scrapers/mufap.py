@@ -88,10 +88,17 @@ class MUFAPScraper:
     # ---------- history ----------
 
     async def fetch_nav_history(self, fund_code: str) -> list[dict]:
-        # Per-fund NAV history is disabled because MUFAP does not expose
-        # per-fund URLs. The single HISTORY_URLS page is not fund-specific
-        # and would tag every row with the wrong fund_code.
-        log.warning("mufap:nav_history_disabled_per_fund_urls_unavailable", fund=fund_code)
+        """Always returns [] — per-fund NAV history is not available upstream.
+
+        MUFAP does not expose per-fund history URLs; the single HISTORY_URLS
+        page is not fund-specific and would tag every row with the wrong
+        fund_code. ``psx_fund_nav_history`` is populated via the CSV import
+        path (``import_nav_csv``) instead.
+
+        Logged at debug, not warning: this is a known permanent state, not an
+        incident. The scheduler no longer calls this in a loop.
+        """
+        log.debug("mufap:nav_history_unavailable_per_fund", fund=fund_code)
         return []
 
     # ---------- CSV import ----------

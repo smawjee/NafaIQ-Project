@@ -44,19 +44,30 @@ async def search_filings(
     limit: int = Query(20, ge=1, le=200),
 ):
     """Full-text search the body of a symbol's filings."""
-    import re
     from app.db.supabase import async_execute
 
     sym = symbol.upper()
-    # Strip tsquery operators to prevent users from controlling query semantics
-    sanitized_q = re.sub(r'[&|!:*()]', ' ', q).strip()
+    # ``type="web_search"`` maps to websearch_to_tsquery, which parses arbitrary
+    # free text safely (never raises on user input) and needs no sanitizing.
+    # The previous regex both under- and over-shot: it left `<`, `>`, `-` and `'`
+    # (so query semantics were still reachable) while the default `to_tsquery`
+    # backend 500'd on any multi-word query like "annual report", since
+    # to_tsquery requires explicit operators between lexemes.
+    # NOTE: postgrest maps only the exact token "web_search" to `wfts` — the
+    # spelling "websearch" silently falls back to plain `fts` (to_tsquery).
+    #
+    # This was never SQL injection: the value is a PostgREST filter argument,
+    # passed to websearch_to_tsquery(), never concatenated into SQL.
+    #
     # Postgres FTS via ``textsearch`` filter. The GIN index on
     # ``to_tsvector('english', text_content)`` is what makes this fast.
     result = await async_execute(
         lambda c: c.table("filings")
         .select("announcement_id,symbol,type,filed_at,pdf_url,page_count")
         .eq("symbol", sym)
-        .text_search("text_content", sanitized_q, options={"config": "english"})
+        .text_search(
+            "text_content", q.strip(), options={"type": "web_search", "config": "english"}
+        )
         .order("filed_at", desc=True)
         .limit(limit)
     )
