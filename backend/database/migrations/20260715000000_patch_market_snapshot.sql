@@ -1,8 +1,8 @@
-﻿-- Phase 0 / B1: AHL realtime upsert must not clobber DPS-derived columns.
+-- Phase 0 / B1: AHL realtime upsert must not clobber DPS-derived columns.
 --
 -- The 5s job_poll_ahletrade writes only {price, volume, refreshed_at} for the
 -- top-20 symbols. A Supabase upsert on the full row NULLs change, change_pct,
--- day_high, day_low â€” corrupting the sector aggregate every 5s. The fix is a
+-- day_high, day_low — corrupting the sector aggregate every 5s. The fix is a
 -- patch RPC that UPDATEs only the three AHL-owned columns.
 --
 -- Spec: (internal workstream plan)

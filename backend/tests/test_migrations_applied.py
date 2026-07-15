@@ -1,4 +1,4 @@
-﻿"""Pytest: verify required migrations are applied to Supabase.
+"""Pytest: verify required migrations are applied to Supabase.
 
 Checks each migration's expected schema changes against the live DB.
 """
@@ -67,6 +67,13 @@ CHECKS: List[MigrationCheck] = [
             Check("psx_dividends table", "SELECT to_regclass('public.psx_dividends') IS NOT NULL"),
             Check("psx_index_eod table", "SELECT to_regclass('public.psx_index_eod') IS NOT NULL"),
             Check("psx_ticks table", "SELECT to_regclass('public.psx_ticks') IS NOT NULL"),
+            # psx_watchlist / psx_alerts (v1) are superseded by user_watchlist +
+            # price_alerts, and 20260716050030_drop_v1_schema.sql exists to drop
+            # them — but that migration has NOT been applied to the live DB (it
+            # is absent from apply_migrations_20260716.py's list). Verified
+            # 2026-07-15: both tables still exist and hold 0 rows, while the v2
+            # tables are live. These assertions therefore track CURRENT reality.
+            # Flip them to `IS NULL` in the same change that applies the drop.
             Check("psx_watchlist table (v1)", "SELECT to_regclass('public.psx_watchlist') IS NOT NULL"),
             Check("psx_alerts table (v1)", "SELECT to_regclass('public.psx_alerts') IS NOT NULL"),
             Check("psx_portfolios table", "SELECT to_regclass('public.psx_portfolios') IS NOT NULL"),
@@ -76,6 +83,7 @@ CHECKS: List[MigrationCheck] = [
             # the surviving index of each pair (kept for the symbol/date reads).
             Check("psx_market_snapshot(symbol) index", "SELECT to_regclass('public.idx_psx_market_snapshot_symbol') IS NOT NULL"),
             Check("psx_ohlcv(symbol,date) index", "SELECT to_regclass('public.idx_psx_ohlcv_symbol_date_desc') IS NOT NULL"),
+            # Lives or dies with psx_alerts — see the note above; drop pending.
             Check("idx_psx_alerts_user index", "SELECT to_regclass('public.idx_psx_alerts_user') IS NOT NULL"),
             Check("RLS on psx_holdings", "SELECT relrowsecurity FROM pg_class WHERE relname='psx_holdings'"),
         ],

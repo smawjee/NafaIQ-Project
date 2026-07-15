@@ -1,17 +1,17 @@
-﻿-- Phase 0 / Workstream E: PSX OHLCV split-adjustment tracking + Shariah flag.
+-- Phase 0 / Workstream E: PSX OHLCV split-adjustment tracking + Shariah flag.
 --
 -- 1) psx_ohlcv gains three columns so we can correctly carry 10y of history
 --    even when a stock had a split:
---      is_adjusted         â€” true when this bar has been adjusted for past splits
---      adjustment_factor   â€” cumulative split ratio (raw_price * factor == adjusted)
---      split_date          â€” date of the split that triggered the adjustment, if any
+--      is_adjusted         — true when this bar has been adjusted for past splits
+--      adjustment_factor   — cumulative split ratio (raw_price * factor == adjusted)
+--      split_date          — date of the split that triggered the adjustment, if any
 --    Newly written bars default to is_adjusted=true / factor=1.0 (i.e. "as fetched,
---    no further adjustment applied yet"). Split detection itself is a follow-up â€”
+--    no further adjustment applied yet"). Split detection itself is a follow-up —
 --    see the TODO comment near DPSScraper.fetch_payouts in scrapers/dps.py.
 --
 -- 2) psx_profile gains is_shariah so we can build Shariah-aware screeners.
 --    The flag is derived in job_refresh_tv_data from the `listed_in` column
---    (a comma-separated list of index memberships) â€” if any of the KMI/MZNPI
+--    (a comma-separated list of index memberships) — if any of the KMI/MZNPI
 --    Shariah indexes is present, the stock is Shariah-compliant.
 --
 -- Spec: (internal workstream plan)

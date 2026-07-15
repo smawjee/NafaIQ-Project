@@ -1,4 +1,4 @@
-﻿-- Phase 0 / Workstream D: macro rates, mutual funds, news, filings, unusual
+-- Phase 0 / Workstream D: macro rates, mutual funds, news, filings, unusual
 -- activity, and extended financials tables.
 --
 -- These tables back the new SBP / MUFAP / Business Recorder / financials.psx
