@@ -12,7 +12,15 @@ from app.repositories import notifications_repo as repo
 from app.repositories.base import begin, connect
 from app.schemas.notifications import NotifPrefsUpdate
 
-_DEFAULT_PREFS = {"email_alerts": False, "push_alerts": False, "in_app_alerts": True}
+# Defaults when a user has no prefs row. email_alerts defaults True to match the
+# DB column default and the web UI (threshold alerts are opt-out); email_activity
+# defaults False (receipts are opt-in).
+_DEFAULT_PREFS = {
+    "email_alerts": True,
+    "email_activity": False,
+    "push_alerts": False,
+    "in_app_alerts": True,
+}
 
 
 async def list_notifications(user_id: str, limit: int = 50) -> list[dict[str, Any]]:
@@ -40,6 +48,7 @@ async def update_prefs(user_id: str, body: NotifPrefsUpdate) -> dict[str, Any]:
             conn,
             user_id,
             email_alerts=body.email_alerts,
+            email_activity=body.email_activity,
             push_alerts=body.push_alerts,
             in_app_alerts=body.in_app_alerts,
         )

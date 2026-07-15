@@ -9,6 +9,7 @@ from typing import Any, Optional
 
 from app.repositories import zakat_repo as repo
 from app.services import calculations as calc
+from app.services.notifier import fire_and_forget, notify_activity
 
 log = logging.getLogger(__name__)
 
@@ -108,6 +109,15 @@ async def save_record(
         zakat_due=computed["zakat_due"],
         rate_pct=rate_pct,
         breakdown=breakdown or {},
+    )
+    fire_and_forget(
+        notify_activity(
+            user_id,
+            "account",
+            "Zakat calculation saved",
+            f"Your Zakat for {islamic_year} is PKR {computed['zakat_due']:,.0f} "
+            f"(net zakatable PKR {computed['net_zakatable']:,.0f}).",
+        )
     )
     return {
         "id": saved["id"],

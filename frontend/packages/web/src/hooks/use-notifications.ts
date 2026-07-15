@@ -16,6 +16,7 @@ export interface InAppNotification {
 
 export interface NotificationPrefs {
   email_alerts: boolean;
+  email_activity: boolean;
   push_alerts: boolean;
   in_app_alerts: boolean;
 }

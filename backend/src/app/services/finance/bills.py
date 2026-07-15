@@ -9,6 +9,7 @@ from app.repositories import finance as repo
 from app.repositories.base import begin, connect
 from app.schemas.finance import BillCreate, BillUpdate
 from app.services.finance._common import as_date
+from app.services.notifier import fire_and_forget, notify_activity
 from app.services.permissions import check_count_limit
 
 
@@ -52,6 +53,14 @@ async def mark_bill_paid(uid: str, bill_id: int) -> dict[str, Any]:
         row = await repo.mark_bill_paid(conn, uid, bill_id)
     if not row:
         raise HTTPException(404, "Bill not found")
+    fire_and_forget(
+        notify_activity(
+            uid,
+            "bill",
+            f"Bill paid: {row['name']}",
+            f"Your {row['name']} bill of PKR {row['amount']:,.0f} is marked paid.",
+        )
+    )
     return row
 
 

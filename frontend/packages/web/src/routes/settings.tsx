@@ -297,11 +297,19 @@ function Settings() {
             />
             <PrefRow
               icon={Mail}
-              title={t("Email")}
-              desc={t("Send email digests and price alerts")}
+              title={t("Email alerts")}
+              desc={t("Price, bill, budget & goal alerts you set up")}
               enabled={prefs.data?.email_alerts ?? true}
               disabled={updatePrefs.isPending}
               onToggle={() => togglePref("email_alerts")}
+            />
+            <PrefRow
+              icon={Mail}
+              title={t("Email activity & receipts")}
+              desc={t("Emails when you add a transaction, trade, pay a bill, etc.")}
+              enabled={prefs.data?.email_activity ?? false}
+              disabled={updatePrefs.isPending}
+              onToggle={() => togglePref("email_activity")}
             />
             <PrefRow
               icon={Smartphone}

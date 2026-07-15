@@ -108,6 +108,37 @@ async def recent_event_for_alert(conn: Executor, alert_id: int) -> bool:
     return rows.first() is not None
 
 
+async def fetch_watchlist_with_snapshot(conn: Executor) -> list[dict[str, Any]]:
+    """Every watchlisted symbol joined to its latest market snapshot, for the
+    watchlist big-move evaluator. change_pct is the day's move already stored
+    on psx_market_snapshot."""
+    rows = await conn.execute(
+        text(
+            """
+            SELECT w.user_id, w.symbol, s.price, s.change_pct
+            FROM user_watchlist w
+            JOIN psx_market_snapshot s ON s.symbol = w.symbol
+            WHERE s.change_pct IS NOT NULL
+            """
+        )
+    )
+    return [dict(r) for r in rows.mappings().all()]
+
+
+async def recent_watchlist_event(conn: Executor, user_id: str, symbol: str) -> bool:
+    """24h dedup for auto watchlist-move alerts (alert_id is NULL for these, so
+    the per-alert dedup can't be used): one per user per symbol per day."""
+    rows = await conn.execute(
+        text(
+            "SELECT id FROM alert_events "
+            "WHERE user_id = :uid AND symbol = :sym AND alert_id IS NULL "
+            "AND created_at > now() - INTERVAL '24 hours' LIMIT 1"
+        ),
+        {"uid": user_id, "sym": symbol},
+    )
+    return rows.first() is not None
+
+
 async def fetch_due_bills(conn: Executor, days_ahead: int) -> list[dict[str, Any]]:
     rows = await conn.execute(
         text(

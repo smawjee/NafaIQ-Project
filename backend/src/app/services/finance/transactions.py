@@ -9,6 +9,7 @@ from app.repositories import finance as repo
 from app.repositories.base import begin, connect
 from app.schemas.finance import TransactionCreate, TransactionUpdate
 from app.services.finance._common import as_timestamp, transaction_type
+from app.services.notifier import fire_and_forget, notify_activity
 
 
 async def list_transactions(uid: str, limit: int = 100) -> list[dict[str, Any]]:
@@ -29,7 +30,17 @@ async def create_transaction(uid: str, body: TransactionCreate) -> dict[str, Any
     if body.transaction_date is not None:
         values["transaction_date"] = as_timestamp(body.transaction_date)
     async with begin() as conn:
-        return await repo.insert_transaction(conn, values)
+        row = await repo.insert_transaction(conn, values)
+    sign = "+" if row["transaction_type"] == "income" else "-"
+    fire_and_forget(
+        notify_activity(
+            uid,
+            "transaction",
+            f"Transaction recorded: {row['merchant']}",
+            f"{sign}PKR {abs(row['amount']):,.0f} · {row['category']} ({row['transaction_type']}).",
+        )
+    )
+    return row
 
 
 async def update_transaction(uid: str, txn_id: int, body: TransactionUpdate) -> dict[str, Any]:

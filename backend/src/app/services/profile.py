@@ -13,6 +13,7 @@ from fastapi import HTTPException
 
 from app.repositories import user_repo as repo
 from app.repositories.base import begin
+from app.services.notifier import fire_and_forget, notify_activity
 
 
 async def select_plan(user_id: str, requested_plan: str) -> dict[str, Any]:
@@ -24,4 +25,12 @@ async def select_plan(user_id: str, requested_plan: str) -> dict[str, Any]:
         result = await repo.update_plan(conn, user_id, plan)
     if result is None:
         raise HTTPException(404, "Profile not found")
+    fire_and_forget(
+        notify_activity(
+            user_id,
+            "account",
+            f"Plan updated: {plan}",
+            f"Your NafaIQ plan is now {plan}.",
+        )
+    )
     return result

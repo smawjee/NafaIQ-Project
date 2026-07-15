@@ -16,6 +16,7 @@ from app.services.alerts.evaluator import (  # noqa: F401
     evaluate_all,
     evaluate_price_alerts,
     evaluate_user_alerts,
+    evaluate_watchlist_moves,
 )
 from app.services.alerts.events import (  # noqa: F401
     list_alert_events,

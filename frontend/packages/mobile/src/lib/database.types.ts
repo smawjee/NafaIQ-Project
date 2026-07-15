@@ -918,6 +918,7 @@ export type Database = {
       }
       user_notification_prefs: {
         Row: {
+          email_activity: boolean
           email_alerts: boolean
           in_app_alerts: boolean
           push_alerts: boolean
@@ -925,6 +926,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          email_activity?: boolean
           email_alerts?: boolean
           in_app_alerts?: boolean
           push_alerts?: boolean
@@ -932,6 +934,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          email_activity?: boolean
           email_alerts?: boolean
           in_app_alerts?: boolean
           push_alerts?: boolean

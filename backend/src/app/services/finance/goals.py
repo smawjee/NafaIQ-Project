@@ -9,6 +9,7 @@ from app.repositories import finance as repo
 from app.repositories.base import begin, connect
 from app.schemas.finance import GoalCreate
 from app.services.finance._common import as_timestamp
+from app.services.notifier import fire_and_forget, notify_activity
 from app.services.permissions import check_count_limit
 
 
@@ -45,6 +46,27 @@ async def contribute_goal(uid: str, goal_id: int, amount: float) -> dict[str, An
         row = await repo.contribute_goal(conn, uid, goal_id, amount)
     if not row:
         raise HTTPException(404, "Goal not found")
+    saved, target = row["saved"], row["target"]
+    pct = (saved / target * 100) if target > 0 else 0.0
+    fire_and_forget(
+        notify_activity(
+            uid,
+            "goal",
+            f"Contribution added: {row['name']}",
+            f"PKR {amount:,.0f} added. You've saved PKR {saved:,.0f} of "
+            f"PKR {target:,.0f} ({pct:.0f}%) for {row['name']}.",
+        )
+    )
+    if target > 0 and saved >= target:
+        fire_and_forget(
+            notify_activity(
+                uid,
+                "goal_complete",
+                f"Goal reached: {row['name']}",
+                f"Congratulations — you've fully funded {row['name']} "
+                f"(PKR {target:,.0f}).",
+            )
+        )
     return row
 
 

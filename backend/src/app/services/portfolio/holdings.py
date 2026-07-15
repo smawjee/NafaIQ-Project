@@ -8,6 +8,7 @@ from fastapi import HTTPException
 from app.repositories import portfolio as repo
 from app.repositories.base import begin, connect
 from app.schemas.portfolio import HoldingCreate, HoldingUpdate
+from app.services.notifier import fire_and_forget, notify_activity
 from app.services.permissions import check_count_limit
 from app.services.symbols import require_known_symbol
 
@@ -47,9 +48,18 @@ async def add_holding(user: dict, portfolio_id: int, body: HoldingCreate) -> dic
         check_count_limit(
             user, feature_key="max_holdings_per_portfolio", current=current, label="Holdings"
         )
-        return await repo.upsert_holding_add(
+        holding = await repo.upsert_holding_add(
             conn, portfolio_id, body.symbol, body.shares, body.avg_cost, body.purchased_at
         )
+    fire_and_forget(
+        notify_activity(
+            user_id,
+            "trade",
+            f"Holding added: {body.symbol.upper()}",
+            f"Added {body.shares} {body.symbol.upper()} at PKR {float(body.avg_cost):,.2f} average cost.",
+        )
+    )
+    return holding
 
 
 async def update_holding(
