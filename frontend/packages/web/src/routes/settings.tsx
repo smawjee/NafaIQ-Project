@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import {
   Moon,
@@ -12,6 +13,10 @@ import {
   Smartphone,
   MessageSquare,
   Loader2,
+  Inbox,
+  RefreshCw,
+  ShieldAlert,
+  Trash2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Card } from "@/components/shared/Card";
@@ -27,6 +32,12 @@ import {
   useUpdateNotificationPrefs,
   type NotificationPrefs,
 } from "@/hooks/use-finance-settings";
+import {
+  useEmailIntegration,
+  useConnectGmail,
+  useDisconnectEmail,
+  useSyncEmail,
+} from "@/hooks/use-email-integration";
 
 export const Route = createFileRoute("/settings")({
   head: () => ({
@@ -327,6 +338,9 @@ function Settings() {
         )}
       </Card>
 
+      {/* Bank email import (logged-in only) */}
+      <BankEmailCard isLoggedIn={isLoggedIn} t={t} />
+
       {/* Account */}
       <Card className="p-5">
         <h2 className="mb-3 text-sm font-semibold text-text-primary">{t("Account")}</h2>
@@ -350,6 +364,171 @@ function Settings() {
         </dl>
       </Card>
     </div>
+  );
+}
+
+/**
+ * Connect Gmail so bank transaction alerts are imported automatically.
+ * Read-only OAuth — we never see a password, and the user can revoke access
+ * from their Google account at any time.
+ */
+function BankEmailCard({
+  isLoggedIn,
+  t,
+}: {
+  isLoggedIn: boolean;
+  t: (s: string) => string;
+}) {
+  const status = useEmailIntegration(isLoggedIn);
+  const connect = useConnectGmail();
+  const disconnect = useDisconnectEmail();
+  const sync = useSyncEmail();
+  const qc = useQueryClient();
+
+  const connected = status.data?.connected;
+  // Google "Testing" mode refresh tokens expire after 7 days — surface that as
+  // an actionable reconnect rather than a silent stall.
+  const needsReconnect = !!status.data?.last_error;
+
+  // The backend's OAuth callback redirects here with ?gmail=<result>.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const result = params.get("gmail");
+    if (!result) return;
+    if (result === "connected") {
+      toast.success(t("Gmail connected — we'll import your bank transactions."));
+      qc.invalidateQueries({ queryKey: ["email_integration"] });
+    } else if (result === "cancelled") {
+      toast.message(t("Gmail connection cancelled."));
+    } else if (result === "error") {
+      toast.error(t("Could not connect Gmail. Please try again."));
+    }
+    // Strip the param so a refresh doesn't re-toast.
+    window.history.replaceState({}, "", window.location.pathname);
+  }, [qc, t]);
+
+  const handleSync = async () => {
+    try {
+      const r = await sync.mutateAsync();
+      toast.success(
+        r.imported > 0
+          ? `${t("Imported")} ${r.imported} ${t("transaction(s)")}`
+          : t("No new transactions found"),
+      );
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : t("Sync failed"));
+    }
+  };
+
+  const handleDisconnect = async () => {
+    try {
+      await disconnect.mutateAsync();
+      toast.success(t("Gmail disconnected"));
+    } catch {
+      toast.error(t("Could not disconnect"));
+    }
+  };
+
+  return (
+    <Card className="p-5">
+      <div className="mb-4 flex items-center gap-2">
+        <Inbox className="h-4 w-4 text-primary" strokeWidth={1.75} />
+        <h2 className="text-sm font-semibold text-text-primary">
+          {t("Bank email import")}
+        </h2>
+      </div>
+      <p className="mb-4 text-[13px] text-text-secondary">
+        {t(
+          "Connect the Gmail account your bank sends alerts to and NafaIQ will add those transactions for you automatically. Read-only — we only look at bank emails.",
+        )}
+      </p>
+
+      {!isLoggedIn ? (
+        <p className="text-[13px] text-text-muted">
+          {t("Sign in to connect Gmail.")}
+        </p>
+      ) : connected ? (
+        <div className="space-y-3">
+          <div className="rounded-[10px] border border-border bg-surface p-3">
+            <p className="text-[13px] font-semibold text-text-primary">
+              {status.data?.google_email}
+            </p>
+            <p className="text-[11px] text-text-muted">
+              {status.data?.last_polled_at
+                ? `${t("Last checked")}: ${new Date(status.data.last_polled_at).toLocaleString()}`
+                : t("Not checked yet")}
+            </p>
+            {needsReconnect ? (
+              <p className="mt-1 flex items-start gap-1 text-[11px] text-bear">
+                <ShieldAlert className="mt-[1px] h-3 w-3 shrink-0" strokeWidth={1.75} />
+                {status.data?.last_error}
+              </p>
+            ) : null}
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {needsReconnect ? (
+              <button
+                type="button"
+                onClick={() => connect.mutate()}
+                disabled={connect.isPending}
+                className="flex items-center gap-1.5 rounded-[8px] bg-primary px-3 py-2 text-[12px] font-semibold text-background transition hover:opacity-90 disabled:opacity-50"
+              >
+                {connect.isPending ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" strokeWidth={1.75} />
+                ) : (
+                  <RefreshCw className="h-3.5 w-3.5" strokeWidth={1.75} />
+                )}
+                {t("Reconnect Gmail")}
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={handleSync}
+                disabled={sync.isPending}
+                className="flex items-center gap-1.5 rounded-[8px] border border-border bg-surface px-3 py-2 text-[12px] font-semibold text-text-primary transition hover:border-border-hover disabled:opacity-50"
+              >
+                {sync.isPending ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" strokeWidth={1.75} />
+                ) : (
+                  <RefreshCw className="h-3.5 w-3.5" strokeWidth={1.75} />
+                )}
+                {t("Sync now")}
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={handleDisconnect}
+              disabled={disconnect.isPending}
+              className="flex items-center gap-1.5 rounded-[8px] border border-border bg-surface px-3 py-2 text-[12px] font-semibold text-bear transition hover:border-bear/40 disabled:opacity-50"
+            >
+              <Trash2 className="h-3.5 w-3.5" strokeWidth={1.75} />
+              {t("Disconnect")}
+            </button>
+          </div>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          <button
+            type="button"
+            onClick={() => connect.mutate()}
+            disabled={connect.isPending}
+            className="flex items-center gap-1.5 rounded-[8px] bg-primary px-3 py-2 text-[12px] font-semibold text-background transition hover:opacity-90 disabled:opacity-50"
+          >
+            {connect.isPending ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" strokeWidth={1.75} />
+            ) : (
+              <Inbox className="h-3.5 w-3.5" strokeWidth={1.75} />
+            )}
+            {t("Connect Gmail")}
+          </button>
+          <p className="text-[11px] text-text-muted">
+            {t(
+              "You'll see a Google warning that the app isn't verified — that's expected while NafaIQ is in testing. Choose Advanced, then continue.",
+            )}
+          </p>
+        </div>
+      )}
+    </Card>
   );
 }
 

@@ -16,5 +16,6 @@ joblib>=1.4
 sqlalchemy[asyncio]>=2.0
 slowapi>=0.1.9
 PyJWT>=2.8
+cryptography>=44
 resend>=0.1
 asyncpg>=0.29

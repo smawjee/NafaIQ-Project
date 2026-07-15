@@ -976,6 +976,7 @@ export type Database = {
           category: string
           created_at: string
           currency: string
+          email_message_id: string | null
           id: number
           merchant: string
           note: string | null
@@ -990,6 +991,7 @@ export type Database = {
           category: string
           created_at?: string
           currency?: string
+          email_message_id?: string | null
           id?: number
           merchant: string
           note?: string | null
@@ -1004,6 +1006,7 @@ export type Database = {
           category?: string
           created_at?: string
           currency?: string
+          email_message_id?: string | null
           id?: number
           merchant?: string
           note?: string | null

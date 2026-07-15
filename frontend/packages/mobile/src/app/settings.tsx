@@ -11,8 +11,14 @@ import { Button, Text } from "@/components/ui";
 import { fonts, type ThemeMode } from "@/constants/theme";
 import { useAuth } from "@/hooks/use-auth";
 import { type Lang, useLang } from "@/hooks/use-lang";
+import {
+  useConnectGmail,
+  useDisconnectEmail,
+  useEmailIntegration,
+  useSyncEmail,
+} from "@/hooks/queries/use-email-integration";
 import { useTheme } from "@/hooks/use-theme";
-import { Check, Languages, LogOut, Monitor, Moon, Sun } from "@/lib/icons";
+import { Check, Inbox, Languages, LogOut, Monitor, Moon, Sun } from "@/lib/icons";
 
 const AVENIR = Platform.select({ ios: "Avenir-Heavy", default: fonts.sans });
 
@@ -99,6 +105,9 @@ export default function SettingsScreen() {
         </View>
       </GlassCard>
 
+      {/* Bank email import */}
+      <BankEmailCard />
+
       {/* Account */}
       <GlassCard style={styles.card}>
         <Text variant="title" style={{ fontSize: 15 }}>{t("Account")}</Text>
@@ -118,6 +127,125 @@ export default function SettingsScreen() {
         </ScrollView>
       </SafeAreaView>
     </GlassScreen>
+  );
+}
+
+/**
+ * Connect Gmail so bank transaction alerts import automatically.
+ * Read-only OAuth — no password is ever stored, and the user can revoke access
+ * from their Google account at any time.
+ */
+function BankEmailCard() {
+  const { colors } = useTheme();
+  const { t } = useLang();
+  const { user } = useAuth();
+  const status = useEmailIntegration(!!user);
+  const connect = useConnectGmail();
+  const disconnect = useDisconnectEmail();
+  const sync = useSyncEmail();
+
+  const connected = status.data?.connected;
+  // Google "Testing" mode refresh tokens expire after 7 days — surface that as
+  // an actionable reconnect rather than a silent stall.
+  const needsReconnect = !!status.data?.last_error;
+
+  const onConnect = async () => {
+    try {
+      const r = await connect.mutateAsync();
+      if (r.status === "connected") {
+        Alert.alert(t("Gmail connected"), t("We'll import bank transactions from this account."));
+      } else if (r.status === "error") {
+        Alert.alert(t("Could not connect"), t("Please try again."));
+      }
+    } catch (e) {
+      Alert.alert(
+        t("Could not connect"),
+        e instanceof Error ? e.message : t("Please try again."),
+      );
+    }
+  };
+
+  const onSync = async () => {
+    try {
+      const r = await sync.mutateAsync();
+      Alert.alert(
+        t("Sync complete"),
+        r.imported > 0
+          ? `${t("Imported")} ${r.imported} ${t("transaction(s)")}.`
+          : t("No new transactions found."),
+      );
+    } catch (e) {
+      Alert.alert(t("Sync failed"), e instanceof Error ? e.message : t("Please try again."));
+    }
+  };
+
+  const onDisconnect = () => {
+    Alert.alert(t("Disconnect Gmail"), t("Stop importing and revoke access?"), [
+      { text: t("Cancel"), style: "cancel" },
+      {
+        text: t("Disconnect"),
+        style: "destructive",
+        onPress: async () => {
+          try {
+            await disconnect.mutateAsync();
+          } catch {
+            Alert.alert(t("Could not disconnect"), t("Please try again."));
+          }
+        },
+      },
+    ]);
+  };
+
+  if (!user) return null;
+
+  return (
+    <GlassCard style={styles.card}>
+      <View style={styles.head}>
+        <Inbox color={colors.primary} size={16} />
+        <Text variant="title" style={{ fontSize: 15 }}>{t("Bank email import")}</Text>
+      </View>
+      <Text variant="secondary" style={{ fontSize: 13 }}>
+        {t("Connect the Gmail account your bank sends alerts to and NafaIQ will add those transactions automatically. Read-only — we only look at bank emails.")}
+      </Text>
+
+      {connected ? (
+        <View style={{ gap: 10 }}>
+          <View style={[styles.option, { borderColor: colors.border, backgroundColor: colors.surface }]}>
+            <View style={{ flex: 1 }}>
+              <Text style={{ fontWeight: "600", fontSize: 13 }}>{status.data?.google_email}</Text>
+              <Text variant="muted" style={{ marginTop: 2 }}>
+                {status.data?.last_polled_at
+                  ? `${t("Last checked")}: ${new Date(status.data.last_polled_at).toLocaleString()}`
+                  : t("Not checked yet")}
+              </Text>
+              {needsReconnect ? (
+                <Text style={{ marginTop: 4, fontSize: 11, color: colors.bear }}>
+                  {status.data?.last_error}
+                </Text>
+              ) : null}
+            </View>
+          </View>
+          {needsReconnect ? (
+            <Button title={t("Reconnect Gmail")} onPress={onConnect} loading={connect.isPending} />
+          ) : (
+            <Button title={t("Sync now")} onPress={onSync} loading={sync.isPending} variant="outline" />
+          )}
+          <Button
+            title={t("Disconnect")}
+            onPress={onDisconnect}
+            loading={disconnect.isPending}
+            variant="outline"
+          />
+        </View>
+      ) : (
+        <View style={{ gap: 10 }}>
+          <Button title={t("Connect Gmail")} onPress={onConnect} loading={connect.isPending} />
+          <Text variant="muted">
+            {t("You'll see a Google warning that the app isn't verified — that's expected while NafaIQ is in testing. Choose Advanced, then continue.")}
+          </Text>
+        </View>
+      )}
+    </GlassCard>
   );
 }
 

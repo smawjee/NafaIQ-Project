@@ -40,6 +40,7 @@ from app.repositories.finance.summary import (  # noqa: F401
 from app.repositories.finance.transactions import (  # noqa: F401
     delete_transaction,
     insert_transaction,
+    insert_transaction_dedup,
     list_transactions,
     update_transaction,
 )

@@ -9,6 +9,7 @@ from apscheduler.triggers.interval import IntervalTrigger
 from apscheduler.triggers.cron import CronTrigger
 import structlog
 
+from app.config import settings
 from app.scrapers.dps import DPSScraper
 from app.scrapers.ahletrade import AhleTradePoller
 from app.scrapers.tradingview import TradingViewScraper
@@ -254,6 +255,25 @@ async def job_refresh_tv_data():
         log.exception("job:refresh_tv_data:failed")
 
 
+async def job_poll_inboxes():
+    """Poll every connected mailbox for new bank transaction alerts.
+
+    Deliberately NOT market-gated — bank alerts arrive 24/7. Per-user failures
+    are recorded on the integration row inside the pipeline, so one bad mailbox
+    never stops the rest.
+    """
+    if not settings.email_import_configured:
+        return
+    try:
+        from app.services.email_import import sync_all
+
+        result = await sync_all()
+        if result.get("imported") or result.get("scanned"):
+            log.info("job:poll_inboxes:done", **result)
+    except Exception:
+        log.exception("job:poll_inboxes:failed")
+
+
 async def job_check_alerts():
     """Evaluate ALL user alerts (stock price, bill, budget, goal) on a schedule.
 
@@ -282,6 +302,13 @@ def init_scheduler():
     scheduler.add_job(job_refresh_index_eod, CronTrigger(hour=1, minute=0), id="refresh_index_eod", replace_existing=True)
     scheduler.add_job(job_check_alerts, IntervalTrigger(seconds=60), id="check_alerts", replace_existing=True)
     scheduler.add_job(job_refresh_tv_data, IntervalTrigger(minutes=5), id="refresh_tv_data", replace_existing=True)
+    if settings.email_import_configured:
+        scheduler.add_job(
+            job_poll_inboxes,
+            IntervalTrigger(minutes=settings.email_poll_interval_minutes),
+            id="poll_inboxes",
+            replace_existing=True,
+        )
     scheduler.start()
     log.info("scheduler:started")
 

@@ -24,6 +24,7 @@ USER_PATHS_PREFIXES = (
     "/api/alerts",
     "/api/finance",
     "/api/finance-extended",
+    "/api/integrations",
 )
 
 # Public market-data paths — no authentication required.
