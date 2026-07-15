@@ -15,10 +15,19 @@ import structlog
 from app.scrapers.dps import DPSScraper
 from app.scrapers.ahletrade import AhleTradePoller
 from app.config import settings
-# NOTE: TV_SECTOR_MAP in tradingview.py is the canonical source for sector name
-# normalization. The migration 20260716010000 previously applied DPS-style sector
-# names, but they are overwritten by the sector map every 5 min via
-# job_refresh_tv_data. Keep the two in sync if sector names need updating.
+# SECTOR OWNERSHIP (psx_profile.sector)
+#   DPS is authoritative. job_refresh_fundamentals writes PSX's own
+#   classification ("Commercial Banks", "Cement", "Oil & Gas Exploration
+#   Companies") scraped from the official portal — ~35 real sectors.
+#   TV_SECTOR_MAP is the FALLBACK only, for symbols DPS has no company page
+#   for. It collapses PSX's taxonomy into TradingView's 18 global buckets, so
+#   it is lossy: "Process Industries" merges Cement, Chemicals, Paper, Textile.
+#   job_refresh_tv_data therefore preserves an existing sector and fills the
+#   column only when it is empty. It previously overwrote it every 5 minutes,
+#   which is why migration 20260716010000 (DPS-style back-fill) appeared to be
+#   a no-op and was disabled.
+#   Sector is static metadata; heatmap freshness comes from psx_market_snapshot
+#   (refreshed every 5s), not from psx_profile.
 from app.scrapers.tradingview import TV_SECTOR_MAP, TradingViewScraper
 from app.scrapers.sbp import SBPScraper
 from app.scrapers.mufap import MUFAPScraper
@@ -69,9 +78,11 @@ async def _record_health(source: str, success: bool, rows_updated: int = 0, erro
     successful run. On failure: sets last_error/last_error_message and leaves
     last_success untouched.
 
-    Failures writing to psx_data_source_health are logged at error level and
-    re-raised so the calling job's try/except can decide whether to swallow
-    or surface the observability failure.
+    Never raises. An observability write must not be able to fail the job it is
+    observing: most call sites sit inside an ``except`` block (with no enclosing
+    try) or after the job's real work has already succeeded, so propagating here
+    would either escape to APScheduler or turn a successful run into a spurious
+    "job failed". Failures are logged at error level and swallowed.
     """
     now = datetime.now(timezone.utc).isoformat()
     payload = {
@@ -90,23 +101,25 @@ async def _record_health(source: str, success: bool, rows_updated: int = 0, erro
         await async_execute(lambda c: c.table("psx_data_source_health").upsert(payload, on_conflict="source"))
     except Exception as e:
         log.error("health_record_failed", source=source, error=str(e))
-        # Re-raise so caller can decide. The calling job's outer try/except
-        # will catch this and log it.
-        raise
 
 
 async def _get_all_symbols() -> list[str]:
-    """Get all PSX symbols from the symbols table."""
+    """Get all PSX symbols from psx_profile.
+
+    Returns an empty list on failure rather than a hardcoded subset. A 19-symbol
+    fallback silently reduced coverage to ~4% of the market while the calling
+    job still reported success — callers must treat empty as "cannot run" and
+    record an error, not quietly process a stub list.
+    """
     try:
         result = await async_execute(lambda c: c.table("psx_profile").select("symbol"))
-        symbols = [r["symbol"] for r in (result.data or [])]
+        symbols = [r["symbol"] for r in (result.data or []) if r.get("symbol")]
         if symbols:
             return symbols
-        log.warning("get_all_symbols_empty_falling_back")
+        log.warning("get_all_symbols_empty")
     except Exception as e:
         log.warning("get_all_symbols_failed", error=str(e))
-    return ["MARI", "EFERT", "FFC", "HBL", "MCB", "LUCK", "OGDC", "PPL", "POL", "SHEL",
-            "NBP", "UBL", "BAHL", "MEBL", "FABL", "SEARL", "SYS", "TRG", "NESTLE_PK"]
+    return []
 
 
 # ----- jobs -----
@@ -280,14 +293,35 @@ async def job_refresh_fundamentals():
                     "roe": f.roe,
                     "refreshed_at": now,
                 }, on_conflict="symbol"))
-                await async_execute(lambda c: c.table("psx_profile").upsert({
+                # This job OWNS psx_profile.sector.
+                #
+                # DPS is the official PSX portal, so quote__sector is the
+                # authoritative PSX classification for the symbol ("Commercial
+                # Banks", "Oil & Gas Exploration Companies", "Cement", ...).
+                # TV_SECTOR_MAP can only approximate it — TradingView has 18
+                # global buckets against PSX's ~35, so it is lossy by
+                # construction (its "Process Industries" flattens Cement,
+                # Chemicals, Paper and Textile into one tile group).
+                #
+                # Sector is static metadata — a company is reclassified maybe
+                # once a year — so this job's weekly cadence is ample. Heatmap
+                # freshness comes from psx_market_snapshot (5s), not from here.
+                # job_refresh_tv_data now preserves this value instead of
+                # overwriting it every 5 minutes.
+                profile_row = {
                     "symbol": sym,
                     "name": profile.name,
-                    "sector": profile.sector,
                     "listed_shares": profile.listed_shares,
                     "free_float": profile.free_float,
                     "refreshed_at": now,
-                }, on_conflict="symbol"))
+                }
+                # Only claim the column when DPS actually returned one — a
+                # failed scrape must not blank a good sector.
+                if profile.sector:
+                    profile_row["sector"] = profile.sector
+                await async_execute(
+                    lambda c, r=profile_row: c.table("psx_profile").upsert(r, on_conflict="symbol")
+                )
                 total += 1
             except Exception:
                 log.exception("job:refresh_fundamentals:failed", symbol=sym)
@@ -343,12 +377,13 @@ async def job_refresh_tv_data():
         # Shariah-compliant stock universe lives on app.config.settings (single
         # source of truth shared with the rest of the app). The TV job consults
         # it to populate psx_profile.is_shariah on every 5-min refresh.
-        # Pre-load existing listed_shares values so the TV job doesn't
-        # nullify them (the TV scanner has no shares-outstanding column).
+        # Pre-load existing listed_shares/free_float so the TV job doesn't
+        # nullify them (the TV scanner has no shares-outstanding column), and
+        # existing sector so it doesn't overwrite DPS's authoritative value.
         existing_rows: list[dict] = []
         try:
             res = await async_execute(
-                lambda c: c.table("psx_profile").select("symbol,listed_shares,free_float")
+                lambda c: c.table("psx_profile").select("symbol,listed_shares,free_float,sector")
             )
             existing_rows = res.data or []
         except Exception:
@@ -359,22 +394,30 @@ async def job_refresh_tv_data():
 
         profile_rows = []
         for item in items:
-            tv_sector = item.get("sector") or ""
-            sector = TV_SECTOR_MAP.get(tv_sector, tv_sector or None)
             sym = item["symbol"].upper()
 
             existing = existing_by_sym.get(sym, {})
             listed_shares = existing.get("listed_shares")
             free_float = existing.get("free_float")
 
+            # Sector: DPS (job_refresh_fundamentals) is authoritative — it is
+            # PSX's own classification. TV is only the FALLBACK, used when no
+            # sector exists yet (a symbol DPS has no company page for). This
+            # job used to overwrite the column every 5 minutes, which silently
+            # replaced ~35 real PSX sectors with 18 generic TradingView buckets
+            # and made the apply_sector_map back-fill look like a no-op.
+            tv_sector = item.get("sector") or ""
+            sector = existing.get("sector") or TV_SECTOR_MAP.get(tv_sector, tv_sector or None)
+
             row = {
                 "symbol": sym,
                 "name": item.get("name", item["symbol"]),
-                "sector": sector,
                 "logoid": item.get("logoid"),
                 "is_shariah": sym in settings.SHARIAH_STOCKS,
                 "refreshed_at": now,
             }
+            if sector:
+                row["sector"] = sector
             if listed_shares is not None:
                 row["listed_shares"] = listed_shares
             if free_float is not None:
@@ -506,21 +549,12 @@ async def job_refresh_mufap():
                     payload, on_conflict="fund_code"
                 )
             )
-            # Pull each fund's history. Bounded at 50 funds per pass — the
-            # full history for every fund is impractical (thousands of rows
-            # each); we only fetch funds that the dashboard exposes.
-            for f in funds[:50]:
-                try:
-                    history = await mufap.fetch_nav_history(f["fund_code"])
-                    if history:
-                        await async_execute(
-                            lambda c, _h=history: c.table("psx_fund_nav_history").upsert(
-                                _h, on_conflict="fund_code,date"
-                            )
-                        )
-                except Exception:
-                    log.debug("mufap_history_failed", fund=f.get("fund_code"), exc_info=True)
-                await asyncio.sleep(0.05)
+            # NOTE: per-fund NAV history is NOT fetched here. MUFAP exposes no
+            # per-fund history URL, so MUFAPScraper.fetch_nav_history is a stub
+            # that always returns []. The previous loop called it for 50 funds
+            # every run — 50 warning lines and 2.5s of sleeps to do nothing.
+            # psx_fund_nav_history is populated by the CSV import path instead
+            # (scripts/import_mufap_csv.py -> POST /api/funds/import).
         log.info("job:refresh_mufap:done", funds=len(funds))
         await _record_health("mufap_nav", success=True, rows_updated=len(funds))
     except Exception as e:
@@ -678,35 +712,61 @@ async def job_refresh_financials_5y():
 async def job_refresh_dividends():
     """Fetch dividend payouts for all known symbols from DPS."""
     log.info("job:refresh_dividends:start")
-    dps_job = DPSScraper()
-    symbols = await _get_all_symbols()
-    total = 0
-    errors = 0
-    for sym in symbols:
-        try:
-            events = await dps_job.fetch_payouts(sym)
-            if events:
-                rows = [
-                    {
-                        "announcement_id": e.announcement_id,
-                        "symbol": e.symbol,
-                        "ex_date": e.ex_date.isoformat() if e.ex_date else None,
-                        "announcement_date": e.announcement_date.isoformat() if e.announcement_date else None,
-                        "payout_type": e.payout_type,
-                        "per_share": e.per_share,
-                        "bonus_pct": e.bonus_pct,
-                        "refreshed_at": datetime.now(timezone.utc).isoformat(),
-                    }
-                    for e in events
-                ]
-                await async_execute(lambda c: c.table("psx_dividends").upsert(rows, on_conflict="announcement_id"))
-                total += len(rows)
-        except Exception:
-            errors += 1
-            log.exception("job:refresh_dividends:symbol_failed", symbol=sym)
-        await asyncio.sleep(0.5)
-    log.info("job:refresh_dividends:done", total=total, errors=errors)
-    await _record_health("refresh_dividends", success=True, rows_updated=total)
+    try:
+        # Reuse the module-level scraper: constructing one per run leaked an
+        # httpx.AsyncClient (and its pool) on every invocation.
+        symbols = await _get_all_symbols()
+        if not symbols:
+            log.warning("job:refresh_dividends:no_symbols")
+            await _record_health(
+                "refresh_dividends", success=False, error="no symbols available"
+            )
+            return
+
+        total = 0
+        errors = 0
+        for sym in symbols:
+            try:
+                events = await dps.fetch_payouts(sym)
+                if events:
+                    rows = [
+                        {
+                            "announcement_id": e.announcement_id,
+                            "symbol": e.symbol,
+                            "ex_date": e.ex_date.isoformat() if e.ex_date else None,
+                            "announcement_date": e.announcement_date.isoformat() if e.announcement_date else None,
+                            "payout_type": e.payout_type,
+                            "per_share": e.per_share,
+                            "bonus_pct": e.bonus_pct,
+                            "refreshed_at": datetime.now(timezone.utc).isoformat(),
+                        }
+                        for e in events
+                    ]
+                    await async_execute(lambda c, r=rows: c.table("psx_dividends").upsert(r, on_conflict="announcement_id"))
+                    total += len(rows)
+            except asyncio.CancelledError:
+                # Expected on graceful shutdown — do not count as a symbol error.
+                log.info("job:refresh_dividends:cancelled", processed=total)
+                raise
+            except Exception:
+                errors += 1
+                log.exception("job:refresh_dividends:symbol_failed", symbol=sym)
+            await asyncio.sleep(0.5)
+
+        log.info("job:refresh_dividends:done", total=total, errors=errors)
+        # Only green when every symbol succeeded — otherwise the health row
+        # claims the source is fine while most of the market failed.
+        await _record_health(
+            "refresh_dividends",
+            success=errors == 0,
+            rows_updated=total,
+            error=None if errors == 0 else f"{errors}/{len(symbols)} symbols failed",
+        )
+    except asyncio.CancelledError:
+        raise
+    except Exception as e:
+        log.exception("job:refresh_dividends:failed")
+        await _record_health("refresh_dividends", success=False, error=str(e))
 
 
 # ----- init -----
@@ -715,9 +775,15 @@ def init_scheduler():
     scheduler.add_job(job_refresh_market, IntervalTrigger(seconds=5), id="refresh_market", replace_existing=True)
     scheduler.add_job(job_refresh_announcements, IntervalTrigger(minutes=15), id="refresh_announcements", replace_existing=True)
     scheduler.add_job(job_poll_ahletrade, IntervalTrigger(seconds=5), id="poll_ahletrade", replace_existing=True)
-    scheduler.add_job(job_backfill_history, CronTrigger(hour=2, minute=0), id="backfill_history", replace_existing=True)
-    scheduler.add_job(job_refresh_fundamentals, CronTrigger(day_of_week=6, hour=4, minute=0), id="refresh_fundamentals", replace_existing=True)
-    scheduler.add_job(job_refresh_index_eod, CronTrigger(hour=1, minute=0), id="refresh_index_eod", replace_existing=True)
+    # All cron jobs pin Asia/Karachi — an unpinned trigger fires on host local
+    # time, which differs between a dev box and a UTC container.
+    scheduler.add_job(job_backfill_history, CronTrigger(hour=2, minute=0, timezone="Asia/Karachi"), id="backfill_history", replace_existing=True)
+    # `day_of_week="sat"` — APScheduler counts Monday as 0, so the previous
+    # `day_of_week=6` was Sunday despite being documented as Saturday. This job
+    # is the only writer of psx_profile.listed_shares (the treemap's real
+    # market-cap source), so its schedule is load-bearing.
+    scheduler.add_job(job_refresh_fundamentals, CronTrigger(day_of_week="sat", hour=4, minute=0, timezone="Asia/Karachi"), id="refresh_fundamentals", replace_existing=True)
+    scheduler.add_job(job_refresh_index_eod, CronTrigger(hour=1, minute=0, timezone="Asia/Karachi"), id="refresh_index_eod", replace_existing=True)
     scheduler.add_job(job_check_alerts, IntervalTrigger(seconds=60), id="check_alerts", replace_existing=True)
     scheduler.add_job(job_refresh_tv_data, IntervalTrigger(minutes=5), id="refresh_tv_data", replace_existing=True)
     # Shared, once-per-trading-day Market Brief — weekdays ~09:45 PKT, after the
@@ -778,17 +844,20 @@ def init_scheduler():
         id="refresh_financials_5y",
         replace_existing=True,
     )
-    # Dividends refresh: 30-min cadence with an immediate first run on startup
-    # so the frontend dividend page shows real data on first request.
-    # DPS rate limit: ~2 req/s permitted, so ~500 symbols takes ~4 min per run.
-    from datetime import datetime
+    # Dividends refresh: daily, with an immediate first run on startup so the
+    # frontend dividend page shows real data on first request.
+    # Cadence rationale: a sweep is ~500 symbols with a 0.5s delay each (~4 min
+    # and ~500 requests to dps.psx.com.pk). Dividends change a few times per
+    # quarter per symbol, so the old 30-min interval meant ~24k requests/day for
+    # data that barely moves — daily is ample and matches the other
+    # fundamentals-style jobs (refresh_fundamentals, financials_5y are weekly).
     scheduler.add_job(
         job_refresh_dividends,
-        IntervalTrigger(minutes=30),
+        CronTrigger(hour=5, minute=30, timezone="Asia/Karachi"),
         id="refresh_dividends",
         replace_existing=True,
-        misfire_grace_time=300,
-        next_run_time=datetime.now(),
+        misfire_grace_time=3600,
+        next_run_time=datetime.now(PTK_TZ),
     )
     scheduler.start()
     log.info("scheduler:started")
@@ -797,3 +866,27 @@ def init_scheduler():
 def shutdown_scheduler():
     scheduler.shutdown(wait=False)
     log.info("scheduler:shutdown")
+
+
+async def close_scrapers():
+    """Close every scraper's httpx.AsyncClient.
+
+    Each module-level scraper lazily creates an AsyncClient and defines close(),
+    but nothing called it — so every shutdown leaked a client and its
+    connection pool. Failures are swallowed: shutdown must not raise.
+    """
+    for name, scraper in (
+        ("ahletrade", ahletrade),
+        ("dps", dps),
+        ("tv", tv),
+        ("sbp", sbp),
+        ("mufap", mufap),
+        ("brecorder", brecorder),
+        ("pdf_fetcher", pdf_fetcher),
+        ("financials_psx", financials_psx),
+    ):
+        try:
+            await scraper.close()
+        except Exception:
+            log.warning("scraper_close_failed", scraper=name, exc_info=True)
+    log.info("scrapers:closed")

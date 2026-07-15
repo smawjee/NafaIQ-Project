@@ -1,8 +1,28 @@
--- DISABLED: This migration is a no-op in production because
--- job_refresh_tv_data (scheduler every 5 min) overwrites psx_profile.sector
--- with TV_SECTOR_MAP values from app/scrapers/tradingview.py, undoing this
--- UPDATE within 5 minutes. The TV scanner is the canonical source.
--- If you need DPS-style sector names, change TV_SECTOR_MAP values instead.
+-- DISABLED — superseded by job_refresh_fundamentals. Do not apply.
+--
+-- The original reason given here ("no-op, because job_refresh_tv_data
+-- overwrites sector every 5 min; the TV scanner is canonical") described a
+-- real behaviour but drew the wrong conclusion: the TV job was overwriting the
+-- BETTER value with a worse one. That is fixed — the TV job now only fills
+-- sector when it is empty, and DPS owns the column.
+--
+-- This migration must still not be applied, for a different reason: its
+-- hand-written mapping is a lossy guess at DPS's taxonomy, and it does not even
+-- match DPS's real output.
+--
+--   verified against dps.psx.com.pk, 2026-07-15:
+--     HBL   -> 'COMMERCIAL BANKS'                  (this file writes 'Commercial Banks')
+--     LUCK  -> 'CEMENT'                            (this file writes 'Textile')
+--     EFERT -> 'FERTILIZER'                        (this file writes 'Textile')
+--     OGDC  -> 'OIL & GAS EXPLORATION COMPANIES'   (this file writes 'Oil & Gas')
+--
+-- Applying it would (a) collapse Cement, Fertilizer, Chemicals and Paper into
+-- "Textile", because it inherits TradingView's coarse 18-bucket taxonomy, and
+-- (b) introduce title-case duplicates of DPS's uppercase sectors, fragmenting
+-- every sector into two heatmap tiles.
+--
+-- job_refresh_fundamentals scrapes the authoritative per-symbol sector straight
+-- from the official PSX portal. That is the fix; this file is not.
 --
 -- Original content preserved below for reference.
 

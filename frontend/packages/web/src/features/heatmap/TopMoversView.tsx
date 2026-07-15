@@ -2,6 +2,7 @@ import { useLang } from "@/hooks/use-lang";
 import { Link } from "@tanstack/react-router";
 import { ArrowDown, ArrowUp } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { formatCompact } from "@/lib/format";
 import type { ApiTreemap } from "@/lib/psx/types";
 
 export function TopMoversView({ data }: { data: ApiTreemap }) {
@@ -65,11 +66,7 @@ export function TopMoversView({ data }: { data: ApiTreemap }) {
                   {s.volume.toLocaleString()}
                 </td>
                 <td className="px-3 py-1.5 text-right font-mono tabular-nums text-text-secondary">
-                  {s.market_cap >= 1e9
-                    ? `${(s.market_cap / 1e9).toFixed(1)}B`
-                    : s.market_cap >= 1e6
-                      ? `${(s.market_cap / 1e6).toFixed(1)}M`
-                      : s.market_cap.toLocaleString()}
+                  {s.market_cap != null ? formatCompact(s.market_cap) : "—"}
                 </td>
               </tr>
             );

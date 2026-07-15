@@ -32,7 +32,7 @@ from app.api import (
     financials_extended,
     funds,
 )
-from app.jobs.scheduler import init_scheduler, shutdown_scheduler
+from app.jobs.scheduler import close_scrapers, init_scheduler, shutdown_scheduler
 from app.middleware.auth import BearerTokenMiddleware
 from app.middleware.rate_limit import limiter
 from app.db.sqlalchemy import ensure_reflected
@@ -69,6 +69,7 @@ async def lifespan(app: FastAPI):
     await _check_history_coverage()
     yield
     shutdown_scheduler()
+    await close_scrapers()
     log.info("shutdown")
 
 

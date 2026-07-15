@@ -2,6 +2,7 @@ import { useLang } from "@/hooks/use-lang";
 import { TrendingUp, TrendingDown, BarChart3 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { logoUrlFor } from "@/lib/psx/stock-search";
+import { formatCompact } from "@/lib/format";
 import type { ApiTreemapStock } from "@/lib/psx/types";
 
 export function StockTooltip({
@@ -76,11 +77,7 @@ export function StockTooltip({
         <div className="flex items-center justify-between">
           <span className="text-text-muted">{t("Mkt Cap")}</span>
           <span className="font-mono tabular-nums text-text-secondary">
-            {stock.market_cap >= 1e9
-              ? `${(stock.market_cap / 1e9).toFixed(2)}B`
-              : stock.market_cap >= 1e6
-                ? `${(stock.market_cap / 1e6).toFixed(1)}M`
-                : stock.market_cap.toLocaleString()}
+            {stock.market_cap != null ? formatCompact(stock.market_cap) : "—"}
           </span>
         </div>
       </div>

@@ -117,14 +117,20 @@ export interface ApiTreemapStock {
   price: number;
   change_pct: number;
   volume: number;
-  market_cap: number;
+  /** Real market cap, or null when listed_shares is unknown. Never a proxy. */
+  market_cap: number | null;
+  /** Value used to size the tile — a real cap or a volume proxy. Not a cap. */
+  size_metric: number;
+  sizing_basis: "market_cap" | "volume_proxy";
   logoid?: string | null;
 }
 
 export interface ApiTreemapSector {
   name: string;
   avg_change_pct: number;
-  total_market_cap: number;
+  /** Null unless every stock in the sector had a real market cap. */
+  total_market_cap: number | null;
+  total_size_metric: number;
   stock_count: number;
   stocks: ApiTreemapStock[];
 }

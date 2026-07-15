@@ -8,7 +8,11 @@ import { StockTooltip } from "@/features/heatmap/StockTooltip";
 
 type TreemapNode = {
   name: string;
-  market_cap: number;
+  /** Real cap, or null when unknown — display only, never used for sizing. */
+  market_cap: number | null;
+  /** Drives tile area. May be a volume proxy; not a market cap. */
+  size_metric: number;
+  sizing_basis: "market_cap" | "volume_proxy";
   change_pct: number;
   symbol: string;
   fullName: string;
@@ -46,7 +50,9 @@ function tooltipText(stock: ApiTreemapStock): string {
   const sign = stock.change_pct >= 0 ? "+" : "";
   return `${stock.symbol} — ${stock.name}\nPrice: ${stock.price.toFixed(
     2,
-  )}  (${sign}${stock.change_pct.toFixed(2)}%)\nVolume: ${stock.volume.toLocaleString()}\nMkt Cap: ${stock.market_cap.toLocaleString()}`;
+  )}  (${sign}${stock.change_pct.toFixed(2)}%)\nVolume: ${stock.volume.toLocaleString()}\nMkt Cap: ${
+    stock.market_cap != null ? stock.market_cap.toLocaleString() : "—"
+  }`;
 }
 
 export function Treemap({
@@ -73,11 +79,14 @@ export function Treemap({
     y: number;
   }>({ stock: null, x: 0, y: 0 });
 
-  if (!data || !data.sectors || data.sectors.length === 0) {
-    return <div className="flex h-full items-center justify-center text-text-muted text-sm">No data</div>;
-  }
+  const hasData = Boolean(data && data.sectors && data.sectors.length > 0);
 
   const layout = useMemo(() => {
+    // Hooks must run unconditionally — the empty-data guard lives below this
+    // memo, so bail out here rather than before it.
+    if (!hasData) {
+      return { root: null, width: 1000, sectorName: null };
+    }
     if (drilledSector) {
       // Single-sector view: render that sector's stocks as a flat treemap
       const sector = data.sectors.find((s) => s.name === drilledSector);
@@ -89,6 +98,8 @@ export function Treemap({
         children: sector.stocks.map((st) => ({
           name: st.symbol,
           market_cap: st.market_cap,
+          size_metric: st.size_metric,
+          sizing_basis: st.sizing_basis,
           change_pct: st.change_pct,
           symbol: st.symbol,
           fullName: st.name,
@@ -99,7 +110,7 @@ export function Treemap({
       };
       const width = 1000;
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const rootHierarchy = hierarchy<any>(root).sum((d) => d.market_cap ?? 0);
+      const rootHierarchy = hierarchy<any>(root).sum((d) => d.size_metric ?? 0);
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const h: HierarchyRectangularNode<any> = d3treemap<any>()
         .size([width, height])
@@ -117,6 +128,8 @@ export function Treemap({
         children: s.stocks.map((st) => ({
           name: st.symbol,
           market_cap: st.market_cap,
+          size_metric: st.size_metric,
+          sizing_basis: st.sizing_basis,
           change_pct: st.change_pct,
           symbol: st.symbol,
           fullName: st.name,
@@ -131,7 +144,7 @@ export function Treemap({
     // top of the tree (its typings don't model nested children), then the
     // returned node is a fully-laid-out HierarchyRectangularNode.
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const rootHierarchy = hierarchy<any>(root).sum((d) => d.market_cap ?? 0);
+    const rootHierarchy = hierarchy<any>(root).sum((d) => d.size_metric ?? 0);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const h: HierarchyRectangularNode<any> = d3treemap<any>()
       .size([width, height])
@@ -139,7 +152,11 @@ export function Treemap({
       .paddingTop(SECTOR_HEADER_HEIGHT)
       .round(true)(rootHierarchy);
     return { root: h, width, sectorName: null };
-  }, [data, height, drilledSector]);
+  }, [data, height, drilledSector, hasData]);
+
+  if (!hasData) {
+    return <div className="flex h-full items-center justify-center text-text-muted text-sm">No data</div>;
+  }
 
   const sectors = layout.root?.children ?? [];
   const totalStocks = data.stock_count;
@@ -162,7 +179,9 @@ export function Treemap({
       price: leaf.data.price,
       change_pct: leaf.data.change_pct,
       volume: leaf.data.volume,
-      market_cap: leaf.data.market_cap,
+      market_cap: leaf.data.market_cap ?? null,
+      size_metric: leaf.data.size_metric,
+      sizing_basis: leaf.data.sizing_basis,
       logoid: leaf.data.logoid ?? null,
     };
     const headerOffset = drilledSector ? 0 : SECTOR_HEADER_HEIGHT;
