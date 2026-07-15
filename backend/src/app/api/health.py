@@ -3,13 +3,18 @@
 `set_market_refresh_time` is re-exported for backwards compatibility with
 existing importers (e.g. the scheduler).
 """
-from fastapi import APIRouter
+import logging
 
+from fastapi import APIRouter, Request
+
+from app.middleware.rate_limit import limiter
 from app.services.health import (  # noqa: F401
     db_ping,
     get_market_refresh_time,
     set_market_refresh_time,
 )
+
+log = logging.getLogger(__name__)
 
 router = APIRouter(tags=["health"])
 
@@ -29,7 +34,8 @@ async def health_db():
 
 
 @router.get("/health/sources")
-async def health_sources():
+@limiter.limit("30/minute")
+async def health_sources(request: Request):
     """Return last-success / last-error timestamps per data source.
 
     Reads from psx_data_source_health table and returns all rows ordered
@@ -42,5 +48,8 @@ async def health_sources():
                                      .order("source"))
         rows = result.data or []
         return {"sources": rows, "healthy": True}
-    except Exception as e:
-        return {"sources": [], "healthy": False, "error": str(e)}
+    except Exception:
+        # This endpoint is public — never echo the exception text, it can carry
+        # the project URL, table names and connection detail.
+        log.exception("health_sources query failed")
+        return {"sources": [], "healthy": False, "error": "health check unavailable"}

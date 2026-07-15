@@ -26,6 +26,13 @@ USER_PATHS_PREFIXES = (
     "/api/finance-extended",
 )
 
+# Write/admin endpoints that live under an otherwise-public prefix.
+# Checked BEFORE PUBLIC_PATH_PREFIXES so they fall through to the shared
+# API-token check instead of being exposed anonymously.
+PROTECTED_PATHS = {
+    "/api/funds/import",
+}
+
 # Public market-data paths — no authentication required.
 PUBLIC_PATH_PREFIXES = (
     "/api/market",
@@ -64,6 +71,8 @@ def _is_user_path(path: str) -> bool:
 
 
 def _is_public_path(path: str) -> bool:
+    if path in PROTECTED_PATHS:
+        return False
     return any(_matches_prefix(path, prefix) for prefix in PUBLIC_PATH_PREFIXES)
 
 

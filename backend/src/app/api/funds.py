@@ -10,11 +10,15 @@ import tempfile
 from datetime import date, timedelta
 from typing import Optional
 
-from fastapi import APIRouter, File, Query, Request, UploadFile
+from fastapi import APIRouter, File, HTTPException, Query, Request, UploadFile
 
 from app.middleware.rate_limit import limiter
 
 router = APIRouter(tags=["funds"])
+
+# Upload guards for POST /funds/import
+MAX_CSV_BYTES = 10 * 1024 * 1024  # 10 MB
+_CSV_CHUNK = 64 * 1024
 
 
 @router.get("/funds")
@@ -86,15 +90,26 @@ async def get_fund_nav(
 async def import_funds_csv(request: Request, file: UploadFile = File(...)):
     """Upload a CSV file to import mutual fund NAV data.
 
-    Accepts a CSV file upload, saves to a temp file, calls
+    Requires the shared API token (see ``PROTECTED_PATHS`` in the auth
+    middleware) — this endpoint writes to ``psx_mutual_funds`` and
+    ``psx_fund_nav_history`` via the service-role key, so RLS is not a backstop.
+
+    Streams the upload to a temp file with a hard size cap, calls
     MUFAPScraper.import_nav_csv(), returns the result dict.
     """
     tmp_path = None
     try:
         with tempfile.NamedTemporaryFile(delete=False, suffix=".csv") as tmp:
             tmp_path = tmp.name
-            content = await file.read()
-            tmp.write(content)
+            written = 0
+            while chunk := await file.read(_CSV_CHUNK):
+                written += len(chunk)
+                if written > MAX_CSV_BYTES:
+                    raise HTTPException(
+                        status_code=413,
+                        detail=f"CSV exceeds {MAX_CSV_BYTES // (1024 * 1024)} MB limit",
+                    )
+                tmp.write(chunk)
 
         from app.scrapers.mufap import MUFAPScraper
 

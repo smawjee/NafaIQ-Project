@@ -1,4 +1,4 @@
-﻿# -*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 """
 Supabase Schema Audit Script
 =============================
@@ -8,17 +8,25 @@ row counts, data quality, and column-level null analysis.
 Usage:  python -m scripts.audit_schema
 """
 
-import psycopg2
+import os
 import sys
 from datetime import datetime
+from pathlib import Path
+
+import psycopg2
+from dotenv import load_dotenv
+
+BACKEND_DIR = Path(__file__).resolve().parent.parent
+load_dotenv(BACKEND_DIR / ".env")
 
 DB_CONFIG = {
-    "host": "aws-1-ap-southeast-1.pooler.supabase.com",
-    "port": 6543,
-    "user": "postgres.gmonfgxmjgzipnbhgimv",
+    "host": os.environ.get("SUPABASE_POOLER_HOST", "aws-1-ap-southeast-1.pooler.supabase.com"),
+    "port": int(os.environ.get("SUPABASE_POOLER_PORT", "6543")),
+    "user": os.environ.get("SUPABASE_POOLER_USER", "postgres.gmonfgxmjgzipnbhgimv"),
     "dbname": "postgres",
-    "password": "ftT7c7Y0gYwBCxK4",
+    "password": os.environ.get("SUPABASE_DATABASE_PASSWORD", ""),
     "sslmode": "require",
+    "connect_timeout": 30,
 }
 
 
@@ -45,6 +53,14 @@ def run_query(cursor, label, sql):
 
 
 def main():
+    if not DB_CONFIG["password"]:
+        print(
+            "ERROR: SUPABASE_DATABASE_PASSWORD is not set.\n"
+            "Set it in backend/.env or the environment before running this audit.",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
     print(f"Supabase Schema Audit - {datetime.now().isoformat()}")
     print(f"Database : {DB_CONFIG['host']}:{DB_CONFIG['port']}/{DB_CONFIG['dbname']}")
     print(f"User     : {DB_CONFIG['user']}")
