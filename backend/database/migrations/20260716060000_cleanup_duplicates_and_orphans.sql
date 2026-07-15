@@ -3,9 +3,12 @@
 -- Spec: (internal workstream plan)
 
 -- NOTE: This migration includes two out-of-band repairs:
---   1. DROP INDEX IF EXISTS psx_index_eod_unique  — created outside the
---      migration history in the dev environment (probably via Supabase
---      Dashboard). Not created by any tracked migration.
+--   1. Drop psx_index_eod_unique — created outside the migration history in the
+--      dev environment (probably via Supabase Dashboard). Not created by any
+--      tracked migration, so whether it is a constraint or a bare index is
+--      unknown from the repo; section 1 below branches on both and no-ops if
+--      it is absent. Confirm with `\d psx_index_eod` before applying if you
+--      want certainty about which branch will fire.
 --   2. DROP INDEX IF EXISTS idx_psx_fund_nav_date  — created by
 --      20260715010000 and superseded by 20260716020000 (which created
 --      idx_psx_fund_nav_history_date). This DROP cleans up the older name.
@@ -13,9 +16,58 @@
 
 BEGIN;
 
--- 1. psx_index_eod has TRIPLE unique constraint on (code, date):
---    PK already covers (code, date); psx_index_eod_unique is a duplicate.
-ALTER TABLE psx_index_eod DROP CONSTRAINT IF EXISTS psx_index_eod_unique CASCADE;
+-- 1. psx_index_eod: drop the redundant psx_index_eod_unique on (code, date).
+--
+--    Only TWO (code, date) uniqueness objects are accounted for by the tracked
+--    migrations, not the "TRIPLE" this file's header claims:
+--      a) the inline UNIQUE(code, date) in 20260706120000:113, which Postgres
+--         auto-names psx_index_eod_code_date_key;
+--      b) the PK psx_index_eod_pkey added by 20260714130000:23.
+--    `psx_index_eod_unique` is created by no tracked migration, so it can only
+--    be a hand-made Dashboard object. Its existence is UNVERIFIED from here —
+--    if it does not exist, "triple" is wrong and this block is simply a no-op.
+--    Either way (b) means dropping it loses no uniqueness guarantee.
+--
+--    This was previously `ALTER TABLE ... DROP CONSTRAINT IF EXISTS ... CASCADE`,
+--    which could never match: Postgres would never name the inline constraint
+--    `psx_index_eod_unique`, and if the object was hand-made via
+--    CREATE UNIQUE INDEX it has no pg_constraint row at all, so DROP CONSTRAINT
+--    IF EXISTS silently matched nothing. This file's own header (line 6) always
+--    said DROP INDEX — the header was right and the statement was wrong.
+--
+--    We cannot inspect the live DB from here, so branch on what is actually
+--    there rather than guessing: a plain DROP INDEX ERRORS ("cannot drop index
+--    ... because constraint ... requires it") if the index turns out to be
+--    constraint-owned, and DROP CONSTRAINT misses if it is a bare index.
+--
+--    CASCADE is deliberately NOT carried over. On a unique constraint it would
+--    silently drop any FK that depends on (code, date). Nothing references it
+--    today, but if something ever does we want the error, not a silent drop.
+DO $$
+BEGIN
+    IF EXISTS (
+        SELECT 1 FROM pg_constraint
+        WHERE conname = 'psx_index_eod_unique'
+          AND conrelid = 'public.psx_index_eod'::regclass
+    ) THEN
+        ALTER TABLE public.psx_index_eod DROP CONSTRAINT psx_index_eod_unique;
+        RAISE NOTICE 'Dropped constraint psx_index_eod_unique.';
+    ELSIF EXISTS (
+        SELECT 1
+        FROM pg_class c
+        JOIN pg_namespace n ON n.oid = c.relnamespace
+        WHERE c.relname = 'psx_index_eod_unique'
+          AND n.nspname = 'public'
+          AND c.relkind = 'i'
+    ) THEN
+        EXECUTE 'DROP INDEX public.psx_index_eod_unique';
+        RAISE NOTICE 'Dropped index psx_index_eod_unique.';
+    ELSE
+        RAISE NOTICE
+            'No constraint or index named psx_index_eod_unique — nothing to drop. '
+            '(Expected if it never existed outside the dev environment.)';
+    END IF;
+END $$;
 
 -- 2. psx_fund_nav_history has two identical indexes on date DESC.
 --    Keep idx_psx_fund_nav_history_date (the newer one); drop the original.

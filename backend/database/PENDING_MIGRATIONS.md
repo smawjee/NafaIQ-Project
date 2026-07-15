@@ -27,6 +27,14 @@ stale phantom row to reconcile.
 
 **Action:** paste the file into the Dashboard SQL Editor and run it.
 
+> The back-fill records **40 rows** — the migrations actually applied, not every
+> file on disk. It deliberately omits the six unapplied files: `drop_v1_schema`
+> (§2 below) and the five timestamped after it (`20260716060000`,
+> `20260716070000`, `20260716120000`, `20260716130000`, `20260716140000`).
+> **Apply the ledger BEFORE those five**, or its back-fill will understate
+> reality. Each of the six needs a hand-written row when it is applied — see the
+> INSERT snippet in the file header.
+
 After it runs, `test_migrations_applied.py`'s ledger check goes green.
 
 > Known gap: nothing writes to this table automatically. Until the apply flow
@@ -89,3 +97,16 @@ it should not be a startup warm-start.
 
 Once it succeeds, real market caps light up across the treemap and screener, and
 `sizing_basis` flips from `volume_proxy` to `market_cap` on its own.
+
+## 5. Migrations added after this doc was first written — all NOT APPLIED
+
+Apply in timestamp order, **after** the ledger (§1) so its back-fill stays accurate.
+Each needs a hand-written `_applied_migrations` row once run.
+
+| File | What it does | Notes before applying |
+|---|---|---|
+| `20260716060000_cleanup_duplicates_and_orphans.sql` | drops dup indexes, guarded orphan cleanup, OHLCV repair | §1 of the file drops `psx_index_eod_unique`, an object no tracked migration creates. It now branches on constraint-vs-index and no-ops if absent. Run `\d psx_index_eod` first if you want to know which branch fires. |
+| `20260716070000_analyze_and_refresh.sql` | ANALYZE + refresh | — |
+| `20260716120000_ai_reports_lang.sql` | adds `ai_reports.lang`, re-keys the report cache | Back-fills existing rows to `'en'`. |
+| `20260716130000_health_column_grants.sql` | **SECURITY**: revokes table-wide SELECT on `psx_data_source_health` from `anon, authenticated`, re-grants per column without `last_error_message` | Closes direct PostgREST read of raw `str(e)` text via the public anon key. Backend uses `service_key`, so `/health/sources` is unaffected. After this, `?select=*` fails for anon by design — name columns explicitly. |
+| `20260716140000_ohlcv_date_symbol_index.sql` | adds `(date, symbol) INCLUDE (volume)` on `psx_ohlcv` for the volume-spike scan | ⚠️ **`CREATE INDEX CONCURRENTLY` cannot run inside a transaction.** Paste the single statement into an empty editor tab and run it alone — do not bundle it. ~973k rows, so the build takes a moment; verify `indisvalid` afterwards and drop/retry if it came out INVALID. |
