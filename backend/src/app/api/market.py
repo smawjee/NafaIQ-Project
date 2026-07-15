@@ -1,5 +1,5 @@
 """Public PSX market routes: thin HTTP layer over services.market."""
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, Query, Request
 
 from app.middleware.rate_limit import limiter
 from app.schemas.market import BacktestParams, ScreenerParams
@@ -24,7 +24,14 @@ async def quote(request: Request, symbol: str):
 
 @router.get("/quote/{symbol}/history")
 @limiter.limit("30/minute")
-async def history(request: Request, symbol: str, days: int = 250):
+async def history(
+    request: Request,
+    symbol: str,
+    # 3650 (~10y) is the full depth of psx_ohlcv. Bounded so a caller cannot ask
+    # for an unbounded page-walk; the service pages internally past PostgREST's
+    # ~1000-row response cap.
+    days: int = Query(250, ge=1, le=3650),
+):
     return await market_service.history(symbol, days)
 
 
@@ -58,17 +65,16 @@ async def announcements(symbol: str | None = None, limit: int = 50):
 # ---------- dividends ----------
 
 @router.get("/dividends")
-async def all_dividends(limit: int = 100):
+@limiter.limit("30/minute")
+async def all_dividends(request: Request, limit: int = Query(100, ge=1, le=500)):
     """Return all dividend events across all symbols, ordered by ex_date desc."""
     from app.db.supabase import async_execute
-    try:
-        result = await async_execute(lambda c: c.table("psx_dividends")
-                                     .select("*")
-                                     .order("ex_date", desc=True)
-                                     .limit(limit))
-        return result.data or []
-    except Exception:
-        return []
+
+    result = await async_execute(lambda c: c.table("psx_dividends")
+                                 .select("*")
+                                 .order("ex_date", desc=True)
+                                 .limit(limit))
+    return result.data or []
 
 
 @router.get("/dividends/{symbol}")

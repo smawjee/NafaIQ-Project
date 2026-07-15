@@ -29,6 +29,12 @@ log = structlog.get_logger()
 # keeps stale-data fallbacks from hammering DPS when it is not.
 BACKGROUND_REFRESH_THROTTLE = 60.0
 
+# PostgREST returns at most ~1000 rows per response (Supabase's default
+# max-rows), whatever .limit() asks for. get_history pages at this size so deep
+# requests ("All" = 10 years ≈ 2500 bars) return the full series instead of
+# being silently clipped at the first page.
+_HISTORY_PAGE_SIZE = 1000
+
 
 class CacheLayer:
     """Read-through cache: serve from Supabase if fresh, else scrape + write.
@@ -116,19 +122,31 @@ class CacheLayer:
     async def get_history(self, symbol: str, days: int = 250, max_age_seconds: int = 21600) -> list[OHLCVBar]:
         sym = symbol.upper()
         try:
-            bars_result = await async_execute(
-                lambda c: (
-                    c.table("psx_ohlcv")
-                    .select("*", count="exact")
-                    .eq("symbol", sym)
-                    .order("date", desc=True)
-                    .limit(days)
+            # Page explicitly. PostgREST caps ANY single response at ~1000 rows
+            # regardless of .limit(), so a bare .limit(days) silently truncated
+            # every request deeper than ~4 years — psx_ohlcv holds ~10 years
+            # (back to 2016), so the tail was unreachable and nothing errored.
+            rows: list[dict] = []
+            offset = 0
+            while offset < days:
+                take = min(_HISTORY_PAGE_SIZE, days - offset)
+                page_res = await async_execute(
+                    lambda c, o=offset, t=take: (
+                        c.table("psx_ohlcv")
+                        .select("*")
+                        .eq("symbol", sym)
+                        .order("date", desc=True)
+                        .range(o, o + t - 1)
+                    )
                 )
-            )
-            if bars_result.count and bars_result.count > 0:
-                rows = bars_result.data or []
-                if rows:
-                    return [_row_to_bar(r) for r in rows]
+                batch = page_res.data or []
+                rows.extend(batch)
+                if len(batch) < take:
+                    break  # exhausted this symbol's history
+                offset += take
+
+            if rows:
+                return [_row_to_bar(r) for r in rows]
         except Exception:
             log.warning("cache_history_read_failed", symbol=sym, exc_info=True)
 
