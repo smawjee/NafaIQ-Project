@@ -49,7 +49,9 @@ export function StockDetail() {
   // Phase 0 / B5: per-symbol timeframe persistence
   const { tfFor, setTfFor } = usePersistedTfMap("6M");
   const { data: quote } = usePsxQuote(ticker);
-  const { data: ohlcvData } = usePsxHistory(ticker, Math.max(365, tfDays(tfFor(ticker))));
+  // Key off `upper` to match the toolbar's tfFor/setTfFor calls below —
+  // a lowercase URL (/stock/hbl) would otherwise read a different tf entry.
+  const { data: ohlcvData } = usePsxHistory(ticker, Math.max(365, tfDays(tfFor(upper))));
   const { data: profile } = usePsxProfile(ticker);
   const { data: fundamentals } = usePsxFundamentals(ticker);
   const { data: announcements } = usePsxAnnouncements(ticker, 5);

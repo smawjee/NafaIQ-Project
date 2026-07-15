@@ -1,45 +1,43 @@
-import { useState, useEffect } from "react";
+import { useMemo } from "react";
 import { Link } from "@tanstack/react-router";
 import { Loader2 } from "lucide-react";
-import { usePsxSymbols } from "@/hooks/psx/use-psx";
-import { fetchDividends } from "@/lib/psx/client";
-import type { ApiDividendEvent } from "@/lib/psx/types";
+import { useAllDividends } from "@/hooks/psx/use-extras";
 import { useLang } from "@/hooks/use-lang";
 
 export function DividendCalendar() {
   const { t } = useLang();
-  const { data: symbols } = usePsxSymbols();
-  const [dividends, setDividends] = useState<(ApiDividendEvent & { symbol: string })[]>([]);
-  const [loading, setLoading] = useState(true);
+  // One aggregate request. The previous version fanned out ~30 per-symbol
+  // fetches on mount and, because it only cleared `loading` inside the
+  // Promise callback, spun forever if the symbols query errored.
+  const { data, isLoading, isError, refetch } = useAllDividends(100);
 
-  useEffect(() => {
-    if (!symbols) return;
-    let cancelled = false;
-    const topSymbols = symbols.slice(0, 30).map((s) => s.symbol);
-    setLoading(true);
-    Promise.allSettled(
-      topSymbols.map((sym) =>
-        fetchDividends(sym).then((d) => d.map((e) => ({ ...e, symbol: sym }))),
-      ),
-    ).then((results) => {
-      if (cancelled) return;
-      const all = results.flatMap((r) => (r.status === "fulfilled" ? r.value : []));
-      all.sort(
+  const dividends = useMemo(
+    () =>
+      [...(data ?? [])].sort(
         (a, b) => new Date(b.ex_date ?? 0).getTime() - new Date(a.ex_date ?? 0).getTime(),
-      );
-      setDividends(all.slice(0, 100));
-      setLoading(false);
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [symbols]);
+      ),
+    [data],
+  );
 
-  if (loading) {
+  if (isLoading) {
     return (
       <div className="flex items-center justify-center py-12 text-text-secondary text-sm">
-        <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+        <Loader2 className="me-2 h-5 w-5 animate-spin" />
         {t("Loading dividend data...")}
+      </div>
+    );
+  }
+
+  if (isError) {
+    return (
+      <div className="py-8 text-center">
+        <p className="text-sm text-text-muted">{t("Could not load dividend data.")}</p>
+        <button
+          onClick={() => refetch()}
+          className="mt-3 rounded-lg border border-border px-3 py-1.5 text-xs text-text-secondary transition hover:bg-surface-alt"
+        >
+          {t("Try again")}
+        </button>
       </div>
     );
   }
@@ -56,7 +54,7 @@ export function DividendCalendar() {
     <div className="mx-auto max-w-6xl space-y-4">
       <h1 className="text-xl font-bold text-text-primary">{t("Dividend Calendar")}</h1>
       <p className="text-sm text-text-muted">
-        {t("Showing recent dividend announcements for top 30 PSX symbols.")}
+        {t("Showing the most recent dividend announcements across PSX.")}
       </p>
       <div className="overflow-x-auto rounded-[8px] border border-border">
         <table className="w-full text-xs">

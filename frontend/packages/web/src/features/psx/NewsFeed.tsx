@@ -1,4 +1,4 @@
-﻿import { ExternalLink, Newspaper } from "lucide-react";
+import { ExternalLink, Newspaper } from "lucide-react";
 import { Card } from "@/components/shared/Card";
 import { useLatestNews, useNews } from "@/hooks/psx/use-extras";
 import { useLang } from "@/hooks/use-lang";
@@ -58,10 +58,10 @@ export function NewsFeed({ symbol, limit = 10 }: { symbol?: string; limit?: numb
                   </div>
                   <div className="mt-0.5 flex items-center gap-1.5 text-[11px] text-text-muted">
                     {n.published_at ? formatTimeAgo(n.published_at) : ""}
-                    {n.source ? ` Â· ${n.source}` : ""}
+                    {n.source ? ` · ${n.source}` : ""}
                     {n.tickers && n.tickers.length > 0 ? (
                       <>
-                        {" Â· "}
+                        {" · "}
                         <span className="font-mono text-text-secondary">
                           {n.tickers.slice(0, 3).join(", ")}
                         </span>

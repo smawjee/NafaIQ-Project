@@ -30,7 +30,8 @@ export function StockAnalysisReportCard({ symbol }: { symbol: string }) {
         {t("AI Analysis")}
       </h3>
 
-      {query.isLoading || query.isFetching ? (
+      {/* `isLoading` only — isFetching would blank the report on refetch. */}
+      {query.isLoading ? (
         <div className="flex items-center gap-2 text-sm text-text-muted">
           <span className="h-2 w-2 animate-pulse rounded-full bg-ai" />
           {t("Analyzing fundamentals and technicals…")}

@@ -20,7 +20,10 @@ export const NAV = [
   { to: "/dividends", label: "Dividends", icon: Banknote, mobile: "Dividends" },
 ] as const;
 
-export const PRIMARY_NAV = NAV.slice(0, 6);
+// Desktop sidebar renders the full nav — slicing here would silently hide any
+// entry appended to NAV (as /funds and /dividends were). Mobile still uses
+// BottomNav's first-5 slice plus the AppShell "More" drawer for the remainder.
+export const PRIMARY_NAV = NAV;
 
 export const LABELS: Record<string, string> = {
   app: "Dashboard",

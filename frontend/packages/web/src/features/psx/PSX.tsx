@@ -1,6 +1,6 @@
 import { Link, useNavigate } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Sparkles, Plus, Star, Filter, CandlestickChart as CandleIcon, Grid3x3, List, LayoutGrid, Flame } from "lucide-react";
+import { Plus, Star, Filter, CandlestickChart as CandleIcon, Grid3x3, List, LayoutGrid, Flame } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { StockSearchBox } from "@/components/search/StockSearchBox";
 import { toast } from "sonner";
@@ -8,7 +8,7 @@ import { toast } from "sonner";
 import { Card } from "@/components/shared/Card";
 import { InfoTip } from "@/components/shared/InfoTip";
 import { CountUpNumber } from "@/components/shared/CountUpNumber";
-import { Typewriter } from "@/components/shared/Typewriter";
+import { MarketBriefCard } from "@/features/psx/components/MarketBriefCard";
 import { Change } from "@/components/market/Change";
 import { SignalBadge } from "@/components/market/SignalBadge";
 import { CandlestickChart, PriceLineChart, Sparkline } from "@/components/charts/charts";
@@ -281,9 +281,13 @@ export function PSX() {
     if (!treemapData) return null;
     if (heatmapSort === "cap") return treemapData; // already sorted by market cap
 
+    // Sectors carry no total_volume, so derive it from their stocks.
+    const sectorVolume = (s: typeof treemapData.sectors[0]) =>
+      s.stocks.reduce((sum, st) => sum + (st.volume ?? 0), 0);
+
     const sortKey = heatmapSort === "change"
       ? (a: typeof treemapData.sectors[0], b: typeof treemapData.sectors[0]) => Math.abs(b.avg_change_pct) - Math.abs(a.avg_change_pct)
-      : (a: typeof treemapData.sectors[0], b: typeof treemapData.sectors[0]) => b.total_market_cap - a.total_market_cap;
+      : (a: typeof treemapData.sectors[0], b: typeof treemapData.sectors[0]) => sectorVolume(b) - sectorVolume(a);
 
     return {
       ...treemapData,
@@ -428,32 +432,8 @@ export function PSX() {
             )}
           </Card>
 
-          {/* AI signal bar */}
-          <div className="rounded-[8px] border border-border border-l-4 border-l-ai bg-ai-tint p-4">
-            <div className="flex flex-col gap-3 md:flex-row md:items-center">
-              <div className="flex items-center gap-2 text-sm font-semibold text-ai">
-                <Sparkles className="h-4 w-4" />
-                {t("AI Analysis")}
-              </div>
-              <p className="flex-1 text-xs leading-relaxed text-text-secondary">
-                <Typewriter
-                  id="psx-ai-analysis"
-                  text={t(
-                    "KSE-100 is trading above MA20, MA50 and MA100 with strong volume confirmation. RSI at 58 — bullish momentum without being overbought. Banking and Tech sectors leading gains today.",
-                  )}
-                />
-              </p>
-              <div className="text-right">
-                <SignalBadge signal="STRONG BUY" />
-                <div className="mt-1 text-xs font-medium text-bull">
-                  {t("BULLISH · Confidence 72%")}
-                </div>
-              </div>
-            </div>
-            <p className="mt-2 text-[10px] italic text-text-muted">
-              {t("Based on technical indicators only. Not financial advice.")}
-            </p>
-          </div>
+          {/* AI market brief — verified pipeline, no fabricated signal/confidence */}
+          <MarketBriefCard />
 
           {/* Stock Screener */}
           <Card>

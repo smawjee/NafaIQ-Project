@@ -251,13 +251,13 @@ export function CandlestickChart({
         {currentPrice !== undefined && (
           <ReferenceLine
             y={currentPrice}
-            stroke="#00d4aa"
+            stroke={ct.teal}
             strokeDasharray="6 4"
             strokeWidth={1.5}
             label={{
               value: `PKR ${currentPrice.toFixed(2)}`,
               position: "right",
-              fill: "#00d4aa",
+              fill: ct.teal,
               fontSize: 10,
             }}
           />
@@ -282,6 +282,7 @@ export function PriceLineChart({
 }) {
   const ct = useChartTheme();
   const { t } = useLang();
+  const priceLineGradientId = useId();
   if (!data || data.length === 0) {
     return (
       <div
@@ -292,7 +293,6 @@ export function PriceLineChart({
       </div>
     );
   }
-  const priceLineGradientId = useId();
   const ma20 = maSeries?.ma20 ?? sma(data, 20);
   const ma50 = maSeries?.ma50 ?? sma(data, 50);
   const ma100 = maSeries?.ma100 ?? sma(data, 100);
@@ -407,13 +407,13 @@ export function PriceLineChart({
         {currentPrice !== undefined && (
           <ReferenceLine
             y={currentPrice}
-            stroke="#00d4aa"
+            stroke={ct.teal}
             strokeDasharray="6 4"
             strokeWidth={1.5}
             label={{
               value: `PKR ${currentPrice.toFixed(2)}`,
               position: "right",
-              fill: "#00d4aa",
+              fill: ct.teal,
               fontSize: 10,
             }}
           />

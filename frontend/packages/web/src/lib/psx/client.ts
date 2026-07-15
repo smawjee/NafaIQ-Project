@@ -148,7 +148,15 @@ export function fetchAnnouncements(
 }
 
 export function fetchDividends(symbol: string): Promise<ApiDividendEvent[]> {
-  return get<ApiDividendEvent[]>(`/api/dividends/${symbol}`);
+  return get<ApiDividendEvent[]>(`/api/dividends/${encodeURIComponent(symbol)}`);
+}
+
+/**
+ * All dividend events across every symbol, newest ex_date first. One request —
+ * the calendar previously fanned out ~30 per-symbol calls on mount.
+ */
+export function fetchAllDividends(limit = 100): Promise<ApiDividendEvent[]> {
+  return get<ApiDividendEvent[]>(`/api/dividends?limit=${limit}`);
 }
 
 export function fetchIndexData(code: string): Promise<ApiIndexBar[]> {
@@ -428,7 +436,7 @@ export interface ApiFiling {
 }
 
 export function fetchFilings(symbol: string, limit = 50): Promise<ApiFiling[]> {
-  return get<ApiFiling[]>(`/api/filings/${symbol}?limit=${limit}`);
+  return get<ApiFiling[]>(`/api/filings/${encodeURIComponent(symbol)}?limit=${limit}`);
 }
 
 export function searchFilings(symbol: string, q: string, limit = 20): Promise<ApiFiling[]> {

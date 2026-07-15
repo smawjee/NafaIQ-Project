@@ -76,7 +76,7 @@ function FundRow({
             {fund.name}
           </div>
           <div className="mt-0.5 text-[11px] text-text-muted">
-            {fund.category ?? "\u2014"} \u00b7 {fund.amc ?? "\u2014"}
+            {fund.category ?? "\u2014"} {"\u00b7"} {fund.amc ?? "\u2014"}
             {fund.shariah ? " \u00b7 Shariah" : ""}
           </div>
         </div>

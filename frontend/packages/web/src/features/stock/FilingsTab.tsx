@@ -1,4 +1,4 @@
-﻿import { useState, useCallback } from "react";
+import { useState, useCallback } from "react";
 import { ChevronDown, ChevronRight, FileText, ExternalLink, Loader2 } from "lucide-react";
 import { useFilings } from "@/hooks/psx/use-extras";
 import { fetchFiling } from "@/lib/psx/client";

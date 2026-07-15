@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import {
   fetchAnnualFinancials,
   fetchDividends,
+  fetchAllDividends,
   fetchFilings,
   fetchFundNavHistory,
   fetchLatestNews,
@@ -129,5 +130,14 @@ export function useDividends(symbol: string) {
     queryFn: () => fetchDividends(symbol),
     staleTime: 5 * 60_000,
     enabled: !!symbol,
+  });
+}
+
+/** All dividends across symbols via the aggregate endpoint (one request). */
+export function useAllDividends(limit = 100) {
+  return useQuery<ApiDividendEvent[]>({
+    queryKey: ["psx", "dividends", "all", limit],
+    queryFn: () => fetchAllDividends(limit),
+    staleTime: 5 * 60_000,
   });
 }

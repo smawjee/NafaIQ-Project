@@ -35,7 +35,9 @@ export function DashboardRecommendation({
 
   if (!enabled) return null;
 
-  if (query.isLoading || query.isFetching) {
+  // `isLoading` only — also gating on isFetching would swap the rendered
+  // report back to the skeleton on every background refetch.
+  if (query.isLoading) {
     return (
       <div
         data-testid="dashboard-recommendation"

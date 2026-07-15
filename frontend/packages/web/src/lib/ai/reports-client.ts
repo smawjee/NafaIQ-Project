@@ -152,6 +152,11 @@ export function getDashboardRecommendation(lang?: string): Promise<ReportRespons
   return userGetReport(withLang("/api/ai/report/dashboard-recommendation", lang));
 }
 
+/** Shared daily market brief. Server caches per trading date across all users. */
+export function getMarketBrief(lang?: string): Promise<ReportResponse> {
+  return userGetReport(withLang("/api/ai/report/market-brief", lang));
+}
+
 /** Per-symbol stock analysis. The backend POSTs to stock/{symbol} so we POST. */
 export function generateStockReport(symbol: string, lang?: string): Promise<ReportResponse> {
   const upper = symbol.trim().toUpperCase();
