@@ -1,9 +1,10 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { hierarchy, treemap as d3treemap } from "d3-hierarchy";
 import type { HierarchyRectangularNode } from "d3-hierarchy";
 import type { ApiTreemap, ApiTreemapStock } from "@/lib/psx/types";
 import { useLang } from "@/hooks/use-lang";
 import { cn } from "@/lib/utils";
+import { StockTooltip } from "@/features/heatmap/StockTooltip";
 
 type TreemapNode = {
   name: string;
@@ -24,20 +25,20 @@ type SectorNode = {
 
 type RootNode = {
   name: "root";
-  children: SectorNode[];
+  children: SectorNode[] | TreemapNode[];
 };
 
 const SECTOR_HEADER_HEIGHT = 18;
-const MIN_TILE_W = 40;
-const MIN_TILE_H = 28;
+const MIN_TILE_W = 28;
+const MIN_TILE_H = 20;
 
 function intensity(change_pct: number): number {
-  return Math.min(Math.abs(change_pct) / 4, 0.7);
+  return Math.min(Math.abs(change_pct) / 3, 0.6);
 }
 
 function tileColor(change_pct: number): string {
   const base = change_pct >= 0 ? "var(--color-bull)" : "var(--color-bear)";
-  const alpha = 0.18 + intensity(change_pct);
+  const alpha = 0.25 + intensity(change_pct);
   return `color-mix(in srgb, ${base} ${Math.round(alpha * 100)}%, transparent)`;
 }
 
@@ -50,22 +51,64 @@ function tooltipText(stock: ApiTreemapStock): string {
 
 export function Treemap({
   data,
-  height = 480,
+  height = 560,
   onStockClick,
   className,
+  drilledSector,
+  onSectorClick,
+  onDrillUp,
 }: {
   data: ApiTreemap;
   height?: number;
   onStockClick?: (sym: string) => void;
   className?: string;
+  drilledSector?: string | null;
+  onSectorClick?: (sectorName: string) => void;
+  onDrillUp?: () => void;
 }) {
   const { t, isUrdu } = useLang();
+  const [tooltipState, setTooltipState] = useState<{
+    stock: ApiTreemapStock | null;
+    x: number;
+    y: number;
+  }>({ stock: null, x: 0, y: 0 });
 
   if (!data || !data.sectors || data.sectors.length === 0) {
     return <div className="flex h-full items-center justify-center text-text-muted text-sm">No data</div>;
   }
 
   const layout = useMemo(() => {
+    if (drilledSector) {
+      // Single-sector view: render that sector's stocks as a flat treemap
+      const sector = data.sectors.find((s) => s.name === drilledSector);
+      if (!sector) {
+        return { root: null as any, width: 1000, sectorName: null };
+      }
+      const root: RootNode = {
+        name: "root",
+        children: sector.stocks.map((st) => ({
+          name: st.symbol,
+          market_cap: st.market_cap,
+          change_pct: st.change_pct,
+          symbol: st.symbol,
+          fullName: st.name,
+          price: st.price,
+          volume: st.volume,
+          logoid: st.logoid,
+        })),
+      };
+      const width = 1000;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const rootHierarchy = hierarchy<any>(root).sum((d) => d.market_cap ?? 0);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const h: HierarchyRectangularNode<any> = d3treemap<any>()
+        .size([width, height])
+        .padding(2)
+        .round(true)(rootHierarchy);
+      return { root: h, width, sectorName: sector.name };
+    }
+
+    // Default: full sector tree
     const root: RootNode = {
       name: "root",
       children: data.sectors.map((s) => ({
@@ -95,28 +138,132 @@ export function Treemap({
       .padding(2)
       .paddingTop(SECTOR_HEADER_HEIGHT)
       .round(true)(rootHierarchy);
-    return { root: h, width };
-  }, [data, height]);
+    return { root: h, width, sectorName: null };
+  }, [data, height, drilledSector]);
 
-  const sectors = layout.root.children ?? [];
+  const sectors = layout.root?.children ?? [];
   const totalStocks = data.stock_count;
   const sectorCount = data.sectors.length;
 
+  const renderLeaf = (
+    leaf: HierarchyRectangularNode<any>,
+    offsetX: number,
+    offsetY: number,
+    keyPrefix: string,
+  ) => {
+    const w = leaf.x1 - leaf.x0;
+    const h = leaf.y1 - leaf.y0;
+    if (w < MIN_TILE_W || h < MIN_TILE_H) return null;
+    const showPct = h >= 36;
+    const showSymbol = w >= 32;
+    const stock: ApiTreemapStock = {
+      symbol: leaf.data.symbol,
+      name: leaf.data.fullName,
+      price: leaf.data.price,
+      change_pct: leaf.data.change_pct,
+      volume: leaf.data.volume,
+      market_cap: leaf.data.market_cap,
+      logoid: leaf.data.logoid ?? null,
+    };
+    const headerOffset = drilledSector ? 0 : SECTOR_HEADER_HEIGHT;
+    return (
+      <g
+        key={`${keyPrefix}-${leaf.data.symbol}`}
+        transform={`translate(${offsetX},${offsetY})`}
+      >
+        <rect
+          x={0}
+          y={headerOffset}
+          width={w}
+          height={h - headerOffset}
+          fill={tileColor(leaf.data.change_pct)}
+          stroke="var(--color-border)"
+          strokeWidth={0.5}
+          rx={2}
+          className="cursor-pointer transition-opacity hover:opacity-80"
+          onClick={() => onStockClick?.(leaf.data.symbol)}
+          tabIndex={0}
+          role="button"
+          aria-label={`${leaf.data.symbol} - ${leaf.data.change_pct >= 0 ? "+" : ""}${leaf.data.change_pct.toFixed(2)}%`}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              onStockClick?.(leaf.data.symbol);
+            }
+          }}
+          onMouseMove={(e) => {
+            setTooltipState({ stock, x: e.clientX, y: e.clientY });
+          }}
+          onMouseLeave={() => {
+            setTooltipState({ stock: null, x: 0, y: 0 });
+          }}
+        >
+          <title>{tooltipText(stock)}</title>
+        </rect>
+        {showSymbol && (
+          <text
+            x={4}
+            y={headerOffset + 12}
+            fontSize={11}
+            fontWeight={600}
+            fill="currentColor"
+            className="pointer-events-none select-none"
+          >
+            {leaf.data.symbol}
+          </text>
+        )}
+        {showPct && (
+          <text
+            x={4}
+            y={headerOffset + 24}
+            fontSize={10}
+            fill="currentColor"
+            className="pointer-events-none select-none"
+          >
+            {`${leaf.data.change_pct >= 0 ? "+" : ""}${leaf.data.change_pct.toFixed(2)}%`}
+          </text>
+        )}
+      </g>
+    );
+  };
+
   return (
     <div
-      className={cn("h-full w-full text-text-primary", className)}
+      className={cn("relative h-full w-full text-text-primary", className)}
       role="img"
       aria-label={`Sector treemap, ${sectorCount} sectors, ${totalStocks} stocks`}
     >
+      {drilledSector && onDrillUp && (
+        <div className="absolute left-3 top-3 z-10">
+          <button
+            type="button"
+            onClick={onDrillUp}
+            className="inline-flex items-center gap-1 rounded-[6px] border border-border bg-surface px-2.5 py-1 text-xs font-medium text-text-secondary transition hover:bg-hover"
+          >
+            ← {t("All sectors")}
+          </button>
+        </div>
+      )}
+
+      {drilledSector && (
+        <div className="absolute right-3 top-3 z-10 rounded-[6px] border border-border bg-surface px-2.5 py-1 text-xs font-semibold text-text-primary">
+          {t(drilledSector)}
+        </div>
+      )}
+
       <svg
         viewBox={`0 0 ${layout.width} ${height}`}
         preserveAspectRatio="xMidYMid meet"
         className="h-full w-full"
       >
-        {sectors.map((sector) => {
+        {sectors.map((sector: HierarchyRectangularNode<any>) => {
+          if (drilledSector) {
+            return renderLeaf(sector, sector.x0, sector.y0, "drilled");
+          }
+
           const sectorLabel = sector.x1 - sector.x0 < 60 ? "" : t(sector.data.name);
           const sectorLabelProps = isUrdu ? { lang: "ur" as const, dir: "rtl" as const } : {};
-          // TODO (P2-d): RTL label position � fine-tune x offset for Urdu text
+          // TODO (P2-d): RTL label position – fine-tune x offset for Urdu text
           return (
             <g key={sector.data.name} transform={`translate(${sector.x0},${sector.y0})`}>
               <rect
@@ -128,6 +275,17 @@ export function Treemap({
                 stroke="var(--color-border)"
                 strokeWidth={1}
                 rx={2}
+                className={onSectorClick ? "cursor-pointer transition-opacity hover:opacity-80" : ""}
+                onClick={() => onSectorClick?.(sector.data.name)}
+                role={onSectorClick ? "button" : undefined}
+                tabIndex={onSectorClick ? 0 : undefined}
+                aria-label={onSectorClick ? `Drill into ${sector.data.name}` : undefined}
+                onKeyDown={(e) => {
+                  if (onSectorClick && (e.key === 'Enter' || e.key === ' ')) {
+                    e.preventDefault();
+                    onSectorClick(sector.data.name);
+                  }
+                }}
               />
               {sectorLabel && (
                 <text
@@ -140,82 +298,26 @@ export function Treemap({
                   fill="currentColor"
                   className="select-none"
                 >
-                  {sectorLabel}
+                  {sectorLabel}{" "}
+                  <tspan fontSize={9} fill="var(--color-text-muted)">
+                    · {sector.data.children?.length ?? 0}
+                  </tspan>
                 </text>
               )}
-              {sector.children?.map((leaf) => {
-                const w = leaf.x1 - leaf.x0;
-                const h = leaf.y1 - leaf.y0;
-                if (w < MIN_TILE_W || h < MIN_TILE_H) return null;
-                const showPct = h >= 36;
-                const showSymbol = w >= 32;
-                const stock: ApiTreemapStock = {
-                  symbol: leaf.data.symbol,
-                  name: leaf.data.fullName,
-                  price: leaf.data.price,
-                  change_pct: leaf.data.change_pct,
-                  volume: leaf.data.volume,
-                  market_cap: leaf.data.market_cap,
-                  logoid: leaf.data.logoid ?? null,
-                };
-                return (
-                  <g
-                    key={leaf.data.symbol}
-                    transform={`translate(${leaf.x0 - sector.x0},${leaf.y0 - sector.y0})`}
-                  >
-                    <rect
-                      x={0}
-                      y={SECTOR_HEADER_HEIGHT}
-                      width={w}
-                      height={h - SECTOR_HEADER_HEIGHT}
-                      fill={tileColor(leaf.data.change_pct)}
-                      stroke="var(--color-border)"
-                      strokeWidth={0.5}
-                      rx={2}
-                      className="cursor-pointer transition-opacity hover:opacity-80"
-                      onClick={() => onStockClick?.(leaf.data.symbol)}
-                      tabIndex={0}
-                      role="button"
-                      aria-label={`${leaf.data.symbol} - ${leaf.data.change_pct >= 0 ? "+" : ""}${leaf.data.change_pct.toFixed(2)}%`}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter' || e.key === ' ') {
-                          e.preventDefault();
-                          onStockClick?.(leaf.data.symbol);
-                        }
-                      }}
-                    >
-                      <title>{tooltipText(stock)}</title>
-                    </rect>
-                    {showSymbol && (
-                      <text
-                        x={4}
-                        y={SECTOR_HEADER_HEIGHT + 12}
-                        fontSize={11}
-                        fontWeight={600}
-                        fill="currentColor"
-                        className="pointer-events-none select-none"
-                      >
-                        {leaf.data.symbol}
-                      </text>
-                    )}
-                    {showPct && (
-                      <text
-                        x={4}
-                        y={SECTOR_HEADER_HEIGHT + 24}
-                        fontSize={10}
-                        fill="currentColor"
-                        className="pointer-events-none select-none"
-                      >
-                        {`${leaf.data.change_pct >= 0 ? "+" : ""}${leaf.data.change_pct.toFixed(2)}%`}
-                      </text>
-                    )}
-                  </g>
-                );
-              })}
+              {sector.children?.map((leaf: HierarchyRectangularNode<any>) =>
+                renderLeaf(leaf, leaf.x0 - sector.x0, leaf.y0 - sector.y0, sector.data.name),
+              )}
             </g>
           );
         })}
       </svg>
+
+      <StockTooltip
+        stock={tooltipState.stock}
+        x={tooltipState.x}
+        y={tooltipState.y}
+        visible={!!tooltipState.stock}
+      />
     </div>
   );
 }

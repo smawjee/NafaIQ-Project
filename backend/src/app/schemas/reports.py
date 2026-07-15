@@ -80,6 +80,8 @@ class FinanceReport(ReportBase):
 
 class DashboardRecReport(ReportBase):
     report_type: Literal["dashboard_rec"] = "dashboard_rec"
+    confidence: Optional[float] = None
+    view_target: Optional[str] = None
 
 
 # --------------------------------------------------------------------------- #

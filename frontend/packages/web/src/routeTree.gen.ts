@@ -17,7 +17,9 @@ import { Route as PsxRouteImport } from './routes/psx'
 import { Route as PortfolioRouteImport } from './routes/portfolio'
 import { Route as PlansRouteImport } from './routes/plans'
 import { Route as LearnRouteImport } from './routes/learn'
+import { Route as FundsRouteImport } from './routes/funds'
 import { Route as FinanceRouteImport } from './routes/finance'
+import { Route as DividendsRouteImport } from './routes/dividends'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AppRouteImport } from './routes/app'
 import { Route as AlertsRouteImport } from './routes/alerts'
@@ -66,9 +68,19 @@ const LearnRoute = LearnRouteImport.update({
   path: '/learn',
   getParentRoute: () => rootRouteImport,
 } as any)
+const FundsRoute = FundsRouteImport.update({
+  id: '/funds',
+  path: '/funds',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const FinanceRoute = FinanceRouteImport.update({
   id: '/finance',
   path: '/finance',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DividendsRoute = DividendsRouteImport.update({
+  id: '/dividends',
+  path: '/dividends',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthRoute = AuthRouteImport.update({
@@ -112,7 +124,9 @@ export interface FileRoutesByFullPath {
   '/alerts': typeof AlertsRoute
   '/app': typeof AppRoute
   '/auth': typeof AuthRoute
+  '/dividends': typeof DividendsRoute
   '/finance': typeof FinanceRoute
+  '/funds': typeof FundsRoute
   '/learn': typeof LearnRouteWithChildren
   '/plans': typeof PlansRoute
   '/portfolio': typeof PortfolioRoute
@@ -130,7 +144,9 @@ export interface FileRoutesByTo {
   '/alerts': typeof AlertsRoute
   '/app': typeof AppRoute
   '/auth': typeof AuthRoute
+  '/dividends': typeof DividendsRoute
   '/finance': typeof FinanceRoute
+  '/funds': typeof FundsRoute
   '/plans': typeof PlansRoute
   '/portfolio': typeof PortfolioRoute
   '/psx': typeof PsxRoute
@@ -148,7 +164,9 @@ export interface FileRoutesById {
   '/alerts': typeof AlertsRoute
   '/app': typeof AppRoute
   '/auth': typeof AuthRoute
+  '/dividends': typeof DividendsRoute
   '/finance': typeof FinanceRoute
+  '/funds': typeof FundsRoute
   '/learn': typeof LearnRouteWithChildren
   '/plans': typeof PlansRoute
   '/portfolio': typeof PortfolioRoute
@@ -168,7 +186,9 @@ export interface FileRouteTypes {
     | '/alerts'
     | '/app'
     | '/auth'
+    | '/dividends'
     | '/finance'
+    | '/funds'
     | '/learn'
     | '/plans'
     | '/portfolio'
@@ -186,7 +206,9 @@ export interface FileRouteTypes {
     | '/alerts'
     | '/app'
     | '/auth'
+    | '/dividends'
     | '/finance'
+    | '/funds'
     | '/plans'
     | '/portfolio'
     | '/psx'
@@ -203,7 +225,9 @@ export interface FileRouteTypes {
     | '/alerts'
     | '/app'
     | '/auth'
+    | '/dividends'
     | '/finance'
+    | '/funds'
     | '/learn'
     | '/plans'
     | '/portfolio'
@@ -222,7 +246,9 @@ export interface RootRouteChildren {
   AlertsRoute: typeof AlertsRoute
   AppRoute: typeof AppRoute
   AuthRoute: typeof AuthRoute
+  DividendsRoute: typeof DividendsRoute
   FinanceRoute: typeof FinanceRoute
+  FundsRoute: typeof FundsRoute
   LearnRoute: typeof LearnRouteWithChildren
   PlansRoute: typeof PlansRoute
   PortfolioRoute: typeof PortfolioRoute
@@ -292,11 +318,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LearnRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/funds': {
+      id: '/funds'
+      path: '/funds'
+      fullPath: '/funds'
+      preLoaderRoute: typeof FundsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/finance': {
       id: '/finance'
       path: '/finance'
       fullPath: '/finance'
       preLoaderRoute: typeof FinanceRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/dividends': {
+      id: '/dividends'
+      path: '/dividends'
+      fullPath: '/dividends'
+      preLoaderRoute: typeof DividendsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/auth': {
@@ -368,7 +408,9 @@ const rootRouteChildren: RootRouteChildren = {
   AlertsRoute: AlertsRoute,
   AppRoute: AppRoute,
   AuthRoute: AuthRoute,
+  DividendsRoute: DividendsRoute,
   FinanceRoute: FinanceRoute,
+  FundsRoute: FundsRoute,
   LearnRoute: LearnRouteWithChildren,
   PlansRoute: PlansRoute,
   PortfolioRoute: PortfolioRoute,

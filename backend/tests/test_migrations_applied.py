@@ -198,10 +198,19 @@ CHECKS: List[MigrationCheck] = [
     ),
     MigrationCheck(
         filename="20260716010000_apply_sector_map.sql",
-        description="Map TV sectors to DPS taxonomy",
+        description="Disabled: scheduler normalizes TV sectors via TV_SECTOR_MAP at write-time",
         checks=[
-            Check("No TV-style 'Finance' sector remains",
-                  "SELECT (COUNT(*)=0)::int FROM psx_profile WHERE sector='Finance'"),
+            Check("No raw TradingView sector inputs remain in psx_profile",
+                  """SELECT (COUNT(*) FILTER (
+                       WHERE sector IN (
+                           'Finance', 'Process Industries', 'Producer Manufacturing',
+                           'Energy Minerals', 'Consumer Non-Durables', 'Distribution Services',
+                           'Health Technology', 'Utilities', 'Retail Trade', 'Consumer Durables',
+                           'Non-Energy Minerals', 'Electronic Technology', 'Health Services',
+                           'Transportation', 'Commercial Services', 'Industrial Services',
+                           'Communications', 'Technology Services'
+                       )
+                   ) = 0)::int FROM psx_profile"""),
         ],
     ),
     MigrationCheck(
@@ -246,6 +255,14 @@ CHECKS: List[MigrationCheck] = [
                   "SELECT to_regclass('public.psx_data_source_health') IS NOT NULL"),
             Check("psx_data_source_health has RLS enabled",
                   "SELECT relrowsecurity FROM pg_class WHERE relname='psx_data_source_health'"),
+        ],
+    ),
+    MigrationCheck(
+        filename="(stream-a) _applied_migrations ledger",
+        description="Migration ledger from Stream A must be populated",
+        checks=[
+            Check("_applied_migrations ledger exists and has rows",
+                  "SELECT (COUNT(*) > 0)::int FROM _applied_migrations"),
         ],
     ),
 ]

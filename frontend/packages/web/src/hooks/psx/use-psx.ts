@@ -239,6 +239,11 @@ export function usePsxHistory(symbol: string | undefined, days = 180) {
     },
     enabled: !!symbol,
     staleTime: 60_000_000, // effectively permanent — OHLCV is historical
+    // Keep previous data while the new symbol's bars are fetching. Without
+    // this, switching stocks would unmount the chart and remount it once the
+    // fetch resolves, causing a flash of empty state and a possible length
+    // mismatch between `data` and `maSeries` that Recharts throws on.
+    placeholderData: keepPreviousData,
   });
 }
 

@@ -7,6 +7,7 @@ returns empty lists and logs a warning rather than raising.
 from __future__ import annotations
 
 import asyncio
+import csv
 import re
 from datetime import date, datetime
 from typing import Optional
@@ -92,6 +93,140 @@ class MUFAPScraper:
         # and would tag every row with the wrong fund_code.
         log.warning("mufap:nav_history_disabled_per_fund_urls_unavailable", fund=fund_code)
         return []
+
+    # ---------- CSV import ----------
+
+    async def import_nav_csv(self, csv_path: str) -> dict:
+        """Import NAV history from a CSV file.
+
+        Expected CSV columns: fund_code, nav_date, nav, offer_price,
+        repurchase_price, category, amc_name, fund_name, shariah_status
+
+        The method:
+        1. Reads and validates the CSV (skip header, validate date format
+           YYYY-MM-DD, nav must be numeric positive)
+        2. Deduplicates by (fund_code, nav_date) — keep last row for each
+           unique pair
+        3. Bulk-inserts into ``psx_fund_nav_history`` table using upsert on
+           conflict(fund_code, date)
+        4. Also upserts/merges into ``psx_mutual_funds`` (fund_code primary
+           key) to keep fund catalog current
+        5. Returns dict with: rows_read, rows_inserted, errors (list of error
+           strings)
+        """
+        log.info("import_nav_csv_start", path=csv_path)
+        result: dict = {"rows_read": 0, "rows_inserted": 0, "errors": []}
+
+        nav_rows: dict[tuple[str, str], dict] = {}
+        fund_catalog: dict[str, dict] = {}
+
+        with open(csv_path, newline="", encoding="utf-8-sig") as f:
+            reader = csv.DictReader(f)
+            for line_no, row in enumerate(reader, start=2):
+                result["rows_read"] += 1
+                fund_code = (row.get("fund_code") or "").strip()
+                nav_date_str = (row.get("nav_date") or "").strip()
+                nav_str = (row.get("nav") or "").strip()
+
+                if not fund_code:
+                    result["errors"].append(f"Line {line_no}: missing fund_code")
+                    continue
+                if not nav_date_str:
+                    result["errors"].append(f"Line {line_no}: missing nav_date")
+                    continue
+
+                try:
+                    nav_date = datetime.strptime(nav_date_str, "%Y-%m-%d").date()
+                except ValueError:
+                    result["errors"].append(
+                        f"Line {line_no}: invalid date '{nav_date_str}', "
+                        f"expected YYYY-MM-DD"
+                    )
+                    continue
+
+                try:
+                    nav = float(nav_str)
+                    if nav <= 0:
+                        result["errors"].append(
+                            f"Line {line_no}: nav must be positive, got {nav}"
+                        )
+                        continue
+                except (ValueError, TypeError):
+                    result["errors"].append(
+                        f"Line {line_no}: invalid nav '{nav_str}', "
+                        f"expected numeric"
+                    )
+                    continue
+
+                key = (fund_code, nav_date.isoformat())
+                nav_rows[key] = {
+                    "fund_code": fund_code,
+                    "date": nav_date.isoformat(),
+                    "nav": nav,
+                }
+
+                if fund_code not in fund_catalog:
+                    shariah_raw = (row.get("shariah_status") or "").strip().lower()
+                    fund_catalog[fund_code] = {
+                        "fund_code": fund_code,
+                        "name": (row.get("fund_name") or "").strip(),
+                        "category": (row.get("category") or "").strip(),
+                        "amc": (row.get("amc_name") or "").strip(),
+                        "shariah": shariah_raw in ("yes", "true", "1", "y"),
+                    }
+
+        all_nav_rows = list(nav_rows.values())
+
+        if not all_nav_rows:
+            log.info("import_nav_csv_no_valid_rows", rows_read=result["rows_read"])
+            return result
+
+        from app.db.supabase import async_execute
+
+        BATCH_SIZE = 500
+        for i in range(0, len(all_nav_rows), BATCH_SIZE):
+            batch = all_nav_rows[i:i + BATCH_SIZE]
+            try:
+                await async_execute(
+                    lambda c, b=batch: c.table("psx_fund_nav_history")
+                    .upsert(b, on_conflict="fund_code,date")
+                )
+                result["rows_inserted"] += len(batch)
+            except Exception as e:
+                result["errors"].append(
+                    f"Batch {i // BATCH_SIZE}: NAV upsert failed - {e}"
+                )
+                log.error(
+                    "import_nav_csv_upsert_failed",
+                    batch=i // BATCH_SIZE,
+                    err=str(e),
+                )
+
+        fund_list = list(fund_catalog.values())
+        for i in range(0, len(fund_list), BATCH_SIZE):
+            batch = fund_list[i:i + BATCH_SIZE]
+            try:
+                await async_execute(
+                    lambda c, b=batch: c.table("psx_mutual_funds")
+                    .upsert(b, on_conflict="fund_code")
+                )
+            except Exception as e:
+                result["errors"].append(
+                    f"Batch {i // BATCH_SIZE}: fund catalog upsert failed - {e}"
+                )
+                log.error(
+                    "import_nav_csv_fund_upsert_failed",
+                    batch=i // BATCH_SIZE,
+                    err=str(e),
+                )
+
+        log.info(
+            "import_nav_csv_done",
+            rows_read=result["rows_read"],
+            rows_inserted=result["rows_inserted"],
+            errors=len(result["errors"]),
+        )
+        return result
 
 
 # ---------- parsers ----------

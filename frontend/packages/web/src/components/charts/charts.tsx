@@ -148,6 +148,20 @@ export function CandlestickChart({
   currentPrice?: number;
 }) {
   const ct = useChartTheme();
+  // Defensive: a transient empty `data` (during a symbol change) used to
+  // feed -Infinity / +Infinity into YAxis `domain` and crash Recharts. The
+  // parent (PSX / StockDetail) now keys the chart by `sym` so this should
+  // not happen in practice, but guard against it anyway.
+  if (!data || data.length === 0) {
+    return (
+      <div
+        className="flex h-full w-full items-center justify-center text-xs text-text-muted"
+        style={{ height: height >= 9999 ? "100%" : height }}
+      >
+        —
+      </div>
+    );
+  }
   const ma20 = maSeries?.ma20 ?? sma(data, 20);
   const ma50 = maSeries?.ma50 ?? sma(data, 50);
   const ma100 = maSeries?.ma100 ?? sma(data, 100);
@@ -268,6 +282,16 @@ export function PriceLineChart({
 }) {
   const ct = useChartTheme();
   const { t } = useLang();
+  if (!data || data.length === 0) {
+    return (
+      <div
+        className="flex h-full w-full items-center justify-center text-xs text-text-muted"
+        style={{ height: height >= 9999 ? "100%" : height }}
+      >
+        —
+      </div>
+    );
+  }
   const priceLineGradientId = useId();
   const ma20 = maSeries?.ma20 ?? sma(data, 20);
   const ma50 = maSeries?.ma50 ?? sma(data, 50);

@@ -1,6 +1,6 @@
 import { Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { Sparkles, TrendingUp, Wallet, Coins, CreditCard, Activity, X } from "lucide-react";
+import { TrendingUp, Wallet, Coins, CreditCard, Activity, X } from "lucide-react";
 import { toast } from "sonner";
 import { Card, StatCard } from "@/components/shared/Card";
 import { Change } from "@/components/market/Change";
@@ -33,6 +33,7 @@ import { portfolioSeries, formatToday } from "@/features/dashboard/dashboard.uti
 import { QuickAddTransactionModal } from "@/features/dashboard/components/QuickAddTransactionModal";
 import { QuickAddHoldingModal } from "@/features/dashboard/components/QuickAddHoldingModal";
 import { QuickAddAlertModal } from "@/features/dashboard/components/QuickAddAlertModal";
+import { DashboardRecommendation } from "@/features/dashboard/components/DashboardRecommendation";
 import { MacroWidget } from "@/features/dashboard/MacroWidget";
 import { UnusualActivityWidget } from "@/features/psx/UnusualActivityWidget";
 import { NewsFeed } from "@/features/psx/NewsFeed";
@@ -191,51 +192,8 @@ export function Dashboard() {
         </div>
       </div>
 
-      {/* AI Insight — premium recommendation widget */}
-      {showAI && (
-        <div className="rounded-[14px] border border-white/[0.06] bg-surface p-5">
-          <div className="flex flex-col gap-4 md:flex-row md:items-start">
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10">
-              <Sparkles className="h-[18px] w-[18px] text-primary" strokeWidth={1.75} />
-            </div>
-            <div className="flex-1">
-              <div className="flex items-center gap-2.5">
-                <h2 className="text-sm font-semibold text-text-primary">
-                  {t("AI Recommendation")}
-                </h2>
-                <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold text-primary">
-                  92% confidence
-                </span>
-              </div>
-              <p className="mt-1.5 text-[13px] font-medium text-text-primary">
-                {t("Redirect PKR 5,000 from dining to your Hajj Fund.")}
-              </p>
-              <p className="mt-1 text-xs leading-relaxed text-text-secondary">
-                <Typewriter
-                  id="dashboard-ai-recommendation"
-                  text={t(
-                    "You spent 15% more on dining this month — reallocating brings your goal 3 months closer. HBL is also flashing a Strong Buy, up 2.41% on rising volume.",
-                  )}
-                />
-              </p>
-            </div>
-            <div className="flex shrink-0 gap-2">
-              <Link
-                to="/psx"
-                className="rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground transition hover:brightness-110"
-              >
-                {t("View")}
-              </Link>
-              <button
-                onClick={() => setShowAI(false)}
-                className="rounded-lg px-3 py-1.5 text-xs text-text-muted transition hover:bg-white/[0.04] hover:text-text-primary"
-              >
-                {t("Dismiss")}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* AI Insight — verified cross-domain nudge (spec §3.5) */}
+      <DashboardRecommendation enabled={showAI} onDismiss={() => setShowAI(false)} />
 
       {/* Metric cards — Net Worth primary, rest secondary */}
       {user && !isDemo && networth && networth.holding_count === 0 ? (

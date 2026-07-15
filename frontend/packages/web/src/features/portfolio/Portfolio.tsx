@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Sparkles, Loader2, Pencil, Trash2, Plus, AlertTriangle } from "lucide-react";
+import { Pencil, Trash2, Plus, AlertTriangle } from "lucide-react";
 import { Card, StatCard } from "@/components/shared/Card";
 import { SignalBadge } from "@/components/market/SignalBadge";
 import { DonutChart, PortfolioAreaChart } from "@/components/charts/charts";
@@ -33,10 +33,8 @@ import type { StockSearchResult } from "@/lib/psx/stock-search";
 import { RANGES, ALLOCATION_PALETTE } from "@/features/portfolio/portfolio.data";
 import { series, relativeBenchmarkDiff } from "@/features/portfolio/portfolio.utils";
 import { HaqeeqiDaulat } from "@/features/portfolio/components/HaqeeqiDaulat";
-import { ReportModal } from "@/features/portfolio/components/ReportModal";
-import { toast } from "sonner";
+import { ReportPanel } from "@/components/ai/ReportPanel";
 import { usePortfolioReport } from "@/hooks/ai/use-ai-report";
-import { reportErrorKey } from "@/lib/ai/reports-client";
 
 export function Portfolio() {
   const { t } = useLang();
@@ -109,7 +107,6 @@ export function Portfolio() {
   }, [useDemoPortfolio, local.stockAllocation, holdings]);
 
   const [range, setRange] = useState<(typeof RANGES)[number]>("6M");
-  const [reportOpen, setReportOpen] = useState(false);
   const n = range === "1M" ? 2 : range === "3M" ? 3 : range === "6M" ? 6 : 12;
   const historyDays = range === "1M" ? 30 : range === "3M" ? 90 : range === "1Y" ? 365 : 180;
   const reportMutation = usePortfolioReport(historyDays);
@@ -287,13 +284,6 @@ export function Portfolio() {
       }
     }
     setFormOpen(false);
-  }
-
-  function generate() {
-    reportMutation.mutate(undefined, {
-      onSuccess: () => setReportOpen(true),
-      onError: (e) => toast.error(t(reportErrorKey(e))),
-    });
   }
 
   return (
@@ -727,37 +717,15 @@ export function Portfolio() {
       </Modal>
 
       {/* AI report */}
-      <div className="rounded-[8px] border border-border border-l-4 border-l-ai bg-ai-tint p-4">
-        <div className="flex flex-col gap-3 md:flex-row md:items-center">
-          <Sparkles className="h-5 w-5 shrink-0 text-ai" />
-          <div className="flex-1">
-            <h3 className="text-sm font-semibold text-text-primary">{t("AI Portfolio Report")}</h3>
-            <p className="text-sm text-text-secondary">
-              {t(
-                "Get a plain-English analysis — diversification score, risk assessment, top opportunities, and suggested rebalancing.",
-              )}
-            </p>
-          </div>
-          <button
-            onClick={generate}
-            disabled={reportMutation.isPending}
-            className="flex items-center gap-2 rounded-[6px] bg-ai px-4 py-2 text-sm font-semibold text-white hover:brightness-110 disabled:opacity-70"
-          >
-            {reportMutation.isPending ? (
-              <>
-                <Loader2 className="h-4 w-4 animate-spin" />
-                {t("Analyzing…")}
-              </>
-            ) : (
-              t("Generate Report")
-            )}
-          </button>
-        </div>
-      </div>
-
-      {reportOpen && reportMutation.data && (
-        <ReportModal report={reportMutation.data.content} onClose={() => setReportOpen(false)} />
-      )}
+      <ReportPanel
+        title={t("AI Portfolio Report")}
+        blurb={t(
+          "Get a plain-English analysis — diversification score, risk assessment, top opportunities, and suggested rebalancing.",
+        )}
+        reportType="portfolio"
+        mutation={reportMutation}
+        onCloseReport={() => reportMutation.reset()}
+      />
 
       <ConfirmDialog
         open={deleteIdx !== null}

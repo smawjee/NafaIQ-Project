@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import {
   fetchAnnualFinancials,
+  fetchDividends,
   fetchFilings,
   fetchFundNavHistory,
   fetchLatestNews,
@@ -11,6 +12,7 @@ import {
   fetchPolicyRate,
   fetchQuarterlyFinancials,
   fetchUnusualActivity,
+  type ApiDividendEvent,
   type ApiFinancialAnnual,
   type ApiFinancialQuarterly,
   type ApiFiling,
@@ -118,5 +120,14 @@ export function useFundNavHistory(fundCode: string | undefined, limit = 100) {
     queryFn: () => fetchFundNavHistory(fundCode!, limit),
     enabled: !!fundCode,
     staleTime: 5 * 60 * 1000,
+  });
+}
+
+export function useDividends(symbol: string) {
+  return useQuery<ApiDividendEvent[]>({
+    queryKey: ["psx", "dividends", symbol],
+    queryFn: () => fetchDividends(symbol),
+    staleTime: 5 * 60_000,
+    enabled: !!symbol,
   });
 }

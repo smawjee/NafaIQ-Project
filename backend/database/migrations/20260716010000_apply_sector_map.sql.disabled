@@ -1,3 +1,11 @@
+-- DISABLED: This migration is a no-op in production because
+-- job_refresh_tv_data (scheduler every 5 min) overwrites psx_profile.sector
+-- with TV_SECTOR_MAP values from app/scrapers/tradingview.py, undoing this
+-- UPDATE within 5 minutes. The TV scanner is the canonical source.
+-- If you need DPS-style sector names, change TV_SECTOR_MAP values instead.
+--
+-- Original content preserved below for reference.
+
 -- Apply TV_SECTOR_MAP: remap TradingView sector taxonomy to DPS taxonomy.
 -- This one-shot UPDATE replaces TV-style sectors (e.g. "Finance") with
 -- their DPS equivalents (e.g. "Commercial Banks").

@@ -8,11 +8,15 @@ persistence, and quota.
 The pipeline per ReportSpec: assemble the bundle -> inject it into the prompt
 (with a delimited untrusted-data block) -> generate a schema-validated report ->
 verify numbers + check guardrails -> on any failure, regenerate exactly once ->
-if it still fails, raise ReportUnavailable. We never return unverified numbers.
+if it still fails, strip orphan numbers and bad citations from the report
+(spec §5 step 2) and re-verify. If even the stripped report fails, raise
+ReportUnavailable. We never return unverified numbers.
 """
 from __future__ import annotations
 
 import json
+import math
+import re
 import time
 from dataclasses import dataclass
 from typing import Any, Optional
@@ -29,6 +33,12 @@ from app.services.ai.providers import (
 )
 from app.services.ai.specs import ReportSpec
 from app.services.ai.verify import verify_report
+
+_STRIP_NUMBER_RE = re.compile(
+    r"(?<![A-Za-z0-9\-.])[-+]?\d[\d,]*(?:\.\d+)?%?"
+)
+_STRIP_REL_TOL = 1e-3
+_STRIP_ABS_TOL = 0.01
 
 
 class ReportUnavailable(Exception):
@@ -105,6 +115,118 @@ def _correction_message(vr: VerificationResult, violations: list[str]) -> str:
     )
 
 
+def _dashboard_view_target(bundle: dict[str, Any]) -> Optional[str]:
+    """Pick the most-relevant frontend route from the dashboard recommendation
+    bundle. Priority: market mover > goal > top spending category. First hit wins.
+    Returns None when nothing in the bundle is useful to navigate to.
+
+    Routes match the live TanStack Router tree under
+    `frontend/packages/web/src/routes/`:
+    - stock detail:        /stock/$ticker
+    - finance (tabs are local state, so we land on the page itself):  /finance
+    """
+    mover = (bundle.get("market_mover") or {}).get("symbol")
+    if mover:
+        return f"/stock/{mover.upper()}"
+    if (bundle.get("goal") or {}).get("name"):
+        return "/finance"
+    if (bundle.get("spending") or {}).get("top_category"):
+        return "/finance"
+    return None
+
+
+# strip fallback (spec §5 step 2)
+def _strip_bad_citation_indices(mismatches: list[Any]) -> set[int]:
+    """Collect the citation indices the verifier flagged, in any order.
+
+    A citation is bad when its `source_key` is unresolved OR its value
+    disagrees with the bundle. Either way we drop the whole citation.
+    """
+    indices: set[int] = set()
+    for m in mismatches:
+        if not m.field.startswith("citations[") or not m.source_key:
+            continue
+        try:
+            indices.add(int(m.field[len("citations[") : -1]))
+        except ValueError:
+            pass
+    return indices
+
+
+def _narrative_orphans(mismatches: list[Any]) -> list[float]:
+    """Collect the orphan numbers the verifier flagged in the prose."""
+    out: list[float] = []
+    for m in mismatches:
+        if m.field != "narrative":
+            continue
+        if isinstance(m.actual, (int, float)) and not isinstance(m.actual, bool):
+            out.append(float(m.actual))
+    return out
+
+
+def _replace_orphan_in_text(text: str, orphan: float) -> str:
+    """Find the first textual occurrence of `orphan` in `text` and replace it
+    with the em-dash placeholder. Uses the same regex the verifier uses so
+    every orphan the verifier finds is also reachable here.
+
+    Iterates matches in reverse so the replacement can't invalidate a
+    later-found match's start/end indices on a second pass.
+    """
+    matches = list(_STRIP_NUMBER_RE.finditer(text))
+    for match in reversed(matches):
+        raw = match.group(0)
+        try:
+            num = float(raw.replace(",", "").rstrip("%"))
+        except ValueError:
+            continue
+        if math.isclose(num, abs(orphan), rel_tol=_STRIP_REL_TOL, abs_tol=_STRIP_ABS_TOL):
+            return text[: match.start()] + "—" + text[match.end() :]
+    return text
+
+
+def _strip_orphan_numbers(
+    report: BaseModel, mismatches: list[Any]
+) -> BaseModel:
+    """Spec §5 step 2: strip the offending claim so a verified but less
+    specific report can still be served.
+
+    Drops any citation flagged by the verifier (the proof it carried is no
+    longer trustworthy), then walks the prose (headline, observations,
+    considerations, disclaimer) and replaces every orphan number the
+    verifier flagged with an em-dash placeholder. Returns a fresh
+    ``BaseModel`` instance built from the patched dict so the report's
+    Pydantic validation runs again on the modified fields.
+    """
+    data = report.model_dump()
+
+    bad_citation_indices = _strip_bad_citation_indices(mismatches)
+    if bad_citation_indices and isinstance(data.get("citations"), list):
+        data["citations"] = [
+            c
+            for i, c in enumerate(data["citations"])
+            if i not in bad_citation_indices
+        ]
+
+    for orphan in _narrative_orphans(mismatches):
+        for key in ("headline", "disclaimer"):
+            if isinstance(data.get(key), str):
+                data[key] = _replace_orphan_in_text(data[key], orphan)
+        observations = data.get("observations")
+        if isinstance(observations, list):
+            for i, item in enumerate(observations):
+                if isinstance(item, str):
+                    observations[i] = _replace_orphan_in_text(item, orphan)
+        considerations = data.get("considerations")
+        if isinstance(considerations, list):
+            for c in considerations:
+                if isinstance(c, dict):
+                    for sub in ("consideration", "hedge"):
+                        if isinstance(c.get(sub), str):
+                            c[sub] = _replace_orphan_in_text(c[sub], orphan)
+
+    return type(report).model_validate(data)
+
+
 # the engine
 async def generate_report(
     spec: ReportSpec,
@@ -165,6 +287,23 @@ async def generate_report(
         vr = verify_report(report, bundle)
         violations = check_report(report)
 
+    # Spec §5 step 2: if the second draft still fails verification, try to
+    # strip orphan numbers and bad citations from the rendered prose. The
+    # stripped report is less specific but still proof-verified — far
+    # better UX than a hard 503 when the only issue is a number the LLM
+    # shouldn't have invented in the first place. Compliance violations
+    # can't be stripped (they're phrase-pattern matches in the prose), so
+    # they keep the fail-closed path.
+    stripped = False
+    if not vr.verified:
+        candidate = _strip_orphan_numbers(report, vr.mismatches)
+        candidate_vr = verify_report(candidate, bundle)
+        if candidate_vr.verified:
+            report = candidate
+            vr = candidate_vr
+            violations = check_report(report)
+            stripped = True
+
     latency_ms = int((time.perf_counter() - started) * 1000)
 
     # Still failing? Fail closed.
@@ -194,7 +333,12 @@ async def generate_report(
         verified=True,
         mismatch_count=0,
         regenerated=regenerated,
+        stripped=stripped,
     )
+    if spec.report_type == "dashboard_rec":
+        report.confidence = (bundle.get("spending") or {}).get("deviation_confidence")
+        report.view_target = _dashboard_view_target(bundle)
+
     return GeneratedReport(
         report=report,
         verification=vr,

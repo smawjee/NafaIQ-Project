@@ -57,6 +57,20 @@ async def announcements(symbol: str | None = None, limit: int = 50):
 
 # ---------- dividends ----------
 
+@router.get("/dividends")
+async def all_dividends(limit: int = 100):
+    """Return all dividend events across all symbols, ordered by ex_date desc."""
+    from app.db.supabase import async_execute
+    try:
+        result = await async_execute(lambda c: c.table("psx_dividends")
+                                     .select("*")
+                                     .order("ex_date", desc=True)
+                                     .limit(limit))
+        return result.data or []
+    except Exception:
+        return []
+
+
 @router.get("/dividends/{symbol}")
 async def dividends(symbol: str):
     return await market_service.dividends(symbol)

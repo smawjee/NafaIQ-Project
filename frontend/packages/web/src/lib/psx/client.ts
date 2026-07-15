@@ -25,7 +25,7 @@ import type {
 } from "./types";
 
 // Re-export mutual fund types for use in hooks
-export type { ApiMutualFund, ApiFundNavHistory };
+export type { ApiMutualFund, ApiFundNavHistory, ApiDividendEvent };
 
 const BASE = API_BASE_URL;
 const TOKEN = import.meta.env.VITE_PSX_API_TOKEN || "";

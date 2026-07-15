@@ -2,6 +2,15 @@
 -- July 16 audit.
 -- Spec: (internal workstream plan)
 
+-- NOTE: This migration includes two out-of-band repairs:
+--   1. DROP INDEX IF EXISTS psx_index_eod_unique  — created outside the
+--      migration history in the dev environment (probably via Supabase
+--      Dashboard). Not created by any tracked migration.
+--   2. DROP INDEX IF EXISTS idx_psx_fund_nav_date  — created by
+--      20260715010000 and superseded by 20260716020000 (which created
+--      idx_psx_fund_nav_history_date). This DROP cleans up the older name.
+-- Both are idempotent (IF EXISTS) and safe to re-run.
+
 BEGIN;
 
 -- 1. psx_index_eod has TRIPLE unique constraint on (code, date):

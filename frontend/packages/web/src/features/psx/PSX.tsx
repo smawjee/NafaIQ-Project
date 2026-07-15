@@ -1,6 +1,6 @@
 import { Link, useNavigate } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Sparkles, Plus, Star, Filter, CandlestickChart as CandleIcon } from "lucide-react";
+import { Sparkles, Plus, Star, Filter, CandlestickChart as CandleIcon, Grid3x3, List, LayoutGrid, Flame } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { StockSearchBox } from "@/components/search/StockSearchBox";
 import { toast } from "sonner";
@@ -35,6 +35,10 @@ import { cn } from "@/lib/utils";
 import { useLang } from "@/hooks/use-lang";
 import { MarketTicker } from "@/features/psx/components/MarketTicker";
 import { Treemap } from "@/features/heatmap/Treemap";
+import { HeatmapLegend } from "@/features/heatmap/HeatmapLegend";
+import { HeatmapSkeleton } from "@/features/heatmap/HeatmapSkeleton";
+import { HeatmapEmptyState } from "@/features/heatmap/HeatmapEmptyState";
+import { TopMoversView } from "@/features/heatmap/TopMoversView";
 import { SYMBOLS, INDEX_INFO } from "@/features/psx/psx.data";
 import { tfDays, symbolMeta } from "@/features/psx/psx.utils";
 
@@ -53,6 +57,9 @@ export function PSX() {
   const [searchFilter, setSearchFilter] = useState("");
   const [screenerPage, setScreenerPage] = useState(1);
   const [showAllIndices, setShowAllIndices] = useState(false);
+  const [heatmapView, setHeatmapView] = useState<"treemap" | "sectors" | "movers">("treemap");
+  const [drilledSector, setDrilledSector] = useState<string | null>(null);
+  const [heatmapSort, setHeatmapSort] = useState<"cap" | "change" | "volume">("cap");
   const watchlist = useWatchlist();
   const { isDemo } = useDemo();
   const [addOpen, setAddOpen] = useState(false);
@@ -270,6 +277,20 @@ export function PSX() {
     screened.length === 0 ? 0 : (currentScreenerPage - 1) * screenerPageSize + 1;
   const screenerEnd = Math.min(currentScreenerPage * screenerPageSize, screened.length);
 
+  const sortedTreemapData = useMemo(() => {
+    if (!treemapData) return null;
+    if (heatmapSort === "cap") return treemapData; // already sorted by market cap
+
+    const sortKey = heatmapSort === "change"
+      ? (a: typeof treemapData.sectors[0], b: typeof treemapData.sectors[0]) => Math.abs(b.avg_change_pct) - Math.abs(a.avg_change_pct)
+      : (a: typeof treemapData.sectors[0], b: typeof treemapData.sectors[0]) => b.total_market_cap - a.total_market_cap;
+
+    return {
+      ...treemapData,
+      sectors: [...treemapData.sectors].sort(sortKey),
+    };
+  }, [treemapData, heatmapSort]);
+
   useEffect(() => {
     setScreenerPage(1);
   }, [searchFilter, sectorFilter, signalFilter]);
@@ -381,9 +402,9 @@ export function PSX() {
 
                 <div className="h-[300px] lg:h-[480px]">
                   {effectiveType === "line" ? (
-                    <PriceLineChart data={data} height={9999} mas={mas} maSeries={maSeries} />
+                    <PriceLineChart key={sym} data={data} height={9999} mas={mas} maSeries={maSeries} />
                   ) : (
-                    <CandlestickChart data={data} height={9999} mas={mas} maSeries={maSeries} />
+                    <CandlestickChart key={sym} data={data} height={9999} mas={mas} maSeries={maSeries} />
                   )}
                 </div>
                 {allIndexOhlcNull && liveIndexClose != null && (
@@ -734,38 +755,142 @@ export function PSX() {
             </table>
           </Card>
 
-          <Card>
-            <div className="mb-3 flex items-center justify-between gap-3">
-              <div>
-                <h3 className="text-sm font-semibold text-text-primary">{t("Sector Heatmap")}</h3>
-                <p className="text-[11px] text-text-muted">
-                  {treemapData
-                    ? `${treemapData.sectors.length} ${t("sectors")} · ${treemapData.stock_count} ${t("stocks")}`
-                    : t("Loading…")}
-                </p>
-              </div>
-            </div>
-            <div className="h-[480px]">
-              {treemapData && treemapData.sectors.length > 0 ? (
-                <Treemap
-                  data={treemapData}
-                  height={480}
-                  onStockClick={(sym) =>
-                    navigate({ to: "/stock/$ticker", params: { ticker: sym } })
-                  }
-                />
-              ) : isLoadingTreemap ? (
-                <div className="flex h-full items-center justify-center text-text-muted text-sm">
-                  {t("Loading…")}
-                </div>
-              ) : (
-                <div className="flex h-full items-center justify-center text-text-muted text-sm">
-                  {t("Heatmap data unavailable")}
-                </div>
-              )}           </div>
-          </Card>
         </div>
       </div>
+
+      {/* Full-width Sector Heatmap */}
+      <Card className="mt-6">
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h3 className="text-base font-semibold text-text-primary">
+              {drilledSector ? t(drilledSector) : t("Sector Heatmap")}
+            </h3>
+            <p className="text-[11px] text-text-muted">
+              {treemapData
+                ? `${treemapData.sectors.length} ${t("sectors")} · ${treemapData.stock_count} ${t("stocks")}`
+                : t("Loading…")}
+            </p>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            {/* Sort dropdown */}
+            <select
+              value={heatmapSort}
+              onChange={(e) => setHeatmapSort(e.target.value as "cap" | "change" | "volume")}
+              className="rounded-[6px] border border-border bg-surface px-2 py-1 text-xs text-text-primary"
+              disabled={!!drilledSector}
+            >
+              <option value="cap">{t("By Market Cap")}</option>
+              <option value="change">{t("By % Change")}</option>
+              <option value="volume">{t("By Volume")}</option>
+            </select>
+            {/* View toggle */}
+            <div className="flex items-center gap-0.5 rounded-[6px] border border-border bg-surface p-0.5">
+              <button
+                type="button"
+                onClick={() => setHeatmapView("treemap")}
+                className={cn(
+                  "inline-flex items-center gap-1 rounded-[4px] px-2 py-1 text-xs font-medium transition",
+                  heatmapView === "treemap"
+                    ? "bg-bull text-bull-foreground"
+                    : "text-text-secondary hover:bg-hover"
+                )}
+                title={t("Treemap view")}
+              >
+                <LayoutGrid className="h-3.5 w-3.5" />
+              </button>
+              <button
+                type="button"
+                onClick={() => setHeatmapView("sectors")}
+                className={cn(
+                  "inline-flex items-center gap-1 rounded-[4px] px-2 py-1 text-xs font-medium transition",
+                  heatmapView === "sectors"
+                    ? "bg-bull text-bull-foreground"
+                    : "text-text-secondary hover:bg-hover"
+                )}
+                title={t("Sectors bar list")}
+              >
+                <List className="h-3.5 w-3.5" />
+              </button>
+              <button
+                type="button"
+                onClick={() => setHeatmapView("movers")}
+                className={cn(
+                  "inline-flex items-center gap-1 rounded-[4px] px-2 py-1 text-xs font-medium transition",
+                  heatmapView === "movers"
+                    ? "bg-bull text-bull-foreground"
+                    : "text-text-secondary hover:bg-hover"
+                )}
+                title={t("Top Movers")}
+              >
+                <Flame className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {treemapData && (
+          <HeatmapLegend asOf={treemapData.as_of} />
+        )}
+
+        <div className="mt-3">
+          {heatmapView === "treemap" ? (
+            isLoadingTreemap ? (
+              <HeatmapSkeleton height={560} />
+            ) : sortedTreemapData && sortedTreemapData.sectors.length > 0 ? (
+              <Treemap
+                data={sortedTreemapData}
+                height={560}
+                drilledSector={drilledSector}
+                onStockClick={(sym) => navigate({ to: "/stock/$ticker", params: { ticker: sym } })}
+                onSectorClick={(sectorName) => setDrilledSector(sectorName)}
+                onDrillUp={() => setDrilledSector(null)}
+              />
+            ) : (
+              <HeatmapEmptyState height={560} />
+            )
+          ) : heatmapView === "sectors" ? (
+            <div className="space-y-1">
+              {sortedTreemapData?.sectors.map((s) => (
+                <button
+                  key={s.name}
+                  type="button"
+                  onClick={() => {
+                    setHeatmapView("treemap");
+                    setDrilledSector(s.name);
+                  }}
+                  className="flex w-full items-center gap-2 rounded-[4px] px-2 py-1.5 text-xs hover:bg-hover"
+                >
+                  <span className="w-40 truncate text-left font-medium text-text-primary">
+                    {t(s.name)}
+                  </span>
+                  <span className="text-text-muted">· {s.stock_count}</span>
+                  <div className="flex-1">
+                    <div className="h-4 overflow-hidden rounded bg-surface-alt">
+                      <div
+                        className="h-full rounded transition-all"
+                        style={{
+                          width: `${Math.min(Math.abs(s.avg_change_pct) * 5, 100)}%`,
+                          backgroundColor:
+                            (s.avg_change_pct ?? 0) >= 0
+                              ? "var(--color-bull)"
+                              : "var(--color-bear)",
+                        }}
+                      />
+                    </div>
+                  </div>
+                  <Change pct={s.avg_change_pct ?? 0} />
+                </button>
+              ))}
+            </div>
+          ) : (
+            sortedTreemapData ? (
+              <TopMoversView data={sortedTreemapData} />
+            ) : (
+              <HeatmapSkeleton height={560} />
+            )
+          )}
+        </div>
+      </Card>
     </div>
   );
 }

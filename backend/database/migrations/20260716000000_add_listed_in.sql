@@ -5,5 +5,6 @@
 
 ALTER TABLE psx_profile ADD COLUMN IF NOT EXISTS listed_in text;
 
--- Grant select to anon/authenticated for consistency
-GRANT SELECT (symbol, listed_in) ON psx_profile TO anon, authenticated;
+-- Column-level GRANT removed: the table-level GRANT in 20260706120000 already
+-- covers SELECT on all columns. Column-level grants would require a prior
+-- REVOKE of the table-level grant to be meaningful.

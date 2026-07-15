@@ -10,7 +10,12 @@ Covered:
       succeeds;
 - (c) a persistently-bad report raises ReportUnavailable (fail-closed);
 - (d) the UNTRUSTED-DATA block is populated from the bundle's string leaves;
-- (e) the spec.confidential flag drives make_report_client(confidential=...).
+- (e) the spec.confidential flag drives make_report_client(confidential=...);
+- (f) spec §5 step 2: a persistent orphan number is stripped from the
+      prose and the (less specific) report is served rather than 503'd;
+- (g) spec §5 step 2: a persistent bad citation is dropped and the report
+      is served;
+- (h) a persistent compliance violation fails closed — strip cannot help.
 """
 from __future__ import annotations
 
@@ -67,6 +72,35 @@ def _orphan_report() -> MarketBriefReport:
     return MarketBriefReport(
         headline="Daily market update",
         observations=["The index jumped 42 points to 100000 today."],
+        considerations=[],
+        disclaimer="Educational information only. Not financial advice.",
+        citations=[
+            Citation(value=100000.0, source_key="indices.kse100.close", as_of="2026-07-14")
+        ],
+    )
+
+
+def _bad_citation_report() -> MarketBriefReport:
+    # No orphan in the prose, but a citation that points at a non-existent
+    # bundle key. Spec §5 step 2 says drop the citation rather than 503.
+    return MarketBriefReport(
+        headline="Daily market update",
+        observations=["The KSE100 closed at 100000 today."],
+        considerations=[],
+        disclaimer="Educational information only. Not financial advice.",
+        citations=[
+            Citation(value=42.0, source_key="does.not.exist", as_of="2026-07-14"),
+            Citation(value=100000.0, source_key="indices.kse100.close", as_of="2026-07-14"),
+        ],
+    )
+
+
+def _directive_report() -> MarketBriefReport:
+    # No orphan in the prose, but a phrase-scan directive ("you should sell")
+    # that compliance flags. Strip cannot fix this — must fail closed.
+    return MarketBriefReport(
+        headline="Daily market update",
+        observations=["You should sell HBL right now."],
         considerations=[],
         disclaimer="Educational information only. Not financial advice.",
         citations=[
@@ -135,10 +169,12 @@ async def test_orphan_number_triggers_exactly_one_regeneration(monkeypatch):
 
 
 # --------------------------------------------------------------------------- #
-# (c) persistent failure -> fail closed                                       #
+# (c) persistent compliance violation -> fail closed (strip can't help)       #
 # --------------------------------------------------------------------------- #
-async def test_persistent_failure_raises_report_unavailable(monkeypatch):
-    gen = _FakeGen([_orphan_report(), _orphan_report()])
+async def test_persistent_compliance_violation_raises_report_unavailable(monkeypatch):
+    # A phrase-scan directive can't be stripped: removing "You should sell"
+    # would gut the observation. Compliance failures keep the fail-closed path.
+    gen = _FakeGen([_directive_report(), _directive_report()])
     _patch(monkeypatch, gen)
 
     with pytest.raises(engine.ReportUnavailable):
@@ -182,3 +218,70 @@ async def test_confidential_flag_drives_client_routing(monkeypatch):
     await engine.generate_report(_spec(confidential=True, schema=PortfolioReport), lang="en")
 
     assert made["confidential"] is True
+
+
+# --------------------------------------------------------------------------- #
+# (f) persistent orphan number -> strip saves the report (spec §5 step 2)     #
+# --------------------------------------------------------------------------- #
+async def test_strip_saves_persistent_orphan_report(monkeypatch):
+    gen = _FakeGen([_orphan_report(), _orphan_report()])
+    _patch(monkeypatch, gen)
+
+    result = await engine.generate_report(_spec(), lang="en")
+
+    # The orphan number is replaced with the em-dash placeholder; the
+    # surrounding prose is intact and the report is verified.
+    assert result.verification.verified is True
+    assert "42" not in result.report.observations[0]
+    assert "—" in result.report.observations[0]
+    # We only paid for one LLM call beyond the original (the correction
+    # retry). The strip is a local, free operation — no extra provider hit.
+    assert len(gen.calls) == 2
+
+
+# --------------------------------------------------------------------------- #
+# (g) persistent bad citation -> strip drops it, report still verifies       #
+# --------------------------------------------------------------------------- #
+async def test_strip_saves_persistent_bad_citation(monkeypatch):
+    gen = _FakeGen([_bad_citation_report(), _bad_citation_report()])
+    _patch(monkeypatch, gen)
+
+    result = await engine.generate_report(_spec(), lang="en")
+
+    assert result.verification.verified is True
+    # The bad citation is dropped; the surviving one (with a real bundle
+    # key) stays.
+    assert len(result.report.citations) == 1
+    assert result.report.citations[0].source_key == "indices.kse100.close"
+    assert len(gen.calls) == 2
+
+
+# --------------------------------------------------------------------------- #
+# (f.1) strip module: helper unit tests (no LLM involved)                       #
+# --------------------------------------------------------------------------- #
+def test_replace_orphan_in_text_replaces_first_occurrence():
+    from app.services.ai.engine import _replace_orphan_in_text
+
+    out = _replace_orphan_in_text("Growth was 42 percent.", 42.0)
+    assert out == "Growth was — percent."
+
+
+def test_replace_orphan_in_text_handles_comma_thousands():
+    from app.services.ai.engine import _replace_orphan_in_text
+
+    out = _replace_orphan_in_text("Net worth: 1,250,000 PKR", 1_250_000.0)
+    assert out == "Net worth: — PKR"
+
+
+def test_replace_orphan_in_text_handles_percent_suffix():
+    from app.services.ai.engine import _replace_orphan_in_text
+
+    out = _replace_orphan_in_text("Diversification: 62.5%", 62.5)
+    assert out == "Diversification: —"
+
+
+def test_replace_orphan_in_text_returns_text_when_orphan_missing():
+    from app.services.ai.engine import _replace_orphan_in_text
+
+    out = _replace_orphan_in_text("No numbers here.", 42.0)
+    assert out == "No numbers here."

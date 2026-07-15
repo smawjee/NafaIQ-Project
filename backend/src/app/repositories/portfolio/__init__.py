@@ -44,6 +44,7 @@ from app.repositories.portfolio.valuation import (  # noqa: F401
     fetch_portfolio_value_holdings,
     fetch_priced_holdings,
     fetch_symbol_ohlcv,
+    fetch_symbols_ohlcv,
 )
 from app.repositories.portfolio.watchlist import (  # noqa: F401
     fetch_watchlist_enriched,

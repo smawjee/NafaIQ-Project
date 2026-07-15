@@ -46,6 +46,7 @@ PUBLIC_PATH_PREFIXES = (
     "/api/filings",
     "/api/financials",
     "/api/funds",
+    "/api/health",
 )
 
 

@@ -5,10 +5,12 @@ tables populated by the MUFAP scraper.
 """
 from __future__ import annotations
 
+import os
+import tempfile
 from datetime import date, timedelta
 from typing import Optional
 
-from fastapi import APIRouter, Query, Request
+from fastapi import APIRouter, File, Query, Request, UploadFile
 
 from app.middleware.rate_limit import limiter
 
@@ -77,3 +79,28 @@ async def get_fund_nav(
 
     result = await async_execute(_q)
     return result.data or []
+
+
+@router.post("/funds/import")
+@limiter.limit("5/minute")
+async def import_funds_csv(request: Request, file: UploadFile = File(...)):
+    """Upload a CSV file to import mutual fund NAV data.
+
+    Accepts a CSV file upload, saves to a temp file, calls
+    MUFAPScraper.import_nav_csv(), returns the result dict.
+    """
+    tmp_path = None
+    try:
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".csv") as tmp:
+            tmp_path = tmp.name
+            content = await file.read()
+            tmp.write(content)
+
+        from app.scrapers.mufap import MUFAPScraper
+
+        scraper = MUFAPScraper()
+        result = await scraper.import_nav_csv(tmp_path)
+        return result
+    finally:
+        if tmp_path and os.path.exists(tmp_path):
+            os.unlink(tmp_path)

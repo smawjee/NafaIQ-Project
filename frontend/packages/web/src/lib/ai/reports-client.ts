@@ -36,6 +36,9 @@ export interface ReportContent {
   // surface-specific extras
   period_days?: number;
   symbol?: string;
+  // dashboard recommendation display hints
+  confidence?: number | null;
+  view_target?: string | null;
 }
 
 /** The API response envelope (backend `schemas.reports.ReportResponse`). */
@@ -73,6 +76,22 @@ function withLang(path: string, lang?: string): string {
   return path + (path.includes("?") ? "&" : "?") + `lang=${l}`;
 }
 
+/**
+ * Pure URL builder exposed for tests. Joins the API base, the caller's path
+ * (already containing any `?query`), and the lang param without mutating order.
+ */
+export function buildReportUrl(path: string, lang?: string): string {
+  return `${BASE}${withLang(path, lang)}`;
+}
+
+/** Map an HTTP status to the matching ReportError code. */
+function reportErrorForStatus(status: number, path: string): ReportError {
+  if (status === 401) return new ReportError("auth", "Session expired", 401);
+  if (status === 429) return new ReportError("quota", "Quota exceeded", 429);
+  if (status === 503) return new ReportError("unavailable", "Temporarily unavailable", 503);
+  return new ReportError("unavailable", `${path}: ${status}`, status);
+}
+
 /** POST a user-scoped report endpoint; maps HTTP status to a typed ReportError. */
 async function userPostReport(path: string): Promise<ReportResponse> {
   const token = await sessionToken();
@@ -92,10 +111,30 @@ async function userPostReport(path: string): Promise<ReportResponse> {
     throw new ReportError("network", "Network error");
   }
 
-  if (res.status === 401) throw new ReportError("auth", "Session expired", 401);
-  if (res.status === 429) throw new ReportError("quota", "Quota exceeded", 429);
-  if (res.status === 503) throw new ReportError("unavailable", "Temporarily unavailable", 503);
-  if (!res.ok) throw new ReportError("unavailable", `${path}: ${res.status}`, res.status);
+  if (!res.ok) throw reportErrorForStatus(res.status, path);
+
+  return (await res.json()) as ReportResponse;
+}
+
+/** GET a user-scoped report endpoint; same auth + status mapping as the POST helper. */
+async function userGetReport(path: string): Promise<ReportResponse> {
+  const token = await sessionToken();
+  if (!token) throw new ReportError("auth", "Not authenticated");
+
+  let res: Response;
+  try {
+    res = await fetch(`${BASE}${path}`, {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+    });
+  } catch {
+    throw new ReportError("network", "Network error");
+  }
+
+  if (!res.ok) throw reportErrorForStatus(res.status, path);
 
   return (await res.json()) as ReportResponse;
 }
@@ -106,6 +145,17 @@ export function generatePortfolioReport(days = 180, lang?: string): Promise<Repo
 
 export function generateFinanceReport(lang?: string): Promise<ReportResponse> {
   return userPostReport(withLang(`/api/ai/report/finance`, lang));
+}
+
+/** Daily-cached dashboard nudge. Server returns the latest persisted row. */
+export function getDashboardRecommendation(lang?: string): Promise<ReportResponse> {
+  return userGetReport(withLang("/api/ai/report/dashboard-recommendation", lang));
+}
+
+/** Per-symbol stock analysis. The backend POSTs to stock/{symbol} so we POST. */
+export function generateStockReport(symbol: string, lang?: string): Promise<ReportResponse> {
+  const upper = symbol.trim().toUpperCase();
+  return userPostReport(withLang(`/api/ai/report/stock/${encodeURIComponent(upper)}`, lang));
 }
 
 /**

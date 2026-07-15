@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "@tanstack/react-router";
-import { ArrowLeft, Sparkles, X, Loader2, FileText, BarChart3 } from "lucide-react";
+import { ArrowLeft, X, Loader2, FileText, BarChart3, Newspaper, Banknote } from "lucide-react";
 import { ReferenceLine } from "recharts";
 import { toast } from "sonner";
 import { Card } from "@/components/shared/Card";
@@ -31,8 +31,11 @@ import { cn } from "@/lib/utils";
 import { useLang } from "@/hooks/use-lang";
 import { formatTimeAgo } from "@/features/stock/stock.utils";
 import { ActionButtons } from "@/features/stock/components/ActionButtons";
+import { StockAnalysisReportCard } from "@/features/stock/components/StockAnalysisReportCard";
 import { FilingsTab } from "@/features/stock/FilingsTab";
 import { FinancialsTab } from "@/features/stock/FinancialsTab";
+import { NewsFeed } from "@/features/psx/NewsFeed";
+import { useDividends } from "@/hooks/psx/use-extras";
 import { tfDays } from "@/features/psx/psx.utils";
 
 export function StockDetail() {
@@ -66,7 +69,7 @@ export function StockDetail() {
   const [alertSeverity, setAlertSeverity] = useState<"success" | "error" | "info">("info");
   const [alertBusy, setAlertBusy] = useState(false);
   const [wlBusy, setWlBusy] = useState(false);
-  const [tab, setTab] = useState<"announcements" | "filings" | "financials">("announcements");
+  const [tab, setTab] = useState<"announcements" | "filings" | "financials" | "news" | "dividends">("announcements");
 
   const symbolInfo = symbolsData?.find((x) => x.symbol === upper);
 
@@ -300,73 +303,7 @@ export function StockDetail() {
         ))}
       </div>
 
-      <Card>
-        <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold text-text-primary">
-          <Sparkles className="h-4 w-4 text-ai" />
-          {t("AI Technical Analysis")}
-        </h3>
-        {modelReady ? (
-          <>
-            <div
-              className={cn(
-                "rounded-[6px] px-3 py-2 text-sm font-semibold",
-                sig === "STRONG BUY" || sig === "BUY"
-                  ? "bg-bull/10 text-bull"
-                  : sig === "STRONG SELL" || sig === "SELL"
-                    ? "bg-bear/10 text-bear"
-                    : "bg-neutral/10 text-text-secondary",
-              )}
-            >
-              {t("Overall")}: {t(sig ?? "HOLD")} · {t("Confidence")} {confidence}%
-            </div>
-            <p className="mt-3 text-sm leading-relaxed text-text-secondary">
-              <Typewriter
-                id={`stock-ai-${ticker}`}
-                text={`${upper} — ${t(
-                  `ML signal engine rates this stock ${sig} with ${confidence}% confidence. Key drivers: ${signal?.features_used?.slice(0, 3).join(", ") ?? "technical indicators"}.`,
-                )}`}
-              />
-            </p>
-          </>
-        ) : isDemo ? (
-          <>
-            <div
-              className={cn(
-                "rounded-[6px] px-3 py-2 text-sm font-semibold",
-                sig === "STRONG BUY" || sig === "BUY"
-                  ? "bg-bull/10 text-bull"
-                  : sig === "STRONG SELL" || sig === "SELL"
-                    ? "bg-bear/10 text-bear"
-                    : "bg-neutral/10 text-text-secondary",
-              )}
-            >
-              {t("Overall")}: {t(sig ?? "HOLD")}
-            </div>
-            <p className="mt-3 text-sm leading-relaxed text-text-secondary">
-              <Typewriter
-                id={`stock-ai-${ticker}`}
-                text={t(
-                  "Showcase analysis: momentum indicators and moving-average structure suggest a constructive setup. Sign in with a funded account for live model-driven signals.",
-                )}
-              />
-            </p>
-          </>
-        ) : (
-          <div className="rounded-[8px] border border-dashed border-border bg-surface-alt px-4 py-6 text-center">
-            <div className="text-sm font-medium text-text-secondary">
-              {t("Signal unavailable — model pending")}
-            </div>
-            <p className="mt-1 text-xs leading-relaxed text-text-muted">
-              {t(
-                "The ML signal model has not been trained yet, so no technical call is shown for this stock. Train it via scripts/train_signal_model.py after the OHLCV backfill.",
-              )}
-            </p>
-          </div>
-        )}
-        <p className="mt-3 text-[11px] italic text-text-muted">
-          {t("This is AI-generated technical analysis only. Not financial advice.")}
-        </p>
-      </Card>
+      <StockAnalysisReportCard symbol={upper} />
 
       <Card>
         <div className="mb-3 flex items-center gap-1.5">
@@ -405,6 +342,30 @@ export function StockDetail() {
             )}
           >
             <BarChart3 className="h-3 w-3" /> {t("Financials")}
+          </button>
+          <button
+            type="button"
+            onClick={() => setTab("news")}
+            className={cn(
+              "inline-flex items-center gap-1 rounded-[6px] px-2.5 py-1 text-xs font-semibold transition",
+              tab === "news"
+                ? "bg-bull text-bull-foreground"
+                : "text-text-secondary hover:bg-hover",
+            )}
+          >
+            <Newspaper className="h-3 w-3" /> {t("News")}
+          </button>
+          <button
+            type="button"
+            onClick={() => setTab("dividends")}
+            className={cn(
+              "inline-flex items-center gap-1 rounded-[6px] px-2.5 py-1 text-xs font-semibold transition",
+              tab === "dividends"
+                ? "bg-bull text-bull-foreground"
+                : "text-text-secondary hover:bg-hover",
+            )}
+          >
+            <Banknote className="h-3 w-3" /> {t("Dividends")}
           </button>
         </div>
         {tab === "announcements" ? (
@@ -455,8 +416,12 @@ export function StockDetail() {
           )
         ) : tab === "filings" ? (
           <FilingsTab symbol={upper} />
-        ) : (
+        ) : tab === "financials" ? (
           <FinancialsTab symbol={upper} />
+        ) : tab === "news" ? (
+          <NewsFeed symbol={upper} />
+        ) : (
+          <DividendsTab symbol={upper} />
         )}
       </Card>
 
@@ -559,6 +524,74 @@ export function StockDetail() {
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+function DividendsTab({ symbol }: { symbol: string }) {
+  const { t } = useLang();
+  const { data, isLoading, isError, refetch } = useDividends(symbol);
+
+  if (isLoading) {
+    return (
+      <div className="py-6 text-center text-sm text-text-secondary">
+        <Loader2 className="mr-2 inline h-4 w-4 animate-spin" />
+        {t("Loading dividends...")}
+      </div>
+    );
+  }
+
+  if (isError) {
+    return (
+      <div className="py-4 text-center text-sm text-text-muted">
+        <p>{t("Failed to load dividends.")}</p>
+        <button
+          type="button"
+          onClick={() => refetch()}
+          className="mt-2 inline-flex items-center gap-1 rounded-[6px] border border-border px-2.5 py-1 text-xs text-text-secondary hover:bg-hover"
+        >
+          {t("Retry")}
+        </button>
+      </div>
+    );
+  }
+
+  if (!data || data.length === 0) {
+    return (
+      <p className="py-4 text-center text-sm text-text-muted">
+        {t("No dividends data available for this symbol.")}
+      </p>
+    );
+  }
+
+  return (
+    <div className="overflow-x-auto">
+      <table className="w-full text-sm">
+        <thead>
+          <tr className="border-b border-border text-left text-[11px] text-text-muted">
+            <th className="py-2 pr-3 font-medium">{t("Ex-Date")}</th>
+            <th className="py-2 pr-3 font-medium">{t("Type")}</th>
+            <th className="py-2 pr-3 text-right font-medium">{t("Per Share")}</th>
+            <th className="py-2 pr-3 text-right font-medium">{t("Bonus %")}</th>
+            <th className="py-2 pr-3 font-medium">{t("Ann. Date")}</th>
+          </tr>
+        </thead>
+        <tbody>
+          {data.map((d) => (
+            <tr key={d.announcement_id} className="border-b border-border/50">
+              <td className="py-2 pr-3 font-mono text-text-primary">{d.ex_date ?? "—"}</td>
+              <td className="py-2 pr-3 text-text-secondary">{t(d.payout_type)}</td>
+              <td className="py-2 pr-3 text-right font-mono tabular-nums text-text-secondary">
+                {d.per_share != null ? d.per_share.toFixed(2) : "—"}
+              </td>
+              <td className="py-2 pr-3 text-right font-mono tabular-nums text-text-secondary">
+                {d.bonus_pct != null ? `${d.bonus_pct}%` : "—"}
+              </td>
+              <td className="py-2 pr-3 font-mono text-text-muted">{d.announcement_date ?? "—"}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   );
 }

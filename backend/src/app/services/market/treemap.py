@@ -93,9 +93,22 @@ async def get_treemap() -> dict[str, Any]:
             sector_name = (profile.get("sector") or "Other").strip() or "Other"
             listed_shares = _to_float(profile.get("listed_shares"))
             if listed_shares > 0:
+                # Real market cap when DPS fundamentals has populated listed_shares
+                # (weekly Sat 04:00 — job_refresh_fundamentals).
                 market_cap = price * listed_shares
+            elif volume > 0:
+                # Fallback sizing proxy: price * sqrt(volume). This is a
+                # standard proxy used when shares-outstanding is unknown
+                # because sqrt(volume) loosely tracks float size and price
+                # captures the per-share scale. The result is a relative
+                # ordering (large-cap stocks look larger) but not a
+                # quantitative market cap.
+                market_cap = price * (volume ** 0.5) * 100.0
             else:
-                continue  # skip stocks with no listed_shares data
+                # No listed_shares AND no volume — nothing to size by.
+                # Skip rather than render with market_cap=0 (which would
+                # produce a zero-area tile that crashes the treemap d3 scale).
+                continue
 
             stock_entry = {
                 "symbol": sym,

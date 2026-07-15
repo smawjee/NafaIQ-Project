@@ -26,3 +26,21 @@ async def health():
 @router.get("/health/db")
 async def health_db():
     return await db_ping()
+
+
+@router.get("/health/sources")
+async def health_sources():
+    """Return last-success / last-error timestamps per data source.
+
+    Reads from psx_data_source_health table and returns all rows ordered
+    by source name. Used by the frontend observability widget.
+    """
+    from app.db.supabase import async_execute
+    try:
+        result = await async_execute(lambda c: c.table("psx_data_source_health")
+                                     .select("*")
+                                     .order("source"))
+        rows = result.data or []
+        return {"sources": rows, "healthy": True}
+    except Exception as e:
+        return {"sources": [], "healthy": False, "error": str(e)}

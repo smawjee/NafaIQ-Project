@@ -14,6 +14,11 @@ import structlog
 
 from app.scrapers.dps import DPSScraper
 from app.scrapers.ahletrade import AhleTradePoller
+from app.config import settings
+# NOTE: TV_SECTOR_MAP in tradingview.py is the canonical source for sector name
+# normalization. The migration 20260716010000 previously applied DPS-style sector
+# names, but they are overwritten by the sector map every 5 min via
+# job_refresh_tv_data. Keep the two in sync if sector names need updating.
 from app.scrapers.tradingview import TV_SECTOR_MAP, TradingViewScraper
 from app.scrapers.sbp import SBPScraper
 from app.scrapers.mufap import MUFAPScraper
@@ -57,6 +62,53 @@ async def _is_market_open() -> bool:
     return now.weekday() < 5 and 570 <= now.hour * 60 + now.minute <= 930
 
 
+async def _record_health(source: str, success: bool, rows_updated: int = 0, error: str | None = None):
+    """Upsert a row into psx_data_source_health.
+
+    On success: clears any prior error state so the row reflects the latest
+    successful run. On failure: sets last_error/last_error_message and leaves
+    last_success untouched.
+
+    Failures writing to psx_data_source_health are logged at error level and
+    re-raised so the calling job's try/except can decide whether to swallow
+    or surface the observability failure.
+    """
+    now = datetime.now(timezone.utc).isoformat()
+    payload = {
+        "source": source,
+        "refreshed_at": now,
+        "rows_updated": rows_updated,
+    }
+    if success:
+        payload["last_success"] = now
+        payload["last_error"] = None
+        payload["last_error_message"] = None
+    else:
+        payload["last_error"] = now
+        payload["last_error_message"] = error
+    try:
+        await async_execute(lambda c: c.table("psx_data_source_health").upsert(payload, on_conflict="source"))
+    except Exception as e:
+        log.error("health_record_failed", source=source, error=str(e))
+        # Re-raise so caller can decide. The calling job's outer try/except
+        # will catch this and log it.
+        raise
+
+
+async def _get_all_symbols() -> list[str]:
+    """Get all PSX symbols from the symbols table."""
+    try:
+        result = await async_execute(lambda c: c.table("psx_profile").select("symbol"))
+        symbols = [r["symbol"] for r in (result.data or [])]
+        if symbols:
+            return symbols
+        log.warning("get_all_symbols_empty_falling_back")
+    except Exception as e:
+        log.warning("get_all_symbols_failed", error=str(e))
+    return ["MARI", "EFERT", "FFC", "HBL", "MCB", "LUCK", "OGDC", "PPL", "POL", "SHEL",
+            "NBP", "UBL", "BAHL", "MEBL", "FABL", "SEARL", "SYS", "TRG", "NESTLE_PK"]
+
+
 # ----- jobs -----
 
 async def job_refresh_market():
@@ -84,8 +136,10 @@ async def job_refresh_market():
         await async_execute(lambda c: c.table("psx_market_snapshot").upsert(rows, on_conflict="symbol"))
         set_market_refresh_time()
         log.info("job:refresh_market:done", symbols=len(items))
-    except Exception:
+        await _record_health("market_snapshot", success=True, rows_updated=len(items))
+    except Exception as e:
         log.exception("job:refresh_market:failed")
+        await _record_health("market_snapshot", success=False, error=str(e))
 
 
 async def job_refresh_announcements():
@@ -108,8 +162,10 @@ async def job_refresh_announcements():
         ]
         await async_execute(lambda c: c.table("psx_announcements").upsert(rows, on_conflict="id"))
         log.info("job:refresh_announcements:done", count=len(items))
-    except Exception:
+        await _record_health("psx_announcements", success=True, rows_updated=len(items))
+    except Exception as e:
         log.exception("job:refresh_announcements:failed")
+        await _record_health("psx_announcements", success=False, error=str(e))
 
 
 async def job_poll_ahletrade():
@@ -150,8 +206,10 @@ async def job_poll_ahletrade():
                 lambda c: c.rpc("patch_market_snapshot", {"rows": rows_to_write})
             )
             log.debug("job:poll_ahletrade:done", patched=len(rows_to_write))
-    except Exception:
+        await _record_health("ahletrade_live", success=True, rows_updated=len(rows_to_write))
+    except Exception as e:
         log.exception("job:poll_ahletrade:failed")
+        await _record_health("ahletrade_live", success=False, error=str(e))
 
 
 async def _run_concurrently(
@@ -169,85 +227,108 @@ async def _run_concurrently(
 
 
 async def job_backfill_history():
-    log.info("job:backfill_history:start")
-    result = await async_execute(lambda c: c.table("psx_profile").select("symbol"))
-    symbols = [r["symbol"] for r in (result.data or [])]
-    if not symbols:
-        return
+    total_bars = 0
+    try:
+        log.info("job:backfill_history:start")
+        result = await async_execute(lambda c: c.table("psx_profile").select("symbol"))
+        symbols = [r["symbol"] for r in (result.data or [])]
+        if not symbols:
+            return
 
-    async def _backfill(sym: str) -> None:
-        try:
-            bars = await dps.fetch_historical(sym)
-            if bars:
-                rows = [b.to_dict() for b in bars]
-                await async_execute(lambda c: c.table("psx_ohlcv").upsert(rows, on_conflict="symbol,date"))
-            log.info("job:backfill_history:symbol_done", symbol=sym, bars=len(bars))
-        except Exception:
-            log.exception("job:backfill_history:failed", symbol=sym)
+        async def _backfill(sym: str) -> None:
+            nonlocal total_bars
+            try:
+                bars = await dps.fetch_historical(sym)
+                if bars:
+                    rows = [b.to_dict() for b in bars]
+                    await async_execute(lambda c: c.table("psx_ohlcv").upsert(rows, on_conflict="symbol,date"))
+                    total_bars += len(bars)
+                log.info("job:backfill_history:symbol_done", symbol=sym, bars=len(bars))
+            except Exception:
+                log.exception("job:backfill_history:failed", symbol=sym)
 
-    await _run_concurrently(symbols, _backfill, max_concurrent=5)
-    log.info("job:backfill_history:done")
+        await _run_concurrently(symbols, _backfill, max_concurrent=5)
+        log.info("job:backfill_history:done", total_bars=total_bars)
+        await _record_health("backfill_history", success=True, rows_updated=total_bars)
+    except Exception as e:
+        log.exception("job:backfill_history:failed")
+        await _record_health("backfill_history", success=False, error=str(e))
 
 
 async def job_refresh_fundamentals():
-    log.info("job:refresh_fundamentals:start")
-    result = await async_execute(lambda c: c.table("psx_profile").select("symbol"))
-    symbols = [r["symbol"] for r in (result.data or [])]
-    if not symbols:
-        return
-    now = datetime.now(timezone.utc).isoformat()
+    total = 0
+    try:
+        log.info("job:refresh_fundamentals:start")
+        result = await async_execute(lambda c: c.table("psx_profile").select("symbol"))
+        symbols = [r["symbol"] for r in (result.data or [])]
+        if not symbols:
+            return
+        now = datetime.now(timezone.utc).isoformat()
 
-    async def _refresh(sym: str) -> None:
-        try:
-            f = await dps.fetch_fundamentals(sym)
-            profile = await dps.fetch_profile(sym)
-            await async_execute(lambda c: c.table("psx_fundamentals").upsert({
-                "symbol": sym,
-                "eps": f.eps,
-                "pe": f.pe,
-                "pb": f.pb,
-                "div_yield": f.div_yield,
-                "payout": f.payout,
-                "roe": f.roe,
-                "refreshed_at": now,
-            }, on_conflict="symbol"))
-            await async_execute(lambda c: c.table("psx_profile").upsert({
-                "symbol": sym,
-                "name": profile.name,
-                "sector": profile.sector,
-                "listed_shares": profile.listed_shares,
-                "free_float": profile.free_float,
-                "refreshed_at": now,
-            }, on_conflict="symbol"))
-        except Exception:
-            log.exception("job:refresh_fundamentals:failed", symbol=sym)
+        async def _refresh(sym: str) -> None:
+            nonlocal total
+            try:
+                f = await dps.fetch_fundamentals(sym)
+                profile = await dps.fetch_profile(sym)
+                await async_execute(lambda c: c.table("psx_fundamentals").upsert({
+                    "symbol": sym,
+                    "eps": f.eps,
+                    "pe": f.pe,
+                    "pb": f.pb,
+                    "div_yield": f.div_yield,
+                    "payout": f.payout,
+                    "roe": f.roe,
+                    "refreshed_at": now,
+                }, on_conflict="symbol"))
+                await async_execute(lambda c: c.table("psx_profile").upsert({
+                    "symbol": sym,
+                    "name": profile.name,
+                    "sector": profile.sector,
+                    "listed_shares": profile.listed_shares,
+                    "free_float": profile.free_float,
+                    "refreshed_at": now,
+                }, on_conflict="symbol"))
+                total += 1
+            except Exception:
+                log.exception("job:refresh_fundamentals:failed", symbol=sym)
 
-    await _run_concurrently(symbols, _refresh, max_concurrent=5)
-    log.info("job:refresh_fundamentals:done")
+        await _run_concurrently(symbols, _refresh, max_concurrent=5)
+        log.info("job:refresh_fundamentals:done", total=total)
+        await _record_health("psx_fundamentals", success=True, rows_updated=total)
+    except Exception as e:
+        log.exception("job:refresh_fundamentals:failed")
+        await _record_health("psx_fundamentals", success=False, error=str(e))
 
 
 async def job_refresh_index_eod():
-    log.info("job:refresh_index_eod:start")
-    for code in ALL_PSX_INDICES:
-        try:
-            bars = await dps.fetch_index_eod(code)
-            if bars:
-                rows = [
-                    {
-                        "code": b.code,
-                        "date": b.date.isoformat(),
-                        "open": b.open or 0,
-                        "high": b.high or 0,
-                        "low": b.low or 0,
-                        "close": b.close,
-                        "volume": b.volume,
-                    }
-                    for b in bars
-                ]
-                await async_execute(lambda c: c.table("psx_index_eod").upsert(rows, on_conflict="code,date"))
-        except Exception:
-            log.exception("job:refresh_index_eod:failed", code=code)
-    log.info("job:refresh_index_eod:done")
+    total_bars = 0
+    try:
+        log.info("job:refresh_index_eod:start")
+        for code in ALL_PSX_INDICES:
+            try:
+                bars = await dps.fetch_index_eod(code)
+                if bars:
+                    rows = [
+                        {
+                            "code": b.code,
+                            "date": b.date.isoformat(),
+                            "open": b.open or 0,
+                            "high": b.high or 0,
+                            "low": b.low or 0,
+                            "close": b.close,
+                            "volume": b.volume,
+                        }
+                        for b in bars
+                    ]
+                    await async_execute(lambda c: c.table("psx_index_eod").upsert(rows, on_conflict="code,date"))
+                    total_bars += len(bars)
+            except Exception:
+                log.exception("job:refresh_index_eod:failed", code=code)
+        log.info("job:refresh_index_eod:done", total_bars=total_bars)
+        await _record_health("index_eod", success=True, rows_updated=total_bars)
+    except Exception as e:
+        log.exception("job:refresh_index_eod:failed")
+        await _record_health("index_eod", success=False, error=str(e))
 
 
 async def job_refresh_tv_data():
@@ -259,29 +340,9 @@ async def job_refresh_tv_data():
             return
         now = datetime.now(timezone.utc).isoformat()
 
-        # Hardcoded Shariah-compliant stock list (sourced from PSX Shariah Index constituents).
-        # This is more reliable than trying to derive from DPSScraper data.
-        SHARIAH_STOCKS: set[str] = {
-            # KMI30 and KMIALLSHR constituents — the definitive PSX Shariah universe.
-            # (These will be moved to config.py in a future cleanup.)
-            "MARI", "OGDC", "PPL", "POL", "LUCK", "SEARL", "HBL", "MEBL",
-            "UBL", "FABL", "EFERT", "FFC", "ENGRO", "NESTLE", "COLG", "LINDE",
-            "NCL", "SCBPL", "BAHL", "BAFL", "TGL", "HUMNL", "GHGL", "MLCF",
-            "PIOC", "ASTL", "AMBL", "KTML", "CHCC", "FLYNG", "PSX", "FCCL",
-            "DCR", "EPCL", "LOTCHEM", "RPL", "TREET", "UNITY", "WAHUN", "GATI",
-            "AGL", "BIFO", "BIPL", "BML", "BRR", "CASH", "CNERGY", "DOL",
-            "DWAE", "DYNO", "ELCM", "FFL", "FRSM", "GAL", "GLAXO", "HAEL",
-            "HASCOL", "HSPI", "HZAN", "ICL", "IDYM", "ILP", "IMCO", "INDU",
-            "ISL", "JKL", "JSCL", "KAPCO", "KOHE", "KOHC", "LEUL", "LPGL",
-            "MACFL", "MERIT", "MFTM", "MLOD", "MUREB", "NATF", "NBP", "NCPL",
-            "NML", "NRL", "NTCL", "OBOY", "PAEL", "PAKRI", "PGIL", "PICT",
-            "PKGS", "PMI", "PNER", "PRFG", "PRWM", "PSMC", "PTC", "QUICE",
-            "RMFL", "SANL", "SAPT", "SGF", "SHEL", "SHJD", "SIMG", "SITC",
-            "SMCPL", "SPWL", "SRVI", "SSGC", "STJT", "STPL", "SYM", "SYS",
-            "TATM", "TAUS", "TCORP", "TGL", "THALL", "TPLP", "TRG", "TRIPF",
-            "UPFL", "WAVES", "WTL", "YOUSP", "ZIL",
-        }
-
+        # Shariah-compliant stock universe lives on app.config.settings (single
+        # source of truth shared with the rest of the app). The TV job consults
+        # it to populate psx_profile.is_shariah on every 5-min refresh.
         # Pre-load existing listed_shares values so the TV job doesn't
         # nullify them (the TV scanner has no shares-outstanding column).
         existing_rows: list[dict] = []
@@ -311,7 +372,7 @@ async def job_refresh_tv_data():
                 "name": item.get("name", item["symbol"]),
                 "sector": sector,
                 "logoid": item.get("logoid"),
-                "is_shariah": sym in SHARIAH_STOCKS,
+                "is_shariah": sym in settings.SHARIAH_STOCKS,
                 "refreshed_at": now,
             }
             if listed_shares is not None:
@@ -324,8 +385,10 @@ async def job_refresh_tv_data():
             await async_execute(lambda c: c.table("psx_profile").upsert(profile_rows, on_conflict="symbol"))
 
         log.info("job:refresh_tv_data:done", symbols=len(items))
-    except Exception:
+        await _record_health("tradingview", success=True, rows_updated=len(items))
+    except Exception as e:
         log.exception("job:refresh_tv_data:failed")
+        await _record_health("tradingview", success=False, error=str(e))
 
 
 async def job_check_alerts():
@@ -424,8 +487,10 @@ async def job_refresh_sbp():
             )
             total += 1
         log.info("job:refresh_sbp:done", rows=total)
-    except Exception:
+        await _record_health("sbp_macro", success=True, rows_updated=total)
+    except Exception as e:
         log.exception("job:refresh_sbp:failed")
+        await _record_health("sbp_macro", success=False, error=str(e))
 
 
 async def job_refresh_mufap():
@@ -457,8 +522,10 @@ async def job_refresh_mufap():
                     log.debug("mufap_history_failed", fund=f.get("fund_code"), exc_info=True)
                 await asyncio.sleep(0.05)
         log.info("job:refresh_mufap:done", funds=len(funds))
-    except Exception:
+        await _record_health("mufap_nav", success=True, rows_updated=len(funds))
+    except Exception as e:
         log.exception("job:refresh_mufap:failed")
+        await _record_health("mufap_nav", success=False, error=str(e))
 
 
 async def job_refresh_brecorder_news():
@@ -496,8 +563,10 @@ async def job_refresh_brecorder_news():
                 lambda c: c.table("psx_news").upsert(rows, on_conflict="url")
             )
         log.info("job:refresh_brecorder_news:done", count=len(rows))
-    except Exception:
+        await _record_health("brecorder_news", success=True, rows_updated=len(rows))
+    except Exception as e:
         log.exception("job:refresh_brecorder_news:failed")
+        await _record_health("brecorder_news", success=False, error=str(e))
 
 
 async def job_fetch_announcement_pdfs():
@@ -550,8 +619,10 @@ async def job_fetch_announcement_pdfs():
                 lambda c: c.table("filings").upsert(rows, on_conflict="announcement_id")
             )
         log.info("job:fetch_announcement_pdfs:done", count=len(rows))
-    except Exception:
+        await _record_health("announcement_pdfs", success=True, rows_updated=len(rows))
+    except Exception as e:
         log.exception("job:fetch_announcement_pdfs:failed")
+        await _record_health("announcement_pdfs", success=False, error=str(e))
 
 
 async def job_detect_unusual_volume():
@@ -560,8 +631,10 @@ async def job_detect_unusual_volume():
         log.info("job:detect_unusual_volume:start")
         rows = await volume_spike_detector.detect()
         log.info("job:detect_unusual_volume:done", count=len(rows))
-    except Exception:
+        await _record_health("unusual_volume", success=True, rows_updated=len(rows))
+    except Exception as e:
         log.exception("job:detect_unusual_volume:failed")
+        await _record_health("unusual_volume", success=False, error=str(e))
 
 
 async def job_refresh_financials_5y():
@@ -596,8 +669,44 @@ async def job_refresh_financials_5y():
 
         await _run_concurrently(symbols, _per_symbol, max_concurrent=3)
         log.info("job:refresh_financials_5y:done")
-    except Exception:
+        await _record_health("financials_5y", success=True, rows_updated=0)
+    except Exception as e:
         log.exception("job:refresh_financials_5y:failed")
+        await _record_health("financials_5y", success=False, error=str(e))
+
+
+async def job_refresh_dividends():
+    """Fetch dividend payouts for all known symbols from DPS."""
+    log.info("job:refresh_dividends:start")
+    dps_job = DPSScraper()
+    symbols = await _get_all_symbols()
+    total = 0
+    errors = 0
+    for sym in symbols:
+        try:
+            events = await dps_job.fetch_payouts(sym)
+            if events:
+                rows = [
+                    {
+                        "announcement_id": e.announcement_id,
+                        "symbol": e.symbol,
+                        "ex_date": e.ex_date.isoformat() if e.ex_date else None,
+                        "announcement_date": e.announcement_date.isoformat() if e.announcement_date else None,
+                        "payout_type": e.payout_type,
+                        "per_share": e.per_share,
+                        "bonus_pct": e.bonus_pct,
+                        "refreshed_at": datetime.now(timezone.utc).isoformat(),
+                    }
+                    for e in events
+                ]
+                await async_execute(lambda c: c.table("psx_dividends").upsert(rows, on_conflict="announcement_id"))
+                total += len(rows)
+        except Exception:
+            errors += 1
+            log.exception("job:refresh_dividends:symbol_failed", symbol=sym)
+        await asyncio.sleep(0.5)
+    log.info("job:refresh_dividends:done", total=total, errors=errors)
+    await _record_health("refresh_dividends", success=True, rows_updated=total)
 
 
 # ----- init -----
@@ -668,6 +777,18 @@ def init_scheduler():
         CronTrigger(day_of_week="sun", hour=3, minute=0, timezone="Asia/Karachi"),
         id="refresh_financials_5y",
         replace_existing=True,
+    )
+    # Dividends refresh: 30-min cadence with an immediate first run on startup
+    # so the frontend dividend page shows real data on first request.
+    # DPS rate limit: ~2 req/s permitted, so ~500 symbols takes ~4 min per run.
+    from datetime import datetime
+    scheduler.add_job(
+        job_refresh_dividends,
+        IntervalTrigger(minutes=30),
+        id="refresh_dividends",
+        replace_existing=True,
+        misfire_grace_time=300,
+        next_run_time=datetime.now(),
     )
     scheduler.start()
     log.info("scheduler:started")

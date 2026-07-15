@@ -7,6 +7,7 @@ from typing import Optional
 
 from sqlalchemy import (
     BigInteger,
+    Boolean,
     Date,
     DateTime,
     Numeric,
@@ -85,6 +86,9 @@ class CompanyProfile(Base):
     sector: Mapped[Optional[str]] = mapped_column(String, nullable=True)
     listed_shares: Mapped[Optional[int]] = mapped_column(BigInteger, nullable=True)
     free_float: Mapped[Optional[int]] = mapped_column(BigInteger, nullable=True)
+    logoid: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    is_shariah: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="false")
+    listed_in: Mapped[Optional[str]] = mapped_column(String, nullable=True)
     refreshed_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
