@@ -33,6 +33,17 @@ dependencies = [
     # Also pulled in transitively by PyJWT for RS256/ES256 — declared here
     # because we import it directly.
     "cryptography>=44",
+    # Required at IMPORT time by api/funds.py's UploadFile/File(...) params —
+    # FastAPI resolves the dependant when the decorator runs, so the whole app
+    # fails to import without it. Plain `fastapi` does not pull it in (only
+    # `fastapi[standard]` does); it was reaching dev machines transitively via
+    # an unrelated tool, which is why the suite looked green while the image
+    # crash-looped.
+    "python-multipart>=0.0.9",
+    # api/deps.py and services/auth.py import jwt directly. It currently
+    # arrives transitively via supabase-auth; declared so a supabase bump
+    # cannot silently drop it.
+    "PyJWT>=2.8",
 ]
 
 [project.optional-dependencies]
