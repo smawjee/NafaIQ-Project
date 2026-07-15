@@ -205,19 +205,34 @@ CHECKS: List[MigrationCheck] = [
         ],
     ),
     MigrationCheck(
-        filename="20260716010000_apply_sector_map.sql",
-        description="Disabled: scheduler normalizes TV sectors via TV_SECTOR_MAP at write-time",
+        filename="20260716010000_apply_sector_map.sql (permanently disabled)",
+        description="DPS owns psx_profile.sector; TV_SECTOR_MAP is the fallback only",
         checks=[
-            Check("No raw TradingView sector inputs remain in psx_profile",
+            # Was: "no raw TradingView sector may remain anywhere" — unachievable.
+            # That assumed apply_sector_map would force every row to a mapped
+            # value, but the migration is permanently disabled (its title-case
+            # names would duplicate DPS's uppercase ones, and it maps Cement and
+            # Fertilizer to "Textile"). job_refresh_fundamentals writes the real
+            # PSX sector from DPS instead, and DPS simply has no company page for
+            # a handful of symbols — those keep their old TV label forever, so
+            # the old check could only ever fail.
+            #
+            # The real invariant: a raw TV sector is tolerable ONLY where DPS
+            # gave us nothing (listed_shares IS NULL). If a symbol DPS *did*
+            # classify shows up on a TV bucket, something overwrote good data —
+            # which is exactly the bug fixed by making job_refresh_tv_data
+            # preserve an existing sector instead of rewriting it every 5 min.
+            Check("No DPS-classified symbol has been reverted to a raw TradingView sector",
                   """SELECT (COUNT(*) FILTER (
-                       WHERE sector IN (
+                       WHERE listed_shares IS NOT NULL
+                         AND sector IN (
                            'Finance', 'Process Industries', 'Producer Manufacturing',
                            'Energy Minerals', 'Consumer Non-Durables', 'Distribution Services',
                            'Health Technology', 'Utilities', 'Retail Trade', 'Consumer Durables',
                            'Non-Energy Minerals', 'Electronic Technology', 'Health Services',
                            'Transportation', 'Commercial Services', 'Industrial Services',
                            'Communications', 'Technology Services'
-                       )
+                         )
                    ) = 0)::int FROM psx_profile"""),
         ],
     ),
