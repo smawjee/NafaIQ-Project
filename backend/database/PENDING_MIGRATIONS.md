@@ -100,7 +100,7 @@ Once it succeeds, real market caps light up across the treemap and screener, and
 
 ## 5. Migrations added after this doc was first written — all NOT APPLIED
 
-Apply in timestamp order, **after** the ledger (§1) so its back-fill stays accurate.
+Apply in timestamp order, **after** the ledger (§1) so its back-fill stays accurate.insaaeene
 Each needs a hand-written `_applied_migrations` row once run.
 
 | File | What it does | Notes before applying |
