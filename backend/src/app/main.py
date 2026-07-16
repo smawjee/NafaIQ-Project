@@ -32,6 +32,8 @@ from app.api import (
     financials_extended,
     funds,
     integrations,
+    learn,
+    learn_ai,
 )
 from app.jobs.scheduler import close_scrapers, init_scheduler, shutdown_scheduler
 from app.middleware.auth import BearerTokenMiddleware
@@ -169,6 +171,8 @@ app.include_router(profile.router, prefix="/api")
 app.include_router(ai.router, prefix="/api")
 app.include_router(reports.router, prefix="/api")
 app.include_router(macro.router, prefix="/api")
+app.include_router(learn.router, prefix="/api")
+app.include_router(learn_ai.router, prefix="/api")
 app.include_router(news.router, prefix="/api")
 app.include_router(filings.router, prefix="/api")
 app.include_router(unusual.router, prefix="/api")

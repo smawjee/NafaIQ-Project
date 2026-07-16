@@ -31,6 +31,7 @@ Key pools (multi-key fallback):
 """
 from __future__ import annotations
 
+import math
 import os
 import time
 from typing import Any, AsyncIterator, NamedTuple, Optional, Type, TypeVar
@@ -336,6 +337,98 @@ async def complete_groq_json(
         messages,
         transport,
     )
+
+
+# ===========================================================================
+# Embeddings — Gemini only (Groq has no embeddings API)
+# ===========================================================================
+#
+# Used by LearnHub RAG (corpus indexing + query embedding). There is no
+# provider fallback for this call shape — only key-pool rotation — because
+# vectors from different models live in different spaces: a Groq-embedded
+# query could not be compared against a Gemini-embedded corpus anyway.
+
+
+def _fit_embedding(vec: list[float], dim: int) -> list[float]:
+    """Truncate a vector to `dim` and L2-normalize it.
+
+    Gemini's OpenAI-compat layer accepts a `dimensions` param but it is
+    undocumented and sometimes ignored, returning the model's native 3072 dims.
+    gemini-embedding-001 is MRL-trained, so the first `dim` components are a
+    valid embedding on their own — but only after re-normalizing, because a
+    truncated unit vector is no longer unit length. Applied unconditionally:
+    re-normalizing an already-unit vector is a no-op, so there is no
+    "already correct" fast path to get wrong."""
+    if len(vec) < dim:
+        raise ProviderError(f"embedding has {len(vec)} dims, need at least {dim}")
+    fitted = vec[:dim]
+    norm = math.sqrt(sum(x * x for x in fitted))
+    if norm == 0.0:
+        raise ProviderError("embedding has zero norm, cannot normalize")
+    return [x / norm for x in fitted]
+
+
+async def embed_gemini(
+    texts: list[str],
+    *,
+    transport: Optional[httpx.AsyncBaseTransport] = None,
+) -> list[list[float]]:
+    """Embed `texts`, one vector per text, each exactly settings.ai_embedding_dim
+    long and L2-normalized. Walks the Gemini key pool exactly like
+    _complete_json: nothing is handed to the caller until the whole batch is in
+    hand, so every key can be tried freely."""
+    if not texts:
+        return []
+
+    keys = _keys_for(PROVIDER_GEMINI)
+    if not keys:
+        raise ProviderError(f"no API key configured for {GEMINI_BASE_URL}")
+
+    last: Optional[BaseException] = None
+    for index, api_key in enumerate(keys):
+        try:
+            async with _client(GEMINI_BASE_URL, api_key, transport) as client:
+                res = await client.embeddings.create(
+                    model=settings.ai_embedding_model,
+                    input=texts,
+                    dimensions=settings.ai_embedding_dim,
+                )
+        except (openai.OpenAIError, httpx.HTTPError) as e:
+            last = e
+            if not _should_rotate(e):
+                raise ProviderError(f"{GEMINI_BASE_URL}: {e}") from e
+            log.warning(
+                "llm_key_rotated",
+                provider=PROVIDER_GEMINI,
+                key_index=index,
+                key_count=len(keys),
+                call="embeddings",
+                error=type(e).__name__,
+            )
+            continue
+        except Exception as e:
+            # Everything leaving this function must be a ProviderError, same
+            # rule as _complete_json: callers key their handling on that type.
+            raise ProviderError(f"{GEMINI_BASE_URL}: {type(e).__name__}: {e}") from e
+
+        # A short answer is the model's fault, not the key's: another key would
+        # return the same thing, so fail instead of rotating.
+        if len(res.data) != len(texts):
+            raise ProviderError(
+                f"{GEMINI_BASE_URL}: {len(res.data)} embeddings for {len(texts)} inputs"
+            )
+        # Gemini's compat layer returns `index: null` on every item, so an
+        # unconditional sort crashes with TypeError (seen live). Sort only when
+        # every index is present; otherwise response order IS input order per
+        # the OpenAI contract.
+        if all(d.index is not None for d in res.data):
+            data = sorted(res.data, key=lambda d: d.index)
+        else:
+            data = list(res.data)
+        return [
+            _fit_embedding(list(d.embedding), settings.ai_embedding_dim) for d in data
+        ]
+    raise _exhausted(PROVIDER_GEMINI, len(keys), last) from last
 
 
 # ===========================================================================

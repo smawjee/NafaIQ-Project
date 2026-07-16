@@ -17,6 +17,11 @@ PUBLIC_PATHS = {
 # User-authenticated paths — validated by require_user dependency, not the API token
 USER_PATHS_PREFIXES = (
     "/api/ai",
+    # LearnHub LLM-backed features (quiz explanations, summaries). MUST stay
+    # ahead of the public "/api/learn" prefix below — dispatch checks user
+    # paths first, which is what keeps these authenticated while plain
+    # /api/learn search stays open.
+    "/api/learn/ai",
     "/api/portfolio",
     "/api/profile",
     "/api/watchlist",
@@ -42,6 +47,10 @@ ADMIN_PATHS = {
 
 # Public market-data paths — no authentication required.
 PUBLIC_PATH_PREFIXES = (
+    # LearnHub search/glossary/related. Published course material — the web
+    # bundle already ships this content, so there is nothing to gate.
+    # /api/learn/ai is NOT covered: it is matched earlier as a user path.
+    "/api/learn",
     "/api/market",
     "/api/quote",
     "/api/symbols",

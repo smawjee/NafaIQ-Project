@@ -102,6 +102,32 @@ class Settings(BaseSettings):
     # ReportUnavailable at this deadline instead of holding a request open.
     ai_report_deadline_s: float = 90.0
 
+    # LearnHub RAG (retrieval over the LearnHub corpus).
+    # Kill switch: off => every /api/learn/* endpoint returns 503 and the UI
+    # hides all RAG affordances. The AI tutor is a separate feature and is
+    # unaffected in either state.
+    learnhub_rag_enabled: bool = False
+    # Embeddings are Gemini-only — Groq has no embeddings API, so there is no
+    # provider fallback for this call shape (only key-pool rotation).
+    ai_embedding_model: str = "gemini-embedding-001"
+    # 768 stays under pgvector's 2000-dim index cap with negligible quality
+    # loss: gemini-embedding-001 is MRL-trained, scoring MTEB 67.99 at 768 dims
+    # vs 68.17 at 1536. The compat layer may ignore the `dimensions` request
+    # param and return the native 3072, so providers.embed_gemini truncates and
+    # re-normalizes every vector to this length unconditionally. Must match the
+    # vector(768) column in the learnhub_rag migration.
+    ai_embedding_dim: int = 768
+    # Wall-clock budget for one retrieval (query embedding + SQL). The query
+    # embedding rides the Gemini key pool, and a single 429 rotation alone
+    # exceeded 3s in live testing, so this must leave room for one rotation.
+    learnhub_retrieval_timeout_s: float = 6.0
+    # Per-user daily cap on LearnHub's LLM-backed calls (/api/learn/ai/*),
+    # counted in its OWN table (learnhub_ai_usage) on Asia/Karachi days. It is
+    # deliberately independent of the AI tutor's allowance: neither feature may
+    # exhaust or throttle the other. 20/day covers a full lesson's quizzes plus
+    # summaries while bounding what one account can spend on the free tier.
+    learn_ai_daily_limit: int = 20
+
     # Bank-email transaction import (Gmail API OAuth). Keys live ONLY in
     # backend env — never shipped to any client bundle.
     #
