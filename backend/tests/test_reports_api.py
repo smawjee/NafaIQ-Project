@@ -105,13 +105,15 @@ async def test_market_brief_generates_on_cache_miss(monkeypatch):
     assert body["content"]["headline"] == "Market brief"
     assert body["provider"] == "gemini"
     assert body["verified"] is True
-    assert created["trading_date"] == __import__("datetime").date.today().isoformat()
+    assert created["trading_date"] == __import__("datetime").date.today()
 
 
 async def test_market_brief_serves_shared_cache(monkeypatch):
     from app.services.ai import report_service as reports_api
 
-    today = __import__("datetime").date.today().isoformat()
+    # A date, not a string: the trading_date column is DATE and the driver
+    # returns datetime.date. Stringly-typed fixtures here masked a real bug.
+    today = __import__("datetime").date.today()
     cached = {
         "content": {"headline": "Cached brief"},
         "provider": "gemini", "model": "flash", "verified": True,
@@ -291,7 +293,9 @@ async def test_dashboard_rec_daily_cache_second_call(monkeypatch):
     from app.services.ai import report_service as reports_api
     from app.schemas.reports import DashboardRecReport
 
-    today = __import__("datetime").date.today().isoformat()
+    # A date, not a string: the trading_date column is DATE and the driver
+    # returns datetime.date. Stringly-typed fixtures here masked a real bug.
+    today = __import__("datetime").date.today()
     dr = DashboardRecReport(
         headline="Daily nudge",
         observations=["Educational nudge."],
@@ -366,3 +370,41 @@ async def test_report_unavailable_yields_503(monkeypatch):
 
     assert res.status_code == 503
     assert "unavailable" in res.json()["detail"].lower()
+
+
+# --------------------------------------------------------------------------- #
+# Regression: the cache never hit in production for the feature's whole life   #
+# --------------------------------------------------------------------------- #
+def test_report_sql_binds_content_instead_of_a_postgres_cast():
+    """`:content::jsonb` is NOT a bind parameter.
+
+    SQLAlchemy's text() bind regex carries a `(?!:)` lookahead so it skips
+    `::casts` — so `:content` stayed literal in the emitted SQL, asyncpg hit the
+    bare ':' and raised PostgresSyntaxError. Every ai_reports insert failed and
+    the table sat at 0 rows since the feature was written. CAST(:content AS
+    jsonb) binds correctly.
+    """
+    import inspect
+
+    from app.repositories import reports_repo
+
+    src = inspect.getsource(reports_repo)
+    assert ":content::jsonb" not in src, "reverted to a cast SQLAlchemy cannot bind"
+    assert "CAST(:content AS jsonb)" in src
+
+
+def test_serve_uses_a_real_date_so_the_cache_can_match():
+    """trading_date is a DATE column: the driver refuses to bind a str
+    ("'str' object has no attribute 'toordinal'"), and a cached row's
+    trading_date comes back as datetime.date — so comparing it to an
+    isoformat string was always False and the cache could never hit.
+    """
+    import inspect
+
+    from app.services.ai import report_service
+
+    src = inspect.getsource(report_service.serve)
+    assert "date.today().isoformat()" not in src, (
+        "serve() must hold a date, not a string — see this test's docstring"
+    )
+    assert "today = date.today()" in src

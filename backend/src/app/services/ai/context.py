@@ -13,6 +13,7 @@ Key points:
 """
 from __future__ import annotations
 
+import asyncio
 import math
 from datetime import date
 from typing import Any, Optional
@@ -157,11 +158,16 @@ async def build_market_brief_context(
     user_id: Optional[str] = None,
     evidence: EvidenceRetriever = NullEvidenceRetriever(),
 ) -> dict[str, Any]:
-    cards = await market_quotes.index_cards()
-    snapshot = await market_quotes.market_snapshot()
-    sectors = await market_heatmap.sector_averages()
-    announcements = await market_quotes.announcements(None, 10)
-    ev = await evidence.retrieve("market news", None)
+    # gather, not sequential awaits: these reads are independent, and run one
+    # after another they summed to the user's whole wait. The dashboard nudge
+    # measured 15.7s of context for a ~1s LLM call — the spinner WAS this.
+    cards, snapshot, sectors, announcements, ev = await asyncio.gather(
+        market_quotes.index_cards(),
+        market_quotes.market_snapshot(),
+        market_heatmap.sector_averages(),
+        market_quotes.announcements(None, 10),
+        evidence.retrieve("market news", None),
+    )
 
     by_code = {str(c.get("code", "")).upper(): c for c in cards}
 
@@ -314,11 +320,16 @@ async def build_portfolio_context(
     evidence: EvidenceRetriever = NullEvidenceRetriever(),
 ) -> dict[str, Any]:
     window = int(days or 180)
-    nw = await portfolio_svc.networth(user_id)
-    hist = await portfolio_svc.portfolio_history(user_id, window)
-    perf = await portfolio_svc.performance_vs_kse100(user_id, window)
-    sector_map = await sector_map_mod.get_sector_map()
-    ev = await evidence.retrieve("portfolio holdings", None)
+    # gather, not sequential awaits: these reads are independent, and run one
+    # after another they summed to the user's whole wait. The dashboard nudge
+    # measured 15.7s of context for a ~1s LLM call — the spinner WAS this.
+    nw, hist, perf, sector_map, ev = await asyncio.gather(
+        portfolio_svc.networth(user_id),
+        portfolio_svc.portfolio_history(user_id, window),
+        portfolio_svc.performance_vs_kse100(user_id, window),
+        sector_map_mod.get_sector_map(),
+        evidence.retrieve("portfolio holdings", None),
+    )
 
     by_holding = nw.get("by_holding", []) or []
     guarded = [_guard_holding(h) for h in by_holding]
@@ -432,12 +443,18 @@ async def build_finance_context(
     user_id: Optional[str] = None,
     evidence: EvidenceRetriever = NullEvidenceRetriever(),
 ) -> dict[str, Any]:
-    summ = _as_dict(await finance_summary.summary(user_id))
-    series = _as_dict(await finance_summary.income_expense_series(user_id, 6))
-    spend = _as_dict(await finance_summary.spending_by_category(user_id, 30))
-    budgets = await finance_budgets.list_budgets(user_id)
-    goals = await finance_goals.list_goals(user_id)
-    ev = await evidence.retrieve("finance notes", None)
+    # gather, not sequential awaits: these reads are independent, and run one
+    # after another they summed to the user's whole wait. The dashboard nudge
+    # measured 15.7s of context for a ~1s LLM call — the spinner WAS this.
+    summ_r, series_r, spend_r, budgets, goals, ev = await asyncio.gather(
+        finance_summary.summary(user_id),
+        finance_summary.income_expense_series(user_id, 6),
+        finance_summary.spending_by_category(user_id, 30),
+        finance_budgets.list_budgets(user_id),
+        finance_goals.list_goals(user_id),
+        evidence.retrieve("finance notes", None),
+    )
+    summ, series, spend = _as_dict(summ_r), _as_dict(series_r), _as_dict(spend_r)
 
     budget_rows = [
         {
@@ -620,11 +637,17 @@ async def build_dashboard_rec_context(
     user_id: Optional[str] = None,
     evidence: EvidenceRetriever = NullEvidenceRetriever(),
 ) -> dict[str, Any]:
-    summ = _as_dict(await finance_summary.summary(user_id))
-    spend = _as_dict(await finance_summary.spending_by_category(user_id, 30))
-    goals = await finance_goals.list_goals(user_id)
-    snapshot = await market_quotes.market_snapshot()
-    ev = await evidence.retrieve("dashboard nudge", None)
+    # gather, not sequential awaits: these reads are independent, and run one
+    # after another they summed to the user's whole wait. The dashboard nudge
+    # measured 15.7s of context for a ~1s LLM call — the spinner WAS this.
+    summ_r, spend_r, goals, snapshot, ev = await asyncio.gather(
+        finance_summary.summary(user_id),
+        finance_summary.spending_by_category(user_id, 30),
+        finance_goals.list_goals(user_id),
+        market_quotes.market_snapshot(),
+        evidence.retrieve("dashboard nudge", None),
+    )
+    summ, spend = _as_dict(summ_r), _as_dict(spend_r)
 
     # Top spending category + deviation from a deterministic baseline (mean
     # category spend this period — no fabricated threshold).

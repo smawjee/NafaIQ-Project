@@ -95,7 +95,13 @@ async def serve(
     days: Optional[int] = None,
 ) -> ReportResponse:
     """The one serve path: cache check -> engine -> persist -> response."""
-    today = date.today().isoformat()
+    # A date, NOT an isoformat string. This one value feeds three places, and
+    # as a string it broke all three: asyncpg refused to bind it to the
+    # trading_date DATE column ("'str' object has no attribute 'toordinal'"),
+    # and the cache checks below compare it against a row whose trading_date
+    # comes back as datetime.date — so `date(...) == "2026-07-16"` was always
+    # False and the cache could never hit. _response() stringifies for the API.
+    today = date.today()
     user_id = user["user_id"]
 
     # Serve today's cached row if we have one; quota-gate the per-user modes.

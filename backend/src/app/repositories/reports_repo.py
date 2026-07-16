@@ -48,7 +48,7 @@ async def insert_report(
                  content, context_hash, verified, provider, model, lang)
             VALUES
                 (:uid, :report_type, :subject, :period_days, :trading_date,
-                 :content::jsonb, :context_hash, :verified, :provider, :model,
+                 CAST(:content AS jsonb), :context_hash, :verified, :provider, :model,
                  :lang)
             RETURNING id, created_at
             """
@@ -98,7 +98,7 @@ async def get_or_create_shared(
                  content, context_hash, verified, provider, model, lang)
             VALUES
                 (NULL, :report_type, :subject, :td,
-                 :content::jsonb, :context_hash, :verified, :provider, :model,
+                 CAST(:content AS jsonb), :context_hash, :verified, :provider, :model,
                  :lang)
             ON CONFLICT (report_type, subject, trading_date, lang)
                 WHERE user_id IS NULL
