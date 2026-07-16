@@ -40,10 +40,19 @@ import httpx
 import instructor
 import openai
 import structlog
-from openai import AsyncOpenAI
 from pydantic import BaseModel
 
 from app.config import settings
+
+# Langfuse ships a drop-in AsyncOpenAI subclass that auto-traces every
+# chat.completions / embeddings call — including streaming and the client that
+# `instructor.from_openai` wraps — so swapping this one symbol instruments all
+# call paths with zero changes at the call sites. Only used when tracing is
+# configured; otherwise the plain client, so unconfigured runs are unaffected.
+if settings.langfuse_enabled:
+    from langfuse.openai import AsyncOpenAI  # noqa: F401  (instrumented)
+else:
+    from openai import AsyncOpenAI
 
 log = structlog.get_logger(__name__)
 

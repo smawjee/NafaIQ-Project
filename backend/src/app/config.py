@@ -82,6 +82,14 @@ class Settings(BaseSettings):
     resend_api_key: str = ""
     resend_from_email: str = "alerts@nafaiq.app"
 
+    # Langfuse LLM observability (optional). When both keys are set, every LLM
+    # call is traced with model/tokens/latency/cost. Left blank => tracing is a
+    # no-op, so CI/prod without keys are unaffected. Host is region-specific
+    # (EU default; set the JP/US host shown on the API-keys page).
+    langfuse_public_key: str = ""
+    langfuse_secret_key: str = ""
+    langfuse_host: str = "https://cloud.langfuse.com"
+
     # AI tutor providers (Phase 6). Keys live ONLY in backend env (Railway) —
     # never shipped to any client bundle. Gemini is primary, Groq is fallback.
     gemini_api_key: str = ""
@@ -190,6 +198,11 @@ class Settings(BaseSettings):
     @property
     def supabase_configured(self) -> bool:
         return bool(self.supabase_url and self.supabase_service_key)
+
+    @property
+    def langfuse_enabled(self) -> bool:
+        """Tracing is on only when both Langfuse keys are present."""
+        return bool(self.langfuse_public_key and self.langfuse_secret_key)
 
     @property
     def email_import_configured(self) -> bool:
