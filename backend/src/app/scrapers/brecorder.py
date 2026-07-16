@@ -1,16 +1,25 @@
 """Business Recorder news scraper.
 
-Pulls the latest markets/business news from brecorder.com. The public site
-sometimes blocks scrapers, so every call is best-effort — empty list on
-failure. Provides a ``_tag_tickers`` helper that heuristically maps uppercase
-PSX tickers from the headline/body text.
+Reads brecorder's RSS feeds, not the HTML pages: as of 2026-07-16 every HTML
+page (/markets, /business, markets.brecorder.com) returns **403** to any
+client, including one sending a real Chrome User-Agent — it is bot protection,
+not a header problem, so there is nothing to spoof our way past. The
+/feeds/* endpoints serve the same stories as RSS 2.0 and are not blocked.
+
+That also fixes a second, quieter bug: the HTML parser only ever produced a
+headline and a URL, so psx_news.body and .summary were ALWAYS null and
+``_tag_tickers`` had nothing but the headline to match against. RSS
+``<description>`` carries the article text, so both now populate.
+
+Every call stays best-effort — empty list on failure.
 """
 from __future__ import annotations
 
 import asyncio
 import re
-from datetime import datetime, timezone
+from email.utils import parsedate_to_datetime
 from typing import Optional
+from xml.etree import ElementTree as ET
 
 import httpx
 import structlog
@@ -22,15 +31,20 @@ USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) NafaIQ-PSX-API/0.1"
 GET_HEADERS = {
     "User-Agent": USER_AGENT,
     "Accept-Language": "en-PK,en;q=0.9",
-    "Accept": "text/html, application/xhtml+xml;q=0.9, */*;q=0.5",
+    "Accept": "application/rss+xml, application/xml;q=0.9, */*;q=0.5",
 }
 
-# News + markets feeds (RSS first, then HTML).
+# RSS feeds, in preference order — markets first (most PSX-relevant), then
+# progressively broader. First one that parses wins.
 NEWS_URLS = [
-    "https://www.brecorder.com/markets",
-    "https://markets.brecorder.com/",
-    "https://www.brecorder.com/business",
+    "https://www.brecorder.com/feeds/markets",
+    "https://www.brecorder.com/feeds/business-finance",
+    "https://www.brecorder.com/feeds/latest-news",
 ]
+
+# content:encoded, when present, holds the full article; description holds a
+# lead paragraph. Namespace per the RSS content module.
+_CONTENT_NS = "{http://purl.org/rss/1.0/modules/content/}encoded"
 
 
 class BRecorderScraper:
@@ -72,12 +86,12 @@ class BRecorderScraper:
 
     async def fetch_news(self, limit: int = 30) -> list[dict]:
         try:
-            html = await self._try_fetch(NEWS_URLS)
-            if not html:
+            xml = await self._try_fetch(NEWS_URLS)
+            if not xml:
                 return []
-            result = _parse_news_html(html, source="brecorder", limit=limit)
+            result = _parse_news_rss(xml, source="brecorder", limit=limit)
             if not result:
-                log.warning("brecorder:empty_parse_200_html", url=NEWS_URLS[0] if NEWS_URLS else "")
+                log.warning("brecorder:empty_parse_200_feed", url=NEWS_URLS[0])
             return result
         except Exception:
             log.warning("brecorder_fetch_failed", exc_info=True)
@@ -105,94 +119,53 @@ class BRecorderScraper:
 # ---------- parsers ----------
 
 
-_DATE_PATTERNS = (
-    "%b %d, %Y %I:%M %p",
-    "%B %d, %Y %I:%M %p",
-    "%Y-%m-%dT%H:%M:%S",
-    "%Y-%m-%d %H:%M:%S",
-    "%Y-%m-%d",
-    "%d %b %Y",
-    "%d-%b-%Y",
-)
+def _text(html_or_text: str) -> str:
+    """RSS descriptions are HTML fragments; psx_news stores plain text."""
+    if not html_or_text:
+        return ""
+    return BeautifulSoup(html_or_text, "lxml").get_text(" ", strip=True)
 
 
 def _parse_dt(raw: str) -> Optional[str]:
+    """RSS pubDate is RFC 2822 ("Thu, 16 Jul 2026 12:26:48 +0500")."""
     if not raw:
         return None
-    raw = raw.strip()
-    for fmt in _DATE_PATTERNS:
-        try:
-            return datetime.strptime(raw, fmt).replace(tzinfo=timezone.utc).isoformat()
-        except ValueError:
-            continue
-    return None
-
-
-def _abs_url(href: str, base: str) -> Optional[str]:
-    if not href:
+    try:
+        return parsedate_to_datetime(raw.strip()).isoformat()
+    except (TypeError, ValueError):
         return None
-    href = href.strip()
-    if href.startswith("javascript:") or href.startswith("#") or href.startswith("mailto:"):
-        return None
-    if href.startswith("http://") or href.startswith("https://"):
-        return href
-    if href.startswith("/"):
-        # brecorder.com — use the marketing host.
-        return f"https://www.brecorder.com{href}"
-    return f"{base.rstrip('/')}/{href.lstrip('/')}"
 
 
-def _parse_news_html(html: str, source: str, limit: int) -> list[dict]:
-    soup = BeautifulSoup(html, "lxml")
+def _parse_news_rss(xml: str, source: str, limit: int) -> list[dict]:
+    try:
+        root = ET.fromstring(xml)
+    except ET.ParseError:
+        log.warning("brecorder:feed_not_xml")
+        return []
+
     items: list[dict] = []
     seen_urls: set[str] = set()
-    base = "https://www.brecorder.com"
-
-    # The BRecorder front pages render an <article> with a headline link for
-    # every story. We also accept older <li class="story"> and generic <h2>/<h3>
-    # blocks that wrap an <a>.
-    candidates: list[tuple[str, str, str]] = []
-    for art in soup.find_all("article"):
-        a = art.find("a", href=True)
-        if not a:
-            continue
-        headline = a.get_text(" ", strip=True)
-        url = _abs_url(a["href"], base)
-        ts_raw = ""
-        time_tag = art.find("time")
-        if time_tag:
-            ts_raw = time_tag.get("datetime") or time_tag.get_text(" ", strip=True)
-        candidates.append((headline, url or "", ts_raw))
-    for h in soup.find_all(["h2", "h3"]):
-        a = h.find("a", href=True)
-        if not a:
-            continue
-        headline = a.get_text(" ", strip=True)
-        url = _abs_url(a["href"], base)
-        if not url:
-            continue
-        ts_raw = ""
-        parent = h.parent
-        if parent:
-            t = parent.find("time")
-            if t:
-                ts_raw = t.get("datetime") or t.get_text(" ", strip=True)
-        candidates.append((headline, url, ts_raw))
-
-    for headline, url, ts_raw in candidates:
-        if not headline:
-            continue
-        if not url or not url.startswith("https://"):
-            continue
-        if url in seen_urls:
+    for it in root.findall(".//item"):
+        headline = (it.findtext("title") or "").strip()
+        url = (it.findtext("link") or "").strip()
+        if not headline or not url.startswith("https://") or url in seen_urls:
             continue
         seen_urls.add(url)
-        published = _parse_dt(ts_raw) if ts_raw else None
+
+        # Prefer whichever carries more of the article.
+        description = it.findtext("description") or ""
+        encoded = it.findtext(_CONTENT_NS) or ""
+        body = _text(encoded if len(encoded) > len(description) else description)
+
         items.append({
             "headline": headline,
             "url": url,
             "source": source,
-            "published_at": published,
+            "published_at": _parse_dt(it.findtext("pubDate") or ""),
+            "body": body or None,
+            # First paragraph-ish. The column exists for list views that should
+            # not ship the whole article.
+            "summary": (body[:300] + "…") if len(body) > 300 else (body or None),
         })
         if len(items) >= limit:
             break

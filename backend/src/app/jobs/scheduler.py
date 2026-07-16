@@ -859,7 +859,13 @@ async def job_refresh_dividends():
 # ----- init -----
 
 def init_scheduler():
-    scheduler.add_job(job_refresh_market, IntervalTrigger(seconds=5), id="refresh_market", replace_existing=True)
+    # 10s, not 5s: the job is ONE DPS call covering ~496 symbols and measures
+    # 6.9s end to end, so a 5s trigger could never be met — APScheduler skipped
+    # the overlapping run every time and logged a warning for each, while the
+    # job self-paced at ~7s anyway. 10s is honest, gives headroom over a slow
+    # upstream, and costs ~3s of freshness the 5s setting never actually
+    # delivered. job_poll_ahletrade still patches live prices every 5s.
+    scheduler.add_job(job_refresh_market, IntervalTrigger(seconds=10), id="refresh_market", replace_existing=True)
     scheduler.add_job(job_refresh_announcements, IntervalTrigger(minutes=15), id="refresh_announcements", replace_existing=True)
     scheduler.add_job(job_poll_ahletrade, IntervalTrigger(seconds=5), id="poll_ahletrade", replace_existing=True)
     # All cron jobs pin Asia/Karachi — an unpinned trigger fires on host local
