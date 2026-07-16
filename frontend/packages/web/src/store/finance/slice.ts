@@ -63,6 +63,9 @@ const financeSlice = createSlice({
         });
       }
     },
+    removeGoal(state, action: PayloadAction<string>) {
+      state.goals = state.goals.filter((g) => g.name !== action.payload);
+    },
     addBudget(state, action: PayloadAction<Budget>) {
       state.budgets.push(action.payload);
     },
@@ -92,6 +95,7 @@ export const {
   markBillPaid,
   addGoal,
   contributeToGoal,
+  removeGoal,
   addBudget,
   updateBudget,
   removeBudget,

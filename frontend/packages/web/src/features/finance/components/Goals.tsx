@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Plus, Sparkles, CalendarIcon } from "lucide-react";
+import { Plus, Sparkles, CalendarIcon, Trash2 } from "lucide-react";
 import { format } from "date-fns";
 import { toast } from "sonner";
 import { Calendar } from "@/components/ui/calendar";
@@ -8,6 +8,7 @@ import { EmojiIcon } from "@/components/icons/icons";
 import { Card } from "@/components/shared/Card";
 import { Modal, fieldClass } from "@/components/shared/Modal";
 import { AnimatedBar } from "@/components/shared/CountUpNumber";
+import { useConfirm } from "@/components/shared/ConfirmDialog";
 import { fmtPKR } from "@/lib/data";
 import { type Goal } from "@/lib/finance/data";
 import { cn } from "@/lib/utils";
@@ -15,11 +16,12 @@ import { useLang } from "@/hooks/use-lang";
 import { useAuth } from "@/hooks/use-auth";
 import { useDemo } from "@/hooks/use-demo";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
-import { selectGoals, addGoal, contributeToGoal } from "@/store/finance";
+import { selectGoals, addGoal, contributeToGoal, removeGoal } from "@/store/finance";
 import {
   useFinanceGoals as useApiFinanceGoals,
   useCreateGoal as useApiCreateGoal,
   useContributeGoal as useApiContributeGoal,
+  useDeleteGoal as useApiDeleteGoal,
 } from "@/hooks/use-finance-goals";
 
 export function Goals() {
@@ -31,6 +33,8 @@ export function Goals() {
   const { data: apiGoals } = useApiFinanceGoals(!!user && !isDemo);
   const createGoalApi = useApiCreateGoal();
   const contributeGoalApi = useApiContributeGoal();
+  const deleteGoalApi = useApiDeleteGoal();
+  const confirm = useConfirm();
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
   const [target, setTarget] = useState("");
@@ -115,6 +119,29 @@ export function Goals() {
     setContribAmount("");
   };
 
+  const handleDelete = (g: Goal) => {
+    if (!user && !isDemo) return;
+    confirm({
+      title: t("Delete goal?"),
+      description: t('"{name}" will be permanently removed. This action cannot be undone.').replace(
+        "{name}",
+        g.name,
+      ),
+      confirmText: t("Delete Goal"),
+      variant: "destructive",
+      successMessage: t("Goal deleted"),
+      errorMessage: t("Could not delete goal. Please try again."),
+      onConfirm: async () => {
+        if (user && !isDemo) {
+          const goal = apiGoals?.find((x) => x.name === g.name);
+          if (goal) await deleteGoalApi.mutateAsync(goal.id);
+        } else {
+          dispatch(removeGoal(g.name));
+        }
+      },
+    });
+  };
+
   return (
     <div className="grid gap-4 md:grid-cols-2">
       {user && displayGoals.length === 0 && (
@@ -131,9 +158,21 @@ export function Goals() {
                 <EmojiIcon emoji={g.emoji} size={16} />
               </span>
               <span className="font-semibold text-text-primary">{t(g.name)}</span>
-              <span className="ml-auto font-mono text-sm font-bold tabular-nums text-bull">
-                {pct}%
-              </span>
+              <div className="ml-auto flex items-center gap-2">
+                <span className="font-mono text-sm font-bold tabular-nums text-bull">
+                  {pct}%
+                </span>
+                {(user || isDemo) && (
+                  <button
+                    onClick={() => handleDelete(g)}
+                    aria-label={t("Delete goal")}
+                    title={t("Delete goal")}
+                    className="text-text-muted transition-colors hover:text-bear"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
+                )}
+              </div>
             </div>
             <div className="mt-2 font-mono text-xs tabular-nums text-text-secondary">
               {t("Target")} {fmtPKR(g.target)} · {t("Saved")} {fmtPKR(g.saved)}
