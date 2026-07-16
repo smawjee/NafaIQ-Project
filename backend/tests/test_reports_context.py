@@ -305,15 +305,26 @@ async def test_dashboard_rec_bundle_shape(monkeypatch):
         {"symbol": "OGDC", "price": 150.0, "change_pct": 6.0, "volume": 5000},
         {"symbol": "HBL", "price": 100.0, "change_pct": -1.0, "volume": 800},
     ]
+    # The nudge now reuses build_finance_context, so its extra reads must be
+    # mocked too (income/expense series + budgets).
+    series = IncomeExpenseResponse(months=1, series=[
+        IncomeExpensePoint(month="2026-07", income=100000.0, expense=70000.0),
+    ])
+    budgets = [
+        {"category": "food", "spent": 50000.0, "limit_amount": 50000.0, "period": "month", "tip": None},
+    ]
 
     monkeypatch.setattr(ctx.finance_summary, "summary", _async(summ))
+    monkeypatch.setattr(ctx.finance_summary, "income_expense_series", _async(series))
     monkeypatch.setattr(ctx.finance_summary, "spending_by_category", _async(spend))
+    monkeypatch.setattr(ctx.finance_budgets, "list_budgets", _async(budgets))
     monkeypatch.setattr(ctx.finance_goals, "list_goals", _async(goals))
     monkeypatch.setattr(ctx.market_quotes, "market_snapshot", _async(snapshot))
 
     bundle = await ctx.build_dashboard_rec_context(None, user_id="u1")
 
     _assert_json_serializable(bundle)
+    # Focus blocks (the pre-picked lead) still present.
     assert bundle["spending"]["top_category"] == "food"
     assert bundle["spending"]["amount"] == 50000.0
     assert "deviation_confidence" not in bundle["spending"]
@@ -323,3 +334,10 @@ async def test_dashboard_rec_bundle_shape(monkeypatch):
     # market mover by absolute % move (price/volume only, no signal)
     assert bundle["market_mover"]["symbol"] == "OGDC"
     assert "signal" not in bundle["market_mover"]
+    # The FULL finance picture now flows in, not just the focus slices.
+    assert bundle["summary"]["income"] == 100000.0
+    assert bundle["summary"]["expenses"] == 70000.0
+    assert isinstance(bundle["budgets"], list)
+    assert len(bundle["goals"]) == 2  # every goal, not only the focus one
+    assert "spending_by_category" in bundle
+    assert "budget_insights" in bundle

@@ -1,31 +1,41 @@
-SURFACE: A focused EDUCATIONAL nudge drawn from the cross-domain bundle (top
-spending versus its baseline, the most-urgent goal, and a notable market mover).
-This is a short, high-signal prompt on the dashboard — one thing worth the
-user's attention right now, grounded in their own numbers.
+SURFACE: The daily nudge — one short, high-signal insight on the dashboard,
+drawn from the user's full financial picture. You are given their complete
+finance bundle (income, expenses, savings rate versus baseline, every budget
+with over-budget flags, every goal with progress, emergency-fund cover, top
+spending categories) plus a notable market mover. Read ALL of it, then say the
+ONE thing most worth their attention today.
 
-Lead with ONE primary theme — the clearest priority the bundle supports — then
-ground it. `headline` names the specific situation (e.g. "Dining is running
-above your usual"), never a section label like "Review of spending categories".
-`observations` carries 3-4 entries that make the nudge worth reading.
+PICK THE LEAD. Survey everything and choose the single highest-impact theme the
+data supports — the thing you would flag first if you were their analyst.
+Priorities that usually matter most, strongest first: a category over its budget
+(`budget_insights.over_budget`), spending well above its own baseline
+(`spending.amount` vs `spending.baseline`), a savings rate below baseline
+(`summary.savings_rate`), a thin emergency fund, or a goal whose pace has stalled
+(`goal.progress_pct`, `goal.months_to_target`). Mention the market mover only if
+it genuinely is the day's most important item. Do not try to cover everything —
+one clear point beats five shallow ones.
 
-Always give the SO-WHAT, not just the value:
-- Compare `spending.amount` against `spending.baseline` to show whether the top
-  category is actually above the user's own average, and by how much the bundle
-  says.
-- Use `goal.progress_pct`, `goal.saved` / `goal.target`, and
-  `goal.months_to_target` to say where the goal stands at the current pace.
-- Mention `market_mover` only if it is the primary theme; otherwise leave it out.
+MAKE IT LAND. `headline` names the specific situation in plain words (e.g.
+"Dining is over budget this month"), never a section label like "Spending
+review". `observations` carries 2-3 entries — no more. Each must give the
+SO-WHAT: not just a number, but what it means when read against the user's own
+baseline, budget, or goal pace. Compare, don't just report.
 
-Add 1-2 `considerations`, each hedged and specific to these facts. "Reviewing
-your spending categories" is filler that would fit any user and does not count —
-tie every consideration to a concrete figure from the bundle.
+GIVE REAL, HEDGED GUIDANCE. Add 1-2 `considerations` — this is where the value
+is. Each must be a concrete, educational next step tied to a specific figure in
+the bundle, framed as something the user may wish to consider, never as an order.
+Good: "With dining PKR 2,000 over its 50,000 budget, some people find it useful
+to review the largest few transactions in that category." Not allowed: "Cut
+dining by PKR 2,000" or any instruction to move, spend, save, buy, or sell a
+specific amount. Educate on the pattern and the options; let the user decide.
 
-Use only the domains the bundle actually has data for: if a block is null or
-empty, say nothing about it and write fewer observations. NEVER pad to hit a
-count by inventing, estimating, or recomputing a number — every numeric token
-needs an exact bundle citation, and a shorter honest nudge beats a padded one.
-Any PKR amount or percentage you mention must match a bundle value exactly.
+KEEP IT SHORT. This is a nudge, not a report — aim for a few tight sentences
+total across the headline, observations, and considerations. If the data only
+supports one solid observation, write one. Brevity is a feature here.
 
-Phrase everything as an observation the user may wish to consider — never as an
-instruction to move money. Do NOT mention confidence, confidence scores, or
-buy / sell / strong-buy labels.
+GROUNDING. Every PKR amount or percentage you mention must match a bundle value
+exactly and carry a citation with its source_key — never invent, estimate, or
+recompute a number to make a point. If a domain has no data (no budgets, no
+goals), simply don't mention it. Set `view_target` to the domain your lead comes
+from ("finance", "portfolio", or "market") so the user can open the right screen.
+Do NOT mention confidence scores or buy/sell/strong-buy labels.

@@ -637,21 +637,27 @@ async def build_dashboard_rec_context(
     user_id: Optional[str] = None,
     evidence: EvidenceRetriever = NullEvidenceRetriever(),
 ) -> dict[str, Any]:
-    # gather, not sequential awaits: these reads are independent, and run one
-    # after another they summed to the user's whole wait. The dashboard nudge
-    # measured 15.7s of context for a ~1s LLM call — the spinner WAS this.
-    summ_r, spend_r, goals, snapshot, ev = await asyncio.gather(
-        finance_summary.summary(user_id),
-        finance_summary.spending_by_category(user_id, 30),
-        finance_goals.list_goals(user_id),
-        market_quotes.market_snapshot(),
-        evidence.retrieve("dashboard nudge", None),
-    )
-    summ, spend = _as_dict(summ_r), _as_dict(spend_r)
+    """Context for the daily nudge.
 
-    # Top spending category + deviation from a deterministic baseline (mean
+    Passes the user's FULL finance picture (the same bundle the finance report
+    reasons over — income, expenses, savings vs baseline, every budget with
+    over-budget flags, every goal with progress, emergency-fund cover, top
+    spending) so the model can choose what actually matters, plus a notable
+    market mover. On top of that it adds three pre-picked focus blocks
+    (`spending`, `goal`, `market_mover`) so the prompt has a clear lead without
+    re-deriving them. Reusing build_finance_context keeps every citation
+    source_key identical to the finance report — no drift, no divergence.
+    """
+    # Run the finance bundle and the market snapshot concurrently.
+    fin, snapshot = await asyncio.gather(
+        build_finance_context(user_id=user_id, evidence=evidence),
+        market_quotes.market_snapshot(),
+    )
+
+    # Focus block: top spending category vs a deterministic baseline (mean
     # category spend this period — no fabricated threshold).
-    categories = spend.get("categories", []) or []
+    sbc = fin.get("spending_by_category", {}) or {}
+    categories = sbc.get("categories", []) or []
     amounts = [_finite(c.get("amount")) or 0.0 for c in categories]
     categories_sorted = sorted(
         categories, key=lambda c: _finite(c.get("amount")) or 0.0, reverse=True
@@ -659,8 +665,11 @@ async def build_dashboard_rec_context(
     top = categories_sorted[0] if categories_sorted else None
     baseline = (sum(amounts) / len(amounts)) if amounts else 0.0
     top_amount = _finite(top.get("amount")) if top else None
-    # Most-urgent goal: reachable soonest at the current savings rate.
-    monthly_rate = _finite(summ.get("savings")) or 0.0
+
+    # Focus block: most-urgent goal — reachable soonest at the current savings
+    # rate. Goals already carry progress_pct from the finance bundle.
+    monthly_rate = _finite((fin.get("summary") or {}).get("savings")) or 0.0
+    goals = fin.get("goals", []) or []
     best_goal: Optional[dict[str, Any]] = None
     best_months: Optional[int] = None
     for g in goals:
@@ -677,15 +686,13 @@ async def build_dashboard_rec_context(
 
     goal_block = None
     if best_goal is not None:
-        saved = _finite(best_goal.get("saved")) or 0.0
-        target = _finite(best_goal.get("target")) or 0.0
         goal_block = {
             "name": best_goal.get("name"),
             "saved": _finite(best_goal.get("saved")),
             "target": _finite(best_goal.get("target")),
             "monthly_rate": monthly_rate,
             "months_to_target": best_months,
-            "progress_pct": calc.goal_progress(saved, target),
+            "progress_pct": best_goal.get("progress_pct"),
             "ai_tip": best_goal.get("ai_tip"),
         }
 
@@ -701,14 +708,15 @@ async def build_dashboard_rec_context(
             "volume": m.get("volume"),
         }
 
-    return {
-        "as_of": _today_str(),
-        "spending": {
-            "top_category": top.get("category") if top else None,
-            "amount": top_amount,
-            "baseline": round(baseline, 4),
-        },
-        "goal": goal_block,
-        "market_mover": mover,
-        "evidence": ev,
+    # Full finance data + the three focus blocks. dict(fin) already carries
+    # summary / budgets / budget_insights / goals / goal_insights /
+    # spending_by_category / income_expense_series / as_of / evidence.
+    bundle = dict(fin)
+    bundle["spending"] = {
+        "top_category": top.get("category") if top else None,
+        "amount": top_amount,
+        "baseline": round(baseline, 4),
     }
+    bundle["goal"] = goal_block
+    bundle["market_mover"] = mover
+    return bundle
