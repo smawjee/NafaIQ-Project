@@ -257,8 +257,10 @@ async def job_backfill_history():
                     await async_execute(lambda c: c.table("psx_ohlcv").upsert(rows, on_conflict="symbol,date"))
                     total_bars += len(bars)
                 log.info("job:backfill_history:symbol_done", symbol=sym, bars=len(bars))
-            except Exception:
-                log.exception("job:backfill_history:failed", symbol=sym)
+            except Exception as e:
+                # One symbol failing is routine (upstream drops connections);
+                # the traceback is httpx internals and identical every time.
+                log.warning("job:backfill_history:failed", symbol=sym, error=str(e))
 
         await _run_concurrently(symbols, _backfill, max_concurrent=5)
         log.info("job:backfill_history:done", total_bars=total_bars)
@@ -323,8 +325,8 @@ async def job_refresh_fundamentals():
                     lambda c, r=profile_row: c.table("psx_profile").upsert(r, on_conflict="symbol")
                 )
                 total += 1
-            except Exception:
-                log.exception("job:refresh_fundamentals:failed", symbol=sym)
+            except Exception as e:
+                log.warning("job:refresh_fundamentals:failed", symbol=sym, error=str(e))
 
         await _run_concurrently(symbols, _refresh, max_concurrent=5)
         log.info("job:refresh_fundamentals:done", total=total)
@@ -356,8 +358,8 @@ async def job_refresh_index_eod():
                     ]
                     await async_execute(lambda c: c.table("psx_index_eod").upsert(rows, on_conflict="code,date"))
                     total_bars += len(bars)
-            except Exception:
-                log.exception("job:refresh_index_eod:failed", code=code)
+            except Exception as e:
+                log.warning("job:refresh_index_eod:failed", code=code, error=str(e))
         log.info("job:refresh_index_eod:done", total_bars=total_bars)
         await _record_health("index_eod", success=True, rows_updated=total_bars)
     except Exception as e:
@@ -823,9 +825,9 @@ async def job_refresh_dividends():
                 # Expected on graceful shutdown — do not count as a symbol error.
                 log.info("job:refresh_dividends:cancelled", processed=total)
                 raise
-            except Exception:
+            except Exception as e:
                 errors += 1
-                log.exception("job:refresh_dividends:symbol_failed", symbol=sym)
+                log.warning("job:refresh_dividends:symbol_failed", symbol=sym, error=str(e))
             await asyncio.sleep(0.5)
 
         log.info("job:refresh_dividends:done", total=total, errors=errors)

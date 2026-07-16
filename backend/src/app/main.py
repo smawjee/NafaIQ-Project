@@ -44,6 +44,20 @@ from slowapi import _rate_limit_exceeded_handler
 
 logging.basicConfig(format="%(message)s", level=getattr(logging, settings.log_level.upper(), logging.INFO))
 
+# Third-party loggers that emit one INFO line per operation. basicConfig sets
+# the ROOT level, so at INFO these inherit it and narrate every HTTP call and
+# every job run — with job_refresh_market and job_poll_ahletrade on 5-second
+# triggers plus per-symbol scraping, that alone outruns Railway's log rate
+# limit, and Railway then DROPS messages ("Messages dropped: 153"). Dropped
+# lines are indiscriminate, so the play-by-play evicts the real errors.
+#
+# WARNING keeps everything that matters: httpx still reports failures, and
+# apscheduler still reports "Execution of job skipped: maximum number of
+# running instances reached" — the signal that a 5s job is overrunning its
+# interval. Only the "it worked" chatter goes.
+for _noisy in ("httpx", "apscheduler.executors.default"):
+    logging.getLogger(_noisy).setLevel(logging.WARNING)
+
 structlog.configure(
     processors=[
         structlog.stdlib.filter_by_level,
