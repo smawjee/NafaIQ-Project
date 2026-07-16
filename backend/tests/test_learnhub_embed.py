@@ -235,3 +235,58 @@ async def test_embed_empty_input_returns_empty_without_calls(monkeypatch):
 
     assert out == []
     assert calls["n"] == 0
+
+
+# --------------------------------------------------------------------------- #
+# Ingest freshness — the rule that decides what gets (re-)embedded.            #
+#                                                                              #
+# Every miss here is silent: ingest prints "unchanged", exits 0, and the chunk #
+# is simply not retrievable. Two of the three clauses below were real bugs.    #
+# --------------------------------------------------------------------------- #
+def _load_is_fresh():
+    """scripts/ is not a package — load the module by path."""
+    import importlib.util
+    from pathlib import Path
+
+    path = Path(__file__).resolve().parents[1] / "scripts" / "ingest_learnhub.py"
+    spec = importlib.util.spec_from_file_location("ingest_learnhub", path)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod.is_fresh
+
+
+_CHUNK = {"source_id": "gloss:bull-market", "content_hash": "abc123"}
+_MODEL = "gemini-embedding-001"
+
+
+def test_unchanged_active_chunk_is_fresh():
+    """The idempotency guarantee: a re-run on an unchanged corpus embeds nothing."""
+    existing = {"gloss:bull-market": ("abc123", _MODEL, True)}
+    assert _load_is_fresh()(_CHUNK, existing, _MODEL) is True
+
+
+def test_changed_content_is_not_fresh():
+    existing = {"gloss:bull-market": ("OLD-HASH", _MODEL, True)}
+    assert _load_is_fresh()(_CHUNK, existing, _MODEL) is False
+
+
+def test_a_new_chunk_is_not_fresh():
+    assert _load_is_fresh()(_CHUNK, {}, _MODEL) is False
+
+
+def test_a_different_embedding_model_is_not_fresh():
+    """retrieval._vector_arm filters on `embedding_model = :model`, so a row
+    embedded by another model is dead weight — changing AI_EMBEDDING_MODEL must
+    re-embed, not report 'unchanged' and leave the vector arm empty."""
+    existing = {"gloss:bull-market": ("abc123", "some-older-model", True)}
+    assert _load_is_fresh()(_CHUNK, existing, _MODEL) is False
+
+
+def test_a_soft_deleted_chunk_is_not_fresh():
+    """A chunk that left the corpus and came back. The soft delete leaves the
+    hash intact, so on content alone this looks unchanged — and the row would
+    stay is_active=false forever, invisible to retrieval, while ingest reported
+    success. Re-running ingest is the recovery the soft delete promises; that
+    promise IS this assertion."""
+    existing = {"gloss:bull-market": ("abc123", _MODEL, False)}
+    assert _load_is_fresh()(_CHUNK, existing, _MODEL) is False

@@ -122,26 +122,44 @@ def _content_block(rows: list[dict]) -> str:
     return "\n\n".join(entries)
 
 
-def _allowed_sources(rows: list[dict]) -> list[str]:
-    """Retrieved section_ids, in rank order. Some source types (glossary_term,
-    lesson_overview) have no section_id — they ground the answer but cannot be
-    cited, so they are simply absent here."""
-    seen: list[str] = []
+def _claimed_to_ids(claimed: list[str], rows: list[dict]) -> list[str]:
+    """Resolve what the model wrote in `sources` to retrieved section_ids.
+
+    Accepts the section_id OR the section's heading, because the model cites
+    either. Live against the real index, gemini-3.1-flash-lite answered a
+    pe-ratio summary with
+        sources=["Understanding P/E Ratio | What the P/E Ratio Tells You"]
+    — it copied the data block's whole header line instead of the `section_id=`
+    value in it. Those claims resolved to nothing and the learner got a grounded
+    summary with its citations silently stripped. Prompt wording did not fix
+    this reliably; accepting the label the model actually reaches for does.
+
+    This is NOT a weaker filter, which is the point: every key in the map comes
+    from `rows`, so an id or heading the model invented still resolves to
+    nothing. Rows without a section_id (glossary_term, lesson_overview) ground
+    the answer but stay uncitable — the client deep-links these ids and there is
+    nothing to link to.
+    """
+    by_key: dict[str, str] = {}
     for row in rows:
         sid = row.get("section_id")
-        if sid and sid not in seen:
-            seen.append(sid)
-    return seen
+        if not sid:
+            continue
+        by_key.setdefault(sid.strip().lower(), sid)
+        heading = (row.get("heading") or "").strip().lower()
+        if heading:
+            by_key.setdefault(heading, sid)
 
-
-def _filter_sources(claimed: list[str], allowed: list[str]) -> list[str]:
-    """Keep only ids that were actually retrieved, de-duplicated, in the order
-    the model claimed them."""
-    allowed_set = set(allowed)
     kept: list[str] = []
-    for sid in claimed:
-        if sid in allowed_set and sid not in kept:
-            kept.append(sid)
+    for claim in claimed:
+        # Second candidate: the trailing segment of a copied "title | heading"
+        # header line.
+        for key in (claim.strip().lower(), claim.rsplit("|", 1)[-1].strip().lower()):
+            sid = by_key.get(key)
+            if sid:
+                if sid not in kept:
+                    kept.append(sid)
+                break
     return kept
 
 
@@ -288,9 +306,7 @@ correct_answer: {correct_option}
     if result is None:
         return None
 
-    result.sources = _sources_for_display(
-        _filter_sources(result.sources, _allowed_sources(rows)), rows
-    )
+    result.sources = _sources_for_display(_claimed_to_ids(result.sources, rows), rows)
     return result
 
 
@@ -351,7 +367,5 @@ TASK: Summarize {scope} for a learner revising it.
     if result is None:
         return None
 
-    result.sources = _sources_for_display(
-        _filter_sources(result.sources, _allowed_sources(rows)), rows
-    )
+    result.sources = _sources_for_display(_claimed_to_ids(result.sources, rows), rows)
     return result

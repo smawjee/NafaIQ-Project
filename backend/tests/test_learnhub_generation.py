@@ -717,3 +717,51 @@ async def test_section_summary_falls_back_to_lesson_when_section_missed(monkeypa
 
     assert "OTHER-CONTENT" in captured["system"], "fell back to lesson rows"
     assert "the lesson" in captured["system"]
+
+
+# --------------------------------------------------------------------------- #
+# The model cites headings, not slugs — resolve both, invent neither.          #
+# --------------------------------------------------------------------------- #
+_ROWS = [
+    {"section_id": "introduction", "heading": "What the P/E Ratio Tells You"},
+    {"section_id": "cheap-vs-expensive", "heading": "Cheap Isn't Always Good"},
+    {"section_id": None, "heading": None},  # a glossary chunk: grounds, uncitable
+]
+
+
+def test_a_claimed_heading_resolves_to_its_section_id():
+    """Live regression (gemini-3.1-flash-lite, 2026-07-16): asked for section_ids,
+    the model answered with the data block's whole header line instead. Every
+    citation was dropped and grounded summaries shipped with no sources."""
+    from app.services.learnhub.generation import _claimed_to_ids
+
+    assert _claimed_to_ids(
+        ["Understanding P/E Ratio | What the P/E Ratio Tells You"], _ROWS
+    ) == ["introduction"]
+    assert _claimed_to_ids(["Cheap Isn't Always Good"], _ROWS) == ["cheap-vs-expensive"]
+    assert _claimed_to_ids(["introduction"], _ROWS) == ["introduction"]
+
+
+def test_an_invented_heading_is_still_dropped():
+    """The whole point of the whitelist: accepting headings must not become a
+    way to smuggle in a citation that was never retrieved."""
+    from app.services.learnhub.generation import _claimed_to_ids
+
+    assert _claimed_to_ids(["A Heading That Was Never Retrieved"], _ROWS) == []
+    assert _claimed_to_ids(["FAKE-ID", "Lesson | Invented Section"], _ROWS) == []
+
+
+def test_a_chunk_without_a_section_id_cannot_be_cited():
+    """glossary_term / lesson_overview rows ground the answer but have no
+    section for the client to deep-link to."""
+    from app.services.learnhub.generation import _claimed_to_ids
+
+    assert _claimed_to_ids(["none", ""], _ROWS) == []
+
+
+def test_claimed_sources_are_deduplicated():
+    from app.services.learnhub.generation import _claimed_to_ids
+
+    assert _claimed_to_ids(
+        ["introduction", "What the P/E Ratio Tells You"], _ROWS
+    ) == ["introduction"]

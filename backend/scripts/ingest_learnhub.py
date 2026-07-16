@@ -77,6 +77,34 @@ def content_hash(chunk: dict[str, Any]) -> str:
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
 
+def is_fresh(
+    chunk: dict[str, Any],
+    existing: dict[str, tuple[str, str, bool]],
+    model: str,
+) -> bool:
+    """Is the stored row for `chunk` already correct — i.e. can we skip embedding it?
+
+    Fresh means content AND model AND still active. All three, because each one
+    alone has silently made ingest a no-op that reported success:
+      * content_hash: the obvious one.
+      * embedding_model: retrieval._vector_arm filters on
+        `embedding_model = :model`, so rows embedded by a previous model match
+        nothing. Changing AI_EMBEDDING_MODEL used to leave the vector arm
+        permanently empty while ingest printed "unchanged".
+      * is_active: the soft delete in main() sets is_active=false but leaves the
+        hash intact, so a chunk that left the corpus and came back looked
+        "unchanged" and was never re-upserted — it stayed invisible forever, and
+        re-running ingest (the recovery the soft delete exists to promise) did
+        not bring it back. Re-embedding a returning chunk is the cost; at this
+        corpus size that is free.
+
+    A tiny function rather than an inline comparison because it is the rule this
+    script is *for*, and it has now been wrong twice. tests/test_learnhub_embed.py
+    pins all three.
+    """
+    return existing.get(chunk["source_id"]) == (chunk["content_hash"], model, True)
+
+
 async def main() -> int:
     if "--skip-export" not in sys.argv:
         run_export()
@@ -98,23 +126,14 @@ async def main() -> int:
     async with connect() as conn:
         res = await conn.execute(
             text(
-                "SELECT source_id, content_hash, embedding_model "
+                "SELECT source_id, content_hash, embedding_model, is_active "
                 "FROM learnhub_knowledge_chunks"
             )
         )
-        existing = {r[0]: (r[1], r[2]) for r in res.fetchall()}
+        existing = {r[0]: (r[1], r[2], r[3]) for r in res.fetchall()}
 
-    # Compare the MODEL too, not just the content hash. retrieval._vector_arm
-    # filters on `embedding_model = :model`, so rows embedded by a previous
-    # model match nothing: changing AI_EMBEDDING_MODEL used to be a silent
-    # no-op here (content unchanged => "unchanged"), leaving the vector arm
-    # permanently empty while ingest reported success.
     model = settings.ai_embedding_model
-    fresh = [
-        c
-        for c in chunks
-        if existing.get(c["source_id"]) != (c["content_hash"], model)
-    ]
+    fresh = [c for c in chunks if not is_fresh(c, existing, model)]
     print(f"-> {len(chunks)} chunks, {len(fresh)} new/changed")
 
     embedded = 0
@@ -204,7 +223,10 @@ async def rebuild_related() -> None:
     """Precompute lesson-to-lesson similarity so /api/learn/related is a plain
     indexed read — no embedding call in the request path, predictable latency.
 
-    Centroid = mean of a lesson's section embeddings, normalized. With ~10
+    Centroid = mean of a lesson's section embeddings. Not normalized, and it
+    does not need to be: pgvector's `<=>` is cosine distance, which divides out
+    both magnitudes, so `1 - (a <=> b)` is true cosine similarity regardless.
+    With ~10
     lessons this is a 10x10 matrix; recomputing it wholesale each ingest is
     cheaper than reasoning about incremental correctness.
     """

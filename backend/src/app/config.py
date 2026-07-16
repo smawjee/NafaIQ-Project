@@ -103,8 +103,10 @@ class Settings(BaseSettings):
     ai_report_deadline_s: float = 90.0
 
     # LearnHub RAG (retrieval over the LearnHub corpus).
-    # Kill switch: off => every /api/learn/* endpoint returns 503 and the UI
-    # hides all RAG affordances. The AI tutor is a separate feature and is
+    # Kill switch: off => search/related return empty results and /api/learn/ai/*
+    # returns 503; the UI hides all RAG affordances either way. Retrieval reads
+    # empty rather than erroring because a reading page must not show an error
+    # box for a discovery affordance. The AI tutor is a separate feature and is
     # unaffected in either state.
     learnhub_rag_enabled: bool = False
     # Embeddings are Gemini-only — Groq has no embeddings API, so there is no

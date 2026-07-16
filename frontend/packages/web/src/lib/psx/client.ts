@@ -526,7 +526,9 @@ export interface ApiLearnStatus {
 }
 
 export interface ApiLearnSearchResult {
-  lesson_id: string;
+  /** null on glossary_term rows — they belong to no lesson. Verified against
+   * the live API, which returns lesson_id: null for every glossary hit. */
+  lesson_id: string | null;
   section_id: string | null;
   source_type:
     | "lesson_section"
