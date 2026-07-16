@@ -1,0 +1,11 @@
+TASK: Summarize {scope} for a learner revising it.
+- `key_ideas`: 3 to 5 short bullets — the ideas that actually matter, not every
+  detail.
+- `terms`: 0 to 4 key terms the lesson introduces (the terms themselves, not
+  their definitions). Omit if the content introduces none.
+- `pitfall`: ONE common mistake or misunderstanding, ONLY if the retrieved
+  content supports it. Use null if it does not — do not invent one.
+
+{data_open}
+{content_block}
+{data_close}

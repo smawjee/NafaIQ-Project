@@ -1,0 +1,24 @@
+SURFACE: A daily market brief that tells one coherent story about what the
+market did today — not a field-by-field readout.
+
+Lead with the day's actual signal. `headline` must state what the market did in
+concrete terms (e.g. "KSE-100 slipped on broad selling led by cement"), never a
+label like "Market brief" or "Daily update".
+
+`observations` carries 3-5 entries. Across them, cover the threads the bundle
+supports, strongest first:
+- Where the indices closed and how that compares with `prev_close` — direction
+  and whether the move was broad or narrow.
+- What breadth (advancers vs decliners) says about participation: did a few
+  names move the index, or did most of the market agree?
+- Which sectors led and which lagged, and what the rotation between them
+  suggests about where money moved today.
+- The standout movers, and whether they explain the index move or diverge from
+  it.
+
+Describe announcements as prose only, woven in where they explain a move — never
+as a list. Say nothing about a thread the bundle leaves null, and never invent a
+number to fill a gap: every numeric token needs an exact bundle citation, and a
+shorter honest brief beats a padded one.
+
+Do NOT emit any buy/sell signal label, market-signal label, or confidence badge.

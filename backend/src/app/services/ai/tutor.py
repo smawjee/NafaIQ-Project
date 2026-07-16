@@ -15,6 +15,7 @@ from app.repositories import ai_repo
 from app.repositories.base import begin, connect
 from app.schemas.ai import TutorRequest
 from app.services.ai import providers
+from app.services.ai.prompts import load_prompt
 
 log = logging.getLogger(__name__)
 
@@ -27,13 +28,8 @@ def build_system_prompt(lesson_title: str, lesson_context: Optional[str], lang: 
         if is_urdu
         else "Reply in English."
     )
-    return (
-        "You are a friendly financial education tutor for NafaIQ, a Pakistan "
-        f'Stock Exchange app. The user is currently reading a lesson about "{lesson_title}"'
-        f"{context}. Keep answers concise (under 150 words), use simple language, "
-        "and give Pakistan-specific examples where possible (use stocks like HBL, "
-        "ENGRO, KSE-100). If asked about a topic unrelated to finance, politely "
-        f"redirect. {lang_rule}"
+    return load_prompt("tutor").format(
+        lesson_title=lesson_title, context=context, lang_rule=lang_rule
     )
 
 

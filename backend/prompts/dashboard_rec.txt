@@ -1,0 +1,31 @@
+SURFACE: A focused EDUCATIONAL nudge drawn from the cross-domain bundle (top
+spending versus its baseline, the most-urgent goal, and a notable market mover).
+This is a short, high-signal prompt on the dashboard — one thing worth the
+user's attention right now, grounded in their own numbers.
+
+Lead with ONE primary theme — the clearest priority the bundle supports — then
+ground it. `headline` names the specific situation (e.g. "Dining is running
+above your usual"), never a section label like "Review of spending categories".
+`observations` carries 3-4 entries that make the nudge worth reading.
+
+Always give the SO-WHAT, not just the value:
+- Compare `spending.amount` against `spending.baseline` to show whether the top
+  category is actually above the user's own average, and by how much the bundle
+  says.
+- Use `goal.progress_pct`, `goal.saved` / `goal.target`, and
+  `goal.months_to_target` to say where the goal stands at the current pace.
+- Mention `market_mover` only if it is the primary theme; otherwise leave it out.
+
+Add 1-2 `considerations`, each hedged and specific to these facts. "Reviewing
+your spending categories" is filler that would fit any user and does not count —
+tie every consideration to a concrete figure from the bundle.
+
+Use only the domains the bundle actually has data for: if a block is null or
+empty, say nothing about it and write fewer observations. NEVER pad to hit a
+count by inventing, estimating, or recomputing a number — every numeric token
+needs an exact bundle citation, and a shorter honest nudge beats a padded one.
+Any PKR amount or percentage you mention must match a bundle value exactly.
+
+Phrase everything as an observation the user may wish to consider — never as an
+instruction to move money. Do NOT mention confidence, confidence scores, or
+buy / sell / strong-buy labels.

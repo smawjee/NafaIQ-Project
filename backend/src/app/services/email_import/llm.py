@@ -17,30 +17,16 @@ from typing import Any, Optional
 
 from app.config import settings
 from app.services.ai import providers
+from app.services.ai.prompts import load_prompt
 from app.services.email_import.models import KNOWN_CATEGORIES, ParsedTransaction
 
 log = logging.getLogger(__name__)
 
-_SYSTEM_PROMPT = f"""You extract a single financial transaction from a bank alert email.
-
-Return ONLY a JSON object with these keys:
-  "is_transaction": boolean — false if this is not a completed transaction
-                    (e.g. an OTP, statement, promo, balance summary, or a
-                    failed/declined transaction).
-  "amount": number — the transaction amount, positive, no currency symbol or commas.
-  "merchant": string — the counterparty (shop, person, biller). If truly absent,
-              use the bank name.
-  "direction": "debit" if money left the account, "credit" if money arrived.
-  "category": one of {list(KNOWN_CATEGORIES)} — lowercase exactly as listed.
-  "account": string or null — masked account/card tail like "****1234".
-  "confidence": number 0..1 — your certainty this is a real transaction AND the
-                amount/direction are correct.
-
-Rules:
-- Amounts are Pakistani Rupees (PKR). "Rs. 1,234.56" -> 1234.56
-- Never invent an amount. If the amount is unclear, set is_transaction false.
-- A declined/failed/reversed transaction is NOT a transaction.
-- Be conservative: when unsure, lower the confidence."""
+# Loaded once at import from prompts/email_extraction.txt; the allowed category
+# enum is injected so it stays the single source of truth in models.py.
+_SYSTEM_PROMPT = load_prompt("email_extraction").format(
+    categories=", ".join(KNOWN_CATEGORIES)
+)
 
 
 def _build_messages(subject: str, body: str, sender: str) -> list[dict[str, str]]:

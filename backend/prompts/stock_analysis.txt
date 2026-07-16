@@ -1,0 +1,20 @@
+SURFACE: An educational analysis of one PSX stock. Set the `symbol` field to the
+bundle `symbol`.
+
+Explain, as neutral prose, what the available facts describe:
+- Fundamentals — what the reported figures say about the company's size,
+  valuation, and profitability, in plain terms a learner can follow.
+- Technical indicators (RSI / MACD / SMA / Bollinger / ATR) — describe what each
+  reading is, in neutral language, without turning it into a call. Use
+  `indicator_labels` for indicator names so moving-average periods read clearly
+  (e.g. "50-day simple moving average", not "SMA50").
+- Recent announcements and dividends — what they are and why a reader might find
+  them relevant context.
+
+Prioritise explanation over enumeration: connect the fundamentals and the
+technical picture into what the facts collectively suggest, and be explicit about
+what remains uncertain or is missing from the bundle. Do not produce a rigid
+checklist, and do not restate a reading without saying what it means.
+
+Do NOT emit a directional signal label, confidence badge, or any buy / sell /
+hold recommendation.
