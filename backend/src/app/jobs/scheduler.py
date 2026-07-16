@@ -186,30 +186,40 @@ async def job_poll_ahletrade():
     if not await _is_market_open():
         return
     try:
-        rows = await select_all("psx_profile", "symbol", order_by="symbol")
-        sym_list = [r["symbol"] for r in rows]
-
         # Poll top 20 by volume (avoid hammering AhleTrade with 500 symbols)
         snapshot = await async_execute(lambda c: c.table("psx_market_snapshot").select("symbol,volume").order("volume", desc=True).limit(20))
-        top_symbols = [r["symbol"] for r in (snapshot.data or [])] or sym_list[:20]
+        top_symbols = [r["symbol"] for r in (snapshot.data or [])]
+        if not top_symbols:
+            # Cold start only — the snapshot is empty until job_refresh_market
+            # has run once. Paging all ~1,076 psx_profile rows costs two
+            # round-trips, so pay for it only when it is actually needed: this
+            # ran on EVERY 5s tick for a fallback that never fired.
+            rows = await select_all("psx_profile", "symbol", order_by="symbol")
+            top_symbols = [r["symbol"] for r in rows][:20]
 
         now = datetime.now(timezone.utc).isoformat()
         rows_to_write = []
 
-        for sym in top_symbols:
+        async def _poll(sym: str) -> None:
             try:
                 trades = await ahletrade.fetch_trades(sym)
                 if trades:
                     last = trades[-1]
+                    # append from concurrent workers is safe: asyncio does not
+                    # preempt between the await and this line.
                     rows_to_write.append({
                         "symbol": sym,
                         "price": last["price"],
                         "volume": last.get("volume", 0),
                         "refreshed_at": now,
                     })
-                    await asyncio.sleep(0.05)
             except Exception:
                 log.debug("ahletrade_poll_symbol_failed", symbol=sym)
+
+        # Concurrent, 5 in flight. Sequentially these 20 calls took ~6.6s and
+        # could never fit the 5s trigger, so APScheduler skipped 11 of every 15
+        # runs. The semaphore is the throttle the old per-call sleep provided.
+        await _run_concurrently(top_symbols, _poll, max_concurrent=5)
 
         if rows_to_write:
             # Phase 0 / B1: AHL writes only {price, volume, refreshed_at}.
