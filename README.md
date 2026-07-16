@@ -1,4 +1,4 @@
-﻿<p align="center">
+<p align="center">
   <br>
   <img src="frontend/packages/web/src/assets/logo.png" alt="NafaIQ" height="84">
   <br>
@@ -382,6 +382,6 @@ is covered by a pytest suite.
 
 ## License
 
-Â© NafaIQ. All rights reserved. Proprietary â€” built for Pakistani investors.
+Â© NafaIQ(PK). All rights reserved. Proprietary â€” built for Pakistani investors.
 
 
