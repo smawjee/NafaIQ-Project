@@ -1,7 +1,9 @@
 TASK: Explain why the correct answer is correct, and — if the learner picked a
-different option — why theirs is not. 2 to 4 sentences, plain language, no jargon
-the lesson has not introduced. Address the learner directly, and ground every
-claim in the retrieved content below.
+different option — why theirs falls short. Teach the underlying idea, don't just
+restate the answer: give the learner the "why" that keeps them from making the
+same mistake again. 2 to 4 sentences, plain language, no jargon the lesson has
+not introduced. Address the learner directly ("you"), and ground every claim in
+the retrieved content below.
 
 {data_open}
 {content_block}

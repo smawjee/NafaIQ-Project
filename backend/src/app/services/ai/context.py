@@ -37,6 +37,7 @@ market_heatmap = importlib.import_module("app.services.market.heatmap")
 market_history = importlib.import_module("app.services.market.history")
 market_quotes = importlib.import_module("app.services.market.quotes")
 portfolio_svc = importlib.import_module("app.services.portfolio.networth")
+portfolio_trades = importlib.import_module("app.services.portfolio.trades")
 sector_map_mod = importlib.import_module("app.services.psx.sector_map")
 
 # Sane bounds for the avg_cost/last-price ratio. A cost basis outside this band
@@ -113,10 +114,13 @@ def _guard_holding(h: dict[str, Any]) -> dict[str, Any]:
         "shares": shares,
         "avg_cost": _sane_avg_cost(h.get("avg_cost"), h.get("current_price")),
         "current_price": _finite(h.get("current_price")),
+        "previous_close": _finite(h.get("previous_close")),
         "market_value": _finite(h.get("market_value")),
         "cost_basis": _finite(h.get("cost_basis")),
         "unrealized_pnl": _finite(h.get("unrealized_pnl")),
         "pnl_pct": _finite(h.get("pnl_pct")),
+        "today_pnl": _finite(h.get("today_pnl")),
+        "today_base": _finite(h.get("today_base")),
     }
 
 
@@ -198,12 +202,27 @@ async def build_market_brief_context(
     gainers = [_mover(s) for s in reversed(by_move[-5:])]
     losers = [_mover(s) for s in by_move[:5]]
 
+    # Every PSX index card, not just KSE100/KSE30 — index_cards() already
+    # returns them all (KMI30, sector/all-share indices, ...).
+    all_indices = [
+        {
+            "code": c.get("code"),
+            "close": _finite(c.get("close")),
+            "prev_close": _finite(c.get("prev_close")),
+            "change": _finite(c.get("change")),
+            "change_pct": _finite(c.get("change_pct")),
+            "date": c.get("date"),
+        }
+        for c in cards
+    ]
+
     return {
         "as_of": _today_str(),
         "indices": {
             "kse100": _index("KSE100", "KSE-100", "KSE 100"),
             "kse30": _index("KSE30", "KSE-30", "KSE 30"),
         },
+        "all_indices": all_indices,
         "movers": {"gainers": gainers, "losers": losers},
         "breadth": {
             "advancers": sum(1 for s in priced if float(s["change_pct"]) > 0),
@@ -217,6 +236,8 @@ async def build_market_brief_context(
             {
                 "title": a.get("title"),
                 "symbol": a.get("symbol"),
+                "category": a.get("category"),
+                "url": a.get("url"),
                 "as_of": a.get("posted_at"),
             }
             for a in announcements
@@ -239,6 +260,7 @@ async def build_stock_analysis_context(
 
     quote = await market_quotes.quote(symbol)
     fundamentals = await market_quotes.fundamentals(symbol)
+    profile = await market_quotes.profile(symbol)
     hist = await market_history.history(symbol, bars_n)
     announcements = await market_quotes.announcements(symbol, 10)
     dividends = await market_quotes.dividends(symbol)
@@ -261,10 +283,34 @@ async def build_stock_analysis_context(
 
     q = _as_dict(quote)
     f = _as_dict(fundamentals)
+    p = _as_dict(profile)
+
+    # Market cap = listed shares x current price. Computed here so it is a real
+    # citable bundle value (the model may not do arithmetic).
+    listed_shares = _finite(p.get("listed_shares"))
+    price = _finite(q.get("price"))
+    market_cap = (
+        round(listed_shares * price, 2)
+        if listed_shares is not None and price is not None
+        else None
+    )
+    # Recent daily closes — the trend behind the indicators. Capped so the
+    # bundle stays lean; the full high/low over the window is in price_range.
+    price_history = [
+        {"date": b.get("date"), "close": _finite(b.get("close")), "volume": b.get("volume")}
+        for b in hist[-30:]
+    ]
 
     return {
         "symbol": symbol,
         "as_of": _today_str(),
+        "profile": {
+            "name": p.get("name"),
+            "sector": p.get("sector"),
+            "listed_shares": listed_shares,
+            "free_float": _finite(p.get("free_float")),
+            "market_cap": market_cap,
+        },
         "quote": {
             "price": _finite(q.get("price")),
             "change": _finite(q.get("change")),
@@ -293,8 +339,15 @@ async def build_stock_analysis_context(
             "period_low": min(lows) if lows else None,
             "bars": len(hist),
         },
+        "price_history": price_history,
         "announcements": [
-            {"title": a.get("title"), "as_of": a.get("posted_at")}
+            {
+                "title": a.get("title"),
+                "symbol": a.get("symbol"),
+                "category": a.get("category"),
+                "url": a.get("url"),
+                "as_of": a.get("posted_at"),
+            }
             for a in announcements
         ],
         "dividends": [
@@ -302,6 +355,7 @@ async def build_stock_analysis_context(
                 "per_share": _finite(d.get("per_share")),
                 "payout_type": d.get("payout_type"),
                 "ex_date": d.get("ex_date"),
+                "announcement_date": d.get("announcement_date"),
                 "bonus_pct": _finite(d.get("bonus_pct")),
             }
             for d in dividends
@@ -323,11 +377,12 @@ async def build_portfolio_context(
     # gather, not sequential awaits: these reads are independent, and run one
     # after another they summed to the user's whole wait. The dashboard nudge
     # measured 15.7s of context for a ~1s LLM call — the spinner WAS this.
-    nw, hist, perf, sector_map, ev = await asyncio.gather(
+    nw, hist, perf, sector_map, txns, ev = await asyncio.gather(
         portfolio_svc.networth(user_id),
         portfolio_svc.portfolio_history(user_id, window),
         portfolio_svc.performance_vs_kse100(user_id, window),
         sector_map_mod.get_sector_map(),
+        portfolio_trades.list_stock_transactions(user_id, 20),
         evidence.retrieve("portfolio holdings", None),
     )
 
@@ -422,7 +477,33 @@ async def build_portfolio_context(
             if trough
             else None,
             "points_count": len(points),
+            # Recent value points (capped) — the path behind start/end/peak/trough.
+            "recent_points": [
+                {"date": p.get("date"), "value": _finite(p.get("value"))}
+                for p in points[-30:]
+            ],
         },
+        # Portfolio value vs the KSE-100 benchmark, date-aligned (capped).
+        "performance_vs_benchmark": [
+            {
+                "date": p.get("date"),
+                "value": _finite(p.get("value")),
+                "benchmark": _finite(p.get("benchmark")),
+            }
+            for p in perf[-30:]
+        ],
+        # Recent trades — how the current position was built.
+        "transactions": [
+            {
+                "symbol": t.get("symbol"),
+                "side": t.get("side"),
+                "quantity": t.get("quantity"),
+                "price": _finite(t.get("price")),
+                "fees": _finite(t.get("fees")),
+                "executed_at": t.get("executed_at"),
+            }
+            for t in (txns or [])
+        ],
         "risk": {
             "diversification": diversification,
             "volatility": volatility,

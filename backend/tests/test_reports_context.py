@@ -182,6 +182,7 @@ async def test_portfolio_bundle_folds_risk_metrics(monkeypatch):
     monkeypatch.setattr(ctx.portfolio_svc, "networth", _async(_networth(holdings)))
     monkeypatch.setattr(ctx.portfolio_svc, "portfolio_history", _async(hist))
     monkeypatch.setattr(ctx.portfolio_svc, "performance_vs_kse100", _async(perf))
+    monkeypatch.setattr(ctx.portfolio_trades, "list_stock_transactions", _async([]))
     monkeypatch.setattr(ctx.sector_map_mod, "get_sector_map",
                         _async({"OGDC": "Oil & Gas", "HBL": "Banking"}))
 
@@ -210,6 +211,7 @@ async def test_portfolio_sanity_guard_omits_bad_avg_cost(monkeypatch):
     monkeypatch.setattr(ctx.portfolio_svc, "portfolio_history",
                         _async({"days": 30, "points": []}))
     monkeypatch.setattr(ctx.portfolio_svc, "performance_vs_kse100", _async([]))
+    monkeypatch.setattr(ctx.portfolio_trades, "list_stock_transactions", _async([]))
     monkeypatch.setattr(ctx.sector_map_mod, "get_sector_map", _async({"OGDC": "Oil & Gas"}))
 
     bundle = await ctx.build_portfolio_context(None, user_id="u1", days=30)
@@ -229,6 +231,7 @@ async def test_portfolio_sparse_history_omits_beta_and_volatility(monkeypatch):
                         _async({"days": 30, "points": [{"date": "d1", "value": 100.0}]}))
     monkeypatch.setattr(ctx.portfolio_svc, "performance_vs_kse100",
                         _async([{"date": "d1", "value": 100.0, "benchmark": 100.0}]))
+    monkeypatch.setattr(ctx.portfolio_trades, "list_stock_transactions", _async([]))
     monkeypatch.setattr(ctx.sector_map_mod, "get_sector_map", _async({"OGDC": "Oil & Gas"}))
 
     bundle = await ctx.build_portfolio_context(None, user_id="u1", days=30)
