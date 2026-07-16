@@ -36,6 +36,7 @@ from app.api import (
     learn_ai,
 )
 from app.jobs.scheduler import close_scrapers, init_scheduler, shutdown_scheduler
+from app.services.ai.providers import close_llm_clients
 from app.middleware.auth import BearerTokenMiddleware
 from app.middleware.rate_limit import limiter
 from app.db.sqlalchemy import ensure_reflected
@@ -87,6 +88,7 @@ async def lifespan(app: FastAPI):
     yield
     shutdown_scheduler()
     await close_scrapers()
+    await close_llm_clients()
     log.info("shutdown")
 
 

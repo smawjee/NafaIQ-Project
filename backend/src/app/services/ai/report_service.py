@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import time
 from datetime import date
 from typing import Any, Optional
 
@@ -85,6 +86,24 @@ async def _generate(spec, **kwargs) -> engine.GeneratedReport:
         raise HTTPException(status_code=503, detail=_UNAVAILABLE)
 
 
+# Failure cooldown — a stampede guard, not state.
+#
+# A failed generation caches nothing, and the dashboard nudge auto-loads on
+# every page open. So during a provider outage each refresh spent another ~13s
+# assembling context and another burst of tokens on a provider already
+# refusing — the outage made itself worse and drained the very daily quota the
+# cache exists to protect. Remember a failure briefly and fail fast.
+#
+# In-process by design: per-worker is enough to stop a refresh loop, and it
+# needs no table, no migration, and no cleanup.
+_FAILURE_COOLDOWN_S = 300.0
+_recent_failures: dict[tuple[Any, ...], float] = {}
+
+
+def _cooldown_key(report_type: str, user_id: Any, subject: Any, lang: str) -> tuple:
+    return (report_type, user_id, subject, lang)
+
+
 async def serve(
     spec,
     *,
@@ -125,14 +144,29 @@ async def serve(
         if not allowed:
             raise HTTPException(status_code=429, detail=_QUOTA_MSG)
 
+    # Nothing cached. Refuse cheaply if this exact report just failed, rather
+    # than rebuilding context and hitting the provider again.
+    ckey = _cooldown_key(spec.report_type, None if mode == SHARED else user_id, subject, lang)
+    until = _recent_failures.get(ckey)
+    if until is not None:
+        if time.monotonic() < until:
+            raise ReportUnavailable(
+                f"{spec.report_type}: generation failed recently; not retrying yet"
+            )
+        del _recent_failures[ckey]
+
     # Generate (the one verified path).
-    gen = await _generate(
-        spec,
-        user_id=None if mode == SHARED else user_id,
-        subject=subject,
-        days=days,
-        lang=lang,
-    )
+    try:
+        gen = await _generate(
+            spec,
+            user_id=None if mode == SHARED else user_id,
+            subject=subject,
+            days=days,
+            lang=lang,
+        )
+    except (ReportUnavailable, ProviderError):
+        _recent_failures[ckey] = time.monotonic() + _FAILURE_COOLDOWN_S
+        raise
     content = gen.report.model_dump()
     context_hash = _context_hash(gen.bundle)
 

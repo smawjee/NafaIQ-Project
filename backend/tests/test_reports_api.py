@@ -408,3 +408,71 @@ def test_serve_uses_a_real_date_so_the_cache_can_match():
         "serve() must hold a date, not a string — see this test's docstring"
     )
     assert "today = date.today()" in src
+
+
+# --------------------------------------------------------------------------- #
+# Failure cooldown — the quota guard                                          #
+# --------------------------------------------------------------------------- #
+async def test_a_failed_report_is_not_regenerated_on_every_page_load(monkeypatch):
+    """The dashboard nudge auto-loads. Without a cooldown, a provider outage
+    meant every refresh rebuilt ~13s of context and spent another burst of
+    tokens on a provider already refusing — draining the daily quota the cache
+    exists to protect."""
+    from app.services.ai import report_service as reports_api
+    from app.services.ai.engine import ReportUnavailable
+    from app.services.ai.specs import REPORT_SPECS
+
+    reports_api._recent_failures.clear()
+    calls = {"n": 0}
+
+    async def _boom(*a, **kw):
+        calls["n"] += 1
+        raise ReportUnavailable("provider is down")
+
+    async def _no_cache(conn, **kw):
+        return None
+
+    monkeypatch.setattr(reports_api, "_generate", _boom)
+    monkeypatch.setattr(reports_api.reports_repo, "get_latest_report", _no_cache)
+
+    user = {"user_id": "u1", "email": "e", "plan": "Free", "features": {}}
+    spec = REPORT_SPECS["dashboard_rec"]
+
+    for _ in range(3):
+        with pytest.raises(ReportUnavailable):
+            await reports_api.serve(spec, mode="user_daily", user=user, lang="en")
+
+    assert calls["n"] == 1, (
+        f"generation ran {calls['n']}x for 3 loads — the cooldown is not holding"
+    )
+    reports_api._recent_failures.clear()
+
+
+async def test_the_cooldown_expires_so_recovery_is_automatic(monkeypatch):
+    """A provider outage must not disable the report until a redeploy."""
+    from app.services.ai import report_service as reports_api
+    from app.services.ai.engine import ReportUnavailable
+    from app.services.ai.specs import REPORT_SPECS
+
+    reports_api._recent_failures.clear()
+    calls = {"n": 0}
+
+    async def _boom(*a, **kw):
+        calls["n"] += 1
+        raise ReportUnavailable("provider is down")
+
+    async def _no_cache(conn, **kw):
+        return None
+
+    monkeypatch.setattr(reports_api, "_generate", _boom)
+    monkeypatch.setattr(reports_api.reports_repo, "get_latest_report", _no_cache)
+    monkeypatch.setattr(reports_api, "_FAILURE_COOLDOWN_S", 0.0)  # expire instantly
+
+    user = {"user_id": "u2", "email": "e", "plan": "Free", "features": {}}
+    spec = REPORT_SPECS["dashboard_rec"]
+    for _ in range(2):
+        with pytest.raises(ReportUnavailable):
+            await reports_api.serve(spec, mode="user_daily", user=user, lang="en")
+
+    assert calls["n"] == 2, "an expired cooldown must allow a fresh attempt"
+    reports_api._recent_failures.clear()
