@@ -518,3 +518,130 @@ export function fetchQuarterlyFinancials(
 ): Promise<ApiFinancialQuarterly[]> {
   return get<ApiFinancialQuarterly[]>(`/api/financials/${symbol}/quarterly?limit=${limit}`);
 }
+
+// === Learn Hub search (RAG) ===
+
+export interface ApiLearnStatus {
+  enabled: boolean;
+}
+
+export interface ApiLearnSearchResult {
+  lesson_id: string;
+  section_id: string | null;
+  source_type:
+    | "lesson_section"
+    | "lesson_overview"
+    | "glossary_term"
+    | "quiz_explanation"
+    | "learning_path";
+  title: string;
+  heading: string | null;
+  snippet_en: string;
+  snippet_ur: string | null;
+  score: number;
+}
+
+export interface ApiLearnSearchResponse {
+  results: ApiLearnSearchResult[];
+}
+
+export function fetchLearnStatus(): Promise<ApiLearnStatus> {
+  return get<ApiLearnStatus>("/api/learn/status");
+}
+
+export function searchLearn(
+  q: string,
+  lang: "en" | "ur",
+  limit = 8,
+): Promise<ApiLearnSearchResponse> {
+  const params = new URLSearchParams();
+  params.set("q", q);
+  params.set("lang", lang);
+  params.set("limit", String(limit));
+  return get<ApiLearnSearchResponse>(`/api/learn/search?${params.toString()}`);
+}
+
+/** Glossary-only search: exact terms land via keyword match, concepts via
+ * embedding similarity. Same result shape as searchLearn. */
+export function searchLearnGlossary(
+  q: string,
+  lang: "en" | "ur",
+  limit = 5,
+): Promise<ApiLearnSearchResponse> {
+  const params = new URLSearchParams();
+  params.set("q", q);
+  params.set("lang", lang);
+  params.set("limit", String(limit));
+  return get<ApiLearnSearchResponse>(`/api/learn/glossary/search?${params.toString()}`);
+}
+
+export interface ApiLearnRelated {
+  lesson_id: string;
+  score: number;
+}
+
+export interface ApiLearnRelatedResponse {
+  results: ApiLearnRelated[];
+}
+
+/** Related lessons by content similarity. Precomputed server-side at ingest,
+ * so this is a plain lookup — no embedding round-trip on the lesson page. */
+export function fetchLearnRelated(lessonId: string, limit = 4): Promise<ApiLearnRelatedResponse> {
+  const params = new URLSearchParams();
+  params.set("lesson_id", lessonId);
+  params.set("limit", String(limit));
+  return get<ApiLearnRelatedResponse>(`/api/learn/related?${params.toString()}`);
+}
+
+// === Learn quiz AI explanation (user-scoped) ===
+
+export interface ApiQuizExplanation {
+  /** null is a normal response — retrieval found nothing to ground on, so the
+   * caller keeps its static explanation. Not an error. */
+  explanation: string | null;
+  /** Cited section headings, possibly empty. */
+  sources: string[];
+}
+
+/**
+ * Grounded, in-depth explanation of one quiz question. Quiz questions have no
+ * stable ids (they're shuffled at render), so the question and option TEXT are
+ * what the server retrieves against. Spends the caller's daily AI budget — fire
+ * only on an explicit learner action.
+ */
+export function fetchQuizExplanation(body: {
+  lessonId: string;
+  question: string;
+  selectedOption: string;
+  correctOption: string;
+  lang: "en" | "ur";
+}): Promise<ApiQuizExplanation> {
+  return userPost<ApiQuizExplanation>("/api/learn/ai/quiz-explanation", body);
+}
+
+// === Learn lesson AI summary (user-scoped) ===
+
+export interface ApiLessonSummary {
+  /** Grounded takeaways. An empty list is a normal response — retrieval found
+   * nothing to summarise — so the caller renders nothing. Not an error. */
+  key_ideas: string[];
+  /** Key terms worth remembering, possibly empty. */
+  terms: string[];
+  /** The single most common misunderstanding, or null when there isn't one. */
+  pitfall: string | null;
+  /** Cited section headings, possibly empty. */
+  sources: string[];
+}
+
+/**
+ * Grounded summary of a lesson, or of one section when `sectionId` is given.
+ * Spends the caller's daily AI budget — fire only on an explicit learner
+ * action, never on page load.
+ */
+export function fetchLessonSummary(body: {
+  lessonId: string;
+  sectionId?: string;
+  lang: "en" | "ur";
+}): Promise<ApiLessonSummary> {
+  return userPost<ApiLessonSummary>("/api/learn/ai/summary", body);
+}

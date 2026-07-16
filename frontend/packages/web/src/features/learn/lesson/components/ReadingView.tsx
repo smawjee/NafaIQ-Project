@@ -7,6 +7,8 @@ import { useLang } from "@/hooks/use-lang";
 import { ACCENT } from "@/features/learn/lesson/lesson.data";
 import { Blocks } from "@/features/learn/lesson/components/Blocks";
 import { VideoPlayer } from "@/features/learn/lesson/components/VideoPlayer";
+import { RelatedLessons } from "@/features/learn/lesson/components/RelatedLessons";
+import { LessonSummaryCard } from "@/features/learn/lesson/components/LessonSummaryCard";
 
 export function ReadingView({
   lesson,
@@ -154,6 +156,9 @@ export function ReadingView({
           <div />
         )}
       </div>
+
+      <LessonSummaryCard lessonId={lesson.id} />
+      <RelatedLessons lessonId={lesson.id} />
     </div>
   );
 }

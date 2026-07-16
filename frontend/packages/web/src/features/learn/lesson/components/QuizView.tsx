@@ -7,6 +7,7 @@ import {
   CheckCircle2,
   ChevronRight,
   Lightbulb,
+  Loader2,
   Sparkles,
   Star,
   Target,
@@ -15,6 +16,9 @@ import {
 } from "lucide-react";
 import { type LessonContent } from "@/lib/learn/data";
 import { useLang } from "@/hooks/use-lang";
+import { useAuth } from "@/hooks/use-auth";
+import { useQuizExplanation } from "@/hooks/learn/use-learn-ai";
+import { useLearnRagStatus } from "@/hooks/learn/use-learn-search";
 import { cn } from "@/lib/utils";
 import { buildShuffled } from "@/features/learn/lesson/lesson.utils";
 
@@ -29,7 +33,10 @@ export function QuizView({
   onBackToHub: () => void;
   onFinish: (correct: number) => void;
 }) {
-  const { t } = useLang();
+  const { t, lang } = useLang();
+  const { user } = useAuth();
+  const { enabled: ragEnabled } = useLearnRagStatus();
+  const explain = useQuizExplanation();
   const [questions] = useState(() => buildShuffled(lesson.quiz));
   const [current, setCurrent] = useState(0);
   const [selected, setSelected] = useState<number | null>(null);
@@ -65,6 +72,29 @@ export function QuizView({
     }, 1000);
     return () => clearInterval(t);
   }, [current, selected, answer]);
+
+  // Each question gets its own AI explanation — drop the previous one when the
+  // learner moves on, so a stale answer never sits under a new question.
+  const { reset: resetExplanation } = explain;
+  useEffect(() => {
+    resetExplanation();
+  }, [current, resetExplanation]);
+
+  // Explicit opt-in only — never fired on render, so answering wrong doesn't
+  // spend the learner's daily AI budget by itself.
+  function requestExplanation() {
+    explain.mutate({
+      lessonId: lesson.id,
+      // Source (English) content text: the questions carry no stable ids, and
+      // this is what the server indexed. `lang` picks the response language.
+      question: q.q.q,
+      // "" when the 30s timer expired without an answer — a real state the
+      // backend accepts and phrases as "ran out of time".
+      selectedOption: selected !== null && selected >= 0 ? q.options[selected].text : "",
+      correctOption: q.options.find((o) => o.isCorrect)?.text ?? "",
+      lang,
+    });
+  }
 
   function nextQuestion() {
     if (current + 1 >= total) {
@@ -260,6 +290,59 @@ export function QuizView({
                   <p className="mt-2 text-sm leading-relaxed text-text-primary">
                     {t(q.q.explanation)}
                   </p>
+
+                  {/* Opt-in deep explanation. The static line above always
+                      stands on its own — everything below is additive, and
+                      silently absent when the flag is off, the user is signed
+                      out, the daily limit is hit, or retrieval finds nothing. */}
+                  {ragEnabled && user && !explain.data && (
+                    <button
+                      onClick={requestExplanation}
+                      disabled={explain.isPending}
+                      className="mt-3 inline-flex items-center gap-1.5 rounded-btn border border-ai/40 bg-ai/10 px-3 py-1.5 text-xs font-semibold text-ai hover:bg-ai/20 disabled:cursor-default disabled:opacity-70"
+                    >
+                      {explain.isPending ? (
+                        <>
+                          <Loader2 className="h-3.5 w-3.5 animate-spin" strokeWidth={2} />
+                          {t("Thinking…")}
+                        </>
+                      ) : (
+                        <>
+                          <Sparkles className="h-3.5 w-3.5" strokeWidth={2} />
+                          {t("Explain in depth")}
+                        </>
+                      )}
+                    </button>
+                  )}
+
+                  {/* The click produced nothing (429 / 401 / retrieval empty /
+                      provider down — the hook collapses them all to
+                      explanation: null). Say so in one muted line: the button
+                      has already disappeared, and silence reads as a broken
+                      feature and invites re-clicks at an endpoint that just
+                      refused. The static explanation above still stands. */}
+                  {explain.data && !explain.data.explanation && (
+                    <p className="mt-3 text-xs text-text-muted">
+                      {t("No AI explanation available right now.")}
+                    </p>
+                  )}
+
+                  {explain.data?.explanation && (
+                    <div className="mt-3 rounded-btn border border-ai/40 bg-ai/10 p-3">
+                      <div className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wide text-ai">
+                        <Sparkles className="h-3.5 w-3.5" strokeWidth={2} />
+                        {t("AI explanation")}
+                      </div>
+                      <p className="mt-1.5 text-sm leading-relaxed text-text-primary">
+                        {explain.data.explanation}
+                      </p>
+                      {explain.data.sources.length > 0 && (
+                        <p className="mt-2 text-[11px] leading-relaxed text-text-muted">
+                          {t("Based on")} {explain.data.sources.join(" · ")}
+                        </p>
+                      )}
+                    </div>
+                  )}
                 </div>
 
                 {isLast && (

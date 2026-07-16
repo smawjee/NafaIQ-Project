@@ -29,8 +29,10 @@ import { EmojiIcon } from "@/components/icons/icons";
 import { LESSONS, GLOSSARY } from "@/lib/finance/data";
 import { LEARNING_PATHS, LESSON_CONTENT, lessonId } from "@/lib/learn/data";
 import { useLearn } from "@/hooks/learn/use-learn";
+import { useGlossarySearch, useLearnRagStatus } from "@/hooks/learn/use-learn-search";
 import { AnimatedBar } from "@/components/shared/CountUpNumber";
 import { useLang } from "@/hooks/use-lang";
+import { LearnSearchBox } from "@/components/learn/LearnSearchBox";
 import { XP_GOAL } from "@/features/learn/hub/hub.data";
 import { StatPill } from "@/features/learn/hub/components/StatPill";
 import { CompletionRing } from "@/features/learn/hub/components/CompletionRing";
@@ -39,7 +41,8 @@ import { FlashcardModal } from "@/features/learn/hub/components/FlashcardModal";
 
 export function LearnHub() {
   const { xp, statusOf, pathProgress } = useLearn();
-  const { t } = useLang();
+  const { enabled: ragSearchEnabled } = useLearnRagStatus();
+  const { t, lang } = useLang();
   const [search, setSearch] = useState("");
   const [flashcards, setFlashcards] = useState(false);
   const [chatOpen, setChatOpen] = useState(false);
@@ -56,6 +59,16 @@ export function LearnHub() {
       t.en.toLowerCase().includes(q) ||
       t.ur.toLowerCase().includes(q) ||
       t.def.toLowerCase().includes(q),
+  );
+
+  // Semantic fallback: the substring filter above stays the instant layer (it
+  // is free and fires on every keystroke); the API is consulted only when that
+  // finds nothing. That is what turns "market dropping a lot" into Bear Market
+  // without spending a request on every character typed.
+  const { results: semanticTerms, loading: semanticLoading } = useGlossarySearch(
+    search,
+    lang,
+    terms.length === 0,
   );
   const xpPct = Math.min(100, Math.round((xp / XP_GOAL) * 100));
 
@@ -84,6 +97,13 @@ export function LearnHub() {
             </div>
           </div>
         </div>
+
+        {/* LearnHub content search — only when the RAG backend flag is on */}
+        {ragSearchEnabled && (
+          <div className="mt-4 max-w-xl">
+            <LearnSearchBox />
+          </div>
+        )}
 
         {/* Learning stats bar */}
         <div className="mt-4 flex flex-wrap gap-2">
@@ -211,7 +231,9 @@ export function LearnHub() {
       </section>
 
       {/* Glossary */}
-      <section>
+      {/* id: LearnSearchBox scrolls glossary hits here — the box lives on this
+          same route, so navigating to /learn would be a no-op. */}
+      <section id="learn-glossary" className="scroll-mt-24">
         <div className="mb-3 flex items-center justify-between gap-2">
           <h3 className="text-sm font-semibold text-text-primary">{t("Glossary")}</h3>
           <button
@@ -249,9 +271,31 @@ export function LearnHub() {
             </AccordionItem>
           ))}
         </Accordion>
-        {terms.length === 0 && (
+        {terms.length === 0 && semanticTerms.length > 0 && (
+          <div className="space-y-2">
+            <p className="text-xs text-text-muted">{t("Closest matches")}</p>
+            {semanticTerms.map((r) => (
+              <div
+                key={r.title}
+                className="rounded-btn border border-border bg-surface px-3 py-2"
+              >
+                <div className="text-sm font-medium text-text-primary">{t(r.title)}</div>
+                <p
+                  className="mt-0.5 text-xs leading-relaxed text-text-secondary"
+                  dir={lang === "ur" && r.snippet_ur ? "rtl" : undefined}
+                >
+                  {/* Snippets are never run through t(): it matches whole
+                      canonical strings, and a partial snippet would fall
+                      through untranslated. The backend ships the Urdu. */}
+                  {lang === "ur" && r.snippet_ur ? r.snippet_ur : r.snippet_en}
+                </p>
+              </div>
+            ))}
+          </div>
+        )}
+        {terms.length === 0 && semanticTerms.length === 0 && (
           <div className="rounded-btn border border-dashed border-border bg-surface p-6 text-center text-sm text-text-muted">
-            {t("No terms found for")} “{search}”
+            {semanticLoading ? t("Searching…") : `${t("No terms found for")} “${search}”`}
           </div>
         )}
       </section>

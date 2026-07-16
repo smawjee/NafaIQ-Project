@@ -86,6 +86,16 @@ export function LessonInner({ lesson }: { lesson: LessonContent }) {
     document.getElementById(secId)?.scrollIntoView({ behavior: "smooth", block: "start" });
   }
 
+  // Deep-link (#section-id, e.g. from LearnHub search) → scroll to it on mount.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const hash = window.location.hash.slice(1);
+    if (!hash) return;
+    const raf = requestAnimationFrame(() => scrollToSection(decodeURIComponent(hash)));
+    return () => cancelAnimationFrame(raf);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   function onQuizFinish(correct: number) {
     const gain = xpForScore(correct, lesson.quiz.length);
     if (correct >= 2) completeLesson(lesson.id, gain);

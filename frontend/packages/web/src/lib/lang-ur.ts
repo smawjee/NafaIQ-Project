@@ -617,4 +617,29 @@ export const UR: Record<string, string> = {
   "User menu": "صارف مینو",
   "Collapse sidebar": "سائڈبار سکیڑیں",
   Collapse: "سکیڑیں",
+
+  // ---- LearnHub RAG search ----
+  "Search LearnHub…": "لرن ہب میں تلاش کریں…",
+  "Searching…": "تلاش جاری ہے…",
+  "No results found": "کوئی نتائج نہیں ملے",
+  Quiz: "کوئز",
+  Path: "راستہ",
+  // Related lessons card + the glossary's semantic fallback.
+  "Related topics": "متعلقہ موضوعات",
+  "No AI explanation available right now.": "ابھی اے آئی وضاحت دستیاب نہیں ہے۔",
+  "Closest matches": "قریب ترین نتائج",
+
+  // ---- Quiz AI explanation (opt-in, on top of the static explanation) ----
+  "Explain in depth": "تفصیل سے سمجھائیں",
+  "AI explanation": "اے آئی وضاحت",
+  "Based on": "ماخذ",
+
+  // ---- Lesson AI summary card (opt-in, end of the reading page) ----
+  "Key ideas from this lesson": "اس سبق کے اہم نکات",
+  "AI generated": "اے آئی سے تیار",
+  "Common mistake": "عام غلطی",
+  "Summarised by AI from this lesson. Not financial advice.":
+    "اس سبق سے اے آئی کے ذریعے خلاصہ۔ یہ مالی مشورہ نہیں ہے۔",
+  "Daily AI limit reached — try again tomorrow.":
+    "آج کی اے آئی حد پوری ہو گئی — کل دوبارہ کوشش کریں۔",
 };
