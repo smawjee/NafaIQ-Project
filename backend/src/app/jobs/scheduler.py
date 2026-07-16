@@ -796,8 +796,15 @@ async def job_refresh_dividends():
             try:
                 events = await dps.fetch_payouts(sym)
                 if events:
-                    rows = [
-                        {
+                    # Keyed by announcement_id, not a list comprehension: DPS
+                    # returns the same announcement twice for some symbols, and
+                    # Postgres rejects the whole batch with 21000 "ON CONFLICT
+                    # DO UPDATE command cannot affect row a second time" when
+                    # two proposed rows share the conflict target. Last one wins
+                    # — the duplicates observed are identical payouts, so which
+                    # survives does not matter; failing the symbol does.
+                    rows_by_id = {
+                        e.announcement_id: {
                             "announcement_id": e.announcement_id,
                             "symbol": e.symbol,
                             "ex_date": e.ex_date.isoformat() if e.ex_date else None,
@@ -808,7 +815,8 @@ async def job_refresh_dividends():
                             "refreshed_at": datetime.now(timezone.utc).isoformat(),
                         }
                         for e in events
-                    ]
+                    }
+                    rows = list(rows_by_id.values())
                     await async_execute(lambda c, r=rows: c.table("psx_dividends").upsert(r, on_conflict="announcement_id"))
                     total += len(rows)
             except asyncio.CancelledError:
