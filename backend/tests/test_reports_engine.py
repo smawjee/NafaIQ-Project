@@ -285,3 +285,102 @@ def test_replace_orphan_in_text_returns_text_when_orphan_missing():
 
     out = _replace_orphan_in_text("No numbers here.", 42.0)
     assert out == "No numbers here."
+
+
+# --------------------------------------------------------------------------- #
+# dashboard_rec view_target follows the narrative, not the bundle              #
+# --------------------------------------------------------------------------- #
+def test_view_target_follows_what_the_report_cites():
+    """A nudge whose text is entirely about spending must not send the reader to
+    a stock page just because the bundle happened to carry a market mover."""
+    from app.schemas.reports import Citation, DashboardRecReport
+    from app.services.ai.engine import _dashboard_view_target
+
+    bundle = {
+        "spending": {"top_category": "transfer", "amount": 51000.0},
+        "market_mover": {"symbol": "SHNI", "change_pct": 7.5},
+    }
+    spending_nudge = DashboardRecReport(
+        headline="Transfers are your largest category",
+        observations=["Transfers total 51000."],
+        disclaimer="Educational information only. Not financial advice.",
+        citations=[
+            Citation(value=51000.0, source_key="spending.amount", as_of="2026-07-16")
+        ],
+    )
+    assert _dashboard_view_target(bundle, spending_nudge) == "/finance"
+
+    mover_nudge = DashboardRecReport(
+        headline="SHNI moved sharply today",
+        observations=["SHNI changed 7.5%."],
+        disclaimer="Educational information only. Not financial advice.",
+        citations=[
+            Citation(value=7.5, source_key="market_mover.change_pct", as_of="2026-07-16")
+        ],
+    )
+    assert _dashboard_view_target(bundle, mover_nudge) == "/stock/SHNI"
+
+
+def test_view_target_falls_back_to_bundle_priority_without_citations():
+    from app.schemas.reports import DashboardRecReport
+    from app.services.ai.engine import _dashboard_view_target
+
+    bundle = {"market_mover": {"symbol": "ogdc"}}
+    qualitative = DashboardRecReport(
+        headline="A general nudge",
+        observations=["No numbers here."],
+        disclaimer="Educational information only. Not financial advice.",
+        citations=[],
+    )
+    assert _dashboard_view_target(bundle, qualitative) == "/stock/OGDC"
+    assert _dashboard_view_target({}, qualitative) is None
+
+
+def test_a_passing_market_mention_does_not_hijack_the_view_target():
+    """Observed live: a nudge about a 51,000 spending overage closed by noting
+    SHNI moved 10.53%, and the single market_mover citation sent the button to
+    /stock/SHNI. The dominant domain must win, not the loudest one."""
+    from app.schemas.reports import Citation, DashboardRecReport
+    from app.services.ai.engine import _dashboard_view_target
+
+    bundle = {
+        "spending": {"top_category": "transfer", "amount": 51000.0},
+        "goal": {"name": "Car"},
+        "market_mover": {"symbol": "SHNI", "change_pct": 10.53},
+    }
+    report = DashboardRecReport(
+        headline="High spending in transfer category",
+        observations=["Transfers hit 51000 against a 20178.67 baseline."],
+        disclaimer="Educational information only. Not financial advice.",
+        citations=[
+            Citation(value=51000.0, source_key="spending.amount", as_of="2026-07-16"),
+            Citation(value=20178.67, source_key="spending.baseline", as_of="2026-07-16"),
+            Citation(value=50000.0, source_key="goal.target", as_of="2026-07-16"),
+            Citation(value=0.0, source_key="goal.saved", as_of="2026-07-16"),
+            Citation(value=-12536.0, source_key="goal.monthly_rate", as_of="2026-07-16"),
+            Citation(value=0.0, source_key="goal.progress_pct", as_of="2026-07-16"),
+            Citation(value=10.53, source_key="market_mover.change_pct", as_of="2026-07-16"),
+        ],
+    )
+    assert _dashboard_view_target(bundle, report) == "/finance"
+
+
+def test_a_genuinely_market_led_nudge_still_routes_to_the_stock():
+    from app.schemas.reports import Citation, DashboardRecReport
+    from app.services.ai.engine import _dashboard_view_target
+
+    bundle = {
+        "spending": {"top_category": "transfer", "amount": 51000.0},
+        "market_mover": {"symbol": "SHNI", "change_pct": 10.53},
+    }
+    report = DashboardRecReport(
+        headline="SHNI moved sharply on heavy volume",
+        observations=["SHNI changed 10.53% at 10.5 on volume of 7462017."],
+        disclaimer="Educational information only. Not financial advice.",
+        citations=[
+            Citation(value=10.53, source_key="market_mover.change_pct", as_of="2026-07-16"),
+            Citation(value=10.5, source_key="market_mover.price", as_of="2026-07-16"),
+            Citation(value=51000.0, source_key="spending.amount", as_of="2026-07-16"),
+        ],
+    )
+    assert _dashboard_view_target(bundle, report) == "/stock/SHNI"

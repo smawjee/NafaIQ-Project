@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import asyncio
 import time
+from collections import OrderedDict
 from typing import Any, Optional
 
 import structlog
@@ -55,6 +56,38 @@ _ARM_LIMIT = 20
 # materially. This number is empirical, not a law — test_relevance_floor pins it.
 _MAX_COSINE_DISTANCE = 0.448
 
+# What the floor above was measured against. `ai_embedding_model` and
+# `ai_embedding_dim` are env-overridable, so changing either in Railway moves
+# every distance in the index while 0.448 stays put — the floor silently starts
+# cutting real matches or waving through noise, with nothing in the logs. The
+# number is only meaningful next to the pair it was calibrated on, so they live
+# together and check_relevance_floor_calibration() (called from the app
+# lifespan) shouts if they drift apart.
+_CALIBRATED_MODEL = "gemini-embedding-001"
+_CALIBRATED_DIM = 768
+
+
+def check_relevance_floor_calibration() -> Optional[str]:
+    """Warn if the embedding config no longer matches the floor's calibration.
+
+    Returns the warning message, or None when the config is as calibrated.
+    Warns rather than raises: a wrong floor degrades search quality, it does not
+    corrupt anything, and refusing to boot the whole API over a LearnHub tuning
+    constant is a worse failure than serving slightly-off search.
+    """
+    if (
+        settings.ai_embedding_model == _CALIBRATED_MODEL
+        and settings.ai_embedding_dim == _CALIBRATED_DIM
+    ):
+        return None
+    return (
+        f"_MAX_COSINE_DISTANCE={_MAX_COSINE_DISTANCE} was calibrated on "
+        f"{_CALIBRATED_MODEL}@{_CALIBRATED_DIM}, but the config is "
+        f"{settings.ai_embedding_model}@{settings.ai_embedding_dim}. The "
+        "relevance floor is now unverified — re-measure it with PARAPHRASE "
+        "queries (see the comment above it) and update the constants together."
+    )
+
 # Related-lessons floor: cosine SIMILARITY (not distance) below this is "these
 # merely share a domain", not "related".
 #
@@ -85,13 +118,48 @@ def _mode_clause(mode: str, lesson_id: Optional[str]) -> tuple[str, dict[str, An
     return "", {}
 
 
-async def _vector_arm(query: str, clause: str, params: dict) -> list[dict]:
+# Query-embedding cache. `search` is public and unauthenticated (learn.py), one
+# Gemini embedding per call, and learners repeat each other: the same handful of
+# queries drained the free-tier key pool, at which point _vector_arm's except
+# silently degraded everyone to keyword-only and logged a warning nobody reads.
+#
+# Safe to cache forever: a query's vector depends only on the text and the model,
+# and the model is fixed for the process lifetime. Bounded LRU so a scripted
+# flood of unique queries can't grow it without limit.
+_QUERY_VEC_CACHE: "OrderedDict[str, list[float]]" = OrderedDict()
+_QUERY_VEC_CACHE_MAX = 512
+
+
+async def _embed_query(query: str) -> list[float]:
+    key = query.lower()
+    cached = _QUERY_VEC_CACHE.get(key)
+    if cached is not None:
+        _QUERY_VEC_CACHE.move_to_end(key)
+        return cached
+    [vec] = await embed_gemini([query])
+    _QUERY_VEC_CACHE[key] = vec
+    if len(_QUERY_VEC_CACHE) > _QUERY_VEC_CACHE_MAX:
+        _QUERY_VEC_CACHE.popitem(last=False)
+    return vec
+
+
+async def _vector_arm(query: str, clause: str, params: dict) -> Optional[list[dict]]:
+    """Ranked rows above the relevance floor, or None if the query could not be
+    embedded at all.
+
+    None vs [] is the whole point, and returning [] for both was a bug: []
+    is a VERDICT ("the corpus has nothing relevant to this"), None is an
+    OUTAGE ("we don't know"). Fused together they were indistinguishable, so an
+    off-topic query — where the vector arm had correctly decided nothing was
+    relevant — still surfaced whatever keyword the FTS arm happened to match.
+    See search() for what each one licenses.
+    """
     try:
-        [vec] = await embed_gemini([query])
+        vec = await _embed_query(query)
     except Exception:
         # Keyword search still works; log and let the FTS arm carry it.
         log.warning("learn_query_embed_failed", exc_info=True)
-        return []
+        return None
     literal = "[" + ",".join(f"{x:.7f}" for x in vec) + "]"
     async with connect() as conn:
         res = await conn.execute(
@@ -173,6 +241,24 @@ async def search(
         log.warning("learn_search_failed", mode=mode, exc_info=True)
         return []
 
+    # The vector arm is the only arm with a calibrated relevance floor; the FTS
+    # arm matches any shared keyword and cannot tell "the P/E lesson is about
+    # this" from "the P/E lesson contains the word 'price'". So when the vector
+    # arm ran and cleared nothing, that is a positive off-topic verdict and the
+    # FTS rows are noise — return the honest empty state the docstring promises,
+    # which is also what makes generation.py's `if not rows` guard fire instead
+    # of grounding an answer on an unrelated chunk.
+    #
+    # None is different: the embedding never happened, so there is no verdict to
+    # act on and FTS-only remains the designed fallback.
+    embed_ok = vector_rows is not None
+    if embed_ok and not vector_rows:
+        log.info("learn_search", mode=mode, hits=0, vector_hits=0,
+                 fts_hits=len(fts_rows), off_topic=True,
+                 latency_ms=int((time.perf_counter() - started) * 1000))
+        return []
+    vector_rows = vector_rows or []
+
     fused: dict[int, dict[str, Any]] = {}
     for rank, row in enumerate(vector_rows):
         fused.setdefault(row["id"], {"row": row, "score": 0.0})["score"] += 1.0 / (_RRF_K + rank + 1)
@@ -211,6 +297,9 @@ async def search(
         hits=len(results),
         vector_hits=len(vector_rows),
         fts_hits=len(fts_rows),
+        # Distinguishes a real hybrid result from a keyword-only one served
+        # during an embedding outage — the degradation that used to be invisible.
+        embed_ok=embed_ok,
         latency_ms=int((time.perf_counter() - started) * 1000),
     )
     return results

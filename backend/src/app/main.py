@@ -37,6 +37,7 @@ from app.api import (
 )
 from app.jobs.scheduler import close_scrapers, init_scheduler, shutdown_scheduler
 from app.services.ai.providers import close_llm_clients
+from app.services.learnhub.retrieval import check_relevance_floor_calibration
 from app.middleware.auth import BearerTokenMiddleware
 from app.middleware.rate_limit import limiter
 from app.db.sqlalchemy import ensure_reflected
@@ -82,6 +83,9 @@ log = structlog.get_logger()
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     log.info("startup", port=settings.port)
+    drift = check_relevance_floor_calibration()
+    if drift:
+        log.warning("learnhub_relevance_floor_uncalibrated", detail=drift)
     await ensure_reflected()
     init_scheduler()
     await _check_history_coverage()

@@ -194,14 +194,36 @@ export function generateFinanceReport(lang?: string): Promise<ReportResponse> {
   return userPostReport(withLang(`/api/ai/report/finance`, lang));
 }
 
-/** Daily-cached dashboard nudge. Server returns the latest persisted row. */
-export function getDashboardRecommendation(lang?: string): Promise<ReportResponse> {
-  return userGetReport(withLang("/api/ai/report/dashboard-recommendation", lang));
+/**
+ * Daily-cached dashboard nudge. Server returns the latest persisted row.
+ *
+ * `refresh` bypasses that row and regenerates. It is NOT free — the server
+ * spends one unit of the Portfolio/Finance report quota and answers 429 when
+ * that runs out — so it must only ever be sent for a deliberate user action,
+ * never from a retry, a refetch, or a mount effect.
+ */
+export function getDashboardRecommendation(
+  lang?: string,
+  refresh = false,
+): Promise<ReportResponse> {
+  const path = refresh
+    ? "/api/ai/report/dashboard-recommendation?refresh=true"
+    : "/api/ai/report/dashboard-recommendation";
+  return userGetReport(withLang(path, lang));
 }
 
-/** Shared daily market brief. Server caches per trading date across all users. */
-export function getMarketBrief(lang?: string): Promise<ReportResponse> {
-  return userGetReport(withLang("/api/ai/report/market-brief", lang));
+/**
+ * Shared daily market brief. Server caches per trading date across all users.
+ *
+ * `refresh` forces a new generation. Unlike the dashboard recommendation nudge,
+ * it is FREE — no per-user quota hit — because the market brief is a shared
+ * resource, not a per-user deep report.
+ */
+export function getMarketBrief(lang?: string, refresh = false): Promise<ReportResponse> {
+  const path = refresh
+    ? "/api/ai/report/market-brief?refresh=true"
+    : "/api/ai/report/market-brief";
+  return userGetReport(withLang(path, lang));
 }
 
 /** Per-symbol stock analysis. The backend POSTs to stock/{symbol} so we POST. */

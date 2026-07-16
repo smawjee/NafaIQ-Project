@@ -311,3 +311,86 @@ def test_related_floor_sits_above_the_domain_baseline():
         f"floor {retrieval._MIN_RELATED_SCORE} outside the measured gap — "
         "re-measure against learnhub_related before changing it"
     )
+
+
+# --------------------------------------------------------------------------- #
+# Off-topic verdict vs embedding outage                                       #
+# --------------------------------------------------------------------------- #
+async def test_off_topic_query_returns_empty_even_when_fts_matches_a_keyword(
+    monkeypatch,
+):
+    """The vector arm ran and cleared nothing: that is a verdict, not an outage.
+
+    The FTS arm has no relevance floor, so "the price of milk" still matches the
+    word "price" in the P/E lesson. Serving that is worse than nothing — it is
+    what generation.py would then ground an answer on.
+    """
+    _patch_arms(monkeypatch, [], [_row(1, lesson_id="pe-ratio")])
+    assert await retrieval.search("what is the price of milk") == []
+
+
+async def test_embedding_outage_still_serves_fts_only(monkeypatch):
+    """None (couldn't embed) must NOT be read as the off-topic verdict above —
+    keyword search is the designed fallback and has to survive."""
+    async def _vec(query, clause, params):
+        return None
+
+    async def _fts(query, clause, params):
+        return [_row(1)]
+
+    monkeypatch.setattr(retrieval, "_vector_arm", _vec)
+    monkeypatch.setattr(retrieval, "_fts_arm", _fts)
+    assert len(await retrieval.search("dividend")) == 1
+
+
+# --------------------------------------------------------------------------- #
+# Query-embedding cache                                                       #
+# --------------------------------------------------------------------------- #
+async def test_repeat_query_does_not_re_embed(monkeypatch):
+    """search is public and unauthenticated; the same query must cost one
+    embedding, not one per request."""
+    retrieval._QUERY_VEC_CACHE.clear()
+    calls = []
+
+    async def _embed(texts):
+        calls.append(texts)
+        return [[0.1] * settings.ai_embedding_dim]
+
+    monkeypatch.setattr(retrieval, "embed_gemini", _embed)
+    for _ in range(3):
+        await retrieval._embed_query("what is a dividend")
+    assert len(calls) == 1
+
+
+async def test_query_cache_is_bounded(monkeypatch):
+    """A flood of unique queries must evict, not grow forever."""
+    retrieval._QUERY_VEC_CACHE.clear()
+
+    async def _embed(texts):
+        return [[0.1] * settings.ai_embedding_dim]
+
+    monkeypatch.setattr(retrieval, "embed_gemini", _embed)
+    for i in range(retrieval._QUERY_VEC_CACHE_MAX + 25):
+        await retrieval._embed_query(f"query number {i}")
+    assert len(retrieval._QUERY_VEC_CACHE) <= retrieval._QUERY_VEC_CACHE_MAX
+
+
+# --------------------------------------------------------------------------- #
+# Relevance-floor calibration guard                                            #
+# --------------------------------------------------------------------------- #
+def test_calibration_guard_silent_when_config_matches(monkeypatch):
+    monkeypatch.setattr(settings, "ai_embedding_model", retrieval._CALIBRATED_MODEL)
+    monkeypatch.setattr(settings, "ai_embedding_dim", retrieval._CALIBRATED_DIM)
+    assert retrieval.check_relevance_floor_calibration() is None
+
+
+def test_calibration_guard_fires_when_model_or_dim_drifts(monkeypatch):
+    """0.448 is empirical. Changing the model/dim in Railway moves every distance
+    in the index while the floor stays put — that must not be silent."""
+    monkeypatch.setattr(settings, "ai_embedding_model", "some-other-embedder")
+    monkeypatch.setattr(settings, "ai_embedding_dim", retrieval._CALIBRATED_DIM)
+    assert "unverified" in (retrieval.check_relevance_floor_calibration() or "")
+
+    monkeypatch.setattr(settings, "ai_embedding_model", retrieval._CALIBRATED_MODEL)
+    monkeypatch.setattr(settings, "ai_embedding_dim", 1536)
+    assert "unverified" in (retrieval.check_relevance_floor_calibration() or "")

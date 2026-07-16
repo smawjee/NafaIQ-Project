@@ -284,6 +284,15 @@ def stream_groq(
     )
 
 
+# Both providers default to temperature=1.0, which is a creative-writing
+# default applied to two jobs that are not creative writing: extracting fields
+# from a bank email, and restating numbers that already exist in a bundle. It
+# was never set, so every report and every parse ran at full sampling entropy —
+# the direct cause of invented numbers that verify_report then rejects, and each
+# rejection costs a whole second generation. 0 is the right default for both.
+_EXTRACTION_TEMPERATURE = 0.0
+
+
 # ===========================================================================
 # One-shot JSON completions — used by the bank-email transaction parser
 # ===========================================================================
@@ -319,6 +328,7 @@ async def _complete_json(
                 messages=messages,  # type: ignore[arg-type]
                 stream=False,
                 response_format={"type": "json_object"},
+                temperature=_EXTRACTION_TEMPERATURE,
             )
         except (openai.OpenAIError, httpx.HTTPError) as e:
             last = e
@@ -645,7 +655,12 @@ async def generate_structured(
     A spent or dead key rotates to the next one in the provider's pool (the
     whole report is rebuilt from scratch, which is safe: nothing is emitted
     until the object validates). max_retries is Instructor's *schema* retry
-    budget and is unrelated — it applies afresh to each key."""
+    budget and is unrelated — it applies afresh to each key.
+
+    temperature defaults to 0: a report restates numbers that are already in the
+    bundle, and verify_report rejects any it invents. setdefault, not a fixed
+    kwarg, so a caller that wants sampling can still ask for it."""
+    kwargs.setdefault("temperature", _EXTRACTION_TEMPERATURE)
     started = time.perf_counter()
     tokens: Optional[int] = None
     try:

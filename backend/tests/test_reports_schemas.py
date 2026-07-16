@@ -107,3 +107,37 @@ def test_verification_result_model():
     ])
     assert vr.verified is False
     assert vr.mismatches[0].source_key == "x"
+
+
+def test_narrative_report_rejects_empty_observations():
+    """NarrativeReport surfaces MUST carry >=1 observation, or they render
+    as a headline with no body while passing verification (no numbers to
+    mismatch)."""
+    from app.schemas.reports import DashboardRecReport, MarketBriefReport
+
+    base = {"disclaimer": "test", "headline": "test"}
+    with pytest.raises(ValidationError, match="observations must not be empty"):
+        MarketBriefReport(**base, observations=[])
+    with pytest.raises(ValidationError, match="observations must not be empty"):
+        DashboardRecReport(**base, observations=[])
+
+
+def test_narrative_report_accepts_a_single_observation():
+    from app.schemas.reports import DashboardRecReport, MarketBriefReport
+
+    base = {"disclaimer": "test", "headline": "test", "observations": ["one fact"]}
+    assert MarketBriefReport(**base).observations == ["one fact"]
+    assert DashboardRecReport(**base).observations == ["one fact"]
+
+
+def test_narrative_report_requires_at_least_one_observation():
+    """NarrativeReport normalises None -> [], then the validator runs, so
+    omitting observations also raises — there is no 'just default to empty'
+    path for a narrative surface (it would render as headline + nothing)."""
+    from app.schemas.reports import DashboardRecReport, MarketBriefReport
+
+    base = {"disclaimer": "test", "headline": "test"}
+    with pytest.raises(ValidationError, match="observations must not be empty"):
+        MarketBriefReport(**base)
+    with pytest.raises(ValidationError, match="observations must not be empty"):
+        DashboardRecReport(**base)

@@ -31,6 +31,48 @@ CORPUS = BACKEND / "data" / "learn_corpus.json"
 # Small enough that one 429 rotation re-does little work.
 _EMBED_BATCH = 32
 
+# gemini-embedding-001 truncates input past ~2048 tokens SERVER-SIDE and says
+# nothing about it: the call returns 200 with a valid-looking vector that simply
+# doesn't cover the tail. The chunk would then be stored whole (and fed whole
+# into the LLM prompt by generation.py) while being unretrievable by its own
+# ending — a chunk that looks ingested and isn't.
+#
+# Measured 2026-07-16: the largest text in the corpus is ~231 tokens, 11% of the
+# limit, so nothing is near it today and no splitter/overlap is warranted. This
+# is the tripwire for the day someone writes a very long section: fail the
+# ingest loudly instead of silently half-indexing it. If it ever fires, THAT is
+# when to split sections into sub-chunks with overlap.
+#
+# ~4 chars/token is deliberately crude and deliberately conservative: it
+# over-estimates for English prose, and the point is to trip early with room to
+# spare, not to meter tokens precisely.
+_EMBED_TOKEN_LIMIT = 2048
+_CHARS_PER_TOKEN = 4
+
+
+def check_chunk_sizes(chunks: list[dict[str, Any]]) -> None:
+    """Refuse to ingest a chunk the embedder would silently truncate."""
+    limit_chars = _EMBED_TOKEN_LIMIT * _CHARS_PER_TOKEN
+    oversize = [
+        (c["source_id"], field, len(c.get(field) or ""))
+        for c in chunks
+        for field in ("text_en", "text_ur")
+        if len(c.get(field) or "") > limit_chars
+    ]
+    if oversize:
+        for source_id, field, size in oversize:
+            print(
+                f"  OVERSIZE {source_id}.{field}: {size} chars "
+                f"(~{size // _CHARS_PER_TOKEN} tokens > {_EMBED_TOKEN_LIMIT})",
+                file=sys.stderr,
+            )
+        raise SystemExit(
+            f"{len(oversize)} chunk text(s) exceed the embedding token limit. "
+            "The embedder would truncate these silently, indexing only the "
+            "opening of each. Split the section into smaller sections, or add "
+            "sub-chunking with overlap to the exporter."
+        )
+
 
 def run_export() -> None:
     """Regenerate learn_corpus.json from the TypeScript source of truth."""
@@ -64,7 +106,17 @@ def load_corpus() -> list[dict[str, Any]]:
 def content_hash(chunk: dict[str, Any]) -> str:
     """Covers everything that would change retrieval or display. text_ur is
     included so an Urdu-only fix reaches the served snippet — it costs a
-    re-embed of one chunk, which at this corpus size is free."""
+    re-embed of one chunk, which at this corpus size is free.
+
+    lesson_id / section_id / source_type are in here because they are ROUTING,
+    not decoration, and omitting them made this hash lie: retrieval filters on
+    lesson_id (MODE_LESSON) and source_type (MODE_GLOSSARY), and generation
+    builds citation deep-links from lesson_id + section_id. Re-key a section in
+    the TS source without touching its prose and the payload was byte-identical,
+    so is_fresh() said "unchanged", the upsert was skipped, and the DB kept the
+    dead ids — scoped search matching nothing and citations 404-ing, with ingest
+    reporting success both times.
+    """
     payload = "|".join(
         [
             chunk["source_id"],
@@ -72,6 +124,9 @@ def content_hash(chunk: dict[str, Any]) -> str:
             chunk.get("text_ur") or "",
             chunk.get("title") or "",
             chunk.get("heading") or "",
+            chunk.get("source_type") or "",
+            chunk.get("lesson_id") or "",
+            chunk.get("section_id") or "",
         ]
     )
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()
@@ -120,6 +175,7 @@ async def main() -> int:
         return 1
 
     chunks = load_corpus()
+    check_chunk_sizes(chunks)
     for c in chunks:
         c["content_hash"] = content_hash(c)
 
@@ -210,7 +266,7 @@ async def main() -> int:
         )
         deactivated = res.rowcount or 0
 
-    await rebuild_related()
+    await rebuild_related(model)
 
     print(
         f"done: total={len(chunks)} embedded={embedded} "
@@ -219,9 +275,16 @@ async def main() -> int:
     return 0
 
 
-async def rebuild_related() -> None:
+async def rebuild_related(model: str) -> None:
     """Precompute lesson-to-lesson similarity so /api/learn/related is a plain
     indexed read — no embedding call in the request path, predictable latency.
+
+    Scoped to ONE embedding_model, like retrieval._vector_arm — vectors from two
+    models live in different spaces, so averaging across them yields a centroid
+    that means nothing. It doesn't error, though: the scores still land above
+    _MIN_RELATED_SCORE, so "Related topics" renders confident garbage. That was
+    reachable any time an ingest 429'd part-way through a model change, leaving
+    the table mixed while a re-run fixed only the chunks.
 
     Centroid = mean of a lesson's section embeddings. Not normalized, and it
     does not need to be: pgvector's `<=>` is cosine distance, which divides out
@@ -242,10 +305,12 @@ async def rebuild_related() -> None:
                 FROM learnhub_knowledge_chunks
                 WHERE is_active AND embedding IS NOT NULL
                   AND lesson_id IS NOT NULL
+                  AND embedding_model = :model
                   AND source_type IN ('lesson_section', 'lesson_overview')
                 GROUP BY lesson_id
                 """
-            )
+            ),
+            {"model": model},
         )
         centroids = {r[0]: r[1] for r in res.fetchall()}
 
@@ -268,12 +333,13 @@ async def rebuild_related() -> None:
                         WHERE is_active AND embedding IS NOT NULL
                           AND lesson_id IS NOT NULL
                           AND lesson_id <> :lesson_id
+                          AND embedding_model = :model
                           AND source_type IN ('lesson_section', 'lesson_overview')
                         GROUP BY lesson_id
                     ) x
                     """
                 ),
-                {"lesson_id": lesson_id, "centroid": centroid},
+                {"lesson_id": lesson_id, "centroid": centroid, "model": model},
             )
     print(f"  related: rebuilt for {len(centroids)} lessons")
 

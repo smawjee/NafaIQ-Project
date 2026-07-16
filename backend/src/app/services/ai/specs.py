@@ -105,10 +105,17 @@ REPORT_SPECS: dict[str, ReportSpec] = {
         context_builder=ctx.build_market_brief_context,
         prompt_template=_prompt(
             "daily market analyst",
-            "SURFACE: A short daily market brief. Summarize the index moves, "
+            "SURFACE: A daily market brief. Summarize the index moves, "
             "breadth (advancers vs decliners), the notable sector rotation and "
             "the top movers from the bundle. Describe announcements as prose "
             "only. Prefer one coherent market story over a field-by-field list. "
+            "`headline` states what the market actually did today (not the label "
+            "'Market brief'), and `observations` carries 3-5 entries: where the "
+            "indices closed and how that compares with `prev_close`, what "
+            "breadth says about participation, which sectors led or lagged, and "
+            "the standout movers. Write nothing about a block the bundle leaves "
+            "null, and never invent a number to fill one — every numeric token "
+            "needs an exact bundle citation. "
             "Do NOT emit any buy/sell signal label, market signal label, or "
             "confidence badge.",
         ),
@@ -209,14 +216,30 @@ REPORT_SPECS: dict[str, ReportSpec] = {
         context_builder=ctx.build_dashboard_rec_context,
         prompt_template=_prompt(
             "financial wellbeing coach",
-            "SURFACE: One single highest-impact EDUCATIONAL nudge drawn from the "
-            "cross-domain bundle (top spending deviation, most-urgent goal, a "
-            "notable market mover). Any PKR amount or percentage you mention must "
-            "match a bundle value exactly. Phrase the nudge as an observation the "
-            "user may wish to consider — never as an instruction to move money. "
-            "Choose one theme only and make it specific to the user's current "
-            "facts; do not rotate between generic savings, investing, and budget "
-            "tips when the bundle points to a clearer priority. Do NOT mention "
+            "SURFACE: A focused EDUCATIONAL nudge drawn from the cross-domain "
+            "bundle (top spending vs its baseline, most-urgent goal, a notable "
+            "market mover). Lead with ONE primary theme — the clearest priority "
+            "the bundle supports — then GROUND it: `headline` names the specific "
+            "situation (not a section label like 'Review of spending "
+            "categories'), and `observations` carries 3-4 entries that make the "
+            "nudge worth reading. "
+            "Give the reader the SO-WHAT, not just the value: compare "
+            "`spending.amount` against `spending.baseline` to show whether the "
+            "top category is actually above the user's own average; use "
+            "`goal.progress_pct`, `goal.saved`/`goal.target` and "
+            "`goal.months_to_target` to say where the goal stands at the current "
+            "rate; mention `market_mover` only if it is the primary theme. "
+            "Add 1-2 `considerations`, each hedged, and make them specific to "
+            "these facts — 'reviewing your spending categories' is filler that "
+            "would fit any user and does not count. "
+            "Only use the domains the bundle actually has data for: if a block "
+            "is null or empty, say nothing about it and write fewer "
+            "observations. NEVER pad to hit a count by inventing, estimating, or "
+            "recomputing a number — every numeric token still needs an exact "
+            "bundle citation, and a shorter honest nudge beats a padded one. "
+            "Any PKR amount or percentage you mention must match a bundle value "
+            "exactly. Phrase everything as an observation the user may wish to "
+            "consider — never as an instruction to move money. Do NOT mention "
             "confidence, confidence scores, or buy/sell/strong-buy labels.",
         ),
     ),

@@ -119,7 +119,36 @@ class ReportBase(BaseModel):
         return self
 
 
-class MarketBriefReport(ReportBase):
+class NarrativeReport(ReportBase):
+    """A surface whose entire body IS `observations` — market brief, dashboard
+    nudge. Unlike finance/portfolio, these have no sections to fall back on.
+
+    So `observations` cannot be empty here. It has no floor on ReportBase (where
+    Optional/None is right, because the section-based surfaces don't use it), and
+    the result was a report that renders as a headline, a disclaimer, and nothing
+    else — served, and then CACHED for the rest of the day. Observed live on
+    2026-07-16: a dashboard_rec came back with 0 observations and 7 citations,
+    and passed §5 verification trivially, because a narrative with no numbers in
+    it has no numbers to catch.
+
+    This raises inside Instructor's retry budget, so a thin draft is re-asked
+    with the error attached rather than 503-ing the surface. One observation is
+    always possible: an empty bundle still supports "no activity recorded yet",
+    which needs no number and so invents nothing.
+    """
+
+    @model_validator(mode="after")
+    def _require_a_narrative(self) -> "NarrativeReport":
+        if not self.observations:
+            raise ValueError(
+                "observations must not be empty: this report has no other body, "
+                "so an empty list renders as a headline with no content. Write "
+                "at least one factual observation grounded in the bundle."
+            )
+        return self
+
+
+class MarketBriefReport(NarrativeReport):
     report_type: Literal["market_brief"] = "market_brief"
 
 
@@ -204,7 +233,7 @@ class FinanceReport(ReportBase):
         return self
 
 
-class DashboardRecReport(ReportBase):
+class DashboardRecReport(NarrativeReport):
     report_type: Literal["dashboard_rec"] = "dashboard_rec"
     confidence: Optional[float] = None
     view_target: Optional[str] = None

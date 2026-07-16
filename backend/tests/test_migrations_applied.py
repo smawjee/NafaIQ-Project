@@ -288,6 +288,34 @@ CHECKS: List[MigrationCheck] = [
                   "SELECT (COUNT(*) > 0)::int FROM _applied_migrations"),
         ],
     ),
+    MigrationCheck(
+        filename="20260716160000_ai_reports_shared_unique_nulls_restore.sql",
+        description=(
+            "Shared-report dedup index must treat NULL subjects as EQUAL. "
+            "This has now been reverted once (20260716150000 re-keyed the index "
+            "for lang and dropped NULLS NOT DISTINCT), which let three 'unique' "
+            "market_brief rows coexist for one day and served the newest. There "
+            "was no check here to catch it — that is why this one exists."
+        ),
+        checks=[
+            Check(
+                "shared unique index treats NULL subject as NOT DISTINCT",
+                "SELECT 1 FROM pg_indexes WHERE tablename='ai_reports' "
+                "AND indexname='uq_ai_reports_shared_subject_date_lang' "
+                "AND indexdef ILIKE '%NULLS NOT DISTINCT%'",
+                "Without this, market_brief (subject IS NULL) never dedupes and "
+                "get_or_create_shared's ON CONFLICT silently does nothing.",
+            ),
+            Check(
+                "no duplicate shared rows per (report_type, subject, date, lang)",
+                "SELECT NOT EXISTS (SELECT 1 FROM ai_reports WHERE user_id IS NULL "
+                "GROUP BY report_type, subject, trading_date, lang "
+                "HAVING COUNT(*) > 1)",
+                "Duplicates mean the index is not enforcing; the newest wins and "
+                "shadows the real report.",
+            ),
+        ],
+    ),
 ]
 
 

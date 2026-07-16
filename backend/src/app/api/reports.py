@@ -25,9 +25,21 @@ router = APIRouter(tags=["ai-reports"])
 async def market_brief(
     user: Annotated[dict, Depends(require_user)],
     lang: Optional[str] = None,
+    refresh: bool = False,
 ) -> ReportResponse:
+    """Shared daily market brief. `refresh=true` regenerates it on demand.
+
+    The auto-load path reads the latest shared row cached per trading date.
+    A manual refresh produces a new row — free (no per-user quota hit) because
+    the market brief is a shared resource, not a per-user deep report that
+    costs quota to generate.
+    """
     return await report_service.serve(
-        REPORT_SPECS["market_brief"], mode=SHARED, user=user, lang=resolve_lang(lang)
+        REPORT_SPECS["market_brief"],
+        mode=SHARED,
+        user=user,
+        lang=resolve_lang(lang),
+        force=refresh,
     )
 
 
@@ -75,10 +87,20 @@ async def finance_report(
 async def dashboard_recommendation(
     user: Annotated[dict, Depends(require_user)],
     lang: Optional[str] = None,
+    refresh: bool = False,
 ) -> ReportResponse:
+    """The daily nudge. `refresh=true` regenerates it on demand.
+
+    The auto-load path is free because it reads the day's cached row. An
+    on-demand refresh cannot be: it is a real generation, triggered by a button
+    a user can click all afternoon. So it spends one unit of the same
+    Portfolio/Finance report quota and returns 429 when that is gone — the
+    button is available, not unlimited.
+    """
     return await report_service.serve(
         REPORT_SPECS["dashboard_rec"],
         mode=USER_DAILY,
         user=user,
         lang=resolve_lang(lang),
+        force=refresh,
     )

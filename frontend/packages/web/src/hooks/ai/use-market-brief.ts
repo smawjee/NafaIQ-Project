@@ -1,9 +1,4 @@
-/**
- * useMarketBrief — shared daily market brief (`GET /api/ai/report/market-brief`).
- * The report is SHARED (no user data), and the server caches it per trading
- * date, so every reader within a day hits the cache rather than the model.
- */
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useLang } from "@/hooks/use-lang";
 import { getMarketBrief, type ReportResponse, ReportError } from "@/lib/ai/reports-client";
 
@@ -11,8 +6,11 @@ const ONE_DAY_MS = 24 * 60 * 60 * 1000;
 
 export function useMarketBrief(enabled = true) {
   const { lang } = useLang();
-  return useQuery<ReportResponse, ReportError>({
-    queryKey: ["ai", "market-brief", lang],
+  const queryClient = useQueryClient();
+  const queryKey = ["ai", "market-brief", lang];
+
+  const query = useQuery<ReportResponse, ReportError>({
+    queryKey,
     queryFn: () => getMarketBrief(lang),
     enabled,
     staleTime: ONE_DAY_MS,
@@ -28,4 +26,17 @@ export function useMarketBrief(enabled = true) {
       return false;
     },
   });
+
+  const refresh = useMutation<ReportResponse, ReportError>({
+    mutationFn: () => getMarketBrief(lang, true),
+    retry: false,
+    onSuccess: (data) => queryClient.setQueryData(queryKey, data),
+  });
+
+  return {
+    ...query,
+    refresh: refresh.mutate,
+    isRefreshing: refresh.isPending,
+    refreshError: refresh.error,
+  };
 }

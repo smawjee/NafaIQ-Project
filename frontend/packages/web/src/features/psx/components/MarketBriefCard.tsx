@@ -10,7 +10,7 @@
  * "NOT emit any buy/sell signal label or confidence badge", so showing one here
  * would contradict the report it is displaying.
  */
-import { Sparkles } from "lucide-react";
+import { RotateCw, Sparkles } from "lucide-react";
 import { useLang } from "@/hooks/use-lang";
 import { useMarketBrief } from "@/hooks/ai/use-market-brief";
 import { reportErrorKey, ReportError } from "@/lib/ai/reports-client";
@@ -19,6 +19,7 @@ import { AiReportView } from "@/components/ai/AiReportView";
 export function MarketBriefCard() {
   const { t } = useLang();
   const query = useMarketBrief();
+  const { refresh, isRefreshing, refreshError } = query;
   const data = query.data?.content;
   const error = query.error;
 
@@ -63,10 +64,26 @@ export function MarketBriefCard() {
 
   return shell(
     <>
-      <div className="flex items-center gap-2 text-sm font-semibold text-ai">
-        <Sparkles className="h-4 w-4" />
-        {t("AI Analysis")}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2 text-sm font-semibold text-ai">
+          <Sparkles className="h-4 w-4" />
+          {t("AI Analysis")}
+        </div>
+        <button
+          onClick={() => refresh()}
+          disabled={isRefreshing}
+          aria-label={t("Refresh market brief")}
+          className="inline-flex items-center gap-1.5 rounded-lg px-2 py-1 text-xs text-text-muted transition hover:bg-white/[0.04] hover:text-text-primary disabled:opacity-50"
+        >
+          <RotateCw className={`h-3 w-3 ${isRefreshing ? "animate-spin" : ""}`} strokeWidth={1.75} />
+          {isRefreshing ? t("Refreshing…") : t("Refresh")}
+        </button>
       </div>
+      {refreshError && (
+        <p role="status" className="mt-1 text-[11px] text-text-muted">
+          {t(reportErrorKey(refreshError))}
+        </p>
+      )}
       <div className="mt-2">
         <AiReportView report={data} variant="narrative" />
       </div>

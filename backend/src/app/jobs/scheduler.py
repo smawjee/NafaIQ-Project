@@ -789,11 +789,18 @@ async def job_refresh_financials_5y():
 
 
 async def job_refresh_dividends():
-    """Fetch dividend payouts for all known symbols from DPS."""
+    """Fetch dividend payouts for all known symbols from DPS concurrently.
+
+    Sequential processing took ~9 min for ~1000 symbols (0.5s sleep + network
+    round-trip per call). Concurrency with max_concurrent=3 cuts it to ~3 min,
+    which is fast enough for a daily 05:30 PKT cron run on Railway. The old
+    ``next_run_time=datetime.now(PTK_TZ)`` startup trigger was removed because
+    an immediate 9-min crawl at boot prevents the server from becoming ready
+    while holding the lifespan host, and DPS is unreachable from some developer
+    network environments.
+    """
     log.info("job:refresh_dividends:start")
     try:
-        # Reuse the module-level scraper: constructing one per run leaked an
-        # httpx.AsyncClient (and its pool) on every invocation.
         symbols = await _get_all_symbols()
         if not symbols:
             log.warning("job:refresh_dividends:no_symbols")
@@ -802,9 +809,9 @@ async def job_refresh_dividends():
             )
             return
 
-        total = 0
-        errors = 0
-        for sym in symbols:
+        counters = {"total": 0, "errors": 0}
+
+        async def _per_symbol(sym: str) -> None:
             try:
                 events = await dps.fetch_payouts(sym)
                 if events:
@@ -829,25 +836,28 @@ async def job_refresh_dividends():
                         for e in events
                     }
                     rows = list(rows_by_id.values())
-                    await async_execute(lambda c, r=rows: c.table("psx_dividends").upsert(r, on_conflict="announcement_id"))
-                    total += len(rows)
+                    await async_execute(
+                        lambda c, r=rows: c.table("psx_dividends").upsert(r, on_conflict="announcement_id")
+                    )
+                    counters["total"] += len(rows)
             except asyncio.CancelledError:
-                # Expected on graceful shutdown — do not count as a symbol error.
-                log.info("job:refresh_dividends:cancelled", processed=total)
                 raise
             except Exception as e:
-                errors += 1
+                counters["errors"] += 1
                 log.warning("job:refresh_dividends:symbol_failed", symbol=sym, error=str(e))
-            await asyncio.sleep(0.5)
 
-        log.info("job:refresh_dividends:done", total=total, errors=errors)
-        # Only green when every symbol succeeded — otherwise the health row
-        # claims the source is fine while most of the market failed.
+        await _run_concurrently(symbols, _per_symbol, max_concurrent=3)
+
+        log.info(
+            "job:refresh_dividends:done",
+            total=counters["total"],
+            errors=counters["errors"],
+        )
         await _record_health(
             "refresh_dividends",
-            success=errors == 0,
-            rows_updated=total,
-            error=None if errors == 0 else f"{errors}/{len(symbols)} symbols failed",
+            success=counters["errors"] == 0,
+            rows_updated=counters["total"],
+            error=None if counters["errors"] == 0 else f"{counters['errors']}/{len(symbols)} symbols failed",
         )
     except asyncio.CancelledError:
         raise
@@ -941,20 +951,17 @@ def init_scheduler():
         id="refresh_financials_5y",
         replace_existing=True,
     )
-    # Dividends refresh: daily, with an immediate first run on startup so the
-    # frontend dividend page shows real data on first request.
-    # Cadence rationale: a sweep is ~500 symbols with a 0.5s delay each (~4 min
-    # and ~500 requests to dps.psx.com.pk). Dividends change a few times per
-    # quarter per symbol, so the old 30-min interval meant ~24k requests/day for
-    # data that barely moves — daily is ample and matches the other
-    # fundamentals-style jobs (refresh_fundamentals, financials_5y are weekly).
+    # Dividends refresh: daily at 5:30 AM PKT. Removed from the startup path
+    # (~1076 sequential HTTP calls with 0.5s delay = ~9 min) because DPS is
+    # unreachable from some network environments, which hung the whole backend.
+    # The deployed Railway instance has reliable DPS connectivity and the
+    # 5:30 AM run populates data before market hours.
     scheduler.add_job(
         job_refresh_dividends,
         CronTrigger(hour=5, minute=30, timezone="Asia/Karachi"),
         id="refresh_dividends",
         replace_existing=True,
         misfire_grace_time=3600,
-        next_run_time=datetime.now(PTK_TZ),
     )
     # Bank-email transaction import poller (from dev). Gated on config so it
     # never runs unless Gmail OAuth + the encryption key are set.

@@ -8,9 +8,9 @@
  * `variant` controls rendering density:
  *   - "compact"   (default): bullets, full report (considerations + citations + disclaimer)
  *   - "narrative":          paragraphs, full report
- *   - "nudge":              paragraphs only (no considerations, no citations) — for
- *                           dashboard recommendation cards where the surface
- *                           promise is a single observation, not a deep report.
+ *   - "nudge":              paragraphs, considerations + disclaimer (no
+ *                           citations, no deep sections) — for dashboard
+ *                           recommendation cards.
  */
 import { useLang } from "@/hooks/use-lang";
 import type { ReportCitation, ReportContent, ReportMetric, ReportSection } from "@/lib/ai/reports-client";
@@ -138,7 +138,7 @@ export function AiReportView({
         </section>
       )}
 
-      {showDeep && report.considerations?.length > 0 && (
+      {report.considerations?.length > 0 && (
         <div className="space-y-2">
           <h4 className="text-xs font-semibold uppercase tracking-wide text-text-muted">
             {t("Things to consider")}

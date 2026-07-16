@@ -10,11 +10,13 @@ Three persistence modes:
 """
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import json
 import time
+from contextlib import asynccontextmanager
 from datetime import date
-from typing import Any, Optional
+from typing import Any, AsyncIterator, Optional
 
 from fastapi import HTTPException
 
@@ -104,6 +106,63 @@ def _cooldown_key(report_type: str, user_id: Any, subject: Any, lang: str) -> tu
     return (report_type, user_id, subject, lang)
 
 
+# Single-flight — the cache dedupes reads, this dedupes generations.
+#
+# The cached row only exists AFTER a ~13s generation finishes, so every request
+# that arrives during that window misses the cache and generates its own copy.
+# For the daily nudge that's a second tab; for the SHARED market brief it's
+# every user who opens the dashboard at 09:30, each burning a full generation to
+# produce a row that get_or_create_shared then throws away. Serialize on the
+# cache key and re-check the cache after the wait: the winner pays once, the
+# queue reads the row.
+#
+# In-process, same as _recent_failures: per-worker is enough to collapse a
+# stampede, and it needs no table, no migration, no cleanup.
+_inflight: dict[tuple[Any, ...], asyncio.Lock] = {}
+
+
+@asynccontextmanager
+async def _single_flight(key: tuple[Any, ...]) -> AsyncIterator[None]:
+    lock = _inflight.get(key)
+    if lock is None:
+        lock = _inflight[key] = asyncio.Lock()
+    try:
+        async with lock:
+            yield
+    finally:
+        # Release hands the lock straight to a waiter, so locked() still being
+        # True means someone is queued behind us and the entry must survive.
+        # Last one out drops it, or the dict grows a key per user forever.
+        if not lock.locked() and _inflight.get(key) is lock:
+            del _inflight[key]
+
+
+async def _cached_today(
+    spec, *, mode: str, user_id: Any, subject: Optional[str], lang: str, today: date
+) -> Optional[ReportResponse]:
+    """Today's cached row for the cache-backed modes, else None.
+
+    USER_QUOTA has no daily cache (each request is a fresh deep report the user
+    spends quota on), so it never hits the DB here.
+    """
+    if mode == SHARED:
+        async with connect() as conn:
+            cached = await reports_repo.get_latest_report(
+                conn, user_id=None, report_type=spec.report_type,
+                subject=subject, lang=lang,
+            )
+    elif mode == USER_DAILY:
+        async with connect() as conn:
+            cached = await reports_repo.get_latest_report(
+                conn, user_id=user_id, report_type=spec.report_type, lang=lang
+            )
+    else:
+        return None
+    if cached and cached.get("trading_date") == today:
+        return _from_row(cached, spec.report_type)
+    return None
+
+
 async def serve(
     spec,
     *,
@@ -112,8 +171,18 @@ async def serve(
     lang: str,
     subject: Optional[str] = None,
     days: Optional[int] = None,
+    force: bool = False,
 ) -> ReportResponse:
-    """The one serve path: cache check -> engine -> persist -> response."""
+    """The one serve path: cache check -> engine -> persist -> response.
+
+    `force` is the manual-refresh switch (USER_DAILY only): skip the day's
+    cached row and generate a new one. It is quota-gated exactly like a deep
+    report — a button the user can click repeatedly must cost something, or it
+    is just the stampede the cache exists to prevent, wearing a nicer hat. It
+    also clears the failure cooldown, because an explicit human retry is a
+    legitimate signal that the outage may be over, and the quota is what stops
+    that from becoming a retry loop.
+    """
     # A date, NOT an isoformat string. This one value feeds three places, and
     # as a string it broke all three: asyncpg refused to bind it to the
     # trading_date DATE column ("'str' object has no attribute 'toordinal'"),
@@ -123,30 +192,70 @@ async def serve(
     today = date.today()
     user_id = user["user_id"]
 
-    # Serve today's cached row if we have one; quota-gate the per-user modes.
-    if mode == SHARED:
-        async with connect() as conn:
-            cached = await reports_repo.get_latest_report(
-                conn, user_id=None, report_type=spec.report_type,
-                subject=subject, lang=lang,
-            )
-        if cached and cached.get("trading_date") == today:
-            return _from_row(cached, spec.report_type)
-    elif mode == USER_DAILY:
-        async with connect() as conn:
-            cached = await reports_repo.get_latest_report(
-                conn, user_id=user_id, report_type=spec.report_type, lang=lang
-            )
-        if cached and cached.get("trading_date") == today:
-            return _from_row(cached, spec.report_type)
-    elif mode == USER_QUOTA:
+    # force skips the day's cached row. For USER_DAILY (dashboard rec) it also
+    # spends quota. For SHARED (market brief) it regenerates the shared row
+    # without a quota hit — no per-user resource to exhaust.
+    force = force and mode in (USER_DAILY, SHARED)
+
+    if not force:
+        cached = await _cached_today(
+            spec, mode=mode, user_id=user_id, subject=subject, lang=lang, today=today
+        )
+        if cached:
+            return cached
+
+    # A manual refresh (USER_DAILY) spends quota like a deep report; so does
+    # USER_QUOTA.  SHARED (market-brief) refreshes are free — no per-user
+    # resource to exhaust.
+    if mode == USER_QUOTA or (force and mode == USER_DAILY):
         allowed, _used, _limit = await quota.check_report_quota(user)
         if not allowed:
             raise HTTPException(status_code=429, detail=_QUOTA_MSG)
 
-    # Nothing cached. Refuse cheaply if this exact report just failed, rather
-    # than rebuilding context and hitting the provider again.
     ckey = _cooldown_key(spec.report_type, None if mode == SHARED else user_id, subject, lang)
+    if force:
+        # An explicit human retry outranks the stampede guard — see serve()'s
+        # docstring. The quota check above is what keeps this from looping.
+        _recent_failures.pop(ckey, None)
+
+    async with _single_flight(ckey):
+        # Whoever we queued behind has written the row by now — read it instead
+        # of generating a second identical copy. This is the line that turns a
+        # dashboard-open stampede into one generation. Skipped on force: the
+        # caller is paying to bypass exactly this row.
+        if not force:
+            cached = await _cached_today(
+                spec, mode=mode, user_id=user_id, subject=subject, lang=lang, today=today
+            )
+            if cached:
+                return cached
+
+        return await _generate_and_store(
+            spec, mode=mode, user_id=user_id, subject=subject, days=days,
+            lang=lang, today=today, ckey=ckey,
+            count_usage=force and mode == USER_DAILY,
+        )
+
+
+async def _generate_and_store(
+    spec,
+    *,
+    mode: str,
+    user_id: Any,
+    subject: Optional[str],
+    days: Optional[int],
+    lang: str,
+    ckey: tuple[Any, ...],
+    today: date,
+    count_usage: bool = False,
+) -> ReportResponse:
+    """Generate one report and persist it. Callers hold the single-flight lock.
+
+    `count_usage` charges the quota counter for a mode that normally doesn't —
+    i.e. a forced USER_DAILY refresh.
+    """
+    # Refuse cheaply if this exact report just failed, rather than rebuilding
+    # context and hitting the provider again.
     until = _recent_failures.get(ckey)
     if until is not None:
         if time.monotonic() < until:
@@ -192,8 +301,9 @@ async def serve(
         )
 
     # Per-user modes: insert + prune (confidential rows must never grow unbounded).
-    # Usage is counted only for the quota surfaces — the daily dashboard nudge must
-    # not eat into the Portfolio/Finance limit.
+    # Usage is counted for the quota surfaces and for a forced refresh — the
+    # AUTO-LOADED daily nudge is the thing that must not eat the
+    # Portfolio/Finance limit; a nudge the user asked to regenerate is not free.
     async with begin() as conn:
         row = await reports_repo.insert_report(
             conn,
@@ -209,7 +319,7 @@ async def serve(
             model=gen.model,
             trading_date=today if mode == USER_DAILY else None,
         )
-        if mode == USER_QUOTA:
+        if mode == USER_QUOTA or count_usage:
             await reports_repo.increment_report_usage(conn, user_id)
         await reports_repo.prune_reports(conn, user_id, spec.report_type)
 

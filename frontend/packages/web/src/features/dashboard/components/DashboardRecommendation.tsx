@@ -12,11 +12,12 @@
  * query stops refetching for the rest of the session.
  */
 import { Link } from "@tanstack/react-router";
-import { Sparkles, ExternalLink } from "lucide-react";
+import { Sparkles, ExternalLink, RotateCw } from "lucide-react";
 import { useLang } from "@/hooks/use-lang";
 import { useDashboardRecommendation } from "@/hooks/ai/use-dashboard-recommendation";
 import { reportErrorKey, ReportError } from "@/lib/ai/reports-client";
 import { AiReportView } from "@/components/ai/AiReportView";
+import { viewTargetLink } from "./view-target";
 import type { ReactNode } from "react";
 
 export function DashboardRecommendation({
@@ -31,7 +32,10 @@ export function DashboardRecommendation({
   const { t } = useLang();
   const query = useDashboardRecommendation(enabled);
   const data = query.data?.content;
+  // A failed refresh must not blank out the nudge we already have on screen —
+  // surface it next to the button and leave the report rendered.
   const error = query.error;
+  const { refresh, isRefreshing, refreshError } = query;
 
   if (!enabled) return null;
 
@@ -104,16 +108,33 @@ export function DashboardRecommendation({
           <div className="mt-2">
             <AiReportView report={data} variant="nudge" />
           </div>
+          {refreshError && (
+            <p role="status" className="mt-2 text-[11px] text-text-muted">
+              {t(reportErrorKey(refreshError))}
+            </p>
+          )}
         </div>
         <div className="flex shrink-0 flex-col items-stretch gap-2 md:items-end">
           {rightSlot ?? (
             <Link
-              to={data.view_target || "/finance"}
+              {...viewTargetLink(data.view_target)}
               className="inline-flex items-center gap-1.5 self-start rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground transition hover:brightness-110 md:self-auto"
             >
               <ExternalLink className="h-3.5 w-3.5" /> {t("View")}
             </Link>
           )}
+          <button
+            onClick={() => refresh()}
+            disabled={isRefreshing}
+            aria-label={t("Refresh recommendation")}
+            className="inline-flex items-center gap-1.5 self-start rounded-lg px-3 py-1.5 text-xs text-text-muted transition hover:bg-white/[0.04] hover:text-text-primary disabled:opacity-50 md:self-auto"
+          >
+            <RotateCw
+              className={`h-3.5 w-3.5 ${isRefreshing ? "animate-spin" : ""}`}
+              strokeWidth={1.75}
+            />
+            {isRefreshing ? t("Refreshing…") : t("Refresh")}
+          </button>
           {onDismiss && (
             <button
               onClick={onDismiss}

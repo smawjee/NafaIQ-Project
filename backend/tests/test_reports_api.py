@@ -476,3 +476,177 @@ async def test_the_cooldown_expires_so_recovery_is_automatic(monkeypatch):
 
     assert calls["n"] == 2, "an expired cooldown must allow a fresh attempt"
     reports_api._recent_failures.clear()
+
+
+async def test_concurrent_loads_collapse_to_one_generation(monkeypatch):
+    """The cache dedupes READS; this pins that generation is deduped too.
+
+    The cached row only exists after a ~13s generation, so every request landing
+    in that window used to miss the cache and generate its own copy. Two tabs
+    double the nudge; for the SHARED market brief every user opening the
+    dashboard at 09:30 burned a full generation to produce a row
+    get_or_create_shared then discarded.
+    """
+    import asyncio as _asyncio
+    import datetime as _dt
+
+    from app.services.ai import report_service as reports_api
+    from app.schemas.reports import DashboardRecReport
+    from app.services.ai.specs import REPORT_SPECS
+
+    reports_api._recent_failures.clear()
+    reports_api._inflight.clear()
+    today = _dt.date.today()
+    dr = DashboardRecReport(
+        headline="Daily nudge",
+        observations=["Educational nudge."],
+        disclaimer="Educational information only. Not financial advice.",
+        citations=[],
+    )
+    store: dict[str, object] = {"row": None}
+    gen_calls = {"n": 0}
+
+    async def _slow_generate(spec, **kw):
+        gen_calls["n"] += 1
+        await _asyncio.sleep(0.05)  # the window every racer used to slip through
+        return _gen_result(report=dr, provider="groq", model="llama")
+
+    async def _latest(conn, **kw):
+        return store["row"]
+
+    async def _insert(conn, **kw):
+        store["row"] = {
+            "content": kw["content"], "provider": kw["provider"], "model": kw["model"],
+            "verified": kw["verified"], "trading_date": today,
+            "created_at": "2026-07-16T00:00:00",
+        }
+        return {"id": 1, "created_at": "2026-07-16T00:00:00"}
+
+    async def _noop(*a, **kw):
+        return None
+
+    monkeypatch.setattr(reports_api, "_generate", _slow_generate)
+    monkeypatch.setattr(reports_api.reports_repo, "get_latest_report", _latest)
+    monkeypatch.setattr(reports_api.reports_repo, "insert_report", _insert)
+    monkeypatch.setattr(reports_api.reports_repo, "prune_reports", _noop)
+    monkeypatch.setattr(reports_api, "begin", lambda *a, **k: _fake_cm())
+    monkeypatch.setattr(reports_api, "connect", lambda *a, **k: _fake_cm())
+
+    user = {"user_id": "u1", "email": "e", "plan": "Free", "features": {}}
+    spec = REPORT_SPECS["dashboard_rec"]
+
+    results = await _asyncio.gather(
+        *(reports_api.serve(spec, mode="user_daily", user=user, lang="en") for _ in range(5))
+    )
+
+    assert gen_calls["n"] == 1, (
+        f"5 concurrent loads ran {gen_calls['n']} generations — single-flight is not holding"
+    )
+    assert all(r.content["headline"] == "Daily nudge" for r in results), (
+        "every racer must still get the report, not an error"
+    )
+    assert not reports_api._inflight, "the lock entry leaked — _inflight grows per user forever"
+
+
+async def test_manual_refresh_bypasses_the_daily_cache_and_costs_quota(monkeypatch):
+    """The refresh button must actually regenerate — and must not be free.
+
+    The auto-load path is free because it reads the day's row. A button a user
+    can click all afternoon cannot be, or it is the stampede the cache exists to
+    prevent wearing a nicer hat. So it spends the deep-report quota.
+    """
+    import datetime as _dt
+
+    from app.services.ai import report_service as reports_api
+    from app.schemas.reports import DashboardRecReport
+    from app.services.ai.specs import REPORT_SPECS
+
+    reports_api._recent_failures.clear()
+    reports_api._inflight.clear()
+    today = _dt.date.today()
+    dr = DashboardRecReport(
+        headline="Daily nudge",
+        observations=["Educational nudge."],
+        disclaimer="Educational information only. Not financial advice.",
+        citations=[],
+    )
+    gen_calls = {"n": 0}
+    usage = {"increment": 0}
+
+    async def _fake_generate(spec, **kw):
+        gen_calls["n"] += 1
+        return _gen_result(report=dr, provider="groq", model="llama")
+
+    # A cached row for today already exists — the whole point is bypassing it.
+    async def _latest(conn, **kw):
+        return {
+            "content": dr.model_dump(), "provider": "groq", "model": "llama",
+            "verified": True, "trading_date": today,
+            "created_at": "2026-07-16T00:00:00",
+        }
+
+    async def _insert(conn, **kw):
+        return {"id": 1, "created_at": "2026-07-16T00:00:00"}
+
+    async def _increment(conn, uid):
+        usage["increment"] += 1
+
+    async def _noop(*a, **kw):
+        return None
+
+    async def _quota_ok(user):
+        return True, 0, 3
+
+    monkeypatch.setattr(reports_api, "_generate", _fake_generate)
+    monkeypatch.setattr(reports_api.quota, "check_report_quota", _quota_ok)
+    monkeypatch.setattr(reports_api.reports_repo, "get_latest_report", _latest)
+    monkeypatch.setattr(reports_api.reports_repo, "insert_report", _insert)
+    monkeypatch.setattr(reports_api.reports_repo, "increment_report_usage", _increment)
+    monkeypatch.setattr(reports_api.reports_repo, "prune_reports", _noop)
+    monkeypatch.setattr(reports_api, "begin", lambda *a, **k: _fake_cm())
+    monkeypatch.setattr(reports_api, "connect", lambda *a, **k: _fake_cm())
+
+    user = {"user_id": "u1", "email": "e", "plan": "Free",
+            "features": {"ai_reports_per_period": 3, "ai_reports_period": "month"}}
+    spec = REPORT_SPECS["dashboard_rec"]
+
+    # Without force: the cached row wins, nothing is generated or charged.
+    await reports_api.serve(spec, mode="user_daily", user=user, lang="en")
+    assert gen_calls["n"] == 0 and usage["increment"] == 0
+
+    # With force: regenerates despite the cache, and charges one unit.
+    await reports_api.serve(spec, mode="user_daily", user=user, lang="en", force=True)
+    assert gen_calls["n"] == 1, "force must bypass the daily cached row"
+    assert usage["increment"] == 1, "a manual refresh must spend quota"
+
+
+async def test_manual_refresh_is_429_when_quota_is_gone(monkeypatch):
+    """Refresh is available, not unlimited — otherwise it reopens the quota hole
+    the daily cache exists to close."""
+    from fastapi import HTTPException
+
+    from app.services.ai import report_service as reports_api
+    from app.services.ai.specs import REPORT_SPECS
+
+    reports_api._recent_failures.clear()
+    reports_api._inflight.clear()
+
+    async def _boom(*a, **kw):
+        raise AssertionError("must not generate once quota is exhausted")
+
+    async def _no_quota(user):
+        return False, 3, 3
+
+    monkeypatch.setattr(reports_api, "_generate", _boom)
+    monkeypatch.setattr(reports_api.quota, "check_report_quota", _no_quota)
+    monkeypatch.setattr(reports_api, "connect", lambda *a, **k: _fake_cm())
+
+    user = {"user_id": "u1", "email": "e", "plan": "Free",
+            "features": {"ai_reports_per_period": 3, "ai_reports_period": "month"}}
+
+    with pytest.raises(HTTPException) as exc:
+        await reports_api.serve(
+            REPORT_SPECS["dashboard_rec"], mode="user_daily", user=user,
+            lang="en", force=True,
+        )
+    assert exc.value.status_code == 429
