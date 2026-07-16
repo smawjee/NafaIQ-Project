@@ -382,6 +382,6 @@ is covered by a pytest suite.
 
 ## License
 
-Â© NafaIQ(PK). All rights reserved. Proprietary â€” built for Pakistani investors.
+Â© NafaIQ. All rights reserved. Proprietary â€” built for Pakistani investors.
 
 
