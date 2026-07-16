@@ -97,11 +97,9 @@ export function DashboardRecommendation({
         <div className="flex-1">
           <div className="flex items-center gap-2.5">
             <h2 className="text-sm font-semibold text-text-primary">{t("AI Recommendation")}</h2>
-            {data.confidence != null && (
-              <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold text-primary">
-                {Math.round(data.confidence)}% {t("Confidence")}
-              </span>
-            )}
+            <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold text-primary">
+              {t("Data based")}
+            </span>
           </div>
           <div className="mt-2">
             <AiReportView report={data} variant="nudge" />

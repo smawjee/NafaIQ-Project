@@ -119,6 +119,8 @@ async def test_stock_analysis_bundle_shape(monkeypatch):
     # indicators computed deterministically from the OHLCV history
     assert "indicators" in bundle
     assert "rsi14" in bundle["indicators"]
+    assert bundle["indicator_labels"]["sma20"] == "20-day simple moving average"
+    assert bundle["indicator_periods"]["sma20"] == 20
     assert bundle["price_range"]["bars"] == 30
     assert bundle["announcements"][0]["title"] == "Dividend declared"
     assert bundle["dividends"][0]["per_share"] == 5.0
@@ -273,11 +275,13 @@ async def test_finance_bundle_shape(monkeypatch):
     assert bundle["summary"]["savings_rate"] == 30.0
     assert bundle["spending_by_category"]["top_category"]["category"] == "food"
     assert bundle["budgets"][0]["utilization_pct"] is not None
+    assert bundle["budget_insights"]["over_budget"][0]["over_by"] == 5000.0
     assert bundle["goals"][0]["progress_pct"] == 20.0  # 100k/500k
     # budget_health folded in (one budget over -> < 100)
     assert bundle["metrics"]["budget_health"] is not None
     assert bundle["metrics"]["savings_rate"] == 30.0
     assert bundle["metrics"]["savings_assessment"] in {"below_baseline", "at_or_above_baseline"}
+    assert bundle["finance_reference"]["emergency_fund_reference_months"] == 3
 
 
 # --------------------------------------------------------------------------- #
@@ -312,7 +316,7 @@ async def test_dashboard_rec_bundle_shape(monkeypatch):
     _assert_json_serializable(bundle)
     assert bundle["spending"]["top_category"] == "food"
     assert bundle["spending"]["amount"] == 50000.0
-    assert bundle["spending"]["deviation_confidence"] is not None
+    assert "deviation_confidence" not in bundle["spending"]
     # most-urgent goal is the one reachable soonest (Car: 30k more at 30k/mo -> 1 month)
     assert bundle["goal"]["name"] == "Car"
     assert bundle["goal"]["months_to_target"] == 1

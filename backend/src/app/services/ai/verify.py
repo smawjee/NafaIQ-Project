@@ -39,6 +39,7 @@ _SKIP_KEYS = {
     "schema_version",
     "citations",
     "source_key",
+    "source_keys",
     "as_of",
 }
 
@@ -54,7 +55,8 @@ def _resolve(bundle: Any, source_key: str) -> Any:
     too (e.g. movers.gainers.0.price), since the model cites list elements by
     index and a dict-only walk would reject those valid citations."""
     node: Any = bundle
-    for part in source_key.split("."):
+    normalized = re.sub(r"\[(\d+)\]", r".\1", source_key)
+    for part in normalized.split("."):
         if isinstance(node, dict) and part in node:
             node = node[part]
         elif isinstance(node, (list, tuple)) and part.lstrip("-").isdigit():

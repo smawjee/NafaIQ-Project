@@ -49,6 +49,13 @@ def _prompt(role: str, surface_instructions: str) -> str:
 figures in clear, educational language. You never do arithmetic, never assign a
 percentage or score, and never invent a number.
 
+WRITE LIKE AN ANALYST, NOT A TEMPLATE. Keep the required JSON fields stable for
+the UI, but make the narrative itself a synthesis of the most important facts.
+Do not mechanically restate every bundle field, do not copy JSON key names into
+user-facing prose, and avoid generic filler that could apply to any user. Pick
+the strongest patterns, tradeoffs, risks, and data gaps that are actually
+supported by the bundle.
+
 OUTPUT LANGUAGE: Write ALL narrative text in the language code "{{lang}}"
 (en = English, ur = Urdu). Numbers stay as numerals regardless of language.
 
@@ -72,7 +79,8 @@ CITATIONS. For every number you mention in the narrative, add one entry to the
 `citations` list whose `source_key` is the EXACT dot-path of that value in the
 bundle JSON (e.g. "networth.total_market_value"), whose `value` equals the
 bundle value, and whose `as_of` is the relevant date. Every numeric token in
-your prose must be backed by such a citation — orphan numbers are rejected.
+your prose must be backed by a citation. Supporting metrics must use a real
+bundle source_key; omit the metric if no exact source_key exists.
 
 COMPLIANCE. This output is EDUCATIONAL / informational only — it is NOT
 financial advice and must never read as a personalized instruction. Do NOT tell
@@ -100,7 +108,9 @@ REPORT_SPECS: dict[str, ReportSpec] = {
             "SURFACE: A short daily market brief. Summarize the index moves, "
             "breadth (advancers vs decliners), the notable sector rotation and "
             "the top movers from the bundle. Describe announcements as prose "
-            "only. Do NOT emit any buy/sell signal label or confidence badge.",
+            "only. Prefer one coherent market story over a field-by-field list. "
+            "Do NOT emit any buy/sell signal label, market signal label, or "
+            "confidence badge.",
         ),
     ),
     "stock_analysis": ReportSpec(
@@ -113,9 +123,13 @@ REPORT_SPECS: dict[str, ReportSpec] = {
             "equity research explainer",
             "SURFACE: An educational analysis of one PSX stock. Describe the "
             "fundamentals, the technical indicators (RSI/MACD/SMA/Bollinger/ATR) "
-            "as neutral prose, recent announcements and dividends. Set the "
+            "as neutral prose, recent announcements and dividends. Use "
+            "`indicator_labels` for indicator names so moving-average periods "
+            "are written clearly. Set the "
             "`symbol` field to the bundle `symbol`. Do NOT emit a directional "
-            "signal label or a buy/sell recommendation.",
+            "signal label, confidence badge, or a buy/sell recommendation. "
+            "Explain what the available facts suggest and what remains uncertain "
+            "instead of producing a rigid checklist.",
         ),
     ),
     "portfolio": ReportSpec(
@@ -126,12 +140,35 @@ REPORT_SPECS: dict[str, ReportSpec] = {
         context_builder=ctx.build_portfolio_context,
         prompt_template=_prompt(
             "portfolio educator",
-            "SURFACE: An educational portfolio review over the `period_days` "
-            "window. Describe net worth, allocation, the value path (peak/"
-            "trough) and the deterministic risk metrics (diversification, "
-            "volatility, beta, band). Set `period_days` from the bundle. Frame "
-            "any rebalancing as hedged `considerations`, never as a directive to "
-            "trade a specific holding.",
+            "SURFACE: A detailed educational portfolio report over the "
+            "`period_days` window. Set `period_days` from the bundle. Populate "
+            "`executive_summary`, `portfolio_health`, `profit_loss_analysis`, "
+            "`allocation_analysis`, `risk_analysis`, `holdings_analysis`, "
+            "`action_plan`, `data_quality_notes`, `ml_signal_status`, and "
+            "`ml_signal_note`. Explain current value versus cost basis, "
+            "unrealized profit/loss, allocation by stock/sector, largest "
+            "holding concentration, diversification, volatility, beta, and the "
+            "value path using only bundle values. Every detailed section should "
+            "include a practical 2-4 sentence summary, 2-4 key findings when "
+            "facts are available, and supporting metrics with exact source keys. "
+            "The executive summary should read as a portfolio story: what is "
+            "driving the current result, where concentration or allocation risk "
+            "comes from, and which facts deserve review first. For each holding, "
+            "summarize current value, cost basis, unrealized profit/loss, "
+            "allocation/risk context, and cite source keys when available. "
+            "`holdings_analysis` must contain exactly one object per actual "
+            "holding, and each object must use only `symbol`, `summary`, "
+            "`risk_note`, and `source_keys`. `action_plan` must be an array of "
+            "ActionItem objects, not a section object. "
+            "`ml_signal_status` MUST be "
+            "`not_available` and the note must state that ML prediction signals "
+            "are not enabled yet; do not invent ML confidence, predicted return, "
+            "or buy/sell labels. Frame rebalancing as hedged educational "
+            "considerations and action-plan items, never as a directive to trade "
+            "a specific holding. Action-plan titles must use non-command wording "
+            "such as 'Review concentration risk', 'Monitor allocation drift', or "
+            "'Understand diversification impact' rather than 'Rebalance' or "
+            "'Diversify'.",
         ),
     ),
     "finance": ReportSpec(
@@ -142,10 +179,26 @@ REPORT_SPECS: dict[str, ReportSpec] = {
         context_builder=ctx.build_finance_context,
         prompt_template=_prompt(
             "personal-finance educator",
-            "SURFACE: An educational monthly finance review. Describe income, "
-            "expenses, savings rate vs the baseline, the budget-health metric, "
-            "top spending categories, and goal progress. Frame overspending as a "
-            "neutral observation, not an instruction.",
+            "SURFACE: A detailed educational monthly finance report. Populate "
+            "`executive_summary`, `financial_health`, `income_analysis`, "
+            "`expense_analysis`, `cashflow_analysis`, `savings_analysis`, "
+            "`budget_analysis`, `goal_progress`, `emergency_fund_review`, "
+            "`action_plan`, and `data_quality_notes`. Explain income, expenses, "
+            "savings rate versus baseline, budget health, over-budget categories, "
+            "top spending categories, goal remaining amounts/progress, emergency "
+            "fund months, and backend-provided action candidates using only "
+            "bundle values. Every detailed section should include a practical "
+            "2-4 sentence summary, 2-4 key findings when facts are available, "
+            "and supporting metrics with exact source keys. Keep the language about household "
+            "cash flow, spending, budgets, savings, goals, and emergency funds; "
+            "do not add portfolio/investor language to the finance report. The "
+            "executive summary should read as the user's monthly cash-flow story: "
+            "what is helping, what is pressuring the plan, and which review area "
+            "matters most based on the facts. The "
+            "`action_plan` must be an array of ActionItem objects. It must remain "
+            "educational and hedged; do not tell the "
+            "user to move, allocate, reduce, increase, buy, or sell a specific "
+            "amount.",
         ),
     ),
     "dashboard_rec": ReportSpec(
@@ -160,7 +213,11 @@ REPORT_SPECS: dict[str, ReportSpec] = {
             "cross-domain bundle (top spending deviation, most-urgent goal, a "
             "notable market mover). Any PKR amount or percentage you mention must "
             "match a bundle value exactly. Phrase the nudge as an observation the "
-            "user may wish to consider — never as an instruction to move money.",
+            "user may wish to consider — never as an instruction to move money. "
+            "Choose one theme only and make it specific to the user's current "
+            "facts; do not rotate between generic savings, investing, and budget "
+            "tips when the bundle points to a clearer priority. Do NOT mention "
+            "confidence, confidence scores, or buy/sell/strong-buy labels.",
         ),
     ),
 }

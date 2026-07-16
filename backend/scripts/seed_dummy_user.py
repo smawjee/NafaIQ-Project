@@ -78,10 +78,10 @@ GOALS = [
 ]
 
 BUDGETS = [
-    {"category": "dining", "limit_amount": 25_000.0, "tip": "Track every restaurant order."},
-    {"category": "groceries", "limit_amount": 60_000.0, "tip": "Compare prices weekly."},
-    {"category": "transport", "limit_amount": 15_000.0, "tip": "Combine errands into one trip."},
-    {"category": "bills", "limit_amount": 20_000.0, "tip": "Review subscriptions quarterly."},
+    {"category": "Dining", "limit_amount": 25_000.0, "tip": "Track every restaurant order."},
+    {"category": "Groceries", "limit_amount": 60_000.0, "tip": "Compare prices weekly."},
+    {"category": "Transport", "limit_amount": 15_000.0, "tip": "Combine errands into one trip."},
+    {"category": "Bills", "limit_amount": 20_000.0, "tip": "Review subscriptions quarterly."},
 ]
 
 

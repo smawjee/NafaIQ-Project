@@ -507,7 +507,7 @@ export function Portfolio() {
                 .filter((h) => h.signal === "SELL" || h.signal === "STRONG SELL")
                 .map((h) => h.ticker)
                 .join(", ")}{" "}
-              {t("— AI signals suggest reviewing these positions.")}
+              {t("— rule-based indicators suggest reviewing these positions.")}
             </span>
           </div>
         )}

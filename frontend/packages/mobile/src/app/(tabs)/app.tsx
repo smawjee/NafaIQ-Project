@@ -128,6 +128,38 @@ export default function Dashboard() {
 
   const goals = (userGoals ?? []).slice(0, 3);
   const watch = watchlist ?? [];
+  const topSpending = (spendingByCat?.categories ?? [])
+    .slice()
+    .sort((a, b) => (b.amount ?? 0) - (a.amount ?? 0))[0];
+  const priorityGoal = goals
+    .slice()
+    .sort((a, b) => ((a.saved ?? 0) / Math.max(a.target ?? 1, 1)) - ((b.saved ?? 0) / Math.max(b.target ?? 1, 1)))[0];
+  const aiInsight = useMemo(() => {
+    if (topSpending && spendingByCat?.total) {
+      const share = Math.round(((topSpending.amount ?? 0) / Math.max(spendingByCat.total, 1)) * 100);
+      return {
+        headline: `${topSpending.category} is your largest spending area.`,
+        detail: `${topSpending.category} accounts for ${share}% of the last 30 days of tracked spending. Reviewing this category can help protect your savings rate without relying on market signals.`,
+        route: "/(tabs)/finance" as const,
+      };
+    }
+    if (priorityGoal) {
+      const remaining = Math.max((priorityGoal.target ?? 0) - (priorityGoal.saved ?? 0), 0);
+      return {
+        headline: `${priorityGoal.name} needs PKR ${fmtNum(remaining)} more.`,
+        detail: `This guidance is based on your saved amount and target amount. Add more transactions and goal contributions to make the insight more precise.`,
+        route: "/(tabs)/finance" as const,
+      };
+    }
+    if (hasNoHoldings) {
+      return {
+        headline: "Portfolio analysis is ready once holdings are added.",
+        detail: "Current portfolio insights use holdings, cost basis, current prices and allocation risk. ML prediction signals are reserved for a future release.",
+        route: "/(tabs)/portfolio" as const,
+      };
+    }
+    return null;
+  }, [hasNoHoldings, priorityGoal, spendingByCat?.total, topSpending]);
 
   return (
     <GlassScreen>
@@ -260,7 +292,7 @@ export default function Dashboard() {
           </GlassCard>
 
           {/* AI Recommendation — below the graph */}
-          {showAI && (
+          {showAI && aiInsight && (
             <Animated.View exiting={FadeOut}>
               <GlassCard style={[styles.card, { borderColor: colors.ai + "44" }]}>
                 <View style={styles.aiHead}>
@@ -269,18 +301,17 @@ export default function Dashboard() {
                   </View>
                   <Text style={{ color: colors.ai, fontWeight: "700", fontSize: 14 }}>AI Recommendation</Text>
                   <View style={styles.confPill}>
-                    <Text style={{ color: colors.ai, fontSize: 11, fontWeight: "700" }}>92% confidence</Text>
+                    <Text style={{ color: colors.ai, fontSize: 11, fontWeight: "700" }}>Data based</Text>
                   </View>
                 </View>
                 <Text style={{ fontWeight: "700", fontSize: 15, marginTop: 4 }}>
-                  Redirect PKR 5,000 from dining to your Hajj Fund.
+                  {aiInsight.headline}
                 </Text>
                 <Text variant="secondary" style={{ marginTop: 4, lineHeight: 20 }}>
-                  You spent 15% more on dining this month — reallocating brings your goal 3 months closer. HBL is also
-                  flashing a Strong Buy, up 2.41% on rising volume.
+                  {aiInsight.detail}
                 </Text>
                 <View style={{ flexDirection: "row", gap: 10, marginTop: 12 }}>
-                  <GlassPrimaryButton label="View" compact onPress={() => router.push("/(tabs)/psx")} style={{ paddingHorizontal: 22 }} />
+                  <GlassPrimaryButton label="View" compact onPress={() => router.push(aiInsight.route)} style={{ paddingHorizontal: 22 }} />
                   <GlassButton label="Dismiss" compact onPress={() => setShowAI(false)} />
                 </View>
               </GlassCard>

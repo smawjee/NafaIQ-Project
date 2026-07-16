@@ -20,6 +20,10 @@ export function useStockAnalysisReport(symbol: string | undefined | null) {
     enabled: upper.length > 0,
     staleTime: ONE_DAY_MS,
     gcTime: ONE_DAY_MS,
+    refetchOnMount: false,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+    refetchInterval: false,
     retry: (failureCount, err) => {
       if (err instanceof ReportError) {
         return err.code === "network" && failureCount < 2;

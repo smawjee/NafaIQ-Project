@@ -79,6 +79,7 @@ async def get_or_create_shared(
     trading_date: Optional[str],
     content: dict[str, Any],
     context_hash: str,
+    lang: str = "en",
     verified: bool = False,
     provider: Optional[str] = None,
     model: Optional[str] = None,
@@ -94,11 +95,12 @@ async def get_or_create_shared(
             """
             INSERT INTO ai_reports
                 (user_id, report_type, subject, trading_date,
-                 content, context_hash, verified, provider, model)
+                 content, context_hash, verified, provider, model, lang)
             VALUES
                 (NULL, :report_type, :subject, :td,
-                 :content::jsonb, :context_hash, :verified, :provider, :model)
-            ON CONFLICT (report_type, subject, trading_date)
+                 :content::jsonb, :context_hash, :verified, :provider, :model,
+                 :lang)
+            ON CONFLICT (report_type, subject, trading_date, lang)
                 WHERE user_id IS NULL
             DO NOTHING
             """
@@ -112,23 +114,26 @@ async def get_or_create_shared(
             "verified": verified,
             "provider": provider,
             "model": model,
+            "lang": lang,
         },
     )
     result = await conn.execute(
         text(
             """
             SELECT id, user_id, report_type, subject, trading_date,
-                   content, context_hash, verified, provider, model, created_at
+                   content, context_hash, verified, provider, model, created_at,
+                   lang
             FROM ai_reports
             WHERE user_id IS NULL
               AND report_type = :report_type
               AND subject IS NOT DISTINCT FROM :subject
               AND trading_date IS NOT DISTINCT FROM :td
+              AND lang = :lang
             ORDER BY created_at DESC
             LIMIT 1
             """
         ),
-        {"report_type": report_type, "subject": subject, "td": trading_date},
+        {"report_type": report_type, "subject": subject, "td": trading_date, "lang": lang},
     )
     row = result.mappings().first()
     return dict(row) if row else None

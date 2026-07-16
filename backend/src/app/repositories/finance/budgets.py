@@ -42,7 +42,7 @@ async def list_budgets(conn: Executor, uid: str) -> list[dict[str, Any]]:
                     WHERE t.user_id = b.user_id
                       AND t.transaction_type = 'expense'
                       AND (t.source IS DISTINCT FROM 'stock_trade')
-                      AND t.category = b.category
+                      AND lower(t.category) = lower(b.category)
                       AND DATE_TRUNC('month', t.transaction_date)
                           = DATE_TRUNC('month', CURRENT_DATE)
                 ), 0)::numeric AS spent,
@@ -98,7 +98,7 @@ async def recompute_budget_spent(conn: Executor, uid: str) -> list[dict[str, Any
                   AND t.transaction_type = 'expense'
                   -- Stock trades never count toward category budgets.
                   AND (t.source IS DISTINCT FROM 'stock_trade')
-                  AND t.category = b.category
+                  AND lower(t.category) = lower(b.category)
                   AND DATE_TRUNC('month', t.transaction_date)
                       = DATE_TRUNC('month', CURRENT_DATE)
             ), 0)

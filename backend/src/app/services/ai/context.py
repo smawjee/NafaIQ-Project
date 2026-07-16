@@ -50,6 +50,27 @@ _SAVINGS_BASELINE_PCT = 20.0
 
 _STOCK_INDICATORS = ["rsi14", "macd", "sma20", "sma50", "sma200", "bollinger", "atr14"]
 
+_STOCK_INDICATOR_LABELS = {
+    "rsi14": "14-day RSI",
+    "macd": "MACD",
+    "sma20": "20-day simple moving average",
+    "sma50": "50-day simple moving average",
+    "sma200": "200-day simple moving average",
+    "bollinger": "20-day Bollinger Bands",
+    "atr14": "14-day average true range",
+}
+
+_STOCK_INDICATOR_PERIODS = {
+    "rsi14": 14,
+    "sma20": 20,
+    "sma50": 50,
+    "sma200": 200,
+    "bollinger": 20,
+    "atr14": 14,
+}
+
+_EMERGENCY_FUND_REFERENCE_MONTHS = 3
+
 
 # helpers
 def _today_str() -> str:
@@ -103,6 +124,28 @@ def _as_dict(obj: Any) -> dict[str, Any]:
     if hasattr(obj, "model_dump"):
         return obj.model_dump(mode="json")
     return dict(obj) if obj else {}
+
+
+def _pct_change(current: Any, previous: Any) -> Optional[float]:
+    cur = _finite(current)
+    prev = _finite(previous)
+    if cur is None or prev is None or prev == 0:
+        return None
+    return round(((cur - prev) / abs(prev)) * 100.0, 2)
+
+
+def _sum_finite(values: list[Any]) -> float:
+    return round(sum(v for v in (_finite(x) for x in values) if v is not None), 2)
+
+
+def _risk_label(value: Optional[float], *, high_at: float, medium_at: float) -> str:
+    if value is None:
+        return "unknown"
+    if value >= high_at:
+        return "high"
+    if value >= medium_at:
+        return "medium"
+    return "low"
 
 
 # Market Brief — shared, no user data.
@@ -233,6 +276,12 @@ async def build_stock_analysis_context(
             "roe": _finite(f.get("roe")),
         },
         "indicators": indicators,
+        "indicator_labels": {
+            key: label for key, label in _STOCK_INDICATOR_LABELS.items() if key in indicators
+        },
+        "indicator_periods": {
+            key: period for key, period in _STOCK_INDICATOR_PERIODS.items() if key in indicators
+        },
         "price_range": {
             "period_high": max(highs) if highs else None,
             "period_low": min(lows) if lows else None,
@@ -309,6 +358,28 @@ async def build_portfolio_context(
             "holding_count",
         )
     }
+    holdings_with_value = [
+        h for h in guarded if (_finite(h.get("market_value")) or 0.0) > 0
+    ]
+    pnl_leaders = sorted(
+        holdings_with_value,
+        key=lambda h: _finite(h.get("unrealized_pnl")) or 0.0,
+        reverse=True,
+    )
+    stock_alloc_values = [
+        v for v in (_finite(a.get("value")) for a in alloc_stock if isinstance(a, dict))
+        if v is not None
+    ]
+    sector_alloc_values = [
+        v for v in (_finite(a.get("value")) for a in alloc_sector if isinstance(a, dict))
+        if v is not None
+    ]
+    top_stock_alloc = max(stock_alloc_values, default=None)
+    top_sector_alloc = max(sector_alloc_values, default=None)
+    concentration_risk = _risk_label(top_stock_alloc, high_at=40.0, medium_at=25.0)
+    missing_prices = [
+        h.get("symbol") for h in guarded if h.get("symbol") and h.get("current_price") is None
+    ]
 
     return {
         "as_of": _today_str(),
@@ -316,6 +387,20 @@ async def build_portfolio_context(
         "networth": networth,
         "holdings": guarded,
         "allocation": {"by_stock": alloc_stock, "by_sector": alloc_sector},
+        "portfolio_insights": {
+            "holding_count": len(holdings_with_value),
+            "largest_holding_pct": top_stock_alloc,
+            "largest_sector_pct": top_sector_alloc,
+            "concentration_risk": concentration_risk,
+            "biggest_gainers": pnl_leaders[:3],
+            "biggest_losers": list(reversed(pnl_leaders[-3:])),
+            "missing_price_symbols": missing_prices,
+            "ml_signal_status": "not_available",
+            "ml_signal_note": (
+                "ML prediction signals are not enabled yet; this report uses "
+                "holdings, current prices, allocation, history and rule-based risk metrics."
+            ),
+        },
         "history": {
             "start_value": _finite(valued[0]["value"]) if valued else None,
             "end_value": _finite(valued[-1]["value"]) if valued else None,
@@ -332,6 +417,7 @@ async def build_portfolio_context(
             "volatility": volatility,
             "beta": beta,
             "band": band,
+            "concentration": concentration_risk,
         },
         "evidence": ev,
     }
@@ -368,11 +454,25 @@ async def build_finance_context(
         }
         for b in budgets
     ]
+    over_budget_rows = []
+    for b in budget_rows:
+        if (
+            b.get("spent") is not None
+            and b.get("limit_amount") is not None
+            and float(b["spent"]) > float(b["limit_amount"])
+        ):
+            row = dict(b)
+            row["over_by"] = round(float(b["spent"]) - float(b["limit_amount"]), 2)
+            over_budget_rows.append(row)
     goal_rows = [
         {
             "name": g.get("name"),
             "target": _finite(g.get("target")),
             "saved": _finite(g.get("saved")),
+            "remaining": max(
+                (_finite(g.get("target")) or 0.0) - (_finite(g.get("saved")) or 0.0),
+                0.0,
+            ),
             "progress_pct": calc.goal_progress(
                 _finite(g.get("saved")) or 0.0, _finite(g.get("target")) or 0.0
             ),
@@ -394,6 +494,49 @@ async def build_finance_context(
         if savings_rate >= _SAVINGS_BASELINE_PCT
         else "below_baseline"
     )
+    income = _finite(summ.get("income")) or 0.0
+    expenses = _finite(summ.get("expenses")) or 0.0
+    savings = _finite(summ.get("savings")) or 0.0
+    emergency_months = round(savings / expenses, 2) if expenses > 0 else None
+    category_amounts = [
+        c.get("amount") for c in categories if isinstance(c, dict)
+    ]
+    top_categories = categories_sorted[:5]
+    total_goal_remaining = _sum_finite([g.get("remaining") for g in goal_rows])
+    savings_gap_to_baseline = (
+        round(max((income * (_SAVINGS_BASELINE_PCT / 100.0)) - savings, 0.0), 2)
+        if income > 0
+        else None
+    )
+    action_candidates: list[dict[str, Any]] = []
+    if top_category and _finite(top_category.get("amount")) is not None:
+        action_candidates.append({
+            "type": "review_top_category",
+            "category": top_category.get("category"),
+            "amount": _finite(top_category.get("amount")),
+            "source_keys": ["spending_by_category.top_category.amount"],
+        })
+    if over_budget_rows:
+        over_by = round(
+            float(over_budget_rows[0].get("spent") or 0.0)
+            - float(over_budget_rows[0].get("limit_amount") or 0.0),
+            2,
+        )
+        action_candidates.append({
+            "type": "review_over_budget",
+            "category": over_budget_rows[0].get("category"),
+            "over_by": over_by,
+            "source_keys": [
+                "budget_insights.over_budget.0.spent",
+                "budget_insights.over_budget.0.limit_amount",
+            ],
+        })
+    if savings_gap_to_baseline and savings_gap_to_baseline > 0:
+        action_candidates.append({
+            "type": "savings_baseline_gap",
+            "amount": savings_gap_to_baseline,
+            "source_keys": ["finance_insights.savings_gap_to_baseline"],
+        })
 
     return {
         "as_of": _today_str(),
@@ -412,14 +555,57 @@ async def build_finance_context(
             "total": _finite(spend.get("total")),
             "categories": categories,
             "top_category": top_category,
+            "top_categories": top_categories,
+            "category_count": len(categories),
+            "largest_category_share_pct": (
+                round(
+                    ((_finite(top_category.get("amount")) or 0.0)
+                     / (_sum_finite(category_amounts) or 1.0))
+                    * 100.0,
+                    2,
+                )
+                if top_category
+                else None
+            ),
         },
         "budgets": budget_rows,
+        "budget_insights": {
+            "over_budget": over_budget_rows,
+            "over_budget_count": len(over_budget_rows),
+            "within_budget_count": max(len(budget_rows) - len(over_budget_rows), 0),
+        },
         "goals": goal_rows,
+        "goal_insights": {
+            "goal_count": len(goal_rows),
+            "total_remaining": total_goal_remaining,
+            "lowest_progress_goal": (
+                min(goal_rows, key=lambda g: _finite(g.get("progress_pct")) or 0.0)
+                if goal_rows
+                else None
+            ),
+        },
         "metrics": {
             "budget_health": budget_health,
             "savings_rate": _finite(summ.get("savings_rate")),
             "savings_baseline": _SAVINGS_BASELINE_PCT,
             "savings_assessment": assessment,
+        },
+        "finance_insights": {
+            "income_change_pct": _pct_change(
+                summ.get("income"), summ.get("last_month_income")
+            ),
+            "expense_change_pct": _pct_change(
+                summ.get("expenses"), summ.get("last_month_expense")
+            ),
+            "savings_change_pct": _pct_change(
+                summ.get("savings"), summ.get("last_month_savings")
+            ),
+            "emergency_fund_months": emergency_months,
+            "savings_gap_to_baseline": savings_gap_to_baseline,
+            "action_candidates": action_candidates,
+        },
+        "finance_reference": {
+            "emergency_fund_reference_months": _EMERGENCY_FUND_REFERENCE_MONTHS,
         },
         "evidence": ev,
     }
@@ -450,12 +636,6 @@ async def build_dashboard_rec_context(
     top = categories_sorted[0] if categories_sorted else None
     baseline = (sum(amounts) / len(amounts)) if amounts else 0.0
     top_amount = _finite(top.get("amount")) if top else None
-    deviation = (
-        conf.spending_deviation_confidence(top_amount, baseline)
-        if top_amount is not None
-        else None
-    )
-
     # Most-urgent goal: reachable soonest at the current savings rate.
     monthly_rate = _finite(summ.get("savings")) or 0.0
     best_goal: Optional[dict[str, Any]] = None
@@ -504,7 +684,6 @@ async def build_dashboard_rec_context(
             "top_category": top.get("category") if top else None,
             "amount": top_amount,
             "baseline": round(baseline, 4),
-            "deviation_confidence": deviation,
         },
         "goal": goal_block,
         "market_mover": mover,

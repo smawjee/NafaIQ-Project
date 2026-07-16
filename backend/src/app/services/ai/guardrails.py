@@ -26,20 +26,29 @@ from pydantic import BaseModel
 DIRECTIVE_PATTERNS: list[tuple[str, re.Pattern[str]]] = [
     ("you-should-act",
      re.compile(r"\byou\s+should\s+(buy|sell|purchase|invest|allocate|move|"
-                r"shift|reduce|increase|rebalance|dump|short)\b", re.I)),
+                r"shift|reduce|increase|rebalance|dump)\b", re.I)),
     ("we-recommend-act",
      re.compile(r"\b(we\s+recommend|i\s+recommend|recommend(?:ed|ation)?)\s+"
                 r"(buying|selling|allocating|investing|reducing|increasing|"
                 r"rebalancing)\b", re.I)),
     ("imperative-verb-amount",
      re.compile(r"\b(buy|sell|purchase|allocate|move|shift|reduce|increase|"
-                r"rebalance|dump|short)\b[^.\n]*?\b\d+\s*%?", re.I)),
+                r"rebalance|dump)\b[^.\n]*?\b\d+\s*%?", re.I)),
     ("imperative-sentence-start",
-     re.compile(r"(?:^|[.!?]\s+)(buy|sell|purchase|allocate|dump|short|"
-                r"rebalance)\b", re.I)),
+     re.compile(r"(?:^|[.!?]\s+)(buy|sell|purchase|allocate|dump|rebalance)\b", re.I)),
 ]
 
 _MODEL = Union[BaseModel, dict[str, Any]]
+
+SIGNAL_LABEL_RE = re.compile(
+    r"\b(strong\s+buy|strong\s+sell|buy|sell|hold)\b",
+    re.I,
+)
+CONFIDENCE_RE = re.compile(r"\bconfidence\b|\bconfident\b", re.I)
+BROKEN_DAY_LABEL_RE = re.compile(
+    r"(?:[—–-]*[—–][—–-]*|--+)\s*day\b|\bday\s*(?:[—–-]*[—–][—–-]*|--+)",
+    re.I,
+)
 
 
 def _as_dict(report: _MODEL) -> dict[str, Any]:
@@ -57,7 +66,19 @@ def find_directives(text: str) -> list[str]:
 
 def _narrative_strings(data: dict[str, Any]) -> list[str]:
     out: list[str] = []
-    skip = {"disclaimer", "lang", "report_type", "schema_version", "citations"}
+    skip = {
+        "disclaimer",
+        "lang",
+        "report_type",
+        "schema_version",
+        "citations",
+        "source_key",
+        "source_keys",
+        "as_of",
+        "symbol",
+        "ml_signal_status",
+        "view_target",
+    }
 
     def walk(node: Any, key: str | None) -> None:
         if key in skip:
@@ -93,6 +114,110 @@ def assert_compliance_by_construction(report: _MODEL) -> list[str]:
     for banned in ("action", "recommendation"):
         if banned in data:
             violations.append(f"forbidden_field:{banned}")
+
+    report_type = data.get("report_type")
+
+    narrative = "\n".join(_narrative_strings(data))
+    if report_type in {"dashboard_rec", "market_brief", "stock_analysis"}:
+        if CONFIDENCE_RE.search(narrative):
+            violations.append("forbidden_confidence_language")
+        if SIGNAL_LABEL_RE.search(narrative):
+            violations.append("forbidden_signal_language")
+    if report_type == "stock_analysis" and BROKEN_DAY_LABEL_RE.search(narrative):
+        violations.append("broken_indicator_period_label")
+
+    def _section_has_findings(field: str) -> bool:
+        section = data.get(field)
+        return isinstance(section, dict) and bool(section.get("key_findings"))
+
+    def _word_count(value: Any) -> int:
+        return len(re.findall(r"\b[\w'-]+\b", str(value or "")))
+
+    def _section_is_thin(field: str, min_summary_words: int = 10) -> bool:
+        section = data.get(field)
+        if not isinstance(section, dict):
+            return True
+        findings = section.get("key_findings") or []
+        metrics = section.get("supporting_metrics") or []
+        return (
+            _word_count(section.get("summary")) < min_summary_words
+            or len(findings) < 1
+            or len(metrics) < 1
+        )
+
+    def _check_metric_sources(section: Any, field: str) -> None:
+        if not isinstance(section, dict):
+            return
+        for i, metric in enumerate(section.get("supporting_metrics") or []):
+            if isinstance(metric, dict) and not str(metric.get("source_key") or "").strip():
+                violations.append(f"missing_metric_source:{field}[{i}]")
+
+    if report_type == "finance" and int(data.get("schema_version") or 1) >= 2:
+        required = (
+            "executive_summary",
+            "financial_health",
+            "income_analysis",
+            "expense_analysis",
+            "cashflow_analysis",
+            "savings_analysis",
+            "budget_analysis",
+            "goal_progress",
+            "emergency_fund_review",
+        )
+        has_detailed = any(data.get(field) for field in required) or bool(data.get("action_plan"))
+        if has_detailed:
+            for field in required:
+                if not data.get(field):
+                    violations.append(f"missing_v2_section:{field}")
+            if not data.get("action_plan"):
+                violations.append("missing_v2_section:action_plan")
+            if not any(_section_has_findings(field) for field in required if field != "executive_summary"):
+                violations.append("thin_v2_report:no_section_findings")
+            if _word_count(data.get("executive_summary")) < 25:
+                violations.append("thin_v2_report:executive_summary")
+            for field in required:
+                if field != "executive_summary" and _section_is_thin(field):
+                    violations.append(f"thin_v2_section:{field}")
+                if field != "executive_summary":
+                    _check_metric_sources(data.get(field), field)
+
+    if report_type == "portfolio" and int(data.get("schema_version") or 1) >= 2:
+        required = (
+            "executive_summary",
+            "portfolio_health",
+            "profit_loss_analysis",
+            "allocation_analysis",
+            "risk_analysis",
+        )
+        has_detailed = any(data.get(field) for field in required) or bool(data.get("action_plan"))
+        if has_detailed:
+            for field in required:
+                if not data.get(field):
+                    violations.append(f"missing_v2_section:{field}")
+            if not data.get("action_plan"):
+                violations.append("missing_v2_section:action_plan")
+            if not any(_section_has_findings(field) for field in required if field != "executive_summary"):
+                violations.append("thin_v2_report:no_section_findings")
+            if _word_count(data.get("executive_summary")) < 25:
+                violations.append("thin_v2_report:executive_summary")
+            for field in required:
+                if field != "executive_summary" and _section_is_thin(field):
+                    violations.append(f"thin_v2_section:{field}")
+                if field != "executive_summary":
+                    _check_metric_sources(data.get(field), field)
+            holdings = data.get("holdings_analysis") or []
+            if not holdings:
+                violations.append("missing_v2_section:holdings_analysis")
+            for i, holding in enumerate(holdings):
+                if isinstance(holding, dict):
+                    if not str(holding.get("symbol") or "").strip():
+                        violations.append(f"missing_v2_holding_symbol:{i}")
+                    if _word_count(holding.get("summary")) < 10:
+                        violations.append(f"thin_v2_holding:{i}")
+                    if not holding.get("source_keys"):
+                        violations.append(f"missing_v2_holding_sources:{i}")
+        if data.get("ml_signal_status") != "not_available":
+            violations.append("ml_signal_claim_without_model")
 
     return violations
 

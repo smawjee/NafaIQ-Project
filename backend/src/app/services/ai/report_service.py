@@ -139,6 +139,7 @@ async def serve(
                 trading_date=today,
                 content=content,
                 context_hash=context_hash,
+                lang=lang,
                 verified=gen.verification.verified,
                 provider=gen.provider,
                 model=gen.model,
