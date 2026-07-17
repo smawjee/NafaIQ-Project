@@ -264,16 +264,30 @@ async def test_finance_bundle_shape(monkeypatch):
     goals = [
         {"name": "Hajj", "target": 500000.0, "saved": 100000.0, "ai_tip": "save more", "emoji": "🕋"},
     ]
+    bills = [
+        {"name": "Electricity", "amount": 8000.0, "due_date": "2099-01-31",
+         "status": "UPCOMING", "recurring": True},
+        {"name": "Internet", "amount": 5000.0, "due_date": "2000-01-01",
+         "status": "UPCOMING", "recurring": True},  # far past due -> overdue
+        {"name": "Rent", "amount": 60000.0, "due_date": "2099-02-01",
+         "status": "PAID", "recurring": True},
+    ]
 
     monkeypatch.setattr(ctx.finance_summary, "summary", _async(summ))
     monkeypatch.setattr(ctx.finance_summary, "income_expense_series", _async(series))
     monkeypatch.setattr(ctx.finance_summary, "spending_by_category", _async(spend))
     monkeypatch.setattr(ctx.finance_budgets, "list_budgets", _async(budgets))
     monkeypatch.setattr(ctx.finance_goals, "list_goals", _async(goals))
+    monkeypatch.setattr(ctx.finance_bills, "list_bills", _async(bills))
 
     bundle = await ctx.build_finance_context(None, user_id="u1")
 
     _assert_json_serializable(bundle)
+    # Bills folded in: unpaid = Electricity + Internet; Internet is overdue.
+    assert bundle["bill_insights"]["bill_count"] == 3
+    assert bundle["bill_insights"]["unpaid_count"] == 2
+    assert bundle["bill_insights"]["overdue_count"] == 1
+    assert bundle["bill_insights"]["total_unpaid"] == 13000.0
     assert bundle["summary"]["income"] == 100000.0
     assert bundle["summary"]["savings_rate"] == 30.0
     assert bundle["spending_by_category"]["top_category"]["category"] == "food"
@@ -322,6 +336,7 @@ async def test_dashboard_rec_bundle_shape(monkeypatch):
     monkeypatch.setattr(ctx.finance_summary, "spending_by_category", _async(spend))
     monkeypatch.setattr(ctx.finance_budgets, "list_budgets", _async(budgets))
     monkeypatch.setattr(ctx.finance_goals, "list_goals", _async(goals))
+    monkeypatch.setattr(ctx.finance_bills, "list_bills", _async([]))
     monkeypatch.setattr(ctx.market_quotes, "market_snapshot", _async(snapshot))
 
     bundle = await ctx.build_dashboard_rec_context(None, user_id="u1")
@@ -344,3 +359,4 @@ async def test_dashboard_rec_bundle_shape(monkeypatch):
     assert len(bundle["goals"]) == 2  # every goal, not only the focus one
     assert "spending_by_category" in bundle
     assert "budget_insights" in bundle
+    assert "bills" in bundle and "bill_insights" in bundle

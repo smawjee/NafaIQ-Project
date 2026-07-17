@@ -9,6 +9,7 @@ from app.repositories import finance as repo
 from app.repositories.base import begin, connect
 from app.schemas.finance import TransactionCreate, TransactionUpdate
 from app.services.finance._common import as_timestamp, transaction_type
+from app.services.finance.categories import canonical_category
 from app.services.notifier import fire_and_forget, notify_activity
 
 
@@ -23,7 +24,7 @@ async def create_transaction(uid: str, body: TransactionCreate) -> dict[str, Any
         "merchant": body.merchant.strip(),
         "amount": abs(body.amount),
         "transaction_type": transaction_type(body.transaction_type),
-        "category": body.category.strip(),
+        "category": canonical_category(body.category),
         "source": body.source,
         "note": body.note,
     }
@@ -49,6 +50,8 @@ async def update_transaction(uid: str, txn_id: int, body: TransactionUpdate) -> 
         values["transaction_type"] = transaction_type(values["transaction_type"])
     if values.get("amount") is not None:
         values["amount"] = abs(values["amount"])
+    if values.get("category") is not None:
+        values["category"] = canonical_category(values["category"])
     if "transaction_date" in values:
         values["transaction_date"] = as_timestamp(values["transaction_date"])
     if not values:

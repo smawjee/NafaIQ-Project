@@ -12,6 +12,12 @@ import { useDemo } from "@/hooks/use-demo";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { selectBudgets, addBudget as reduxAddBudget } from "@/store/finance";
 import { useFinanceBudgets, useCreateBudget } from "@/hooks/use-finance-budgets";
+import { CATEGORIES } from "@/features/finance/finance.data";
+
+// Budgets track spending, so income is not a budgetable category. Everything
+// else comes from the shared transaction category list so a budget's category
+// always matches the categories transactions are filed under.
+const BUDGET_CATEGORIES = CATEGORIES.filter((c) => c !== "Income");
 
 export function Budgets() {
   const { t } = useLang();
@@ -23,7 +29,7 @@ export function Budgets() {
   const createBudget = useCreateBudget();
   const [offset, setOffset] = useState(0);
   const [budgetOpen, setBudgetOpen] = useState(false);
-  const [budgetCat, setBudgetCat] = useState("");
+  const [budgetCat, setBudgetCat] = useState(BUDGET_CATEGORIES[0]);
   const [budgetLimit, setBudgetLimit] = useState("");
   const [budgetTip, setBudgetTip] = useState("");
   const [budgetErr, setBudgetErr] = useState("");
@@ -102,12 +108,18 @@ export function Budgets() {
 
       <Modal open={budgetOpen} onClose={() => setBudgetOpen(false)} title={t("Add Budget")}>
         <div className="space-y-3">
-          <input
+          <select
             value={budgetCat}
             onChange={(e) => setBudgetCat(e.target.value)}
-            placeholder={t("Category (e.g. Groceries)")}
+            aria-label={t("Budget category")}
             className={fieldClass}
-          />
+          >
+            {BUDGET_CATEGORIES.map((c) => (
+              <option key={c} value={c}>
+                {t(c)}
+              </option>
+            ))}
+          </select>
           <input
             value={budgetLimit}
             onChange={(e) => setBudgetLimit(e.target.value)}
@@ -149,7 +161,7 @@ export function Budgets() {
                   );
                 }
                 toast.success(t("Budget added"));
-                setBudgetCat("");
+                setBudgetCat(BUDGET_CATEGORIES[0]);
                 setBudgetLimit("");
                 setBudgetTip("");
                 setBudgetOpen(false);
