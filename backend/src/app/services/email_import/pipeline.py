@@ -18,6 +18,7 @@ from app.repositories.base import begin, connect
 from app.services import notifier
 from app.services.crypto import CryptoError, decrypt
 from app.services.email_import import llm, rules, senders
+from app.services.finance.categories import canonical_category
 from app.services.email_import.gmail_client import (
     GmailError,
     RawMessage,
@@ -73,9 +74,10 @@ async def _import_message(
         "merchant": parsed.merchant,
         "amount": round(parsed.amount, 2),
         "transaction_type": parsed.transaction_type,
-        # Already lowercased+validated by ParsedTransaction — required for the
-        # case-sensitive budget join.
-        "category": parsed.category,
+        # Canonicalised to the one display spelling shared by manual budgets and
+        # transactions, so an imported "food & dining" lands in the same bucket
+        # a "Food & Dining" budget joins against.
+        "category": canonical_category(parsed.category),
         "transaction_date": parsed.transaction_date or msg.received_at,
         "source": SOURCE,
         "note": f"Auto-imported from {msg.subject}"[:500],

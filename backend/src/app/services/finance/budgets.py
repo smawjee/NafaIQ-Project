@@ -8,6 +8,7 @@ from fastapi import HTTPException
 from app.repositories import finance as repo
 from app.repositories.base import begin, connect
 from app.schemas.finance import BudgetCreate, BudgetUpdate
+from app.services.finance.categories import canonical_category
 from app.services.permissions import check_count_limit
 
 
@@ -24,7 +25,7 @@ async def create_budget(uid: str, body: BudgetCreate, user: dict) -> dict[str, A
             conn,
             {
                 "user_id": uid,
-                "category": body.category.strip().lower(),
+                "category": canonical_category(body.category),
                 "spent": body.spent,
                 "limit_amount": body.limit_amount,
                 "period": body.period,
@@ -38,7 +39,7 @@ async def update_budget(uid: str, budget_id: int, body: BudgetUpdate) -> dict[st
     if not values:
         raise HTTPException(400, "No fields to update")
     if "category" in values:
-        values["category"] = values["category"].strip().lower()
+        values["category"] = canonical_category(values["category"])
     async with begin() as conn:
         row = await repo.update_budget(conn, uid, budget_id, values)
     if not row:

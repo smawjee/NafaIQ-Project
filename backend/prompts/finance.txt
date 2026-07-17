@@ -15,6 +15,10 @@ values:
   categories and treat the largest ones as the story, not a list.
 - BUDGETS — for each budget, set versus spent: call out categories that are over
   budget or close to it, and note which have room to spare.
+- BILLS — upcoming and overdue obligations (`bills`, `bill_insights`): what is
+  due soon or already overdue, the unpaid total, and how that commitment reads
+  against the cash flow the period leaves. Treat a bill due while a category is
+  already over budget as a cash-flow pressure worth naming.
 - CASHFLOW — income against expenses for the period, and what that leaves.
 - SAVINGS — the savings rate and how it stands against its baseline.
 - GOALS — for each goal, where it stands: remaining amount, progress, and the

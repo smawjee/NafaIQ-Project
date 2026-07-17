@@ -29,6 +29,7 @@ from app.services.ai.evidence import EvidenceRetriever, NullEvidenceRetriever
 # would grab the function the package re-exports (summary/history/heatmap/networth)
 # and shadow the module; import_module always returns the module, so tests can
 # monkeypatch the service functions on it.
+finance_bills = importlib.import_module("app.services.finance.bills")
 finance_budgets = importlib.import_module("app.services.finance.budgets")
 finance_goals = importlib.import_module("app.services.finance.goals")
 finance_summary = importlib.import_module("app.services.finance.summary")
@@ -527,12 +528,13 @@ async def build_finance_context(
     # gather, not sequential awaits: these reads are independent, and run one
     # after another they summed to the user's whole wait. The dashboard nudge
     # measured 15.7s of context for a ~1s LLM call — the spinner WAS this.
-    summ_r, series_r, spend_r, budgets, goals, ev = await asyncio.gather(
+    summ_r, series_r, spend_r, budgets, goals, bills, ev = await asyncio.gather(
         finance_summary.summary(user_id),
         finance_summary.income_expense_series(user_id, 6),
         finance_summary.spending_by_category(user_id, 30),
         finance_budgets.list_budgets(user_id),
         finance_goals.list_goals(user_id),
+        finance_bills.list_bills(user_id),
         evidence.retrieve("finance notes", None),
     )
     summ, series, spend = _as_dict(summ_r), _as_dict(series_r), _as_dict(spend_r)
@@ -578,6 +580,40 @@ async def build_finance_context(
         }
         for g in goals
     ]
+
+    today = date.today()
+    bill_rows = []
+    for bl in bills:
+        raw_due = bl.get("due_date")
+        due_d = None
+        if raw_due:
+            try:
+                due_d = date.fromisoformat(str(raw_due)[:10])
+            except ValueError:
+                due_d = None
+        status = (bl.get("status") or "").upper()
+        is_paid = status == "PAID"
+        days_until_due = (due_d - today).days if due_d else None
+        bill_rows.append({
+            "name": bl.get("name"),
+            "amount": _finite(bl.get("amount")),
+            "due_date": str(raw_due) if raw_due else None,
+            "status": status or None,
+            "recurring": bool(bl.get("recurring")),
+            "days_until_due": days_until_due,
+            "is_overdue": bool(due_d is not None and not is_paid and due_d < today),
+        })
+    unpaid_bills = [b for b in bill_rows if b.get("status") != "PAID"]
+    overdue_bills = [b for b in bill_rows if b.get("is_overdue")]
+    due_soon_bills = [
+        b for b in unpaid_bills
+        if b.get("days_until_due") is not None and 0 <= b["days_until_due"] <= 7
+    ]
+    next_bill = min(
+        (b for b in unpaid_bills if (b.get("days_until_due") or -1) >= 0),
+        key=lambda b: b["days_until_due"],
+        default=None,
+    )
 
     categories = spend.get("categories", []) or []
     categories_sorted = sorted(
@@ -681,6 +717,16 @@ async def build_finance_context(
                 if goal_rows
                 else None
             ),
+        },
+        "bills": bill_rows,
+        "bill_insights": {
+            "bill_count": len(bill_rows),
+            "unpaid_count": len(unpaid_bills),
+            "overdue_count": len(overdue_bills),
+            "due_within_7_days_count": len(due_soon_bills),
+            "total_unpaid": _sum_finite([b.get("amount") for b in unpaid_bills]),
+            "total_overdue": _sum_finite([b.get("amount") for b in overdue_bills]),
+            "next_bill": next_bill,
         },
         "metrics": {
             "budget_health": budget_health,
