@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { Send, Sparkles } from "lucide-react";
 import { AiGlyph } from "@/components/icons/AiGlyph";
+import { TutorMessage } from "@/components/ai/AiText";
 import { type LessonContent } from "@/lib/learn/data";
 import { useTutorChat } from "@/hooks/learn/use-tutor-chat";
 import { useLang } from "@/hooks/use-lang";
@@ -72,7 +73,7 @@ export function ChatPanel({
                   : "rounded-card rounded-bl-none bg-elevated text-text-primary",
               )}
             >
-              {m.content}
+              <TutorMessage content={m.content} role={m.role} />
             </div>
             {i === 0 && <div className="mt-1 text-[10px] text-text-muted">{t("just now")}</div>}
           </div>

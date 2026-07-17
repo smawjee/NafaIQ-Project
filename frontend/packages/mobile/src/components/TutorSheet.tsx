@@ -3,6 +3,7 @@
 import { useRef, useState } from "react";
 import { ActivityIndicator, Modal, Pressable, ScrollView, StyleSheet, TextInput, View } from "react-native";
 
+import { TutorMessage as TutorBubble } from "@/components/ai/AiText";
 import { Text } from "@/components/ui";
 import { colors } from "@/constants/theme";
 import { askTutor, type TutorMessage } from "@/lib/ai-tutor";
@@ -63,9 +64,11 @@ export function TutorSheet({
           >
             {messages.map((m, i) => (
               <View key={i} style={[styles.bubble, m.role === "user" ? styles.user : styles.ai]}>
-                <Text style={{ color: m.role === "user" ? colors.bullForeground : colors.textPrimary, fontSize: 14 }}>
-                  {m.content}
-                </Text>
+                <TutorBubble
+                  content={m.content}
+                  role={m.role}
+                  color={m.role === "user" ? colors.bullForeground : colors.textPrimary}
+                />
               </View>
             ))}
             {messages.length === 1 && presets.length > 0 && (

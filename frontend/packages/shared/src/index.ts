@@ -7,6 +7,7 @@ export type { ApiHeatmapResponse, ApiHeatmapStockItem } from "./api";
 export type { ScreenerRequest, ScreenerResponse, ScreenerResultRow } from "./api";
 export type { BacktestRequest, ApiBacktestResult } from "./api";
 
+export * from "./ai-text";
 export * from "./data";
 export * from "./finance-data";
 export * from "./learn-data";

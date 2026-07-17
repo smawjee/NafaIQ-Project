@@ -12,8 +12,14 @@
  *                           citations, no deep sections) — for dashboard
  *                           recommendation cards.
  */
+import { AiText } from "@/components/ai/AiText";
 import { useLang } from "@/hooks/use-lang";
-import type { ReportCitation, ReportContent, ReportMetric, ReportSection } from "@/lib/ai/reports-client";
+import type {
+  ReportCitation,
+  ReportContent,
+  ReportMetric,
+  ReportSection,
+} from "@/lib/ai/reports-client";
 import { cn } from "@/lib/utils";
 
 type Variant = "compact" | "narrative" | "nudge";
@@ -33,7 +39,7 @@ export function AiReportView({
     <div dir={isUrdu ? "rtl" : "ltr"} className={cn(isUrdu && "font-urdu", "space-y-4")}>
       {report.headline && (
         <p className="text-base font-semibold leading-relaxed text-text-primary">
-          {report.headline}
+          <AiText text={report.headline} />
         </p>
       )}
 
@@ -43,7 +49,9 @@ export function AiReportView({
             {report.observations.map((o, i) => (
               <li key={i} className="flex gap-2 text-sm leading-relaxed text-text-secondary">
                 <span className="mt-[7px] h-1.5 w-1.5 shrink-0 rounded-full bg-ai" />
-                <span>{o}</span>
+                <span>
+                  <AiText text={o} />
+                </span>
               </li>
             ))}
           </ul>
@@ -51,7 +59,7 @@ export function AiReportView({
           <div>
             {report.observations.map((o, i) => (
               <p key={i} className="mb-2 text-sm leading-relaxed text-text-secondary last:mb-0">
-                {o}
+                <AiText text={o} />
               </p>
             ))}
           </div>
@@ -63,7 +71,7 @@ export function AiReportView({
             {t("Executive summary")}
           </h4>
           <p className="text-sm leading-relaxed text-text-secondary">
-            {report.executive_summary}
+            <AiText text={report.executive_summary} />
           </p>
         </section>
       )}
@@ -85,10 +93,12 @@ export function AiReportView({
             {report.holdings_analysis.map((holding) => (
               <div key={holding.symbol} className="border-s-2 border-s-ai ps-3">
                 <p className="text-sm font-semibold text-text-primary">{holding.symbol}</p>
-                <p className="text-sm leading-relaxed text-text-secondary">{holding.summary}</p>
+                <p className="text-sm leading-relaxed text-text-secondary">
+                  <AiText text={holding.summary} />
+                </p>
                 {holding.risk_note && (
                   <p className="mt-1 text-xs leading-relaxed text-text-muted">
-                    {holding.risk_note}
+                    <AiText text={holding.risk_note} />
                   </p>
                 )}
               </div>
@@ -105,7 +115,9 @@ export function AiReportView({
           {report.action_plan.map((item, i) => (
             <div key={`${item.title}-${i}`} className="grid gap-1 border-s-2 border-s-ai ps-3">
               <div className="flex flex-wrap items-center gap-2">
-                <p className="text-sm font-semibold text-text-primary">{item.title}</p>
+                <p className="text-sm font-semibold text-text-primary">
+                  <AiText text={item.title} />
+                </p>
                 <span className="rounded-[4px] border border-border px-1.5 py-0.5 text-[11px] uppercase text-text-muted">
                   {t(item.priority)}
                 </span>
@@ -113,7 +125,9 @@ export function AiReportView({
                   {t(item.timeframe.replaceAll("_", " "))}
                 </span>
               </div>
-              <p className="text-sm leading-relaxed text-text-secondary">{item.rationale}</p>
+              <p className="text-sm leading-relaxed text-text-secondary">
+                <AiText text={item.rationale} />
+              </p>
             </div>
           ))}
         </section>
@@ -121,7 +135,7 @@ export function AiReportView({
 
       {showDeep && report.ml_signal_status === "not_available" && report.ml_signal_note && (
         <p className="border-t border-border pt-3 text-xs leading-relaxed text-text-muted">
-          {report.ml_signal_note}
+          <AiText text={report.ml_signal_note} />
         </p>
       )}
 
@@ -132,7 +146,7 @@ export function AiReportView({
           </h4>
           {report.data_quality_notes.map((note, i) => (
             <p key={i} className="text-xs leading-relaxed text-text-muted">
-              {note}
+              <AiText text={note} />
             </p>
           ))}
         </section>
@@ -148,8 +162,12 @@ export function AiReportView({
               key={i}
               className="rounded-[10px] border border-border border-l-4 border-l-ai bg-ai-tint p-3"
             >
-              <p className="text-sm leading-relaxed text-text-primary">{c.consideration}</p>
-              <p className="mt-1 text-xs italic leading-relaxed text-text-secondary">{c.hedge}</p>
+              <p className="text-sm leading-relaxed text-text-primary">
+                <AiText text={c.consideration} />
+              </p>
+              <p className="mt-1 text-xs italic leading-relaxed text-text-secondary">
+                <AiText text={c.hedge} />
+              </p>
             </div>
           ))}
         </div>
@@ -162,7 +180,7 @@ export function AiReportView({
             showDeep && "border-t border-border pt-3",
           )}
         >
-          {report.disclaimer}
+          <AiText text={report.disclaimer} />
         </p>
       )}
 
@@ -222,8 +240,12 @@ function DetailedSection({ section }: { section: ReportSection }) {
   return (
     <section className="space-y-2">
       <div>
-        <h4 className="text-sm font-semibold text-text-primary">{section.title}</h4>
-        <p className="mt-1 text-sm leading-relaxed text-text-secondary">{section.summary}</p>
+        <h4 className="text-sm font-semibold text-text-primary">
+          <AiText text={section.title} />
+        </h4>
+        <p className="mt-1 text-sm leading-relaxed text-text-secondary">
+          <AiText text={section.summary} />
+        </p>
       </div>
       {section.supporting_metrics && section.supporting_metrics.length > 0 && (
         <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
@@ -237,7 +259,9 @@ function DetailedSection({ section }: { section: ReportSection }) {
           {section.key_findings.map((finding, i) => (
             <li key={i} className="flex gap-2 text-sm leading-relaxed text-text-secondary">
               <span className="mt-[7px] h-1.5 w-1.5 shrink-0 rounded-full bg-ai" />
-              <span>{finding}</span>
+              <span>
+                <AiText text={finding} />
+              </span>
             </li>
           ))}
         </ul>
@@ -249,13 +273,15 @@ function DetailedSection({ section }: { section: ReportSection }) {
 function MetricPill({ metric }: { metric: ReportMetric }) {
   return (
     <div className="rounded-[6px] border border-border bg-surface/70 px-3 py-2">
-      <p className="text-[11px] uppercase tracking-wide text-text-muted">{metric.label}</p>
+      <p className="text-[11px] uppercase tracking-wide text-text-muted">
+        <AiText text={metric.label} />
+      </p>
       <p className="mt-1 font-mono text-sm font-semibold text-text-primary">
         {formatMetricValue(metric.value)}
       </p>
       {metric.interpretation && (
         <p className="mt-1 text-xs leading-relaxed text-text-secondary">
-          {metric.interpretation}
+          <AiText text={metric.interpretation} />
         </p>
       )}
     </div>

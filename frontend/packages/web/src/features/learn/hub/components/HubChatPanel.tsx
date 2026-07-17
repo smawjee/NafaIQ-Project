@@ -3,6 +3,7 @@ import { Link } from "@tanstack/react-router";
 import { Send, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useLang } from "@/hooks/use-lang";
+import { TutorMessage } from "@/components/ai/AiText";
 import { useTutorChat } from "@/hooks/learn/use-tutor-chat";
 import { HUB_PRESETS } from "@/features/learn/hub/hub.data";
 
@@ -42,7 +43,7 @@ export function HubChatPanel() {
                   : "rounded-[12px] rounded-bl-none bg-elevated text-text-primary",
               )}
             >
-              {m.content}
+              <TutorMessage content={m.content} role={m.role} />
             </div>
           </div>
         ))}

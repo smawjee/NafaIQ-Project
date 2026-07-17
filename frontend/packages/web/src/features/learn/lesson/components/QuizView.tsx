@@ -14,6 +14,7 @@ import {
   Trophy,
   X,
 } from "lucide-react";
+import { AiText } from "@/components/ai/AiText";
 import { type LessonContent } from "@/lib/learn/data";
 import { useLang } from "@/hooks/use-lang";
 import { useAuth } from "@/hooks/use-auth";
@@ -334,7 +335,7 @@ export function QuizView({
                         {t("AI explanation")}
                       </div>
                       <p className="mt-1.5 text-sm leading-relaxed text-text-primary">
-                        {explain.data.explanation}
+                        <AiText text={explain.data.explanation} />
                       </p>
                       {explain.data.sources.length > 0 && (
                         <p className="mt-2 text-[11px] leading-relaxed text-text-muted">

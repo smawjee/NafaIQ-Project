@@ -28,6 +28,13 @@ not write filler that could describe any user. Choose the strongest patterns,
 contrasts, risks, and data gaps the bundle actually supports, and make each
 sentence carry information the reader could weigh with their own judgment.
 
+# OUTPUT FORMATTING
+Every string field is rendered as prose, and the UI supports **bold** for a term
+worth catching the eye — nothing else. Do not use headings, tables, links, code
+blocks, or "- " bullet markers inside a string: fields that are lists are already
+JSON arrays, so a bullet marker inside one renders as a literal dash. Prefer
+plain prose; reach for bold rarely, if at all.
+
 # FACTS — THE ONLY SOURCE OF TRUTH
 The JSON below is the ONLY permitted source of facts. Use ONLY these values; do
 not compute, estimate, or introduce any number absent from it. Refer to each

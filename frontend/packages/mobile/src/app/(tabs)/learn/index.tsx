@@ -14,6 +14,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { TutorMessage as TutorBubble } from "@/components/ai/AiText";
 import { GlassCard } from "@/components/glass/GlassCard";
 import { GlassScreen } from "@/components/glass/GlassScreen";
 import { Button, Text } from "@/components/ui";
@@ -315,7 +316,7 @@ function TutorModal({ visible, onClose }: { visible: boolean; onClose: () => voi
           <ScrollView ref={scrollRef} style={{ flex: 1 }} contentContainerStyle={{ padding: 12, gap: 10 }} onContentSizeChange={() => scrollRef.current?.scrollToEnd({ animated: true })}>
             {messages.map((m, i) => (
               <View key={i} style={[styles.bubble, m.role === "user" ? styles.bubbleUser : styles.bubbleAI]}>
-                <Text style={{ color: m.role === "user" ? colors.bullForeground : colors.textPrimary, fontSize: 14 }}>{m.content}</Text>
+                <TutorBubble content={m.content} role={m.role} color={m.role === "user" ? colors.bullForeground : colors.textPrimary} />
               </View>
             ))}
             {messages.length === 1 && (

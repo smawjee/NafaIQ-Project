@@ -1,5 +1,6 @@
 import { Loader2, Sparkles } from "lucide-react";
 
+import { AiText } from "@/components/ai/AiText";
 import { useAuth } from "@/hooks/use-auth";
 import { useLang } from "@/hooks/use-lang";
 import { useLearnRagStatus } from "@/hooks/learn/use-learn-search";
@@ -78,7 +79,9 @@ export function LessonSummaryCard({ lessonId }: { lessonId: string }) {
             <span className="text-ai" aria-hidden="true">
               •
             </span>
-            <span>{idea}</span>
+            <span>
+              <AiText text={idea} />
+            </span>
           </li>
         ))}
       </ul>
