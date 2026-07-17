@@ -2,7 +2,7 @@ FROM python:3.12-slim
 
 WORKDIR /app
 
-COPY backend/ .
+COPY . .
 
 RUN pip install --no-cache-dir -e ".[dev]"
 
