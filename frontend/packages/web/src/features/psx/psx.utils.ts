@@ -1,4 +1,26 @@
-import { STOCKS } from "@/lib/data";
+import { STOCKS, type Signal } from "@/lib/data";
+
+/** One row of the screener/movers tables (shared by both). */
+export interface PsxScreenRow {
+  ticker: string;
+  sector: string;
+  price: number;
+  changePct: number;
+  signal: Signal | null;
+  rsi: number | null;
+  volume: string;
+  marketCap: string;
+}
+
+/** One index card in the overview grid. */
+export interface DisplayIndex {
+  key: string;
+  name: string;
+  value: number;
+  change: number;
+  changePct: number;
+  spark: number[];
+}
 
 /** Matches the `days` upper bound on GET /api/quote/{symbol}/history. */
 export const MAX_HISTORY_DAYS = 3650;

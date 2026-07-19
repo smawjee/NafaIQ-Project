@@ -1,17 +1,11 @@
-import { Link, useNavigate } from "@tanstack/react-router";
+import { useNavigate } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Plus, Star, Filter, CandlestickChart as CandleIcon, Grid3x3, List, LayoutGrid, Flame } from "lucide-react";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { StockSearchBox } from "@/components/search/StockSearchBox";
-import { toast } from "sonner";
+import { CandlestickChart as CandleIcon } from "lucide-react";
 
 import { Card } from "@/components/shared/Card";
-import { InfoTip } from "@/components/shared/InfoTip";
-import { CountUpNumber } from "@/components/shared/CountUpNumber";
 import { MarketBriefCard } from "@/features/psx/components/MarketBriefCard";
 import { Change } from "@/components/market/Change";
-import { SignalBadge } from "@/components/market/SignalBadge";
-import { CandlestickChart, PriceLineChart, Sparkline } from "@/components/charts/charts";
+import { CandlestickChart, PriceLineChart } from "@/components/charts/charts";
 import { ChartToolbar, type Indicator, type Timeframe } from "@/components/charts/ChartToolbar";
 import { INDICES, STOCKS, STOCK_LIST, generateOHLCV, sma, fmtNum, type Signal } from "@/lib/data";
 import {
@@ -31,15 +25,14 @@ import { formatNumber, formatCompactPKR } from "@/lib/format";
 import { useWatchlist } from "@/hooks/psx/use-watchlist";
 import { useDemo } from "@/hooks/use-demo";
 import { StatsGridSkeleton, ChartSkeleton, TableSkeleton } from "@/components/shared/PageSkeleton";
-import { cn } from "@/lib/utils";
 import { useLang } from "@/hooks/use-lang";
 import { MarketTicker } from "@/features/psx/components/MarketTicker";
-import { Treemap } from "@/features/heatmap/Treemap";
-import { HeatmapLegend } from "@/features/heatmap/HeatmapLegend";
-import { HeatmapSkeleton } from "@/features/heatmap/HeatmapSkeleton";
-import { HeatmapEmptyState } from "@/features/heatmap/HeatmapEmptyState";
-import { TopMoversView, type TopMover } from "@/features/heatmap/TopMoversView";
-import { SYMBOLS, INDEX_INFO } from "@/features/psx/psx.data";
+import { type TopMover } from "@/features/heatmap/TopMoversView";
+import { PsxIndexOverview } from "@/features/psx/components/PsxIndexOverview";
+import { PsxScreenerCard } from "@/features/psx/components/PsxScreenerCard";
+import { PsxWatchlistCard } from "@/features/psx/components/PsxWatchlistCard";
+import { PsxMoversCard } from "@/features/psx/components/PsxMoversCard";
+import { PsxSectorHeatmap } from "@/features/psx/components/PsxSectorHeatmap";
 import { tfDays, symbolMeta } from "@/features/psx/psx.utils";
 
 export function PSX() {
@@ -280,6 +273,17 @@ export function PSX() {
     screened.length === 0 ? 0 : (currentScreenerPage - 1) * screenerPageSize + 1;
   const screenerEnd = Math.min(currentScreenerPage * screenerPageSize, screened.length);
 
+  // Unique sector names for the screener filter dropdown.
+  const sectorOptions = useMemo(() => {
+    const uniq = new Set<string>();
+    if (symbolsData) {
+      for (const s of symbolsData) {
+        if (s.sector) uniq.add(s.sector);
+      }
+    }
+    return Array.from(uniq).sort();
+  }, [symbolsData]);
+
   const sortedTreemapData = useMemo(() => {
     if (!treemapData) return null;
     // The backend already orders sectors by total_size_metric — a real market
@@ -358,52 +362,12 @@ export function PSX() {
       <MarketTicker />
 
       {/* Index overview */}
-      <div>
-        <div className="mb-2 flex items-center justify-between">
-          <h3 className="text-sm font-semibold text-text-primary">{t("Indices")}</h3>
-          {indexCardsAll.length > 4 && (
-            <button
-              type="button"
-              onClick={() => setShowAllIndices((v) => !v)}
-              className="shrink-0 rounded-[6px] border border-border px-2 py-1 text-xs font-medium text-text-secondary hover:bg-hover hover:text-text-primary"
-            >
-              {showAllIndices ? t("Show 4") : t("Show all")}
-            </button>
-          )}
-        </div>
-        <div
-          className={cn(
-            "grid gap-4",
-            showAllIndices
-              ? // 18 cards laid out in 3 rows of 6 on lg — wide enough to keep
-                // each card's chart + number legible, dense enough to compare
-                // the whole market at a glance.
-                "grid-cols-2 sm:grid-cols-3 lg:grid-cols-6"
-              : "grid-cols-2 lg:grid-cols-4",
-          )}
-        >
-          {displayIndices.map((idx) => (
-            <Card key={idx.key}>
-              <div className="flex items-center gap-1.5">
-                <span className="text-xs font-medium text-text-secondary">{idx.name}</span>
-                {INDEX_INFO[idx.name] && <InfoTip label={INDEX_INFO[idx.name]} />}
-              </div>
-              <div className="mt-1 font-mono text-lg font-bold tabular-nums text-text-primary">
-                <CountUpNumber value={idx.value} decimals={2} />
-              </div>
-              <div className="flex items-center justify-between">
-                <Change
-                  value={`${idx.change >= 0 ? "+" : ""}${fmtNum(idx.change)}`}
-                  pct={idx.changePct}
-                />
-              </div>
-              <div className="mt-1">
-                <Sparkline data={idx.spark} color="#00d4aa" />
-              </div>
-            </Card>
-          ))}
-        </div>
-      </div>
+      <PsxIndexOverview
+        indices={displayIndices}
+        showAll={showAllIndices}
+        canToggle={indexCardsAll.length > 4}
+        onToggleShowAll={() => setShowAllIndices((v) => !v)}
+      />
 
       <div className="grid min-w-0 gap-6 lg:grid-cols-[65fr_35fr]">
         {/* Chart column */}
@@ -467,442 +431,58 @@ export function PSX() {
           {/* AI market brief — verified pipeline, no fabricated signal/confidence */}
           <MarketBriefCard />
 
-          {/* Stock Screener */}
-          <Card>
-            <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-              <div>
-                <h3 className="text-sm font-semibold text-text-primary">{t("Stock Screener")}</h3>
-                <p className="text-[11px] text-text-muted">
-                  {screened.length > 0
-                    ? `${t("Showing")} ${screenerStart}-${screenerEnd} ${t("of")} ${screened.length}`
-                    : t("No stocks match the selected filters.")}
-                </p>
-              </div>
-              <div className="flex items-center gap-1 text-xs text-text-secondary">
-                <button
-                  type="button"
-                  disabled={currentScreenerPage <= 1}
-                  onClick={() => setScreenerPage((p) => Math.max(1, p - 1))}
-                  className="rounded-[6px] border border-border px-2 py-1 hover:bg-hover disabled:cursor-not-allowed disabled:opacity-40"
-                >
-                  {t("Prev")}
-                </button>
-                <span className="min-w-12 text-center font-mono tabular-nums">
-                  {currentScreenerPage}/{screenerPageCount}
-                </span>
-                <button
-                  type="button"
-                  disabled={currentScreenerPage >= screenerPageCount}
-                  onClick={() => setScreenerPage((p) => Math.min(screenerPageCount, p + 1))}
-                  className="rounded-[6px] border border-border px-2 py-1 hover:bg-hover disabled:cursor-not-allowed disabled:opacity-40"
-                >
-                  {t("Next")}
-                </button>
-              </div>
-            </div>
-            <div className="mb-3 flex items-center gap-2">
-              <Filter className="h-4 w-4 text-text-secondary" />
-              <input
-                type="text"
-                value={searchFilter}
-                onChange={(e) => setSearchFilter(e.target.value)}
-                placeholder={t("Search symbol or sector...")}
-                className="min-w-0 flex-1 rounded-[6px] border border-border bg-elevated px-2.5 py-1 text-xs text-text-primary placeholder:text-text-muted"
-              />
-              <select
-                value={sectorFilter}
-                onChange={(e) => setSectorFilter(e.target.value)}
-                className="rounded-[6px] border border-border bg-elevated px-2 py-1 text-xs font-medium text-text-primary"
-              >
-                <option value="All">{t("All Sectors")}</option>
-                {(() => {
-                  const uniqSectors = new Set<string>();
-                  if (symbolsData) {
-                    for (const s of symbolsData) {
-                      if (s.sector) uniqSectors.add(s.sector);
-                    }
-                  }
-                  return Array.from(uniqSectors)
-                    .sort()
-                    .map((sec) => (
-                      <option key={sec} value={sec}>
-                        {t(sec)}
-                      </option>
-                    ));
-                })()}
-              </select>
-            </div>
-            <div className="mb-3 flex flex-wrap gap-1.5">
-              {(
-                ["All", "STRONG BUY", "BUY", "HOLD", "SELL", "STRONG SELL"] as (string | Signal)[]
-              ).map((f) => (
-                <button
-                  key={f}
-                  onClick={() => setSignalFilter(f)}
-                  className={cn(
-                    "rounded-full px-3 py-1 text-xs font-medium",
-                    signalFilter === f
-                      ? "bg-bull text-bull-foreground"
-                      : "border border-border text-text-secondary hover:bg-hover",
-                  )}
-                >
-                  {t(f)}
-                </button>
-              ))}
-            </div>
-            <div className="scrollbar-none overflow-x-auto">
-              <table className="w-full min-w-[640px] text-xs">
-                <thead>
-                  <tr className="border-b border-border text-left text-text-muted">
-                    <th className="py-2">{t("Stock")}</th>
-                    <th>{t("Sector")}</th>
-                    <th className="text-right">{t("Price")}</th>
-                    <th className="text-right">{t("Change")}</th>
-                    <th className="text-center">{t("Signal")}</th>
-                    <th className="text-right">RSI</th>
-                    <th className="text-right">{t("Volume")}</th>
-                    <th className="pr-2 text-right">{t("Mkt Cap")}</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {visibleScreened.map((s, i) => (
-                    <tr
-                      key={s.ticker}
-                      className={cn("cursor-pointer hover:bg-hover", i % 2 ? "bg-surface-alt" : "")}
-                    >
-                      <td className="py-2">
-                        <Link
-                          to="/stock/$ticker"
-                          params={{ ticker: s.ticker }}
-                          className="font-semibold text-bull"
-                        >
-                          {s.ticker}
-                        </Link>
-                      </td>
-                      <td className="text-text-secondary">{t(s.sector)}</td>
-                      <td className="text-right font-mono tabular-nums text-text-primary">
-                        {fmtNum(s.price)}
-                      </td>
-                      <td className="text-right">
-                        <Change pct={s.changePct} />
-                      </td>
-                      <td className="text-center">
-                        {s.signal ? (
-                          <SignalBadge signal={s.signal} />
-                        ) : (
-                          <span className="text-text-muted" title={t("Signal unavailable")}>
-                            —
-                          </span>
-                        )}
-                      </td>
-                      <td className="text-right font-mono tabular-nums">
-                        {s.rsi == null ? (
-                          <span className="text-text-muted" title={t("Not enough history")}>
-                            —
-                          </span>
-                        ) : (
-                          <span
-                            className={cn(
-                              s.rsi > 70
-                                ? "text-bear"
-                                : s.rsi < 30
-                                  ? "text-bull"
-                                  : "text-text-secondary",
-                            )}
-                            title={
-                              s.rsi > 70
-                                ? t("Overbought")
-                                : s.rsi < 30
-                                  ? t("Oversold")
-                                  : t("Neutral")
-                            }
-                          >
-                            {s.rsi.toFixed(0)}
-                            {s.rsi > 70 ? " OB" : s.rsi < 30 ? " OS" : ""}
-                          </span>
-                        )}
-                      </td>
-                      <td className="text-right font-mono tabular-nums text-text-secondary">
-                        {s.volume}
-                      </td>
-                      <td className="pr-2 text-right font-mono tabular-nums text-text-secondary">
-                        {s.marketCap}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </Card>
+          <PsxScreenerCard
+            rows={visibleScreened}
+            screenedCount={screened.length}
+            screenerStart={screenerStart}
+            screenerEnd={screenerEnd}
+            currentPage={currentScreenerPage}
+            pageCount={screenerPageCount}
+            onPrev={() => setScreenerPage((p) => Math.max(1, p - 1))}
+            onNext={() => setScreenerPage((p) => Math.min(screenerPageCount, p + 1))}
+            searchFilter={searchFilter}
+            onSearchChange={setSearchFilter}
+            sectorFilter={sectorFilter}
+            onSectorChange={setSectorFilter}
+            sectors={sectorOptions}
+            signalFilter={signalFilter}
+            onSignalChange={setSignalFilter}
+          />
         </div>
 
         {/* Right panel */}
         <div className="min-w-0 space-y-4">
-          <Card>
-            <div className="mb-2 flex items-center justify-between">
-              <h3 className="text-sm font-semibold text-text-primary">{t("Watchlist")}</h3>
-              <Popover open={addOpen} onOpenChange={setAddOpen}>
-                <PopoverTrigger asChild>
-                  <button className="flex items-center gap-1 text-xs font-medium text-bull transition-colors hover:text-bull/80">
-                    <Plus className="h-3.5 w-3.5" />
-                    {t("Add Stock")}
-                  </button>
-                </PopoverTrigger>
-                <PopoverContent align="end" className="w-80 p-2">
-                  <StockSearchBox
-                    mode="add"
-                    autoFocus
-                    addedSymbols={watchlist.symbols}
-                    placeholder={t("Search stocks to add…")}
-                    onSelect={(r) => {
-                      if (watchlist.symbols.includes(r.symbol)) {
-                        toast(`${r.symbol} ${t("is already in your watchlist")}`);
-                        return;
-                      }
-                      watchlist.add(r.symbol);
-                      toast.success(`${r.symbol} ${t("added to watchlist")}`);
-                    }}
-                  />
-                </PopoverContent>
-              </Popover>
-            </div>
-            <div className="space-y-1">
-              {watchlist.symbols.map((tk) => {
-                const fallback = STOCKS[tk];
-                const live = snapshot?.find((row) => row.symbol === tk);
-                const rawPrice = live?.price ?? fallback?.price ?? null;
-                const hasPrice = rawPrice != null && rawPrice > 0;
-                const livePrice = rawPrice ?? 0;
-                const liveChangePct = live?.change_pct ?? fallback?.changePct ?? 0;
-                const liveName =
-                  symbolsData?.find((s) => s.symbol === tk)?.name ?? fallback?.name ?? tk;
-                const signalForSymbol =
-                  batchSignals?.signals?.find((s: { symbol: string }) => s.symbol === tk)?.signal ??
-                  fallback?.signal ??
-                  "HOLD";
-                return (
-                  <div
-                    key={tk}
-                    className="group flex items-center gap-2 rounded-[6px] px-2 py-1.5 hover:bg-hover"
-                  >
-                    <button
-                      onClick={() => {
-                        watchlist.remove(tk);
-                        toast(`${tk} ${t("removed from watchlist")}`);
-                      }}
-                      aria-label={`Remove ${tk}`}
-                      className="shrink-0"
-                    >
-                      <Star className="wl-star h-3.5 w-3.5 text-bull" fill="#00d4aa" />
-                    </button>
-                    <Link
-                      to="/stock/$ticker"
-                      params={{ ticker: tk }}
-                      className="flex flex-1 items-center gap-2"
-                    >
-                      <div className="flex-1">
-                        <div className="wl-symbol text-sm font-semibold text-bull">{tk}</div>
-                        <div className="text-[10px] text-text-muted">{t(liveName)}</div>
-                      </div>
-                      <div className="text-right">
-                        {hasPrice ? (
-                          <>
-                            <div className="font-mono text-sm tabular-nums text-text-primary">
-                              {fmtNum(livePrice)}
-                            </div>
-                            <Change pct={liveChangePct} />
-                          </>
-                        ) : (
-                          <div
-                            className="font-mono text-sm tabular-nums text-text-muted"
-                            title={t("Live price unavailable")}
-                          >
-                            —
-                          </div>
-                        )}
-                      </div>
-                      <SignalBadge signal={signalForSymbol as Signal} />
-                    </Link>
-                  </div>
-                );
-              })}
-            </div>
-          </Card>
+          <PsxWatchlistCard
+            symbols={watchlist.symbols}
+            onAdd={watchlist.add}
+            onRemove={watchlist.remove}
+            addOpen={addOpen}
+            onAddOpenChange={setAddOpen}
+            snapshot={snapshot}
+            symbolsData={symbolsData}
+            batchSignals={batchSignals}
+          />
 
-          <Card>
-            <div className="mb-2 flex gap-1">
-              {(["Gainers", "Losers", "Most Active"] as const).map((tab) => (
-                <button
-                  key={tab}
-                  onClick={() => setMoverTab(tab)}
-                  className={cn(
-                    "rounded-[6px] px-2.5 py-1 text-xs font-medium",
-                    moverTab === tab
-                      ? "bg-bull/15 text-bull"
-                      : "text-text-secondary hover:bg-hover",
-                  )}
-                >
-                  {t(tab)}
-                </button>
-              ))}
-            </div>
-            <table className="w-full text-xs">
-              <tbody>
-                {movers.map((s, i) => (
-                  <tr key={s.ticker} className={cn(i % 2 ? "bg-surface-alt" : "bg-surface")}>
-                    <td className="py-1.5 pl-2 text-text-muted">{i + 1}</td>
-                    <td className="font-semibold text-text-primary">{s.ticker}</td>
-                    <td className="text-right font-mono tabular-nums text-text-primary">
-                      {fmtNum(s.price)}
-                    </td>
-                    <td className="px-2 text-right">
-                      <Change pct={s.changePct} />
-                    </td>
-                    <td className="pr-2 text-right font-mono tabular-nums text-text-muted">
-                      {s.volume}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </Card>
-
+          <PsxMoversCard moverTab={moverTab} onMoverTabChange={setMoverTab} movers={movers} />
         </div>
       </div>
 
       {/* Full-width Sector Heatmap */}
-      <Card className="mt-6">
-        <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <h3 className="text-base font-semibold text-text-primary">
-              {drilledSector ? t(drilledSector) : t("Sector Heatmap")}
-            </h3>
-            <p className="text-[11px] text-text-muted">
-              {treemapData
-                ? `${treemapData.sectors.length} ${t("sectors")} · ${renderedStockCount} ${t("stocks")}`
-                : t("Loading…")}
-            </p>
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            {/* Sort dropdown */}
-            <select
-              value={heatmapSort}
-              onChange={(e) => setHeatmapSort(e.target.value as "size" | "change" | "volume")}
-              className="rounded-[6px] border border-border bg-surface px-2 py-1 text-xs text-text-primary"
-              disabled={!!drilledSector}
-            >
-              <option value="size">{t("By Size")}</option>
-              <option value="change">{t("By % Change")}</option>
-              <option value="volume">{t("By Volume")}</option>
-            </select>
-            {/* View toggle */}
-            <div className="flex items-center gap-0.5 rounded-[6px] border border-border bg-surface p-0.5">
-              <button
-                type="button"
-                onClick={() => setHeatmapView("treemap")}
-                className={cn(
-                  "inline-flex items-center gap-1 rounded-[4px] px-2 py-1 text-xs font-medium transition",
-                  heatmapView === "treemap"
-                    ? "bg-bull text-bull-foreground"
-                    : "text-text-secondary hover:bg-hover"
-                )}
-                title={t("Treemap view")}
-              >
-                <LayoutGrid className="h-3.5 w-3.5" />
-              </button>
-              <button
-                type="button"
-                onClick={() => setHeatmapView("sectors")}
-                className={cn(
-                  "inline-flex items-center gap-1 rounded-[4px] px-2 py-1 text-xs font-medium transition",
-                  heatmapView === "sectors"
-                    ? "bg-bull text-bull-foreground"
-                    : "text-text-secondary hover:bg-hover"
-                )}
-                title={t("Sectors bar list")}
-              >
-                <List className="h-3.5 w-3.5" />
-              </button>
-              <button
-                type="button"
-                onClick={() => setHeatmapView("movers")}
-                className={cn(
-                  "inline-flex items-center gap-1 rounded-[4px] px-2 py-1 text-xs font-medium transition",
-                  heatmapView === "movers"
-                    ? "bg-bull text-bull-foreground"
-                    : "text-text-secondary hover:bg-hover"
-                )}
-                title={t("Top Movers")}
-              >
-                <Flame className="h-3.5 w-3.5" />
-              </button>
-            </div>
-          </div>
-        </div>
-
-        {treemapData && (
-          <HeatmapLegend asOf={treemapData.as_of} />
-        )}
-
-        <div className="mt-3">
-          {heatmapView === "treemap" ? (
-            isLoadingTreemap ? (
-              <HeatmapSkeleton height={560} />
-            ) : sortedTreemapData && sortedTreemapData.sectors.length > 0 ? (
-              <Treemap
-                data={sortedTreemapData}
-                height={560}
-                drilledSector={drilledSector}
-                onStockClick={(sym) => navigate({ to: "/stock/$ticker", params: { ticker: sym } })}
-                onSectorClick={(sectorName) => setDrilledSector(sectorName)}
-                onDrillUp={() => setDrilledSector(null)}
-              />
-            ) : (
-              <HeatmapEmptyState height={560} />
-            )
-          ) : heatmapView === "sectors" ? (
-            <div className="space-y-1">
-              {sortedTreemapData?.sectors.map((s) => (
-                <button
-                  key={s.name}
-                  type="button"
-                  onClick={() => {
-                    setHeatmapView("treemap");
-                    setDrilledSector(s.name);
-                  }}
-                  className="flex w-full items-center gap-2 rounded-[4px] px-2 py-1.5 text-xs hover:bg-hover"
-                >
-                  <span className="w-40 truncate text-left font-medium text-text-primary">
-                    {t(s.name)}
-                  </span>
-                  <span className="text-text-muted">· {s.stock_count}</span>
-                  <div className="flex-1">
-                    <div className="h-4 overflow-hidden rounded bg-surface-alt">
-                      <div
-                        className="h-full rounded transition-all"
-                        style={{
-                          width: `${Math.min(Math.abs(s.avg_change_pct) * 5, 100)}%`,
-                          backgroundColor:
-                            (s.avg_change_pct ?? 0) >= 0
-                              ? "var(--color-bull)"
-                              : "var(--color-bear)",
-                        }}
-                      />
-                    </div>
-                  </div>
-                  <Change pct={s.avg_change_pct ?? 0} />
-                </button>
-              ))}
-            </div>
-          ) : (
-            topMovers.length > 0 ? (
-              <TopMoversView movers={topMovers} />
-            ) : (
-              <HeatmapSkeleton height={560} />
-            )
-          )}
-        </div>
-      </Card>
+      <PsxSectorHeatmap
+        treemapData={treemapData}
+        sortedTreemapData={sortedTreemapData}
+        isLoadingTreemap={isLoadingTreemap}
+        heatmapView={heatmapView}
+        onHeatmapView={setHeatmapView}
+        heatmapSort={heatmapSort}
+        onHeatmapSort={setHeatmapSort}
+        drilledSector={drilledSector}
+        onDrillSector={setDrilledSector}
+        onDrillUp={() => setDrilledSector(null)}
+        renderedStockCount={renderedStockCount}
+        topMovers={topMovers}
+        onStockNavigate={(sym) => navigate({ to: "/stock/$ticker", params: { ticker: sym } })}
+      />
     </div>
   );
 }
