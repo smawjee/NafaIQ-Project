@@ -1,5 +1,27 @@
 import { MONTHS } from "@/features/portfolio/portfolio.data";
 
+/** Add/Edit holding form state. Cost basis is entered as a per-share price OR a
+ *  total amount paid; `costMode` picks which field is authoritative. */
+export interface HoldingForm {
+  ticker: string;
+  sector: string;
+  shares: string;
+  costMode: "per_share" | "total";
+  buyPrice: string;
+  totalCost: string;
+  current: string;
+}
+
+export const EMPTY_HOLDING_FORM: HoldingForm = {
+  ticker: "",
+  sector: "",
+  shares: "",
+  costMode: "per_share",
+  buyPrice: "",
+  totalCost: "",
+  current: "",
+};
+
 // Synthetic showcase history seeded from the store's invested amount, so the
 // demo chart tracks demo buys/sells.
 export function series(n: number, base: number) {
