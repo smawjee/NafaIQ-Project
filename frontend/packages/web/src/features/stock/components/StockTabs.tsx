@@ -3,9 +3,9 @@ import { Card } from "@/components/shared/Card";
 import { cn } from "@/lib/utils";
 import { useLang } from "@/hooks/use-lang";
 import { formatTimeAgo } from "@/features/stock/stock.utils";
-import { FilingsTab } from "@/features/stock/FilingsTab";
-import { FinancialsTab } from "@/features/stock/FinancialsTab";
-import { NewsFeed } from "@/features/psx/NewsFeed";
+import { FilingsTab } from "@/features/stock/components/FilingsTab";
+import { FinancialsTab } from "@/features/stock/components/FinancialsTab";
+import { NewsFeed } from "@/features/psx/components/NewsFeed";
 import { DividendsTab } from "@/features/stock/components/DividendsTab";
 
 export type StockTab = "announcements" | "filings" | "financials" | "news" | "dividends";

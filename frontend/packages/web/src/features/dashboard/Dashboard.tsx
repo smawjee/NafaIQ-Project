@@ -21,9 +21,9 @@ import { DashboardMetricCards } from "@/features/dashboard/components/DashboardM
 import { DashboardCharts } from "@/features/dashboard/components/DashboardCharts";
 import { DashboardWatchlistStrip } from "@/features/dashboard/components/DashboardWatchlistStrip";
 import { DashboardGoals } from "@/features/dashboard/components/DashboardGoals";
-import { MacroWidget } from "@/features/dashboard/MacroWidget";
-import { UnusualActivityWidget } from "@/features/psx/UnusualActivityWidget";
-import { NewsFeed } from "@/features/psx/NewsFeed";
+import { MacroWidget } from "@/features/dashboard/components/MacroWidget";
+import { UnusualActivityWidget } from "@/features/psx/components/UnusualActivityWidget";
+import { NewsFeed } from "@/features/psx/components/NewsFeed";
 
 export function Dashboard() {
   const { profile, user } = useAuth();
