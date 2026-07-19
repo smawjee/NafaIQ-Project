@@ -1,5 +1,15 @@
 import { WEEKDAYS, MONTHS } from "./dashboard.data";
 
+/** One savings-goal card on the dashboard (resolved from demo store or API). */
+export interface DashboardGoal {
+  emoji: string;
+  name: string;
+  saved: number;
+  target: number;
+  color: "warning" | "bull";
+  ai: string;
+}
+
 // Synthetic showcase history ending at the store's current portfolio value,
 // so the demo chart stays consistent with the live demo KPIs.
 export function portfolioSeries(months: number, endValue: number) {
