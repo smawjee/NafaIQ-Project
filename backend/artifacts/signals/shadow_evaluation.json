@@ -1,0 +1,19 @@
+{
+  "status": "blocked",
+  "fusion_enabled": false,
+  "primary_horizon": "20D",
+  "checks": {
+    "metrics_available": true,
+    "buy_precision_minimum": false,
+    "false_buy_rate_cap": false,
+    "positive_excess_return": false,
+    "beats_technical_buy_precision": false
+  },
+  "selected_model": "HistGradientBoostingClassifier",
+  "metrics": {
+    "buy_precision": 0.3627,
+    "false_buy_rate": 0.6373,
+    "avg_buy_excess_return": -0.0105,
+    "technical_buy_precision": 0.3414
+  }
+}

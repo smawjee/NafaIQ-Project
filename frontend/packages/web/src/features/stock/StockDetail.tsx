@@ -14,9 +14,12 @@ import {
   usePsxFundamentals,
   usePsxAnnouncements,
   usePsxSignal,
+  usePsxSignalV2,
   usePsxSymbols,
   usePsxRealtime,
 } from "@/hooks/psx/use-psx";
+import { SignalBreakdownPanel } from "@/features/signals/SignalBreakdownPanel";
+import type { SignalHorizon } from "@/lib/psx/types";
 import { usePersistedTfMap } from "@/hooks/psx/use-persisted-tf-map";
 import { useWatchlist } from "@/hooks/psx/use-watchlist";
 import { useDemo } from "@/hooks/use-demo";
@@ -48,6 +51,8 @@ export function StockDetail() {
   const { data: fundamentals } = usePsxFundamentals(ticker);
   const { data: announcements } = usePsxAnnouncements(ticker, 5);
   const { data: signal } = usePsxSignal(ticker);
+  const [signalHorizon, setSignalHorizon] = useState<SignalHorizon>("20D");
+  const { data: signalV2 } = usePsxSignalV2(ticker, signalHorizon);
   const { data: symbolsData } = usePsxSymbols();
   const wl = useWatchlist();
 
@@ -82,9 +87,11 @@ export function StockDetail() {
 
   // Signal: only trust the model when it is trained. Demo mode shows the
   // curated showcase signal; otherwise a pending model shows no fake call.
-  const modelReady = !!signal && signal.model_version !== "fallback";
-  const sig = modelReady ? signal.signal : isDemo ? (s?.signal ?? null) : null;
-  const confidence = signal?.confidence ?? 0;
+  const modelReady = !!signalV2 || (!!signal && signal.model_version !== "fallback");
+  const sig =
+    signalV2?.signal ??
+    (modelReady ? (signal?.signal ?? null) : isDemo ? (s?.signal ?? null) : null);
+  const confidence = signalV2?.confidence ?? signal?.confidence ?? 0;
   const signalPending = !modelReady && !isDemo;
 
   // Phase 0 / B4: derive a chart-ready series from the per-stock history
@@ -241,6 +248,12 @@ export function StockDetail() {
       </div>
 
       <StockAnalysisReportCard symbol={upper} />
+
+      <SignalBreakdownPanel
+        signal={signalV2}
+        horizon={signalHorizon}
+        onHorizonChange={setSignalHorizon}
+      />
 
       <StockTabs tab={tab} onTabChange={setTab} announcements={announcements} symbol={upper} />
 

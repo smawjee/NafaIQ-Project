@@ -1,4 +1,5 @@
 import { STOCKS, type Candle, type Signal } from "@/lib/data";
+import type { ApiSignalV2 } from "@/lib/psx/types";
 
 /** One row of the screener/movers tables (shared by both). */
 export interface PsxScreenRow {
@@ -7,6 +8,7 @@ export interface PsxScreenRow {
   price: number;
   changePct: number;
   signal: Signal | null;
+  signalDetails?: ApiSignalV2 | null;
   rsi: number | null;
   volume: string;
   marketCap: string;

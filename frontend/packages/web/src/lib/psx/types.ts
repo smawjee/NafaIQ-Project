@@ -216,7 +216,7 @@ export interface UiSector {
   volume: number;
 }
 
-export type Signal = "STRONG BUY" | "BUY" | "HOLD" | "SELL" | "STRONG SELL";
+export type Signal = "STRONG BUY" | "BUY" | "HOLD" | "SELL" | "STRONG SELL" | "NO SIGNAL";
 
 export interface ApiSignal {
   symbol: string;
@@ -229,6 +229,44 @@ export interface ApiSignal {
 
 export interface BatchSignalsResponse {
   signals: ApiSignal[];
+  count: number;
+}
+
+export type SignalHorizon = "5D" | "20D" | "60D";
+
+export interface ApiIndicatorVote {
+  name: string;
+  vote: -1 | 0 | 1;
+  weight: number;
+  value: number | null;
+  reason: string;
+}
+
+export interface ApiSignalV2 {
+  symbol: string;
+  horizon: SignalHorizon;
+  signal: Signal;
+  confidence: number;
+  rank_score: number;
+  technical_signal: Signal;
+  technical_score: number;
+  ml_signal: Signal | null;
+  ml_confidence: number | null;
+  risk_level: "LOW" | "MODERATE" | "HIGH" | "EXTREME";
+  regime: "BULLISH" | "NEUTRAL" | "BEARISH" | "HIGH_VOLATILITY";
+  freshness: "LIVE" | "DELAYED" | "STALE" | "UNKNOWN";
+  reasons: string[];
+  warnings: string[];
+  indicator_votes: ApiIndicatorVote[];
+  probabilities: Record<string, number> | null;
+  features_snapshot: Record<string, unknown>;
+  model_version: string;
+  engine_version: string;
+  predicted_at: string;
+}
+
+export interface BatchSignalsV2Response {
+  signals: ApiSignalV2[];
   count: number;
 }
 export interface ApiMutualFund {

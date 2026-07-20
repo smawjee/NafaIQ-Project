@@ -1,0 +1,284 @@
+{
+  "5D": {
+    "accuracy": 0.7036,
+    "macro_precision": 0.3522,
+    "buy_precision": 0.2724,
+    "sell_precision": 0.1934,
+    "false_buy_rate": 0.7276,
+    "avg_buy_return": 0.0206,
+    "avg_buy_benchmark_return": 0.0063,
+    "avg_buy_excess_return": 0.0144,
+    "coverage": 0.151,
+    "folds": [
+      {
+        "accuracy": 0.6907,
+        "macro_precision": 0.3677,
+        "buy_precision": 0.4333,
+        "sell_precision": 0.1116,
+        "false_buy_rate": 0.5667,
+        "avg_buy_return": 0.086,
+        "avg_buy_benchmark_return": 0.028,
+        "avg_buy_excess_return": 0.058,
+        "coverage": 0.1666,
+        "fold": 1,
+        "train_samples": 1471,
+        "test_samples": 1471
+      },
+      {
+        "accuracy": 0.709,
+        "macro_precision": 0.3211,
+        "buy_precision": 0.2826,
+        "sell_precision": 0.1386,
+        "false_buy_rate": 0.7174,
+        "avg_buy_return": 0.0115,
+        "avg_buy_benchmark_return": 0.0203,
+        "avg_buy_excess_return": -0.0088,
+        "coverage": 0.1312,
+        "fold": 2,
+        "train_samples": 2942,
+        "test_samples": 1471
+      },
+      {
+        "accuracy": 0.7131,
+        "macro_precision": 0.53,
+        "buy_precision": 0.24,
+        "sell_precision": 0.5586,
+        "false_buy_rate": 0.76,
+        "avg_buy_return": 0.0157,
+        "avg_buy_benchmark_return": 0.0037,
+        "avg_buy_excess_return": 0.012,
+        "coverage": 0.1264,
+        "fold": 3,
+        "train_samples": 4413,
+        "test_samples": 1471
+      },
+      {
+        "accuracy": 0.7015,
+        "macro_precision": 0.2987,
+        "buy_precision": 0.2435,
+        "sell_precision": 0.0748,
+        "false_buy_rate": 0.7565,
+        "avg_buy_return": 0.0142,
+        "avg_buy_benchmark_return": -0.0089,
+        "avg_buy_excess_return": 0.023,
+        "coverage": 0.1802,
+        "fold": 4,
+        "train_samples": 5884,
+        "test_samples": 1454
+      }
+    ],
+    "samples": 7358,
+    "class_distribution": {
+      "HOLD": 5586,
+      "STRONG_BUY": 348,
+      "STRONG_SELL": 388,
+      "BUY": 445,
+      "SELL": 591
+    },
+    "technical_baseline": {
+      "accuracy": 0.2228,
+      "macro_precision": 0.2188,
+      "buy_precision": 0.1343,
+      "sell_precision": 0.1507,
+      "false_buy_rate": 0.8657,
+      "avg_buy_return": 0.003,
+      "avg_buy_benchmark_return": 0.0097,
+      "avg_buy_excess_return": -0.0067,
+      "coverage": 0.8039
+    },
+    "calibration": {
+      "raw_ece": 0.1597,
+      "calibrated_ece": 0.0372,
+      "global_accuracy": 0.7036
+    },
+    "model": "HistGradientBoostingClassifier"
+  },
+  "20D": {
+    "accuracy": 0.3862,
+    "macro_precision": 0.3766,
+    "buy_precision": 0.3627,
+    "sell_precision": 0.3356,
+    "false_buy_rate": 0.6373,
+    "avg_buy_return": 0.0155,
+    "avg_buy_benchmark_return": 0.026,
+    "avg_buy_excess_return": -0.0105,
+    "coverage": 0.7301,
+    "folds": [
+      {
+        "accuracy": 0.3501,
+        "macro_precision": 0.3949,
+        "buy_precision": 0.5192,
+        "sell_precision": 0.2138,
+        "false_buy_rate": 0.4808,
+        "avg_buy_return": 0.0577,
+        "avg_buy_benchmark_return": 0.0773,
+        "avg_buy_excess_return": -0.0196,
+        "coverage": 0.799,
+        "fold": 1,
+        "train_samples": 1468,
+        "test_samples": 1468
+      },
+      {
+        "accuracy": 0.3869,
+        "macro_precision": 0.3813,
+        "buy_precision": 0.3258,
+        "sell_precision": 0.3619,
+        "false_buy_rate": 0.6742,
+        "avg_buy_return": 0.0028,
+        "avg_buy_benchmark_return": 0.0267,
+        "avg_buy_excess_return": -0.0239,
+        "coverage": 0.6962,
+        "fold": 2,
+        "train_samples": 2936,
+        "test_samples": 1468
+      },
+      {
+        "accuracy": 0.4441,
+        "macro_precision": 0.4482,
+        "buy_precision": 0.2854,
+        "sell_precision": 0.6227,
+        "false_buy_rate": 0.7146,
+        "avg_buy_return": -0.0032,
+        "avg_buy_benchmark_return": 0.0008,
+        "avg_buy_excess_return": -0.004,
+        "coverage": 0.6485,
+        "fold": 3,
+        "train_samples": 4404,
+        "test_samples": 1468
+      },
+      {
+        "accuracy": 0.3634,
+        "macro_precision": 0.3648,
+        "buy_precision": 0.3697,
+        "sell_precision": 0.261,
+        "false_buy_rate": 0.6303,
+        "avg_buy_return": 0.0195,
+        "avg_buy_benchmark_return": 0.0081,
+        "avg_buy_excess_return": 0.0114,
+        "coverage": 0.7772,
+        "fold": 4,
+        "train_samples": 5872,
+        "test_samples": 1450
+      }
+    ],
+    "samples": 7342,
+    "class_distribution": {
+      "HOLD": 2478,
+      "STRONG_SELL": 1087,
+      "STRONG_BUY": 1143,
+      "SELL": 1408,
+      "BUY": 1226
+    },
+    "technical_baseline": {
+      "accuracy": 0.2192,
+      "macro_precision": 0.2106,
+      "buy_precision": 0.3414,
+      "sell_precision": 0.3336,
+      "false_buy_rate": 0.6586,
+      "avg_buy_return": 0.0129,
+      "avg_buy_benchmark_return": 0.03,
+      "avg_buy_excess_return": -0.017,
+      "coverage": 0.8039
+    },
+    "calibration": {
+      "raw_ece": 0.3105,
+      "calibrated_ece": 0.1025,
+      "global_accuracy": 0.3862
+    },
+    "model": "HistGradientBoostingClassifier"
+  },
+  "60D": {
+    "accuracy": 0.4757,
+    "macro_precision": 0.4597,
+    "buy_precision": 0.4784,
+    "sell_precision": 0.4766,
+    "false_buy_rate": 0.5216,
+    "avg_buy_return": 0.035,
+    "avg_buy_benchmark_return": 0.0728,
+    "avg_buy_excess_return": -0.0378,
+    "coverage": 0.9792,
+    "folds": [
+      {
+        "accuracy": 0.4392,
+        "macro_precision": 0.4483,
+        "buy_precision": 0.7195,
+        "sell_precision": 0.3121,
+        "false_buy_rate": 0.2805,
+        "avg_buy_return": 0.0953,
+        "avg_buy_benchmark_return": 0.2219,
+        "avg_buy_excess_return": -0.1265,
+        "coverage": 0.9853,
+        "fold": 1,
+        "train_samples": 1291,
+        "test_samples": 1291
+      },
+      {
+        "accuracy": 0.4981,
+        "macro_precision": 0.5548,
+        "buy_precision": 0.4667,
+        "sell_precision": 0.5567,
+        "false_buy_rate": 0.5333,
+        "avg_buy_return": 0.0249,
+        "avg_buy_benchmark_return": 0.0865,
+        "avg_buy_excess_return": -0.0617,
+        "coverage": 0.9884,
+        "fold": 2,
+        "train_samples": 2582,
+        "test_samples": 1291
+      },
+      {
+        "accuracy": 0.4795,
+        "macro_precision": 0.4501,
+        "buy_precision": 0.3937,
+        "sell_precision": 0.5457,
+        "false_buy_rate": 0.6063,
+        "avg_buy_return": -0.0015,
+        "avg_buy_benchmark_return": -0.0441,
+        "avg_buy_excess_return": 0.0426,
+        "coverage": 0.9698,
+        "fold": 3,
+        "train_samples": 3873,
+        "test_samples": 1291
+      },
+      {
+        "accuracy": 0.4862,
+        "macro_precision": 0.4543,
+        "buy_precision": 0.4017,
+        "sell_precision": 0.567,
+        "false_buy_rate": 0.5983,
+        "avg_buy_return": 0.0394,
+        "avg_buy_benchmark_return": 0.0497,
+        "avg_buy_excess_return": -0.0103,
+        "coverage": 0.9732,
+        "fold": 4,
+        "train_samples": 5164,
+        "test_samples": 1271
+      }
+    ],
+    "samples": 6455,
+    "class_distribution": {
+      "HOLD": 501,
+      "STRONG_BUY": 1599,
+      "STRONG_SELL": 1437,
+      "SELL": 1595,
+      "BUY": 1323
+    },
+    "technical_baseline": {
+      "accuracy": 0.2124,
+      "macro_precision": 0.2019,
+      "buy_precision": 0.4724,
+      "sell_precision": 0.4753,
+      "false_buy_rate": 0.5276,
+      "avg_buy_return": 0.0225,
+      "avg_buy_benchmark_return": 0.0923,
+      "avg_buy_excess_return": -0.0698,
+      "coverage": 0.8046
+    },
+    "calibration": {
+      "raw_ece": 0.3046,
+      "calibrated_ece": 0.0818,
+      "global_accuracy": 0.4757
+    },
+    "model": "HistGradientBoostingClassifier"
+  }
+}

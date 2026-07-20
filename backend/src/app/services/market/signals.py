@@ -5,18 +5,23 @@ app.repositories.signals_repo.
 """
 from __future__ import annotations
 
-import asyncio
 from datetime import datetime, timezone
 from typing import Any
 
 from app.repositories import signals_repo as repo
-from app.services.signal_engine import get_signal_engine
+from app.services.signals_v2 import engine as signals_v2
+from app.services.signals_v2.schemas import SignalV2Response, to_v1
 
 _SIGNAL_TTL_SECONDS = 14400  # 4 hours
 
 
 async def get_signal(symbol: str) -> dict[str, Any]:
     sym = symbol.upper()
+    try:
+        v2 = await signals_v2.get_signal(sym)
+        return to_v1(SignalV2Response(**v2)).model_dump(mode="json")
+    except Exception:
+        pass
 
     # Serve from cache when the stored prediction is still fresh.
     try:
@@ -38,14 +43,14 @@ async def get_signal(symbol: str) -> dict[str, Any]:
     except Exception:
         pass
 
-    engine = get_signal_engine()
-    result = await asyncio.to_thread(engine.predict, sym)
-
-    try:
-        await repo.upsert_signal(sym, result)
-    except Exception:
-        pass
-
+    result = {
+        "symbol": sym,
+        "signal": "HOLD",
+        "confidence": 0,
+        "probabilities": {},
+        "features_used": [],
+        "model_version": "unavailable",
+    }
     return result
 
 

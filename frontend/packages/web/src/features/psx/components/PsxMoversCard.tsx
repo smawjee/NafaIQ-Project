@@ -1,5 +1,6 @@
 import { Card } from "@/components/shared/Card";
 import { Change } from "@/components/market/Change";
+import { SignalBadge } from "@/components/market/SignalBadge";
 import { fmtNum } from "@/lib/data";
 import { cn } from "@/lib/utils";
 import { useLang } from "@/hooks/use-lang";
@@ -26,9 +27,7 @@ export function PsxMoversCard({
             onClick={() => onMoverTabChange(tab)}
             className={cn(
               "rounded-[6px] px-2.5 py-1 text-xs font-medium",
-              moverTab === tab
-                ? "bg-bull/15 text-bull"
-                : "text-text-secondary hover:bg-hover",
+              moverTab === tab ? "bg-bull/15 text-bull" : "text-text-secondary hover:bg-hover",
             )}
           >
             {t(tab)}
@@ -47,9 +46,14 @@ export function PsxMoversCard({
               <td className="px-2 text-right">
                 <Change pct={s.changePct} />
               </td>
-              <td className="pr-2 text-right font-mono tabular-nums text-text-muted">
-                {s.volume}
+              <td className="px-2 text-right">
+                {s.signal ? (
+                  <SignalBadge signal={s.signal} />
+                ) : (
+                  <span className="text-text-muted">—</span>
+                )}
               </td>
+              <td className="pr-2 text-right font-mono tabular-nums text-text-muted">{s.volume}</td>
             </tr>
           ))}
         </tbody>
