@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import time
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 from typing import Awaitable, Callable, Optional
 
 import structlog
@@ -34,6 +34,8 @@ BACKGROUND_REFRESH_THROTTLE = 60.0
 # requests ("All" = 10 years ≈ 2500 bars) return the full series instead of
 # being silently clipped at the first page.
 _HISTORY_PAGE_SIZE = 1000
+_PSX_TZ = timezone(timedelta(hours=5))
+_INDEX_EOD_CUTOFF_MINUTES = 16 * 60 + 45
 
 
 class CacheLayer:
@@ -450,24 +452,37 @@ class CacheLayer:
             result = await async_execute(lambda q: q.table("psx_index_eod").select("*").eq("code", c).order("date", desc=True))
             rows = result.data or []
             if rows:
-                return [
-                    IndexBar(code=r["code"], date=_parse_iso_date(r["date"]), close=r["close"], volume=r.get("volume"))
-                    for r in rows
-                ]
+                bars = [_row_to_index_bar(r) for r in rows]
+                if _index_bars_are_fresh(bars) or not self._can_refresh_now(f"index:{c}"):
+                    return bars
+                refreshed = await self._scrape_index_eod(c)
+                return refreshed or bars
         except Exception:
             log.warning("cache_index_read_failed", code=c, exc_info=True)
 
-        bars = await self.dps.fetch_index_eod(c)
+        return await self._scrape_index_eod(c)
+
+    async def get_live_index_snapshot(self) -> list[dict]:
+        return await self.dps.fetch_index_snapshot()
+
+    async def _scrape_index_eod(self, code: str) -> list[IndexBar]:
+        bars = await self.dps.fetch_index_eod(code)
         if bars:
-            rows = [
-                {
+            rows = []
+            for b in bars:
+                row = {
                     "code": b.code,
                     "date": b.date.isoformat(),
                     "close": b.close,
                     "volume": b.volume,
                 }
-                for b in bars
-            ]
+                if b.open is not None:
+                    row["open"] = b.open
+                if b.high is not None:
+                    row["high"] = b.high
+                if b.low is not None:
+                    row["low"] = b.low
+                rows.append(row)
             seen = set()
             deduped = []
             for r in rows:
@@ -478,7 +493,7 @@ class CacheLayer:
             try:
                 await async_execute(lambda c: c.table("psx_index_eod").upsert(deduped, on_conflict="code,date"))
             except Exception:
-                log.warning("cache_index_write_failed", code=c, exc_info=True)
+                log.warning("cache_index_write_failed", code=code, exc_info=True)
         return bars
 
     async def get_index_latest(self, code: str, bars: int = 2) -> list[IndexBar]:
@@ -501,16 +516,25 @@ class CacheLayer:
             )
             rows = result.data or []
             if rows:
-                return [
-                    IndexBar(code=r["code"], date=_parse_iso_date(r["date"]), close=r["close"], volume=r.get("volume"))
-                    for r in rows
-                ]
+                latest = [_row_to_index_bar(r) for r in rows]
+                if _index_bars_are_fresh(latest) or not self._can_refresh_now(f"index:{c}"):
+                    return latest
+                refreshed = await self._scrape_index_eod(c)
+                newest_first = sorted(refreshed, key=lambda b: (b.date or date.min), reverse=True)
+                return newest_first[:bars] or latest
         except Exception:
             log.warning("cache_index_latest_read_failed", code=c, exc_info=True)
 
         all_bars = await self.get_index_eod(c)
         newest_first = sorted(all_bars, key=lambda b: (b.date or date.min), reverse=True)
         return newest_first[:bars]
+
+    def _can_refresh_now(self, key: str) -> bool:
+        now = time.monotonic()
+        if now - self._last_refresh_attempt.get(key, 0.0) < BACKGROUND_REFRESH_THROTTLE:
+            return False
+        self._last_refresh_attempt[key] = now
+        return True
 
     # ---------- sectors ----------
 
@@ -586,6 +610,44 @@ def _row_to_bar(r: dict) -> OHLCVBar:
         close=r.get("close", 0),
         volume=r.get("volume", 0),
     )
+
+
+def _row_to_index_bar(r: dict) -> IndexBar:
+    close = r.get("close") or 0
+    return IndexBar(
+        code=r["code"],
+        date=_parse_iso_date(r["date"]),
+        open=r.get("open"),
+        high=r.get("high"),
+        low=r.get("low"),
+        close=close,
+        volume=r.get("volume"),
+    )
+
+
+def _index_bars_are_fresh(bars: list[IndexBar]) -> bool:
+    latest = max((b.date for b in bars if b.date is not None), default=None)
+    if latest is None:
+        return False
+    return latest >= _expected_latest_index_date()
+
+
+def _expected_latest_index_date(now: datetime | None = None) -> date:
+    current = now.astimezone(_PSX_TZ) if now else datetime.now(_PSX_TZ)
+    expected = current.date()
+    if current.weekday() >= 5:
+        return _previous_weekday(expected)
+    minutes = current.hour * 60 + current.minute
+    if minutes < _INDEX_EOD_CUTOFF_MINUTES:
+        return _previous_weekday(expected)
+    return expected
+
+
+def _previous_weekday(value: date) -> date:
+    d = value - timedelta(days=1)
+    while d.weekday() >= 5:
+        d -= timedelta(days=1)
+    return d
 
 
 def _parse_iso_date(v) -> Optional[date]:

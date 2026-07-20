@@ -114,6 +114,7 @@ export interface ApiHeatmapResponse {
 export interface ApiTreemapStock {
   symbol: string;
   name: string;
+  sector?: string;
   price: number;
   change_pct: number;
   volume: number;
@@ -201,10 +202,12 @@ export interface UiTicker {
 }
 
 export interface UiIndex {
+  code: string;
   name: string;
   value: number;
   change: number;
   changePct: number;
+  date?: string | null;
 }
 
 export interface UiSector {

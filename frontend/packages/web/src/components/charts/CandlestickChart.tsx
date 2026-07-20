@@ -37,7 +37,14 @@ const CandleShape = (props: CandleShapeProps) => {
   return (
     <g>
       <line x1={cx} y1={y} x2={cx} y2={y + height} stroke={color} strokeWidth={1} />
-      <rect x={x + width * 0.18} y={bodyTop} width={width * 0.64} height={bodyH} fill={color} rx={1} />
+      <rect
+        x={x + width * 0.18}
+        y={bodyTop}
+        width={width * 0.64}
+        height={bodyH}
+        fill={color}
+        rx={1}
+      />
     </g>
   );
 };
@@ -81,7 +88,12 @@ export function CandlestickChart({
   data: Candle[];
   height?: number;
   mas?: string[];
-  maSeries?: { ma20: (number | null)[]; ma50: (number | null)[]; ma100: (number | null)[]; ma200: (number | null)[] };
+  maSeries?: {
+    ma20: (number | null)[];
+    ma50: (number | null)[];
+    ma100: (number | null)[];
+    ma200: (number | null)[];
+  };
   currentPrice?: number;
 }) {
   const ct = useChartTheme();
@@ -138,7 +150,10 @@ export function CandlestickChart({
           tickFormatter={(v) => fmtNum(v, 0)}
         />
         <YAxis yAxisId="vol" domain={[0, maxVol * 5]} hide />
-        <Tooltip content={<OHLCTooltip />} cursor={{ stroke: ct.benchmark, strokeDasharray: "4 4" }} />
+        <Tooltip
+          content={<OHLCTooltip />}
+          cursor={{ stroke: ct.benchmark, strokeDasharray: "4 4" }}
+        />
         <Bar yAxisId="vol" dataKey="volume" isAnimationActive={false}>
           {enriched.map((c, i) => (
             <Cell key={i} fill={c.close >= c.open ? "#00d4aa" : "#e5484d"} fillOpacity={0.35} />
@@ -146,19 +161,48 @@ export function CandlestickChart({
         </Bar>
         <Bar yAxisId="price" dataKey="range" shape={<CandleShape />} isAnimationActive={false} />
         {mas.includes("MA20") && (
-          <Line yAxisId="price" dataKey="ma20" stroke="#f59e0b" dot={false} strokeWidth={1.2} isAnimationActive={false} />
+          <Line
+            yAxisId="price"
+            dataKey="ma20"
+            stroke="#f59e0b"
+            dot={false}
+            strokeWidth={1.2}
+            isAnimationActive={false}
+          />
         )}
         {mas.includes("MA50") && (
-          <Line yAxisId="price" dataKey="ma50" stroke="#3b82f6" dot={false} strokeWidth={1.2} isAnimationActive={false} />
+          <Line
+            yAxisId="price"
+            dataKey="ma50"
+            stroke="#3b82f6"
+            dot={false}
+            strokeWidth={1.2}
+            isAnimationActive={false}
+          />
         )}
         {mas.includes("MA100") && (
-          <Line yAxisId="price" dataKey="ma100" stroke="#ef4444" dot={false} strokeWidth={1.2} isAnimationActive={false} />
+          <Line
+            yAxisId="price"
+            dataKey="ma100"
+            stroke="#ef4444"
+            dot={false}
+            strokeWidth={1.2}
+            isAnimationActive={false}
+          />
         )}
         {mas.includes("MA200") && (
-          <Line yAxisId="price" dataKey="ma200" stroke="#8b5cf6" dot={false} strokeWidth={1.2} isAnimationActive={false} />
+          <Line
+            yAxisId="price"
+            dataKey="ma200"
+            stroke="#8b5cf6"
+            dot={false}
+            strokeWidth={1.2}
+            isAnimationActive={false}
+          />
         )}
         {currentPrice !== undefined && (
           <ReferenceLine
+            yAxisId="price"
             y={currentPrice}
             stroke={ct.teal}
             strokeDasharray="6 4"

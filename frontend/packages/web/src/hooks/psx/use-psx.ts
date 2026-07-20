@@ -147,7 +147,7 @@ export function useMarketMovers(
   return arr.sort((a, b) => b.volume - a.volume).slice(0, limit);
 }
 
-const INDEX_CARD_NAMES: Record<string, string> = {
+export const INDEX_CARD_NAMES: Record<string, string> = {
   KSE100: "KSE-100",
   KSE100PR: "KSE-100 PR",
   KSE30: "KSE-30",
@@ -167,6 +167,14 @@ const INDEX_CARD_NAMES: Record<string, string> = {
   HBLTTI: "HBLTTI",
   MII30: "MII30",
 };
+
+export const INDEX_CODE_BY_NAME = Object.fromEntries(
+  Object.entries(INDEX_CARD_NAMES).map(([code, name]) => [name, code]),
+) as Record<string, string>;
+
+export function indexNameToCode(name: string | undefined) {
+  return name ? INDEX_CODE_BY_NAME[name] : undefined;
+}
 
 // Priority 4 — the dashboard's default cards. The PSX index grid renders
 // these first when the user hasn't expanded the "show all" view.
@@ -198,12 +206,14 @@ export function useIndexCards(limit = 4): UiIndex[] {
   return orderedCodes.map((code) => {
     const name = INDEX_CARD_NAMES[code];
     const card = cards?.find((c) => c.code === code);
-    if (!card) return { name, value: 0, change: 0, changePct: 0 };
+    if (!card) return { code, name, value: 0, change: 0, changePct: 0, date: null };
     return {
+      code,
       name,
       value: card.close,
       change: card.change,
       changePct: card.change_pct,
+      date: card.date,
     };
   });
 }

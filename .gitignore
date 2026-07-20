@@ -88,3 +88,7 @@ backend/data/
 docs/
 AI FEATURE PLANS.md
 Ai features/
+
+# Session / context reports (local-only, not part of the shipped app)
+CONTEXT.md
+context.md

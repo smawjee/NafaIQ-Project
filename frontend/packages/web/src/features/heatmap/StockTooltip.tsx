@@ -38,11 +38,7 @@ export function StockTooltip({
     >
       <div className="mb-2 flex items-center gap-2">
         {logoUrl ? (
-          <img
-            src={logoUrl}
-            alt={stock.symbol}
-            className="h-6 w-6 rounded-full bg-surface"
-          />
+          <img src={logoUrl} alt={stock.symbol} className="h-6 w-6 rounded-full bg-surface" />
         ) : (
           <div className="flex h-6 w-6 items-center justify-center rounded-full bg-surface text-[10px] font-bold text-text-secondary">
             {stock.symbol[0]}
@@ -54,6 +50,12 @@ export function StockTooltip({
         </div>
       </div>
       <div className="space-y-1">
+        {stock.sector && (
+          <div className="flex items-center justify-between gap-3">
+            <span className="text-text-muted">{t("Sector")}</span>
+            <span className="truncate text-right text-text-secondary">{t(stock.sector)}</span>
+          </div>
+        )}
         <div className="flex items-center justify-between">
           <span className="text-text-muted">{t("Price")}</span>
           <span className="font-mono tabular-nums text-text-primary">
@@ -65,7 +67,7 @@ export function StockTooltip({
           <span
             className={cn(
               "inline-flex items-center gap-0.5 font-mono tabular-nums font-semibold",
-              isUp ? "text-bull" : "text-bear"
+              isUp ? "text-bull" : "text-bear",
             )}
           >
             {isUp ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}

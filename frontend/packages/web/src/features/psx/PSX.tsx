@@ -19,6 +19,7 @@ import {
   usePsxTreemap,
   useMarketMovers,
   useIndexCards,
+  indexNameToCode,
 } from "@/hooks/psx/use-psx";
 import { usePersistedTfMap } from "@/hooks/psx/use-persisted-tf-map";
 import { formatNumber, formatCompactPKR } from "@/lib/format";
@@ -49,7 +50,7 @@ export function PSX() {
   const [sectorFilter, setSectorFilter] = useState<string>("All");
   const [searchFilter, setSearchFilter] = useState("");
   const [screenerPage, setScreenerPage] = useState(1);
-  const [showAllIndices, setShowAllIndices] = useState(false);
+  const [showAllIndices, setShowAllIndices] = useState(true);
   const [heatmapView, setHeatmapView] = useState<"treemap" | "sectors" | "movers">("treemap");
   const [drilledSector, setDrilledSector] = useState<string | null>(null);
   const [heatmapSort, setHeatmapSort] = useState<"size" | "change" | "volume">("size");
@@ -62,8 +63,13 @@ export function PSX() {
   // table on changes — but the per-row update path no longer floods the
   // browser for stocks the user isn't watching.
   usePsxRealtime(watchlist.symbols);
-  const { data: ohlcvData } = usePsxHistory(sym === "KSE-100" ? "KSE100" : sym, Math.max(365, tfDays(tf)));
+  const selectedIndexCode = indexNameToCode(sym);
+  const { data: ohlcvData } = usePsxHistory(
+    selectedIndexCode ? undefined : sym,
+    Math.max(365, tfDays(tf)),
+  );
   const { data: symbolsData } = usePsxSymbols();
+  const { data: selectedIndexData } = usePsxIndexData(selectedIndexCode);
   const { data: kse100Data } = usePsxIndexData("KSE100");
   const { data: batchSignals } = usePsxBatchSignals(50);
   const { data: screenerMetrics } = usePsxScreenerMetrics();
@@ -73,51 +79,54 @@ export function PSX() {
     6,
   );
   const indexCardsAll = useIndexCards(18);
-  // Pick the priority 4 (KSE-100, KSE-30, KMI-30, KSE All Share) when not
-  // expanded. The hook itself already orders priority-first; slice(0, 4)
-  // gives us the dashboard subset without a second render path.
-  const indexCards = useMemo(() => showAllIndices ? indexCardsAll : indexCardsAll.slice(0, 4), [showAllIndices, indexCardsAll]);
+  const indexCards = indexCardsAll;
 
-  const getSparkline = useCallback((ic: { name: string; value: number; change: number; changePct: number }, index: number) => {
-    if (ic.name === "KSE-100" && kse100Data && kse100Data.length >= 7) {
-      return kse100Data.slice(-7).map(d => d.close);
-    }
-    // Generate a plausible 7-day trend based on current value and daily change
-    const step = ic.change / 6 || 0;
-    return Array.from({ length: 7 }, (_, i) => ic.value - step * (6 - i));
-  }, [kse100Data]);
+  const getSparkline = useCallback(
+    (ic: { name: string; value: number; change: number; changePct: number }, index: number) => {
+      if (ic.name === "KSE-100" && kse100Data && kse100Data.length >= 7) {
+        return kse100Data.slice(-7).map((d) => d.close);
+      }
+      // Generate a plausible 7-day trend based on current value and daily change
+      const step = ic.change / 6 || 0;
+      return Array.from({ length: 7 }, (_, i) => ic.value - step * (6 - i));
+    },
+    [kse100Data],
+  );
 
   const displayIndices = useMemo(() => {
     if (indexCards.length > 0) {
       return indexCards.map((ic, i) => ({
         key: ic.name,
+        code: ic.code,
         name: ic.name,
         value: ic.value,
         change: ic.change,
         changePct: ic.changePct,
+        date: ic.date,
         spark: getSparkline(ic, i),
       }));
     }
     return INDICES.map((idx) => ({
       key: idx.name,
+      code: indexNameToCode(idx.name) ?? idx.name,
       name: idx.name,
       value: idx.value,
       change: idx.change,
       changePct: idx.changePct,
+      date: null,
       spark: generateOHLCV(idx.seed, idx.start, idx.end, 7).map((c) => c.close),
     }));
   }, [indexCards, getSparkline]);
-
 
   const visibleCount = tfDays(tf);
 
   const full = useMemo(() => {
     const asc = <T extends { date: string }>(rows: T[]) =>
       [...rows].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-    // KSE-100 is an index: its real candles live in psx_index_eod, never psx_ohlcv.
-    if (sym === "KSE-100") {
-      if (kse100Data && kse100Data.length > 0) {
-        return asc(kse100Data).map((b) => ({
+    // Indices live in psx_index_eod/live index endpoints, never psx_ohlcv.
+    if (selectedIndexCode) {
+      if (selectedIndexData && selectedIndexData.length > 0) {
+        return asc(selectedIndexData).map((b) => ({
           date: b.date,
           t: new Date(b.date).getTime(),
           open: b.open ?? b.close,
@@ -141,17 +150,17 @@ export function PSX() {
       return generateOHLCV(meta.seed, meta.start, meta.end, 250, meta.vMin, meta.vMax);
     }
     return [];
-  }, [sym, ohlcvData, kse100Data, isDemo]);
+  }, [selectedIndexCode, selectedIndexData, sym, ohlcvData, isDemo]);
 
   // Phase 0 / B3: detect "OHLC columns are all-null" (true for many index EOD
   // rows from DPS). In that case, fall back to a line chart so the user sees a
   // real curve instead of a row of flat dojis.
   const allIndexOhlcNull = useMemo(() => {
-    if (sym !== "KSE-100") return false;
+    if (!selectedIndexCode) return false;
     if (full.length === 0) return false;
     // Any non-null open/high/low means we have real candles.
     return full.every((b) => b.open === b.high && b.high === b.low && b.low === b.close);
-  }, [sym, full]);
+  }, [selectedIndexCode, full]);
   const effectiveType = allIndexOhlcNull ? "line" : type;
   const liveIndexClose = full.length > 0 ? full[full.length - 1].close : null;
 
@@ -291,12 +300,15 @@ export function PSX() {
     if (heatmapSort === "size") return treemapData;
 
     // Sectors carry no total_volume, so derive it from their stocks.
-    const sectorVolume = (s: typeof treemapData.sectors[0]) =>
+    const sectorVolume = (s: (typeof treemapData.sectors)[0]) =>
       s.stocks.reduce((sum, st) => sum + (st.volume ?? 0), 0);
 
-    const sortKey = heatmapSort === "change"
-      ? (a: typeof treemapData.sectors[0], b: typeof treemapData.sectors[0]) => Math.abs(b.avg_change_pct) - Math.abs(a.avg_change_pct)
-      : (a: typeof treemapData.sectors[0], b: typeof treemapData.sectors[0]) => sectorVolume(b) - sectorVolume(a);
+    const sortKey =
+      heatmapSort === "change"
+        ? (a: (typeof treemapData.sectors)[0], b: (typeof treemapData.sectors)[0]) =>
+            Math.abs(b.avg_change_pct) - Math.abs(a.avg_change_pct)
+        : (a: (typeof treemapData.sectors)[0], b: (typeof treemapData.sectors)[0]) =>
+            sectorVolume(b) - sectorVolume(a);
 
     return {
       ...treemapData,
@@ -319,15 +331,14 @@ export function PSX() {
   const allMovers = useMarketMovers("abs", 30);
   const topMovers = useMemo<TopMover[]>(
     () =>
-      allMovers
-        .map((m) => ({
-          symbol: m.symbol,
-          sector: m.sector,
-          price: m.price,
-          change_pct: m.changePct,
-          volume: m.volume,
-          market_cap: metricsMap.get(m.symbol)?.market_cap ?? null,
-        })),
+      allMovers.map((m) => ({
+        symbol: m.symbol,
+        sector: m.sector,
+        price: m.price,
+        change_pct: m.changePct,
+        volume: m.volume,
+        market_cap: metricsMap.get(m.symbol)?.market_cap ?? null,
+      })),
     [allMovers, metricsMap],
   );
 
@@ -337,10 +348,10 @@ export function PSX() {
 
   if (snapshotLoading) {
     return (
-      <div className="mx-auto max-w-7xl space-y-6">
+      <div className="mx-auto w-full max-w-[1680px] space-y-6">
         <MarketTicker />
         <StatsGridSkeleton count={4} />
-        <div className="grid min-w-0 gap-6 lg:grid-cols-[65fr_35fr]">
+        <div className="grid min-w-0 gap-5 xl:grid-cols-[minmax(0,1fr)_360px] 2xl:grid-cols-[minmax(0,1fr)_400px]">
           <div className="min-w-0 space-y-4">
             <ChartSkeleton className="h-[480px]" />
             <ChartSkeleton className="h-24" />
@@ -357,7 +368,7 @@ export function PSX() {
   }
 
   return (
-    <div className="mx-auto max-w-7xl space-y-6">
+    <div className="mx-auto w-full max-w-[1680px] space-y-6">
       {/* Live market ticker — always-dark dense data strip */}
       <MarketTicker />
 
@@ -365,14 +376,22 @@ export function PSX() {
       <PsxIndexOverview
         indices={displayIndices}
         showAll={showAllIndices}
-        canToggle={indexCardsAll.length > 4}
+        canToggle={false}
         onToggleShowAll={() => setShowAllIndices((v) => !v)}
+        selectedCode={selectedIndexCode}
+        onSelectIndex={(idx) => {
+          setSym(idx.name);
+        }}
       />
 
-      <div className="grid min-w-0 gap-6 lg:grid-cols-[65fr_35fr]">
+      <div className="grid min-w-0 gap-5 xl:grid-cols-[minmax(0,1fr)_360px] 2xl:grid-cols-[minmax(0,1fr)_400px]">
         {/* Chart column */}
         <div className="min-w-0 space-y-4">
-          <Card hover={false} className="bg-surface-alt p-3">
+          <Card
+            hover={false}
+            data-testid="psx-chart-card"
+            className="overflow-hidden bg-surface-alt p-3 sm:p-4"
+          >
             {/* Phase 0 / B6+B7: unified chart toolbar with a searchable stock picker */}
             <ChartToolbar
               sym={sym}
@@ -389,7 +408,7 @@ export function PSX() {
             {hasData ? (
               <>
                 {/* Price overlay */}
-                <div className="mb-2 flex flex-wrap items-baseline gap-3">
+                <div className="mb-3 flex flex-wrap items-baseline gap-x-3 gap-y-1">
                   <span className="font-mono text-2xl font-bold tabular-nums text-text-primary">
                     {fmtNum(last.close)}
                   </span>
@@ -400,11 +419,26 @@ export function PSX() {
                   </span>
                 </div>
 
-                <div className="h-[300px] lg:h-[480px]">
+                <div
+                  data-testid="psx-chart-plot"
+                  className="h-[340px] min-w-0 overflow-hidden rounded-[10px] border border-border bg-background/35 p-2 md:h-[420px] xl:h-[500px]"
+                >
                   {effectiveType === "line" ? (
-                    <PriceLineChart key={sym} data={data} height={9999} mas={mas} maSeries={maSeries} />
+                    <PriceLineChart
+                      key={sym}
+                      data={data}
+                      height={9999}
+                      mas={mas}
+                      maSeries={maSeries}
+                    />
                   ) : (
-                    <CandlestickChart key={sym} data={data} height={9999} mas={mas} maSeries={maSeries} />
+                    <CandlestickChart
+                      key={sym}
+                      data={data}
+                      height={9999}
+                      mas={mas}
+                      maSeries={maSeries}
+                    />
                   )}
                 </div>
                 {allIndexOhlcNull && liveIndexClose != null && (
@@ -429,25 +463,6 @@ export function PSX() {
           </Card>
 
           {/* AI market brief — verified pipeline, no fabricated signal/confidence */}
-          <MarketBriefCard />
-
-          <PsxScreenerCard
-            rows={visibleScreened}
-            screenedCount={screened.length}
-            screenerStart={screenerStart}
-            screenerEnd={screenerEnd}
-            currentPage={currentScreenerPage}
-            pageCount={screenerPageCount}
-            onPrev={() => setScreenerPage((p) => Math.max(1, p - 1))}
-            onNext={() => setScreenerPage((p) => Math.min(screenerPageCount, p + 1))}
-            searchFilter={searchFilter}
-            onSearchChange={setSearchFilter}
-            sectorFilter={sectorFilter}
-            onSectorChange={setSectorFilter}
-            sectors={sectorOptions}
-            signalFilter={signalFilter}
-            onSignalChange={setSignalFilter}
-          />
         </div>
 
         {/* Right panel */}
@@ -466,6 +481,27 @@ export function PSX() {
           <PsxMoversCard moverTab={moverTab} onMoverTabChange={setMoverTab} movers={movers} />
         </div>
       </div>
+
+      {/* AI market brief â€” verified pipeline, no fabricated signal/confidence */}
+      <MarketBriefCard />
+
+      <PsxScreenerCard
+        rows={visibleScreened}
+        screenedCount={screened.length}
+        screenerStart={screenerStart}
+        screenerEnd={screenerEnd}
+        currentPage={currentScreenerPage}
+        pageCount={screenerPageCount}
+        onPrev={() => setScreenerPage((p) => Math.max(1, p - 1))}
+        onNext={() => setScreenerPage((p) => Math.min(screenerPageCount, p + 1))}
+        searchFilter={searchFilter}
+        onSearchChange={setSearchFilter}
+        sectorFilter={sectorFilter}
+        onSectorChange={setSectorFilter}
+        sectors={sectorOptions}
+        signalFilter={signalFilter}
+        onSignalChange={setSignalFilter}
+      />
 
       {/* Full-width Sector Heatmap */}
       <PsxSectorHeatmap

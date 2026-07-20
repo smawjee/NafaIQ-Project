@@ -26,7 +26,12 @@ export function PriceLineChart({
   data: Candle[];
   height?: number;
   mas?: string[];
-  maSeries?: { ma20: (number | null)[]; ma50: (number | null)[]; ma100: (number | null)[]; ma200: (number | null)[] };
+  maSeries?: {
+    ma20: (number | null)[];
+    ma50: (number | null)[];
+    ma100: (number | null)[];
+    ma200: (number | null)[];
+  };
   currentPrice?: number;
 }) {
   const ct = useChartTheme();
@@ -110,19 +115,52 @@ export function PriceLineChart({
           isAnimationActive={false}
         />
         {mas.includes("MA20") && (
-          <Line yAxisId="price" dataKey="ma20" name="MA20" stroke="#f59e0b" dot={false} strokeWidth={1.2} isAnimationActive={false} />
+          <Line
+            yAxisId="price"
+            dataKey="ma20"
+            name="MA20"
+            stroke="#f59e0b"
+            dot={false}
+            strokeWidth={1.2}
+            isAnimationActive={false}
+          />
         )}
         {mas.includes("MA50") && (
-          <Line yAxisId="price" dataKey="ma50" name="MA50" stroke="#3b82f6" dot={false} strokeWidth={1.2} isAnimationActive={false} />
+          <Line
+            yAxisId="price"
+            dataKey="ma50"
+            name="MA50"
+            stroke="#3b82f6"
+            dot={false}
+            strokeWidth={1.2}
+            isAnimationActive={false}
+          />
         )}
         {mas.includes("MA100") && (
-          <Line yAxisId="price" dataKey="ma100" name="MA100" stroke="#ef4444" dot={false} strokeWidth={1.2} isAnimationActive={false} />
+          <Line
+            yAxisId="price"
+            dataKey="ma100"
+            name="MA100"
+            stroke="#ef4444"
+            dot={false}
+            strokeWidth={1.2}
+            isAnimationActive={false}
+          />
         )}
         {mas.includes("MA200") && (
-          <Line yAxisId="price" dataKey="ma200" name="MA200" stroke="#8b5cf6" dot={false} strokeWidth={1.2} isAnimationActive={false} />
+          <Line
+            yAxisId="price"
+            dataKey="ma200"
+            name="MA200"
+            stroke="#8b5cf6"
+            dot={false}
+            strokeWidth={1.2}
+            isAnimationActive={false}
+          />
         )}
         {currentPrice !== undefined && (
           <ReferenceLine
+            yAxisId="price"
             y={currentPrice}
             stroke={ct.teal}
             strokeDasharray="6 4"

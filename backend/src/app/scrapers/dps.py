@@ -474,6 +474,46 @@ class DPSScraper:
 
     # ---------- index EOD ----------
 
+    async def fetch_index_snapshot(self) -> list[dict]:
+        """Live top-index strip from the DPS homepage.
+
+        ``/timeseries/eod/{code}`` is daily history and can lag until the EOD
+        file is published. The homepage top-index carousel carries the current
+        intraday index value/change for KSE100, KMI30, ALLSHR, etc.
+        """
+        html = await self._get("/")
+        soup = BeautifulSoup(html, "lxml")
+        text = soup.get_text(" ", strip=True)
+        as_of = _parse_first_month_datetime(text)
+
+        rows: list[dict] = []
+        for item in soup.select(".topIndices__item"):
+            code_el = item.select_one(".topIndices__item__name")
+            val_el = item.select_one(".topIndices__item__val")
+            if not code_el or not val_el:
+                continue
+            code = code_el.get_text(strip=True).upper()
+            close = _f(val_el.get_text(strip=True))
+            if not code or close is None:
+                continue
+
+            change_el = item.select_one(".topIndices__item__change")
+            pct_el = item.select_one(".topIndices__item__changep")
+            change = _f(re.sub(r"[^\d.\-+]", "", change_el.get_text(" ", strip=True))) if change_el else None
+            change_pct = _f(re.sub(r"[^\d.\-+]", "", pct_el.get_text(" ", strip=True))) if pct_el else None
+            prev_close = close - change if change is not None else None
+            rows.append(
+                {
+                    "code": code,
+                    "date": as_of.date().isoformat() if as_of else date.today().isoformat(),
+                    "close": close,
+                    "prev_close": prev_close,
+                    "change": change,
+                    "change_pct": change_pct,
+                }
+            )
+        return rows
+
     async def fetch_index_eod(self, code: str) -> list[IndexBar]:
         import json as _json
         html = await self._get(f"/timeseries/eod/{code.upper()}")
@@ -572,3 +612,19 @@ def _parse_date_month_name(s: str) -> Optional[date]:
         return date.fromisoformat(raw[:10])
     except ValueError:
         return None
+
+
+def _parse_first_month_datetime(s: str) -> Optional[datetime]:
+    m = re.search(
+        r"\b(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+\d{1,2},\s+\d{4}(?:\s+\d{1,2}:\d{2}\s+[AP]M)?",
+        str(s),
+    )
+    if not m:
+        return None
+    raw = m.group(0)
+    for fmt in ("%b %d, %Y %I:%M %p", "%b %d, %Y"):
+        try:
+            return datetime.strptime(raw, fmt)
+        except ValueError:
+            continue
+    return None

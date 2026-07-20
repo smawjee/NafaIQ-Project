@@ -904,6 +904,10 @@ html {
   color: var(--color-text-muted);
 }
 
+.theme-light .heatmap-tile-label {
+  text-shadow: none !important;
+}
+
 /* ============================================================
    Warm-tinted surface for the Islamic screens (Halal Screener,
    Zakat Calculator) â€” intentional personality in light mode.
@@ -1143,11 +1147,15 @@ html {
 .landing-light .glass-card {
   background: #ffffff;
   border-color: rgba(12, 31, 26, 0.08);
-  box-shadow: 0 1px 3px rgba(12, 31, 26, 0.04), 0 8px 24px -8px rgba(12, 31, 26, 0.08);
+  box-shadow:
+    0 1px 3px rgba(12, 31, 26, 0.04),
+    0 8px 24px -8px rgba(12, 31, 26, 0.08);
 }
 .landing-light .glass-card-hover:hover {
   border-color: rgba(12, 31, 26, 0.12);
-  box-shadow: 0 4px 12px rgba(12, 31, 26, 0.06), 0 14px 40px -10px rgba(12, 31, 26, 0.1);
+  box-shadow:
+    0 4px 12px rgba(12, 31, 26, 0.06),
+    0 14px 40px -10px rgba(12, 31, 26, 0.1);
 }
 
 /* Landing light: gold glass — warm antique tint */
@@ -1220,7 +1228,12 @@ html {
 
 /* Landing light: hero gradient — warm teal tint at top, blending to cream */
 .landing-light [style*="radial-gradient(ellipse 80% 60% at 50% 0%"] {
-  background: radial-gradient(ellipse 80% 60% at 50% 0%, rgba(10, 124, 110, 0.14) 0%, #f0ece2 50%, #faf8f3 75%) !important;
+  background: radial-gradient(
+    ellipse 80% 60% at 50% 0%,
+    rgba(10, 124, 110, 0.14) 0%,
+    #f0ece2 50%,
+    #faf8f3 75%
+  ) !important;
 }
 
 /* Landing light: hero mouse-following glows — softened for light bg */

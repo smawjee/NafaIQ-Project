@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useId, useMemo, useState } from "react";
 import { hierarchy, treemap as d3treemap } from "d3-hierarchy";
 import type { HierarchyRectangularNode } from "d3-hierarchy";
 import type { ApiTreemap, ApiTreemapStock } from "@/lib/psx/types";
@@ -18,6 +18,7 @@ type TreemapNode = {
   fullName: string;
   price: number;
   volume: number;
+  sector: string;
   logoid?: string | null;
 };
 
@@ -32,18 +33,42 @@ type RootNode = {
   children: SectorNode[] | TreemapNode[];
 };
 
-const SECTOR_HEADER_HEIGHT = 18;
-const MIN_TILE_W = 28;
-const MIN_TILE_H = 20;
+type LayoutDatum = RootNode | SectorNode | TreemapNode;
+
+const SECTOR_HEADER_HEIGHT = 32;
+const MIN_TILE_W = 36;
+const MIN_TILE_H = 26;
+const TREEMAP_WIDTH = 1280;
+
+function isTreemapNode(node: LayoutDatum): node is TreemapNode {
+  return "symbol" in node;
+}
+
+function isSectorNode(node: LayoutDatum): node is SectorNode {
+  return "avg_change_pct" in node;
+}
 
 function intensity(change_pct: number): number {
-  return Math.min(Math.abs(change_pct) / 3, 0.6);
+  return Math.min(Math.abs(change_pct) / 3, 0.62);
 }
 
 function tileColor(change_pct: number): string {
+  if (Math.abs(change_pct) <= 0.1) {
+    return "color-mix(in srgb, var(--color-elevated) 88%, var(--color-text-muted))";
+  }
   const base = change_pct >= 0 ? "var(--color-bull)" : "var(--color-bear)";
-  const alpha = 0.25 + intensity(change_pct);
-  return `color-mix(in srgb, ${base} ${Math.round(alpha * 100)}%, transparent)`;
+  const weight = 24 + intensity(change_pct) * 78;
+  return `color-mix(in srgb, ${base} ${Math.round(weight)}%, var(--color-elevated))`;
+}
+
+function sectorAbbr(name: string): string {
+  return name
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((part) => part[0])
+    .join("")
+    .slice(0, 4)
+    .toUpperCase();
 }
 
 function tooltipText(stock: ApiTreemapStock): string {
@@ -58,21 +83,31 @@ function tooltipText(stock: ApiTreemapStock): string {
 export function Treemap({
   data,
   height = 560,
+  width = TREEMAP_WIDTH,
   onStockClick,
   className,
   drilledSector,
+  highlightedSector,
   onSectorClick,
+  onSectorDoubleClick,
   onDrillUp,
 }: {
   data: ApiTreemap;
   height?: number;
+  width?: number;
   onStockClick?: (sym: string) => void;
   className?: string;
   drilledSector?: string | null;
+  highlightedSector?: string | null;
   onSectorClick?: (sectorName: string) => void;
+  onSectorDoubleClick?: (sectorName: string) => void;
   onDrillUp?: () => void;
 }) {
   const { t, isUrdu } = useLang();
+  const clipIdBase = useId().replace(/:/g, "");
+  const sectorHeaderGradientId = `${clipIdBase}-sector-header-gradient`;
+  const sectorHeaderActiveGradientId = `${clipIdBase}-sector-header-active-gradient`;
+  const [hoveredSector, setHoveredSector] = useState<string | null>(null);
   const [tooltipState, setTooltipState] = useState<{
     stock: ApiTreemapStock | null;
     x: number;
@@ -85,13 +120,13 @@ export function Treemap({
     // Hooks must run unconditionally — the empty-data guard lives below this
     // memo, so bail out here rather than before it.
     if (!hasData) {
-      return { root: null, width: 1000, sectorName: null };
+      return { root: null, width, sectorName: null };
     }
     if (drilledSector) {
       // Single-sector view: render that sector's stocks as a flat treemap
       const sector = data.sectors.find((s) => s.name === drilledSector);
       if (!sector) {
-        return { root: null as any, width: 1000, sectorName: null };
+        return { root: null, width: TREEMAP_WIDTH, sectorName: null };
       }
       const root: RootNode = {
         name: "root",
@@ -105,14 +140,14 @@ export function Treemap({
           fullName: st.name,
           price: st.price,
           volume: st.volume,
+          sector: sector.name,
           logoid: st.logoid,
         })),
       };
-      const width = 1000;
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const rootHierarchy = hierarchy<any>(root).sum((d) => d.size_metric ?? 0);
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const h: HierarchyRectangularNode<any> = d3treemap<any>()
+      const rootHierarchy = hierarchy<LayoutDatum>(root).sum((d) =>
+        isTreemapNode(d) ? d.size_metric : 0,
+      );
+      const h: HierarchyRectangularNode<LayoutDatum> = d3treemap<LayoutDatum>()
         .size([width, height])
         .padding(2)
         .round(true)(rootHierarchy);
@@ -135,27 +170,27 @@ export function Treemap({
           fullName: st.name,
           price: st.price,
           volume: st.volume,
+          sector: s.name,
           logoid: st.logoid,
         })),
       })),
     };
-    const width = 1000;
-    // d3-hierarchy's recursive layout requires a single `any` pivot at the
-    // top of the tree (its typings don't model nested children), then the
-    // returned node is a fully-laid-out HierarchyRectangularNode.
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const rootHierarchy = hierarchy<any>(root).sum((d) => d.size_metric ?? 0);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const h: HierarchyRectangularNode<any> = d3treemap<any>()
+    const rootHierarchy = hierarchy<LayoutDatum>(root).sum((d) =>
+      isTreemapNode(d) ? d.size_metric : 0,
+    );
+    const h: HierarchyRectangularNode<LayoutDatum> = d3treemap<LayoutDatum>()
       .size([width, height])
-      .padding(2)
-      .paddingTop(SECTOR_HEADER_HEIGHT)
+      .paddingOuter(0)
+      .paddingInner((node) => (node.depth === 0 ? 8 : 2))
+      .paddingTop((node) => (isSectorNode(node.data) ? SECTOR_HEADER_HEIGHT : 0))
       .round(true)(rootHierarchy);
     return { root: h, width, sectorName: null };
-  }, [data, height, drilledSector, hasData]);
+  }, [data, height, width, drilledSector, hasData]);
 
   if (!hasData) {
-    return <div className="flex h-full items-center justify-center text-text-muted text-sm">No data</div>;
+    return (
+      <div className="flex h-full items-center justify-center text-text-muted text-sm">No data</div>
+    );
   }
 
   const sectors = layout.root?.children ?? [];
@@ -165,52 +200,52 @@ export function Treemap({
   const sectorCount = data.sectors.length;
 
   const renderLeaf = (
-    leaf: HierarchyRectangularNode<any>,
+    leaf: HierarchyRectangularNode<LayoutDatum>,
     offsetX: number,
     offsetY: number,
     keyPrefix: string,
   ) => {
+    const stockNode = leaf.data;
+    if (!isTreemapNode(stockNode)) return null;
     const w = leaf.x1 - leaf.x0;
     const h = leaf.y1 - leaf.y0;
     if (w < MIN_TILE_W || h < MIN_TILE_H) return null;
-    const showPct = h >= 36;
-    const showSymbol = w >= 32;
+    const showPct = h >= 38 && w >= 42;
+    const showSymbol = w >= 42;
     const stock: ApiTreemapStock = {
-      symbol: leaf.data.symbol,
-      name: leaf.data.fullName,
-      price: leaf.data.price,
-      change_pct: leaf.data.change_pct,
-      volume: leaf.data.volume,
-      market_cap: leaf.data.market_cap ?? null,
-      size_metric: leaf.data.size_metric,
-      sizing_basis: leaf.data.sizing_basis,
-      logoid: leaf.data.logoid ?? null,
+      symbol: stockNode.symbol,
+      name: stockNode.fullName,
+      price: stockNode.price,
+      change_pct: stockNode.change_pct,
+      volume: stockNode.volume,
+      sector: stockNode.sector,
+      market_cap: stockNode.market_cap ?? null,
+      size_metric: stockNode.size_metric,
+      sizing_basis: stockNode.sizing_basis,
+      logoid: stockNode.logoid ?? null,
     };
     // No header offset here: d3's .paddingTop() already insets a sector's
     // children, so `offsetY` (leaf.y0 - sector.y0) clears the label band.
     return (
-      <g
-        key={`${keyPrefix}-${leaf.data.symbol}`}
-        transform={`translate(${offsetX},${offsetY})`}
-      >
+      <g key={`${keyPrefix}-${stockNode.symbol}`} transform={`translate(${offsetX},${offsetY})`}>
         <rect
           x={0}
           y={0}
           width={w}
           height={h}
-          fill={tileColor(leaf.data.change_pct)}
-          stroke="var(--color-border)"
-          strokeWidth={0.5}
-          rx={2}
-          className="cursor-pointer transition-opacity hover:opacity-80"
-          onClick={() => onStockClick?.(leaf.data.symbol)}
+          fill={tileColor(stockNode.change_pct)}
+          stroke="color-mix(in srgb, var(--color-border) 78%, transparent)"
+          strokeWidth={0.75}
+          rx={3}
+          className="cursor-pointer transition-opacity hover:opacity-90"
+          onClick={() => onStockClick?.(stockNode.symbol)}
           tabIndex={0}
           role="button"
-          aria-label={`${leaf.data.symbol} - ${leaf.data.change_pct >= 0 ? "+" : ""}${leaf.data.change_pct.toFixed(2)}%`}
+          aria-label={`${stockNode.symbol} - ${stockNode.change_pct >= 0 ? "+" : ""}${stockNode.change_pct.toFixed(2)}%`}
           onKeyDown={(e) => {
-            if (e.key === 'Enter' || e.key === ' ') {
+            if (e.key === "Enter" || e.key === " ") {
               e.preventDefault();
-              onStockClick?.(leaf.data.symbol);
+              onStockClick?.(stockNode.symbol);
             }
           }}
           onMouseMove={(e) => {
@@ -224,25 +259,27 @@ export function Treemap({
         </rect>
         {showSymbol && (
           <text
-            x={4}
-            y={12}
+            x={5}
+            y={13}
             fontSize={11}
-            fontWeight={600}
+            fontWeight={700}
             fill="currentColor"
-            className="pointer-events-none select-none"
+            className="heatmap-tile-label pointer-events-none select-none"
+            style={{ textShadow: "0 1px 2px rgba(0,0,0,0.28)" }}
           >
-            {leaf.data.symbol}
+            {stockNode.symbol}
           </text>
         )}
         {showPct && (
           <text
-            x={4}
-            y={24}
+            x={5}
+            y={25}
             fontSize={10}
             fill="currentColor"
-            className="pointer-events-none select-none"
+            className="heatmap-tile-label pointer-events-none select-none"
+            style={{ textShadow: "0 1px 2px rgba(0,0,0,0.28)" }}
           >
-            {`${leaf.data.change_pct >= 0 ? "+" : ""}${leaf.data.change_pct.toFixed(2)}%`}
+            {`${stockNode.change_pct >= 0 ? "+" : ""}${stockNode.change_pct.toFixed(2)}%`}
           </text>
         )}
       </g>
@@ -252,6 +289,7 @@ export function Treemap({
   return (
     <div
       className={cn("relative h-full w-full text-text-primary", className)}
+      style={{ height }}
       role="img"
       aria-label={`Sector treemap, ${sectorCount} sectors, ${totalStocks} stocks`}
     >
@@ -276,57 +314,170 @@ export function Treemap({
       <svg
         viewBox={`0 0 ${layout.width} ${height}`}
         preserveAspectRatio="xMidYMid meet"
-        className="h-full w-full"
+        className="h-full w-full rounded-[8px]"
       >
-        {sectors.map((sector: HierarchyRectangularNode<any>) => {
+        <defs>
+          <linearGradient id={sectorHeaderGradientId} x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="color-mix(in srgb, var(--color-surface-alt) 88%, white)" />
+            <stop offset="100%" stopColor="color-mix(in srgb, var(--color-elevated) 92%, black)" />
+          </linearGradient>
+          <linearGradient id={sectorHeaderActiveGradientId} x1="0" y1="0" x2="1" y2="1">
+            <stop
+              offset="0%"
+              stopColor="color-mix(in srgb, var(--color-bull) 16%, var(--color-surface-alt))"
+            />
+            <stop offset="100%" stopColor="color-mix(in srgb, var(--color-elevated) 88%, black)" />
+          </linearGradient>
+        </defs>
+        {sectors.map((sector: HierarchyRectangularNode<LayoutDatum>) => {
           if (drilledSector) {
             return renderLeaf(sector, sector.x0, sector.y0, "drilled");
           }
 
-          const sectorLabel = sector.x1 - sector.x0 < 60 ? "" : t(sector.data.name);
+          if (!isSectorNode(sector.data)) return null;
+
+          const sectorW = sector.x1 - sector.x0;
+          const sectorH = sector.y1 - sector.y0;
+          const sectorName = t(sector.data.name);
+          const showIcon = sectorW >= 220;
+          const showCount = sectorW >= 120;
+          const compactLabel = sectorW < 92 ? sectorAbbr(sectorName) : sectorName;
+          const headerHeight = Math.min(SECTOR_HEADER_HEIGHT, Math.max(20, sectorH));
+          const headerClipId = `${clipIdBase}-${sector.data.name.replace(/[^a-z0-9]/gi, "-")}`;
+          const activeSector = (highlightedSector ?? hoveredSector) === sector.data.name;
+          const dimmedSector = Boolean(highlightedSector ?? hoveredSector) && !activeSector;
+          const labelStart = showIcon ? 28 : 12;
+          const labelWidth = Math.max(22, sectorW - labelStart - (showCount ? 46 : 10));
           const sectorLabelProps = isUrdu ? { lang: "ur" as const, dir: "rtl" as const } : {};
           // TODO (P2-d): RTL label position – fine-tune x offset for Urdu text
           return (
-            <g key={sector.data.name} transform={`translate(${sector.x0},${sector.y0})`}>
+            <g
+              key={sector.data.name}
+              transform={`translate(${sector.x0},${sector.y0})`}
+              opacity={dimmedSector ? 0.42 : 1}
+              className="transition-opacity duration-200"
+              onMouseEnter={() => setHoveredSector(sector.data.name)}
+              onMouseLeave={() => setHoveredSector(null)}
+            >
+              <title>
+                {sectorName} - {sector.data.children?.length ?? 0} {t("stocks")}
+              </title>
+              <clipPath id={headerClipId}>
+                <rect x={labelStart} y={4} width={labelWidth} height={headerHeight - 8} />
+              </clipPath>
               <rect
                 x={0}
                 y={0}
-                width={sector.x1 - sector.x0}
-                height={sector.y1 - sector.y0}
-                fill="var(--color-surface)"
-                stroke="var(--color-border)"
-                strokeWidth={1}
-                rx={2}
-                className={onSectorClick ? "cursor-pointer transition-opacity hover:opacity-80" : ""}
+                width={sectorW}
+                height={sectorH}
+                fill="var(--color-elevated)"
+                stroke={
+                  activeSector
+                    ? "color-mix(in srgb, var(--color-bull) 58%, var(--color-border))"
+                    : "color-mix(in srgb, var(--color-border) 88%, transparent)"
+                }
+                strokeWidth={activeSector ? 1.5 : 1}
+                rx={5}
+                className={
+                  onSectorClick ? "cursor-pointer transition-[stroke,opacity] duration-200" : ""
+                }
                 onClick={() => onSectorClick?.(sector.data.name)}
+                onDoubleClick={() => onSectorDoubleClick?.(sector.data.name)}
                 role={onSectorClick ? "button" : undefined}
                 tabIndex={onSectorClick ? 0 : undefined}
                 aria-label={onSectorClick ? `Drill into ${sector.data.name}` : undefined}
                 onKeyDown={(e) => {
-                  if (onSectorClick && (e.key === 'Enter' || e.key === ' ')) {
+                  if (onSectorClick && (e.key === "Enter" || e.key === " ")) {
                     e.preventDefault();
                     onSectorClick(sector.data.name);
                   }
                 }}
               />
-              {sectorLabel && (
+              <rect
+                x={1}
+                y={1}
+                width={Math.max(0, sectorW - 2)}
+                height={Math.max(0, headerHeight - 1)}
+                fill={
+                  activeSector
+                    ? `url(#${sectorHeaderActiveGradientId})`
+                    : `url(#${sectorHeaderGradientId})`
+                }
+                stroke="color-mix(in srgb, var(--color-border) 70%, transparent)"
+                strokeWidth={1}
+                rx={4}
+                className={onSectorClick ? "cursor-pointer" : ""}
+                onClick={() => onSectorClick?.(sector.data.name)}
+                onDoubleClick={() => onSectorDoubleClick?.(sector.data.name)}
+              />
+              <rect
+                x={1}
+                y={1}
+                width={3}
+                height={Math.max(0, headerHeight - 2)}
+                fill="var(--color-bull)"
+                rx={2}
+              />
+              <line
+                x1={4}
+                y1={headerHeight}
+                x2={Math.max(4, sectorW - 2)}
+                y2={headerHeight}
+                stroke="color-mix(in srgb, var(--color-bull) 32%, var(--color-border))"
+                strokeWidth={1}
+              />
+              {showIcon && (
+                <circle
+                  cx={17}
+                  cy={headerHeight / 2}
+                  r={5}
+                  fill="color-mix(in srgb, var(--color-bull) 26%, transparent)"
+                  stroke="color-mix(in srgb, var(--color-bull) 52%, transparent)"
+                  strokeWidth={1}
+                />
+              )}
+              {sectorW >= 48 && (
                 <text
                   {...sectorLabelProps}
-                  x={isUrdu ? sector.x1 - sector.x0 - 4 : 4}
-                  y={13}
+                  x={isUrdu ? sectorW - (showCount ? 46 : 8) : labelStart}
+                  y={headerHeight / 2 + 4}
                   textAnchor={isUrdu ? "end" : "start"}
-                  fontSize={11}
-                  fontWeight={600}
-                  fill="currentColor"
-                  className="select-none"
+                  fontSize={sectorW < 92 ? 11 : 12}
+                  fontWeight={800}
+                  letterSpacing={0.35}
+                  fill="color-mix(in srgb, var(--color-text-primary) 90%, white)"
+                  clipPath={`url(#${headerClipId})`}
+                  className="pointer-events-none select-none"
                 >
-                  {sectorLabel}{" "}
-                  <tspan fontSize={9} fill="var(--color-text-muted)">
-                    · {sector.data.children?.length ?? 0}
-                  </tspan>
+                  {compactLabel}
                 </text>
               )}
-              {sector.children?.map((leaf: HierarchyRectangularNode<any>) =>
+              {showCount && (
+                <>
+                  <rect
+                    x={sectorW - 34}
+                    y={6}
+                    width={26}
+                    height={headerHeight - 12}
+                    rx={8}
+                    fill="color-mix(in srgb, var(--color-surface-alt) 82%, var(--color-text-primary))"
+                    stroke="color-mix(in srgb, var(--color-border) 70%, transparent)"
+                    strokeWidth={1}
+                  />
+                  <text
+                    x={sectorW - 21}
+                    y={headerHeight / 2 + 3}
+                    textAnchor="middle"
+                    fontSize={9}
+                    fontWeight={700}
+                    fill="var(--color-text-secondary)"
+                    className="pointer-events-none select-none"
+                  >
+                    {sector.data.children?.length ?? 0}
+                  </text>
+                </>
+              )}
+              {sector.children?.map((leaf: HierarchyRectangularNode<LayoutDatum>) =>
                 renderLeaf(leaf, leaf.x0 - sector.x0, leaf.y0 - sector.y0, sector.data.name),
               )}
             </g>

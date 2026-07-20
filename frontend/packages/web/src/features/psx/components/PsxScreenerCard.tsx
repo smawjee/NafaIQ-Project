@@ -43,7 +43,7 @@ export function PsxScreenerCard({
 }) {
   const { t } = useLang();
   return (
-    <Card>
+    <Card className="overflow-hidden">
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
         <div>
           <h3 className="text-sm font-semibold text-text-primary">{t("Stock Screener")}</h3>
@@ -75,7 +75,7 @@ export function PsxScreenerCard({
           </button>
         </div>
       </div>
-      <div className="mb-3 flex items-center gap-2">
+      <div className="mb-3 grid gap-2 md:grid-cols-[auto_minmax(220px,1fr)_minmax(220px,0.9fr)] md:items-center">
         <Filter className="h-4 w-4 text-text-secondary" />
         <input
           type="text"
@@ -87,7 +87,7 @@ export function PsxScreenerCard({
         <select
           value={sectorFilter}
           onChange={(e) => onSectorChange(e.target.value)}
-          className="rounded-[6px] border border-border bg-elevated px-2 py-1 text-xs font-medium text-text-primary"
+          className="min-w-0 rounded-[6px] border border-border bg-elevated px-2 py-1 text-xs font-medium text-text-primary"
         >
           <option value="All">{t("All Sectors")}</option>
           {sectors.map((sec) => (
@@ -98,25 +98,25 @@ export function PsxScreenerCard({
         </select>
       </div>
       <div className="mb-3 flex flex-wrap gap-1.5">
-        {(
-          ["All", "STRONG BUY", "BUY", "HOLD", "SELL", "STRONG SELL"] as (string | Signal)[]
-        ).map((f) => (
-          <button
-            key={f}
-            onClick={() => onSignalChange(f)}
-            className={cn(
-              "rounded-full px-3 py-1 text-xs font-medium",
-              signalFilter === f
-                ? "bg-bull text-bull-foreground"
-                : "border border-border text-text-secondary hover:bg-hover",
-            )}
-          >
-            {t(f)}
-          </button>
-        ))}
+        {(["All", "STRONG BUY", "BUY", "HOLD", "SELL", "STRONG SELL"] as (string | Signal)[]).map(
+          (f) => (
+            <button
+              key={f}
+              onClick={() => onSignalChange(f)}
+              className={cn(
+                "rounded-full px-3 py-1 text-xs font-medium",
+                signalFilter === f
+                  ? "bg-bull text-bull-foreground"
+                  : "border border-border text-text-secondary hover:bg-hover",
+              )}
+            >
+              {t(f)}
+            </button>
+          ),
+        )}
       </div>
-      <div className="scrollbar-none overflow-x-auto">
-        <table className="w-full min-w-[640px] text-xs">
+      <div className="overflow-x-auto">
+        <table className="w-full min-w-[780px] text-xs">
           <thead>
             <tr className="border-b border-border text-left text-text-muted">
               <th className="py-2">{t("Stock")}</th>
@@ -168,18 +168,10 @@ export function PsxScreenerCard({
                   ) : (
                     <span
                       className={cn(
-                        s.rsi > 70
-                          ? "text-bear"
-                          : s.rsi < 30
-                            ? "text-bull"
-                            : "text-text-secondary",
+                        s.rsi > 70 ? "text-bear" : s.rsi < 30 ? "text-bull" : "text-text-secondary",
                       )}
                       title={
-                        s.rsi > 70
-                          ? t("Overbought")
-                          : s.rsi < 30
-                            ? t("Oversold")
-                            : t("Neutral")
+                        s.rsi > 70 ? t("Overbought") : s.rsi < 30 ? t("Oversold") : t("Neutral")
                       }
                     >
                       {s.rsi.toFixed(0)}

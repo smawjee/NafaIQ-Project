@@ -10,6 +10,27 @@ export type Timeframe = (typeof TIMEFRAMES)[number];
 export const INDICATORS = ["MA20", "MA50", "MA100", "MA200"] as const;
 export type Indicator = (typeof INDICATORS)[number];
 
+const INDEX_LABELS = new Set([
+  "KSE-100",
+  "KSE-100 PR",
+  "KSE-30",
+  "KMI-30",
+  "KMI All Share",
+  "KSE All Share",
+  "BKTI",
+  "OGTI",
+  "PSX Div 20",
+  "UPP9",
+  "NITPGI",
+  "NBPPGI",
+  "MZNPI",
+  "JSMFI",
+  "ACI",
+  "JSGBKTI",
+  "HBLTTI",
+  "MII30",
+]);
+
 /** Human label per symbol for the dropdown trigger. The KSE-100 index is a
  * special case — every other value is a stock ticker shown alongside its name. */
 export function symbolLabel(
@@ -17,7 +38,7 @@ export function symbolLabel(
   t: (k: string) => string,
   nameFor?: (sym: string) => string,
 ) {
-  if (sym === "KSE-100") return t("KSE-100 Index");
+  if (INDEX_LABELS.has(sym)) return t(`${sym} Index`);
   return nameFor ? `${sym} · ${t(nameFor(sym))}` : sym;
 }
 
@@ -60,17 +81,17 @@ export function ChartToolbar({
   const { t } = useLang();
 
   return (
-    <div className="mb-3 flex flex-wrap items-center gap-2">
+    <div className="mb-4 flex min-w-0 flex-col gap-3 xl:flex-row xl:items-center">
       {!hideSymbolPicker && (
         <Popover>
           <PopoverTrigger asChild>
             <button
               type="button"
-              className="min-w-0 max-w-[260px] flex-1 truncate rounded-[6px] border border-border bg-elevated px-2.5 py-1.5 text-left text-sm font-medium text-text-primary sm:flex-none"
+              className="flex min-w-0 items-center justify-between gap-2 rounded-[6px] border border-border bg-elevated px-3 py-2 text-left text-sm font-medium text-text-primary xl:w-[260px]"
               aria-label={t("Select symbol")}
             >
               <span className="truncate">{symbolLabel(sym, t, nameFor)}</span>
-              <ChevronDown className="ml-1 inline h-3.5 w-3.5 align-text-bottom text-text-secondary" />
+              <ChevronDown className="h-3.5 w-3.5 shrink-0 text-text-secondary" />
             </button>
           </PopoverTrigger>
           <PopoverContent
@@ -91,14 +112,14 @@ export function ChartToolbar({
         </Popover>
       )}
 
-      <div className="flex flex-wrap gap-1">
+      <div className="scrollbar-none flex min-w-0 gap-1 overflow-x-auto">
         {TIMEFRAMES.map((label) => (
           <button
             key={label}
             type="button"
             onClick={() => onTfChange(label)}
             className={cn(
-              "rounded-[6px] px-2 py-1 text-xs font-medium",
+              "shrink-0 rounded-[6px] px-2.5 py-1.5 text-xs font-medium",
               tf === label
                 ? "tf-active bg-bull text-bull-foreground"
                 : "text-text-secondary hover:bg-hover",
@@ -109,12 +130,12 @@ export function ChartToolbar({
         ))}
       </div>
 
-      <div className="flex flex-wrap gap-1 sm:ml-auto">
+      <div className="scrollbar-none flex min-w-0 gap-1 overflow-x-auto xl:ml-auto">
         <button
           type="button"
           onClick={() => onTypeChange("candle")}
           className={cn(
-            "rounded-[6px] p-1.5",
+            "shrink-0 rounded-[6px] p-1.5",
             type === "candle" ? "bg-bull/15 text-bull" : "text-text-secondary hover:bg-hover",
           )}
           aria-label={t("Candlestick")}
@@ -125,7 +146,7 @@ export function ChartToolbar({
           type="button"
           onClick={() => onTypeChange("line")}
           className={cn(
-            "rounded-[6px] p-1.5",
+            "shrink-0 rounded-[6px] p-1.5",
             type === "line" ? "bg-bull/15 text-bull" : "text-text-secondary hover:bg-hover",
           )}
           aria-label={t("Line")}
@@ -138,7 +159,7 @@ export function ChartToolbar({
             type="button"
             onClick={() => onMasChange(mas.includes(m) ? mas.filter((x) => x !== m) : [...mas, m])}
             className={cn(
-              "rounded-[6px] px-2 py-1 text-[10px] font-medium",
+              "shrink-0 rounded-[6px] px-2.5 py-1.5 text-[10px] font-medium",
               mas.includes(m) ? "bg-info/20 text-info" : "text-text-muted hover:bg-hover",
             )}
           >
