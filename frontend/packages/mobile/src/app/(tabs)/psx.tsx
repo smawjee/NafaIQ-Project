@@ -23,6 +23,7 @@ import { Sparkline } from "@/components/charts/Sparkline";
 import { AiReportSheet } from "@/components/ai/AiReportSheet";
 import { GlassCard } from "@/components/glass/GlassCard";
 import { GlassScreen } from "@/components/glass/GlassScreen";
+import { SectorHeatmap } from "@/components/psx/SectorHeatmap";
 import { SignalBadge, Text } from "@/components/ui";
 import { Chip, ChipRow, Segmented } from "@/components/ui/controls";
 import { fonts } from "@/constants/theme";
@@ -36,12 +37,10 @@ import {
   usePsxLiveMarket,
   usePsxRealtime,
   usePsxScreenerMetrics,
-  usePsxSectors,
   usePsxSignal,
   usePsxSymbols,
   usePsxTreemap,
   useUnusualActivity,
-  type ApiTreemapStock,
   type ApiUnusualActivity,
   type UiTicker,
 } from "@/hooks/queries/use-market";
@@ -64,16 +63,6 @@ const INDEX_CODE_BY_NAME: Record<string, string> = {
   "KSE All Share": "ALLSHR",
 };
 const MOVER_TABS = ["Gainers", "Losers", "Most Active"] as const;
-const MARKET_VIEWS = ["Heatmap", "Treemap"] as const;
-
-// Colour a market tile by change% — same intensity ramp as the sector heatmap.
-function heatColor(pct: number, bull: string, bear: string): string {
-  const intensity = Math.min(0.5, Math.abs(pct) / 6 + 0.12);
-  const alpha = Math.round(intensity * 255)
-    .toString(16)
-    .padStart(2, "0");
-  return (pct >= 0 ? bull : bear) + alpha;
-}
 
 interface ScreenerRow {
   ticker: string;
@@ -99,14 +88,12 @@ export default function PsxScreen() {
   const [signal, setSignal] = useState<Signal | "All">("All");
   const [selectedIdx, setSelectedIdx] = useState("KSE-100");
   const [moverTab, setMoverTab] = useState<(typeof MOVER_TABS)[number]>("Gainers");
-  const [marketView, setMarketView] = useState<(typeof MARKET_VIEWS)[number]>("Heatmap");
 
   usePsxRealtime();
   const { data: snapshot, isPending: snapshotPending, isError: snapshotError } = usePsxLiveMarket();
   const { data: symbolsData } = usePsxSymbols();
   const { data: batchSignals } = usePsxBatchSignals(50);
   const { data: screenerMetrics } = usePsxScreenerMetrics();
-  const { data: sectorData, isPending: sectorsPending } = usePsxSectors();
   const { data: candles, isPending: candlesPending, isError: candlesError } = usePsxHistory(
     sym,
     TIMEFRAMES[tf],
@@ -133,15 +120,6 @@ export default function PsxScreen() {
   const movers = useMarketMovers(moverSort, 12);
 
   const { data: treemap, isPending: treemapPending, isError: treemapError } = usePsxTreemap();
-  const treemapTiles = useMemo<ApiTreemapStock[]>(
-    () =>
-      (treemap?.sectors ?? [])
-        .flatMap((s) => s.stocks)
-        .slice()
-        .sort((a, b) => b.size_metric - a.size_metric)
-        .slice(0, 24),
-    [treemap],
-  );
 
   const {
     data: unusual,
@@ -476,70 +454,13 @@ export default function PsxScreen() {
         )}
       </View>
 
-      {/* ── Market map: Sector Heatmap ↔ Treemap ── */}
-      <View style={{ gap: 8 }}>
-        <Text variant="title">{t("Market Map")}</Text>
-        <Segmented options={MARKET_VIEWS as unknown as string[]} value={marketView} onChange={(v) => setMarketView(v as (typeof MARKET_VIEWS)[number])} />
-        {marketView === "Heatmap" ? (
-          sectorsPending ? (
-            <View style={styles.emptyBox}>
-              <ActivityIndicator color={colors.primary} accessibilityLabel={t("Loading sectors")} />
-            </View>
-          ) : !sectorData || sectorData.length === 0 ? (
-            <View style={styles.emptyBox}>
-              <Text variant="muted">{t("No sector data available.")}</Text>
-            </View>
-          ) : (
-            <View style={styles.heatGrid}>
-              {sectorData.map((s) => {
-                const up = s.pct >= 0;
-                return (
-                  <View key={s.name} style={[styles.heatCell, { backgroundColor: heatColor(s.pct, colors.bull, colors.bear) }]}>
-                    <Text style={{ fontSize: 12, fontWeight: "600" }} numberOfLines={1}>{s.name}</Text>
-                    <Text variant="mono" style={{ fontSize: 12 }}>
-                      {up ? "+" : ""}
-                      {s.pct.toFixed(2)}%
-                    </Text>
-                  </View>
-                );
-              })}
-            </View>
-          )
-        ) : treemapPending ? (
-          <View style={styles.emptyBox}>
-            <ActivityIndicator color={colors.primary} accessibilityLabel={t("Loading treemap")} />
-          </View>
-        ) : treemapError ? (
-          <View style={styles.emptyBox}>
-            <Text variant="muted">{t("Could not load treemap.")}</Text>
-          </View>
-        ) : treemapTiles.length === 0 ? (
-          <View style={styles.emptyBox}>
-            <Text variant="muted">{t("No treemap data available.")}</Text>
-          </View>
-        ) : (
-          <View style={styles.heatGrid}>
-            {treemapTiles.map((s) => {
-              const up = s.change_pct >= 0;
-              return (
-                <Pressable
-                  key={s.symbol}
-                  onPress={() => router.push(`/stock/${s.symbol}`)}
-                  style={[styles.heatCell, { backgroundColor: heatColor(s.change_pct, colors.bull, colors.bear) }]}
-                  accessibilityRole="button"
-                  accessibilityLabel={`${s.symbol}, ${up ? "up" : "down"} ${Math.abs(s.change_pct).toFixed(2)} percent`}
-                >
-                  <Text style={{ fontSize: 12, fontWeight: "600" }} numberOfLines={1}>{s.symbol}</Text>
-                  <Text variant="mono" style={{ fontSize: 12 }}>
-                    {up ? "+" : ""}
-                    {s.change_pct.toFixed(2)}%
-                  </Text>
-                </Pressable>
-              );
-            })}
-          </View>
-        )}
-      </View>
+      {/* ── Sector Heatmap (grouped mosaic → drill into a sector's stocks) ── */}
+      <SectorHeatmap
+        data={treemap}
+        isPending={treemapPending}
+        isError={treemapError}
+        onStockPress={(symbol) => router.push(`/stock/${symbol}`)}
+      />
 
       {/* ── Hub to News / Funds / Dividends / Macro ── */}
       <Pressable
@@ -585,8 +506,6 @@ const styles = StyleSheet.create({
   priceCol: { width: 88, alignItems: "flex-end" },
   sigCol: { width: 96, alignItems: "flex-end", paddingLeft: 8 },
   emptyBox: { paddingVertical: 24, alignItems: "center", justifyContent: "center" },
-  heatGrid: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
-  heatCell: { width: "31%", borderRadius: 10, padding: 10, gap: 2, minHeight: 44 },
   moverCard: { width: 118, padding: 12 },
   unusualCard: { width: 170, padding: 12 },
   moreBtn: {

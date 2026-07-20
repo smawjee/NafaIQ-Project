@@ -178,6 +178,7 @@ export function TopRibbon() {
       <GlassSheet open={acctOpen} onClose={() => setAcctOpen(false)} title={profile?.display_name || user?.email?.split("@")[0] || "Account"}>
         <Text variant="muted" style={{ marginTop: -4 }}>{profile?.plan ?? "Free"} plan · {user?.email ?? "—"}</Text>
         <MenuItem icon={Crown} label="Upgrade to Pro" tint={colors.gold} onPress={() => { setAcctOpen(false); router.push("/plans"); }} />
+        <MenuItem icon={Bell} label="Alerts" onPress={() => { setAcctOpen(false); router.push("/alerts"); }} />
         <MenuItem icon={Settings} label="Settings" onPress={() => { setAcctOpen(false); router.push("/settings"); }} />
         <MenuItem
           icon={LogOut}
