@@ -1,4 +1,4 @@
-import { STOCKS, type Signal } from "@/lib/data";
+import { STOCKS, type Candle, type Signal } from "@/lib/data";
 
 /** One row of the screener/movers tables (shared by both). */
 export interface PsxScreenRow {
@@ -37,6 +37,77 @@ export function tfDays(tf: string) {
     { "1D": 5, "1W": 14, "1M": 30, "3M": 90, "6M": 130, "1Y": 250, All: MAX_HISTORY_DAYS }[tf] ??
     250
   );
+}
+
+export interface LiveCandleInput {
+  price: number | null | undefined;
+  change?: number | null;
+  changePct?: number | null;
+  dayHigh?: number | null;
+  dayLow?: number | null;
+  volume?: number | null;
+  date?: string | null;
+}
+
+function localIsoDate() {
+  const now = new Date();
+  now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+  return now.toISOString().slice(0, 10);
+}
+
+function previousCloseFromLive(live: LiveCandleInput): number | null {
+  const price = live.price;
+  if (price == null || !Number.isFinite(price) || price <= 0) return null;
+  if (live.change != null && Number.isFinite(live.change)) {
+    return price - live.change;
+  }
+  if (live.changePct != null && Number.isFinite(live.changePct) && live.changePct > -100) {
+    return price / (1 + live.changePct / 100);
+  }
+  return null;
+}
+
+/**
+ * Historical OHLCV is EOD, while snapshot/index cards are live. Merge the
+ * current tick into the latest candle so chart headers, tooltips, watchlists,
+ * and index cards all speak from the same price.
+ */
+export function reconcileLiveCandle(rows: Candle[], live: LiveCandleInput | null | undefined) {
+  if (!live) return rows;
+  const price = live?.price;
+  if (price == null || !Number.isFinite(price) || price <= 0) return rows;
+
+  const date = live?.date?.slice(0, 10) || localIsoDate();
+  const prevClose = previousCloseFromLive(live);
+  const existingIndex = rows.findIndex((row) => row.date === date);
+  const existing = existingIndex >= 0 ? rows[existingIndex] : undefined;
+  const prior = existing ?? rows[rows.length - 1];
+  const open = existing?.open ?? prevClose ?? prior?.close ?? price;
+  const high = Math.max(
+    ...[existing?.high, live?.dayHigh, open, price].filter(
+      (value): value is number => value != null && Number.isFinite(value),
+    ),
+  );
+  const low = Math.min(
+    ...[existing?.low, live?.dayLow, open, price].filter(
+      (value): value is number => value != null && Number.isFinite(value),
+    ),
+  );
+  const volume = live?.volume ?? existing?.volume ?? prior?.volume ?? 0;
+  const candle: Candle = {
+    date,
+    t: new Date(date).getTime(),
+    open,
+    high,
+    low,
+    close: price,
+    volume,
+  };
+
+  if (existingIndex >= 0) {
+    return rows.map((row, index) => (index === existingIndex ? candle : row));
+  }
+  return [...rows, candle];
 }
 
 export function symbolMeta(sym: string) {

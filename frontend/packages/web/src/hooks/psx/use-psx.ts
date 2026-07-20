@@ -42,10 +42,14 @@ export function usePsxLiveMarket() {
 export function usePsxRealtime(watchlist?: string[] | null) {
   const qc = useQueryClient();
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
-  const symKey = (watchlist ?? []).slice().sort().join(",");
+  const symKey = (watchlist ?? [])
+    .map((s) => s.toUpperCase())
+    .filter(Boolean)
+    .sort()
+    .join(",");
 
   useEffect(() => {
-    const symbols = (watchlist ?? []).map((s) => s.toUpperCase()).filter(Boolean);
+    const symbols = symKey ? symKey.split(",") : [];
     // Supabase realtime filter: "symbol=in.(HBL,OGDC,...)" with values quoted
     // to survive any reserved characters. An empty `symbols` array means
     // "no filter" — the channel still receives every change.
@@ -71,6 +75,17 @@ export function usePsxRealtime(watchlist?: string[] | null) {
           // without waiting for a refetch.
           if (sym) {
             qc.setQueryData(["psx", "quote", sym], payload.new);
+            qc.setQueryData(["psx", "live"], (prev: unknown) => {
+              if (!Array.isArray(prev)) return prev;
+              const nextRow = payload.new as ApiMarketSnapshotItem;
+              let found = false;
+              const next = (prev as ApiMarketSnapshotItem[]).map((row) => {
+                if (row.symbol !== sym) return row;
+                found = true;
+                return { ...row, ...nextRow };
+              });
+              return found ? next : [...next, nextRow];
+            });
             qc.setQueryData(["enriched-watchlist"], (prev: unknown) => {
               if (!Array.isArray(prev)) return prev;
               return (prev as { symbol: string }[]).map((row) =>

@@ -53,9 +53,21 @@ export function StockChartCard({
       <div className="h-[300px] lg:h-[440px]">
         {data.length > 0 ? (
           chartType === "line" ? (
-            <PriceLineChart data={data} height={9999} mas={chartMas} maSeries={maSeries} currentPrice={price ?? undefined} />
+            <PriceLineChart
+              data={data}
+              height={9999}
+              mas={chartMas}
+              maSeries={maSeries}
+              currentPrice={price ?? undefined}
+            />
           ) : (
-            <CandlestickChart data={data} height={9999} mas={chartMas} maSeries={maSeries} currentPrice={price ?? undefined} />
+            <CandlestickChart
+              data={data}
+              height={9999}
+              mas={chartMas}
+              maSeries={maSeries}
+              currentPrice={price ?? undefined}
+            />
           )
         ) : (
           <div className="flex h-full items-center justify-center text-text-muted text-sm">
@@ -65,7 +77,7 @@ export function StockChartCard({
       </div>
       {data.length > 0 && isLive && lastBar && (
         <p className="mt-2 text-[11px] text-text-muted">
-          {t("Dashed line: today's live tick. Bars: EOD history. Last bar close = ")}
+          {t("Latest candle is reconciled with today's live tick. Current close = ")}
           <span className="font-mono">{fmtNum(lastBar.close)}</span>.
         </p>
       )}

@@ -28,7 +28,7 @@ import { StockDetailHeader } from "@/features/stock/components/StockDetailHeader
 import { StockChartCard } from "@/features/stock/components/StockChartCard";
 import { StockTabs, type StockTab } from "@/features/stock/components/StockTabs";
 import { PriceAlertModal } from "@/features/stock/components/PriceAlertModal";
-import { tfDays } from "@/features/psx/psx.utils";
+import { reconcileLiveCandle, tfDays, type LiveCandleInput } from "@/features/psx/psx.utils";
 
 export function StockDetail() {
   const { ticker } = useParams({ from: "/stock/$ticker" });
@@ -88,29 +88,41 @@ export function StockDetail() {
   const signalPending = !modelReady && !isDemo;
 
   // Phase 0 / B4: derive a chart-ready series from the per-stock history
-  // and slice it by the persisted timeframe. The last bar is yesterday's EOD
-  // close; the live `quote.price` is overlaid as a horizontal reference line
-  // so the user can see how today's tick sits vs. the recent bars.
+  // and merge the live tick into the latest candle so the chart and headline
+  // use the same price source.
   // Phase 0 / B8: subscribe to the realtime channel filtered to this single
   // symbol so small-caps that aren't in the top-20 AHL poll still update
   // in <1s when the user is on their detail page.
   usePsxRealtime([upper]);
-  const data = useMemo(() => {
-    const full = (ohlcvData ?? []) as Candle[];
-    const visibleCount = tfDays(tf);
-    return full.slice(-visibleCount);
-  }, [ohlcvData, tf]);
-  const maSeries = useMemo(() => {
-    const full = (ohlcvData ?? []) as Candle[];
-    const visibleCount = tfDays(tf);
-    const start = Math.max(0, full.length - visibleCount);
+  const liveCandle = useMemo<LiveCandleInput | null>(() => {
+    if (!quote) return null;
     return {
-      ma20: sma(full, 20).slice(start),
-      ma50: sma(full, 50).slice(start),
-      ma100: sma(full, 100).slice(start),
-      ma200: sma(full, 200).slice(start),
+      price: quote.price,
+      change: quote.change,
+      changePct: quote.change_pct,
+      dayHigh: quote.day_high,
+      dayLow: quote.day_low,
+      volume: quote.volume,
     };
-  }, [ohlcvData, tf]);
+  }, [quote]);
+  const chartHistory = useMemo(
+    () => reconcileLiveCandle(((ohlcvData ?? []) as Candle[]).slice(), liveCandle),
+    [ohlcvData, liveCandle],
+  );
+  const data = useMemo(() => {
+    const visibleCount = tfDays(tf);
+    return chartHistory.slice(-visibleCount);
+  }, [chartHistory, tf]);
+  const maSeries = useMemo(() => {
+    const visibleCount = tfDays(tf);
+    const start = Math.max(0, chartHistory.length - visibleCount);
+    return {
+      ma20: sma(chartHistory, 20).slice(start),
+      ma50: sma(chartHistory, 50).slice(start),
+      ma100: sma(chartHistory, 100).slice(start),
+      ma200: sma(chartHistory, 200).slice(start),
+    };
+  }, [chartHistory, tf]);
   const lastBar = data[data.length - 1];
   const isLive = quote?.price != null && quote.price > 0;
 
