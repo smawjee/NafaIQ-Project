@@ -2,9 +2,10 @@
 // Transactions / Budgets / Bills / Goals. Backed by the FastAPI finance
 // endpoints via React Query hooks (src/hooks/queries/use-finance*.ts); list
 // tabs are virtualized FlatLists.
-import { memo, useCallback, useMemo, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
+  Alert,
   FlatList,
   Platform,
   Pressable,
@@ -38,13 +39,27 @@ import {
   useCreateBudget,
   useCreateGoal,
   useCreateTransaction,
+  useDeleteBill,
+  useDeleteBudget,
+  useDeleteGoal,
+  useDeleteTransaction,
   useFinanceBills,
   useFinanceBudgets,
   useFinanceGoals,
   useFinanceSummary,
   useFinanceTransactions,
   useMarkBillPaid,
+  useUpdateBill,
+  useUpdateBudget,
+  useUpdateTransaction,
 } from "@/hooks/queries/use-finance";
+import {
+  type ZakatEstimate,
+  type ZakatRecord,
+  useCalculateZakat,
+  useZakatHistory,
+  useZakatSettings,
+} from "@/hooks/queries/use-zakat";
 import { useFinanceReport } from "@/hooks/ai/use-ai-report";
 import { useIncomeExpenseSeries } from "@/hooks/queries/use-finance-series";
 import { fmtPKR } from "@nafaiq/shared";
@@ -52,17 +67,21 @@ import {
   ArrowDownRight,
   ArrowUpRight,
   Check,
+  Coins,
   Lightbulb,
+  Pencil,
   Percent,
   PiggyBank,
   Plus,
+  Scale,
   Search,
   Sparkles,
   Target,
+  Trash2,
 } from "@/lib/icons";
 
 const AVENIR = Platform.select({ ios: "Avenir-Heavy", default: fonts.sans });
-const TABS = ["Overview", "Transactions", "Budgets", "Bills", "Goals"];
+const TABS = ["Overview", "Transactions", "Budgets", "Bills", "Goals", "Zakat"];
 const CAT_COLOR: Record<string, string> = {
   Utilities: "#3b82f6",
   Income: "#00d4aa",
@@ -107,6 +126,7 @@ export default function FinanceScreen() {
         {tab === "Budgets" && <Budgets />}
         {tab === "Bills" && <Bills />}
         {tab === "Goals" && <Goals />}
+        {tab === "Zakat" && <Zakat />}
       </SafeAreaView>
     </GlassScreen>
   );
@@ -144,6 +164,62 @@ function EmptyCard({ title, sub }: { title: string; sub?: string }) {
     </GlassCard>
   );
 }
+
+/* --------------------------- row edit/delete ----------------------------- */
+/** Native confirm dialog before a destructive delete. */
+function confirmDelete(label: string, onConfirm: () => void) {
+  Alert.alert("Delete", `Delete ${label}? This can't be undone.`, [
+    { text: "Cancel", style: "cancel" },
+    { text: "Delete", style: "destructive", onPress: onConfirm },
+  ]);
+}
+
+/** Inline edit (optional) + delete affordances for a list row. */
+const RowActions = memo(function RowActions({
+  label,
+  onEdit,
+  onDelete,
+  busy,
+}: {
+  label: string;
+  onEdit?: () => void;
+  onDelete: () => void;
+  busy?: boolean;
+}) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
+  if (busy) {
+    return (
+      <View style={styles.iconBtn}>
+        <ActivityIndicator size="small" color={colors.textMuted} />
+      </View>
+    );
+  }
+  return (
+    <View style={{ flexDirection: "row", alignItems: "center", gap: 2 }}>
+      {onEdit ? (
+        <Pressable
+          onPress={onEdit}
+          hitSlop={10}
+          style={styles.iconBtn}
+          accessibilityRole="button"
+          accessibilityLabel={`Edit ${label}`}
+        >
+          <Pencil color={colors.textMuted} size={16} />
+        </Pressable>
+      ) : null}
+      <Pressable
+        onPress={onDelete}
+        hitSlop={10}
+        style={styles.iconBtn}
+        accessibilityRole="button"
+        accessibilityLabel={`Delete ${label}`}
+      >
+        <Trash2 color={colors.bear} size={16} />
+      </Pressable>
+    </View>
+  );
+});
 
 /* ------------------------------- Overview -------------------------------- */
 function Kpi({
@@ -311,7 +387,17 @@ interface TxnGroup {
   items: FinanceTransaction[];
 }
 
-const TxnGroupCard = memo(function TxnGroupCard({ group }: { group: TxnGroup }) {
+const TxnGroupCard = memo(function TxnGroupCard({
+  group,
+  onEdit,
+  onDelete,
+  deletingId,
+}: {
+  group: TxnGroup;
+  onEdit: (tx: FinanceTransaction) => void;
+  onDelete: (tx: FinanceTransaction) => void;
+  deletingId: number | null;
+}) {
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   return (
@@ -333,6 +419,12 @@ const TxnGroupCard = memo(function TxnGroupCard({ group }: { group: TxnGroup }) 
                 {isIncome ? "+" : "-"}
                 {fmtPKR(Math.abs(Number(tx.amount) || 0))}
               </Text>
+              <RowActions
+                label={tx.merchant}
+                onEdit={() => onEdit(tx)}
+                onDelete={() => onDelete(tx)}
+                busy={deletingId === tx.id}
+              />
             </View>
           );
         })}
@@ -346,14 +438,34 @@ function Transactions() {
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const { data: transactions = [], isPending, isError, refetch } = useFinanceTransactions();
   const createTransaction = useCreateTransaction();
+  const updateTransaction = useUpdateTransaction();
+  const deleteTransaction = useDeleteTransaction();
   const [q, setQ] = useState("");
   const [open, setOpen] = useState(false);
+  const [editTxn, setEditTxn] = useState<FinanceTransaction | null>(null);
+  const [deletingId, setDeletingId] = useState<number | null>(null);
   const [merchant, setMerchant] = useState("");
   const [amount, setAmount] = useState("");
   const [kind, setKind] = useState<"expense" | "income">("expense");
   const [category, setCategory] = useState(CATEGORIES[0]);
   const [account, setAccount] = useState(ACCOUNTS[0]);
   const [err, setErr] = useState("");
+  const sheetOpen = open || editTxn != null;
+
+  function resetForm() {
+    setMerchant("");
+    setAmount("");
+    setKind("expense");
+    setCategory(CATEGORIES[0]);
+    setAccount(ACCOUNTS[0]);
+    setErr("");
+  }
+
+  function closeSheet() {
+    setOpen(false);
+    setEditTxn(null);
+    resetForm();
+  }
 
   const groups = useMemo<TxnGroup[]>(() => {
     const ql = q.trim().toLowerCase();
@@ -384,29 +496,59 @@ function Transactions() {
     const num = Number(amount);
     if (!merchant.trim()) return setErr("Please enter a merchant name.");
     if (!amount || Number.isNaN(num) || num <= 0) return setErr("Please enter a valid amount.");
-    createTransaction.mutate(
-      {
-        merchant: merchant.trim(),
-        amount: num,
-        transaction_type: kind,
-        category: kind === "income" ? "Income" : category,
-        transaction_date: new Date().toISOString(),
-        source: account,
-        note: null,
-      },
-      {
-        onSuccess: () => {
-          setMerchant("");
-          setAmount("");
-          setKind("expense");
-          setOpen(false);
+    const payload = {
+      merchant: merchant.trim(),
+      amount: num,
+      transaction_type: kind,
+      category: kind === "income" ? "Income" : category,
+      source: account,
+    };
+    if (editTxn) {
+      updateTransaction.mutate(
+        { id: editTxn.id, ...payload },
+        {
+          onSuccess: closeSheet,
+          onError: () => setErr("Failed to update transaction. Please try again."),
         },
+      );
+      return;
+    }
+    createTransaction.mutate(
+      { ...payload, transaction_date: new Date().toISOString(), note: null },
+      {
+        onSuccess: closeSheet,
         onError: () => setErr("Failed to add transaction. Please try again."),
       },
     );
   }
 
-  const renderGroup = useCallback(({ item }: { item: TxnGroup }) => <TxnGroupCard group={item} />, []);
+  const openEdit = useCallback((tx: FinanceTransaction) => {
+    setOpen(false);
+    setEditTxn(tx);
+    setMerchant(tx.merchant ?? "");
+    setAmount(String(Math.abs(Number(tx.amount) || 0)));
+    setKind(tx.transaction_type === "income" ? "income" : "expense");
+    setCategory(CATEGORIES.includes(tx.category) ? tx.category : CATEGORIES[0]);
+    setAccount(tx.source && ACCOUNTS.includes(tx.source) ? tx.source : ACCOUNTS[0]);
+    setErr("");
+  }, []);
+
+  const handleDelete = useCallback(
+    (tx: FinanceTransaction) => {
+      confirmDelete(tx.merchant, () => {
+        setDeletingId(tx.id);
+        deleteTransaction.mutate(tx.id, { onSettled: () => setDeletingId(null) });
+      });
+    },
+    [deleteTransaction],
+  );
+
+  const renderGroup = useCallback(
+    ({ item }: { item: TxnGroup }) => (
+      <TxnGroupCard group={item} onEdit={openEdit} onDelete={handleDelete} deletingId={deletingId} />
+    ),
+    [openEdit, handleDelete, deletingId],
+  );
 
   return (
     <>
@@ -455,21 +597,35 @@ function Transactions() {
         }
       />
 
-      <GlassSheet open={open} onClose={() => setOpen(false)} title="Add Transaction">
+      <GlassSheet open={sheetOpen} onClose={closeSheet} title={editTxn ? "Edit Transaction" : "Add Transaction"}>
         <ChipRow options={["expense", "income"]} value={kind} onChange={(v) => setKind(v as "expense" | "income")} />
         <Field label="Merchant" value={merchant} onChangeText={setMerchant} placeholder="e.g. Imtiaz Super Market" />
         <Field label="Amount (PKR)" value={amount} onChangeText={setAmount} keyboardType="numeric" placeholder="0" />
         {kind === "expense" ? <ChipRow options={CATEGORIES} value={category} onChange={setCategory} /> : null}
         <ChipRow options={ACCOUNTS} value={account} onChange={setAccount} />
         {err ? <Text style={{ color: colors.bear, fontSize: 12 }}>{err}</Text> : null}
-        <Button title="Add Transaction" onPress={submit} loading={createTransaction.isPending} />
+        <Button
+          title={editTxn ? "Save Changes" : "Add Transaction"}
+          onPress={submit}
+          loading={createTransaction.isPending || updateTransaction.isPending}
+        />
       </GlassSheet>
     </>
   );
 }
 
 /* ------------------------------- Budgets --------------------------------- */
-const BudgetCard = memo(function BudgetCard({ budget }: { budget: FinanceBudget }) {
+const BudgetCard = memo(function BudgetCard({
+  budget,
+  onEdit,
+  onDelete,
+  busy,
+}: {
+  budget: FinanceBudget;
+  onEdit: (budget: FinanceBudget) => void;
+  onDelete: (budget: FinanceBudget) => void;
+  busy: boolean;
+}) {
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const limit = Number(budget.limit_amount) || 0;
@@ -479,11 +635,17 @@ const BudgetCard = memo(function BudgetCard({ budget }: { budget: FinanceBudget 
   const c = over ? colors.bear : pct >= 0.8 ? colors.warning : colors.bull;
   return (
     <GlassCard style={{ gap: 8, padding: 14 }}>
-      <View style={styles.between}>
-        <Text style={{ fontWeight: "600" }}>{budget.category}</Text>
+      <View style={[styles.between, { gap: 8 }]}>
+        <Text style={{ fontWeight: "600", flex: 1 }}>{budget.category}</Text>
         <Text style={{ color: over ? colors.bear : colors.textSecondary, fontFamily: fonts.mono, fontSize: 12 }}>
           {fmtPKR(spent)} / {fmtPKR(limit)}
         </Text>
+        <RowActions
+          label={`${budget.category} budget`}
+          onEdit={() => onEdit(budget)}
+          onDelete={() => onDelete(budget)}
+          busy={busy}
+        />
       </View>
       <ProgressBar value={Math.min(pct, 1)} color={c} />
       {budget.tip ? (
@@ -501,6 +663,8 @@ function Budgets() {
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const { data: budgets = [], isPending, isError, refetch } = useFinanceBudgets();
   const createBudget = useCreateBudget();
+  const updateBudget = useUpdateBudget();
+  const deleteBudget = useDeleteBudget();
   // Month navigation matches the web Budgets component: the API returns one
   // monthly budget set, the nav is a display affordance.
   const [offset, setOffset] = useState(0);
@@ -511,31 +675,72 @@ function Budgets() {
   const nextLabel = MONTHS[new Date(current.getFullYear(), current.getMonth() + 1, 1).getMonth()];
 
   const [open, setOpen] = useState(false);
+  const [editBudget, setEditBudget] = useState<FinanceBudget | null>(null);
+  const [deletingId, setDeletingId] = useState<number | null>(null);
   const [category, setCategory] = useState(CATEGORIES[0]);
   const [limit, setLimit] = useState("");
   const [tip, setTip] = useState("");
   const [err, setErr] = useState("");
+  const sheetOpen = open || editBudget != null;
+
+  function closeSheet() {
+    setOpen(false);
+    setEditBudget(null);
+    setCategory(CATEGORIES[0]);
+    setLimit("");
+    setTip("");
+    setErr("");
+  }
 
   function submit() {
     setErr("");
     const num = Number(limit);
     if (!limit || Number.isNaN(num) || num <= 0) return setErr("Please enter a valid monthly limit.");
+    if (editBudget) {
+      updateBudget.mutate(
+        { id: editBudget.id, limit_amount: num, tip: tip.trim() || undefined },
+        {
+          onSuccess: closeSheet,
+          onError: () => setErr("Could not update budget. Please try again."),
+        },
+      );
+      return;
+    }
     createBudget.mutate(
       { category, limit_amount: num, tip: tip.trim() || undefined },
       {
-        onSuccess: () => {
-          setCategory(CATEGORIES[0]);
-          setLimit("");
-          setTip("");
-          setOpen(false);
-        },
+        onSuccess: closeSheet,
         onError: () =>
           setErr("Could not add budget — it may already exist or you've hit your plan limit."),
       },
     );
   }
 
-  const renderBudget = useCallback(({ item }: { item: FinanceBudget }) => <BudgetCard budget={item} />, []);
+  const openEdit = useCallback((budget: FinanceBudget) => {
+    setOpen(false);
+    setEditBudget(budget);
+    setCategory(budget.category);
+    setLimit(String(Number(budget.limit_amount) || 0));
+    setTip(budget.tip ?? "");
+    setErr("");
+  }, []);
+
+  const handleDelete = useCallback(
+    (budget: FinanceBudget) => {
+      confirmDelete(`${budget.category} budget`, () => {
+        setDeletingId(budget.id);
+        deleteBudget.mutate(budget.id, { onSettled: () => setDeletingId(null) });
+      });
+    },
+    [deleteBudget],
+  );
+
+  const renderBudget = useCallback(
+    ({ item }: { item: FinanceBudget }) => (
+      <BudgetCard budget={item} onEdit={openEdit} onDelete={handleDelete} busy={deletingId === item.id} />
+    ),
+    [openEdit, handleDelete, deletingId],
+  );
 
   return (
     <>
@@ -576,15 +781,23 @@ function Budgets() {
         }
       />
 
-      <GlassSheet open={open} onClose={() => setOpen(false)} title="Add Budget">
+      <GlassSheet open={sheetOpen} onClose={closeSheet} title={editBudget ? "Edit Budget" : "Add Budget"}>
         <View style={{ gap: 4 }}>
           <Text variant="secondary">Category</Text>
-          <ChipRow options={CATEGORIES} value={category} onChange={setCategory} />
+          {editBudget ? (
+            <Text style={{ fontWeight: "600" }}>{category}</Text>
+          ) : (
+            <ChipRow options={CATEGORIES} value={category} onChange={setCategory} />
+          )}
         </View>
         <Field label="Monthly limit (PKR)" value={limit} onChangeText={setLimit} keyboardType="numeric" placeholder="0" />
         <Field label="Tip (optional)" value={tip} onChangeText={setTip} placeholder="e.g. Stay under limit to save for Hajj" />
         {err ? <Text style={{ color: colors.bear, fontSize: 12 }}>{err}</Text> : null}
-        <Button title="Add Budget" onPress={submit} loading={createBudget.isPending} />
+        <Button
+          title={editBudget ? "Save Changes" : "Add Budget"}
+          onPress={submit}
+          loading={createBudget.isPending || updateBudget.isPending}
+        />
       </GlassSheet>
     </>
   );
@@ -602,11 +815,17 @@ function billDueLabel(bill: FinanceBill): string {
 const BillCard = memo(function BillCard({
   bill,
   busy,
+  deleting,
   onMarkPaid,
+  onEdit,
+  onDelete,
 }: {
   bill: FinanceBill;
   busy: boolean;
+  deleting: boolean;
   onMarkPaid: (bill: FinanceBill) => void;
+  onEdit: (bill: FinanceBill) => void;
+  onDelete: (bill: FinanceBill) => void;
 }) {
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
@@ -641,6 +860,12 @@ const BillCard = memo(function BillCard({
       >
         {busy ? <ActivityIndicator size="small" color={colors.bull} /> : <Check color={colors.bull} size={16} />}
       </Pressable>
+      <RowActions
+        label={bill.name}
+        onEdit={() => onEdit(bill)}
+        onDelete={() => onDelete(bill)}
+        busy={deleting}
+      />
     </GlassCard>
   );
 });
@@ -650,28 +875,47 @@ function Bills() {
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const { data: bills = [], isPending, isError, refetch } = useFinanceBills();
   const createBill = useCreateBill();
+  const updateBill = useUpdateBill();
+  const deleteBill = useDeleteBill();
   const markBillPaid = useMarkBillPaid();
   const [busyBillId, setBusyBillId] = useState<number | null>(null);
+  const [deletingId, setDeletingId] = useState<number | null>(null);
   const [open, setOpen] = useState(false);
+  const [editBill, setEditBill] = useState<FinanceBill | null>(null);
   const [name, setName] = useState("");
   const [amount, setAmount] = useState("");
   const [due, setDue] = useState("");
   const [err, setErr] = useState("");
+  const sheetOpen = open || editBill != null;
+
+  function closeSheet() {
+    setOpen(false);
+    setEditBill(null);
+    setName("");
+    setAmount("");
+    setDue("");
+    setErr("");
+  }
 
   function submit() {
     setErr("");
     const num = Number(amount);
     if (!name.trim()) return setErr("Please enter a bill name.");
     if (!amount || Number.isNaN(num) || num <= 0) return setErr("Please enter a valid amount.");
+    if (editBill) {
+      updateBill.mutate(
+        { id: editBill.id, name: name.trim(), amount: num, due_date: due.trim() || null },
+        {
+          onSuccess: closeSheet,
+          onError: () => setErr("Failed to update bill. Please try again."),
+        },
+      );
+      return;
+    }
     createBill.mutate(
       { name: name.trim(), amount: num, due_date: due.trim() || null, status: "UPCOMING" },
       {
-        onSuccess: () => {
-          setName("");
-          setAmount("");
-          setDue("");
-          setOpen(false);
-        },
+        onSuccess: closeSheet,
         onError: () => setErr("Failed to add bill. Please try again."),
       },
     );
@@ -685,11 +929,37 @@ function Bills() {
     [markBillPaid],
   );
 
+  const openEdit = useCallback((bill: FinanceBill) => {
+    setOpen(false);
+    setEditBill(bill);
+    setName(bill.name ?? "");
+    setAmount(String(Number(bill.amount) || 0));
+    setDue(bill.due_date ?? "");
+    setErr("");
+  }, []);
+
+  const handleDelete = useCallback(
+    (bill: FinanceBill) => {
+      confirmDelete(bill.name, () => {
+        setDeletingId(bill.id);
+        deleteBill.mutate(bill.id, { onSettled: () => setDeletingId(null) });
+      });
+    },
+    [deleteBill],
+  );
+
   const renderBill = useCallback(
     ({ item }: { item: FinanceBill }) => (
-      <BillCard bill={item} busy={busyBillId === item.id} onMarkPaid={handleMarkPaid} />
+      <BillCard
+        bill={item}
+        busy={busyBillId === item.id}
+        deleting={deletingId === item.id}
+        onMarkPaid={handleMarkPaid}
+        onEdit={openEdit}
+        onDelete={handleDelete}
+      />
     ),
-    [busyBillId, handleMarkPaid],
+    [busyBillId, deletingId, handleMarkPaid, openEdit, handleDelete],
   );
 
   return (
@@ -717,12 +987,16 @@ function Bills() {
         }
       />
 
-      <GlassSheet open={open} onClose={() => setOpen(false)} title="Add Bill">
+      <GlassSheet open={sheetOpen} onClose={closeSheet} title={editBill ? "Edit Bill" : "Add Bill"}>
         <Field label="Bill name" value={name} onChangeText={setName} placeholder="e.g. Water Bill" />
         <Field label="Amount (PKR)" value={amount} onChangeText={setAmount} keyboardType="numeric" placeholder="0" />
         <Field label="Due date (YYYY-MM-DD, optional)" value={due} onChangeText={setDue} placeholder="2026-07-20" />
         {err ? <Text style={{ color: colors.bear, fontSize: 12 }}>{err}</Text> : null}
-        <Button title="Add Bill" onPress={submit} loading={createBill.isPending} />
+        <Button
+          title={editBill ? "Save Changes" : "Add Bill"}
+          onPress={submit}
+          loading={createBill.isPending || updateBill.isPending}
+        />
       </GlassSheet>
     </>
   );
@@ -732,9 +1006,13 @@ function Bills() {
 const GoalCard = memo(function GoalCard({
   goal,
   onContribute,
+  onDelete,
+  deleting,
 }: {
   goal: FinanceGoal;
   onContribute: (goal: FinanceGoal) => void;
+  onDelete: (goal: FinanceGoal) => void;
+  deleting: boolean;
 }) {
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
@@ -750,6 +1028,7 @@ const GoalCard = memo(function GoalCard({
         </View>
         <Text style={{ fontWeight: "700", flex: 1 }}>{goal.name}</Text>
         <Text style={{ color: c, fontFamily: fonts.mono, fontWeight: "700" }}>{Math.round(pct * 100)}%</Text>
+        <RowActions label={goal.name} onDelete={() => onDelete(goal)} busy={deleting} />
       </View>
       <Text variant="secondary" style={{ fontFamily: fonts.mono, fontSize: 12 }}>
         Target {fmtPKR(target)} · Saved {fmtPKR(saved)}
@@ -778,6 +1057,8 @@ function Goals() {
   const { data: goals = [], isPending, isError, refetch } = useFinanceGoals();
   const createGoal = useCreateGoal();
   const contributeGoal = useContributeGoal();
+  const deleteGoal = useDeleteGoal();
+  const [deletingId, setDeletingId] = useState<number | null>(null);
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
   const [target, setTarget] = useState("");
@@ -835,9 +1116,21 @@ function Goals() {
     setContribErr("");
   }, []);
 
+  const handleDelete = useCallback(
+    (goal: FinanceGoal) => {
+      confirmDelete(goal.name, () => {
+        setDeletingId(goal.id);
+        deleteGoal.mutate(goal.id, { onSettled: () => setDeletingId(null) });
+      });
+    },
+    [deleteGoal],
+  );
+
   const renderGoal = useCallback(
-    ({ item }: { item: FinanceGoal }) => <GoalCard goal={item} onContribute={openContribute} />,
-    [openContribute],
+    ({ item }: { item: FinanceGoal }) => (
+      <GoalCard goal={item} onContribute={openContribute} onDelete={handleDelete} deleting={deletingId === item.id} />
+    ),
+    [openContribute, handleDelete, deletingId],
   );
 
   return (
@@ -886,6 +1179,234 @@ function Goals() {
   );
 }
 
+/* -------------------------------- Zakat ---------------------------------- */
+const NISAB_SOURCES = ["gold", "silver", "cash", "manual"];
+// Silver-based nisab is the web app's anchor (~PKR 135,000); gold-based is the
+// higher common threshold. These are editable seed defaults — the on-screen
+// disclaimer notes that nisab and rulings vary by scholar.
+const NISAB_PRESETS: Record<string, number> = { gold: 612000, silver: 135000, cash: 135000 };
+const ZAKAT_METHODS = [
+  { key: "standard_2_5", label: "Standard 2.5%" },
+  { key: "custom_rate", label: "Custom rate" },
+  { key: "manual_only", label: "Manual only" },
+] as const;
+type ZakatMethod = (typeof ZAKAT_METHODS)[number]["key"];
+
+function zakatMethodLabel(key: string) {
+  return ZAKAT_METHODS.find((m) => m.key === key)?.label ?? key;
+}
+
+const ZakatHistoryRow = memo(function ZakatHistoryRow({ record }: { record: ZakatRecord }) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
+  const when = record.calculated_at ? new Date(record.calculated_at) : null;
+  return (
+    <GlassCard style={[styles.billRow, { paddingVertical: 12 }]}>
+      <View style={{ flex: 1 }}>
+        <Text style={{ fontWeight: "700" }}>{record.islamic_year}</Text>
+        <Text variant="muted">
+          {zakatMethodLabel(record.method)}
+          {when && !Number.isNaN(when.getTime())
+            ? ` · ${when.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}`
+            : ""}
+        </Text>
+      </View>
+      <Text variant="mono" style={{ fontSize: 13, color: colors.bull }}>
+        {fmtPKR(Math.round(Number(record.zakat_due_pkr) || 0))}
+      </Text>
+    </GlassCard>
+  );
+});
+
+function Zakat() {
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
+  const settingsQ = useZakatSettings();
+  const historyQ = useZakatHistory(20);
+  const calculate = useCalculateZakat();
+
+  const [assets, setAssets] = useState("");
+  const [deductions, setDeductions] = useState("");
+  const [nisabSource, setNisabSource] = useState("silver");
+  const [nisabValue, setNisabValue] = useState("");
+  const [method, setMethod] = useState<ZakatMethod>("standard_2_5");
+  const [customRate, setCustomRate] = useState("2.5");
+  const [result, setResult] = useState<ZakatEstimate | null>(null);
+  const [err, setErr] = useState("");
+  const seededRef = useRef(false);
+
+  // Seed defaults from saved settings once, when they first arrive.
+  const settings = settingsQ.data;
+  useEffect(() => {
+    if (!settings || seededRef.current) return;
+    seededRef.current = true;
+    setNisabSource(settings.nisab_source ?? "silver");
+    setNisabValue(
+      settings.nisab_value_pkr != null
+        ? String(settings.nisab_value_pkr)
+        : String(NISAB_PRESETS[settings.nisab_source] ?? NISAB_PRESETS.silver),
+    );
+    if (settings.method) setMethod(settings.method);
+    if (settings.custom_rate_pct != null) setCustomRate(String(settings.custom_rate_pct));
+  }, [settings]);
+
+  function pickSource(src: string) {
+    setNisabSource(src);
+    if (src !== "manual" && NISAB_PRESETS[src] != null) setNisabValue(String(NISAB_PRESETS[src]));
+  }
+
+  function run(save: boolean) {
+    setErr("");
+    const a = Number(assets);
+    const d = Number(deductions) || 0;
+    const n = Number(nisabValue);
+    if (!assets || Number.isNaN(a) || a < 0) return setErr("Enter your total assets in PKR.");
+    if (!nisabValue || Number.isNaN(n) || n < 0) return setErr("Enter a nisab threshold value.");
+    const rate = method === "custom_rate" ? Number(customRate) : 2.5;
+    if (method === "custom_rate" && (!customRate || Number.isNaN(rate) || rate <= 0)) {
+      return setErr("Enter a valid custom rate.");
+    }
+    calculate.mutate(
+      {
+        islamic_year: String(new Date().getFullYear()),
+        total_assets_pkr: a,
+        total_deductions_pkr: d,
+        nisab_value_pkr: n,
+        rate_pct: rate,
+        method,
+        save,
+      },
+      {
+        onSuccess: (res) => setResult(res),
+        onError: () => setErr(save ? "Could not save your zakat record." : "Could not calculate zakat."),
+      },
+    );
+  }
+
+  const saving = calculate.isPending && calculate.variables?.save === true;
+  const calculating = calculate.isPending && !calculate.variables?.save;
+
+  const renderRecord = useCallback(
+    ({ item }: { item: ZakatRecord }) => <ZakatHistoryRow record={item} />,
+    [],
+  );
+
+  const header = (
+    <View style={{ gap: 16 }}>
+      <GlassCard style={{ gap: 12, padding: 16 }}>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+          <View style={[styles.goalIcon, { borderColor: colors.gold + "44", backgroundColor: colors.gold + "18" }]}>
+            <Coins color={colors.gold} size={16} />
+          </View>
+          <Text variant="title">Zakat Calculator</Text>
+        </View>
+        <Field label="Total assets (PKR)" value={assets} onChangeText={setAssets} keyboardType="numeric" placeholder="0" />
+        <Field
+          label="Deductions / liabilities (PKR)"
+          value={deductions}
+          onChangeText={setDeductions}
+          keyboardType="numeric"
+          placeholder="0"
+        />
+        <View style={{ gap: 4 }}>
+          <Text variant="secondary">Nisab source</Text>
+          <ChipRow options={NISAB_SOURCES} value={nisabSource} onChange={pickSource} />
+        </View>
+        <Field
+          label="Nisab threshold (PKR)"
+          value={nisabValue}
+          onChangeText={setNisabValue}
+          keyboardType="numeric"
+          placeholder="0"
+        />
+        <View style={{ gap: 4 }}>
+          <Text variant="secondary">Calculation method</Text>
+          <ChipRow
+            options={ZAKAT_METHODS.map((m) => m.label)}
+            value={zakatMethodLabel(method)}
+            onChange={(label) =>
+              setMethod(ZAKAT_METHODS.find((m) => m.label === label)?.key ?? "standard_2_5")
+            }
+          />
+        </View>
+        {method === "custom_rate" ? (
+          <Field
+            label="Custom rate (%)"
+            value={customRate}
+            onChangeText={setCustomRate}
+            keyboardType="numeric"
+            placeholder="2.5"
+          />
+        ) : null}
+        {err ? <Text style={{ color: colors.bear, fontSize: 12 }}>{err}</Text> : null}
+        <Button
+          title="Calculate"
+          onPress={() => run(false)}
+          loading={calculating}
+          icon={<Scale color={colors.primaryForeground} size={16} />}
+        />
+      </GlassCard>
+
+      {result ? (
+        <GlassCard style={{ gap: 10, padding: 16 }}>
+          <View style={styles.zakatResult}>
+            <Text variant="secondary">Net zakatable</Text>
+            <Text variant="mono" style={{ fontSize: 14 }}>{fmtPKR(Math.round(result.net_zakatable))}</Text>
+          </View>
+          <View style={styles.zakatResult}>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+              <Scale color={colors.gold} size={14} />
+              <Text variant="secondary">Nisab ({fmtPKR(Math.round(result.nisab_value))})</Text>
+            </View>
+            <Text style={{ color: result.nisab_met ? colors.bull : colors.textMuted, fontWeight: "700", fontSize: 13 }}>
+              {result.nisab_met ? "Above nisab" : "Below nisab"}
+            </Text>
+          </View>
+          <View style={[styles.zakatResult, { borderTopWidth: 1, borderTopColor: colors.border, paddingTop: 10 }]}>
+            <Text style={{ fontWeight: "700" }}>Zakat due</Text>
+            <Text style={{ color: colors.bull, fontFamily: fonts.mono, fontSize: 18, fontWeight: "700" }}>
+              {fmtPKR(Math.round(result.zakat_due))}
+            </Text>
+          </View>
+          <Button title="Save this year's record" variant="outline" onPress={() => run(true)} loading={saving} />
+        </GlassCard>
+      ) : null}
+
+      <Text variant="muted" style={{ fontSize: 11, fontStyle: "italic", paddingHorizontal: 4 }}>
+        Estimates for guidance only. Nisab and rulings vary by scholar — consult a qualified authority.
+      </Text>
+
+      <Text
+        variant="secondary"
+        style={{ fontWeight: "700", textTransform: "uppercase", letterSpacing: 1, fontSize: 11, marginTop: 4 }}
+      >
+        History
+      </Text>
+    </View>
+  );
+
+  return (
+    <FlatList
+      data={historyQ.data ?? []}
+      keyExtractor={(r) => String(r.id)}
+      renderItem={renderRecord}
+      contentContainerStyle={[styles.content, { gap: 10 }]}
+      showsVerticalScrollIndicator={false}
+      keyboardShouldPersistTaps="handled"
+      ListHeaderComponent={header}
+      ListEmptyComponent={
+        settingsQ.isPending || historyQ.isPending ? (
+          <LoadingCard label="Loading zakat history…" />
+        ) : historyQ.isError ? (
+          <ErrorCard message="Could not load your zakat history." onRetry={() => historyQ.refetch()} />
+        ) : (
+          <EmptyCard title="No saved records yet." sub="Calculate and save to build your zakat history." />
+        )
+      }
+    />
+  );
+}
+
 function Legend({ color, label }: { color: string; label: string }) {
   return (
     <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
@@ -915,4 +1436,6 @@ const makeStyles = (c: ThemeColors) =>
     checkBtn: { width: 32, height: 32, borderRadius: 16, borderWidth: 1, borderColor: c.bull, alignItems: "center", justifyContent: "center" },
     dashed: { flexDirection: "row", justifyContent: "center", alignItems: "center", gap: 8, borderWidth: 1, borderStyle: "dashed", borderColor: c.border, borderRadius: radii.btn, paddingVertical: 14 },
     goalIcon: { width: 34, height: 34, borderRadius: 8, borderWidth: 1, alignItems: "center", justifyContent: "center" },
+    iconBtn: { width: 32, height: 32, borderRadius: 8, alignItems: "center", justifyContent: "center" },
+    zakatResult: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
   });

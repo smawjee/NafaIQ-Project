@@ -85,6 +85,12 @@ async function post<T>(path: string, body: unknown): Promise<T> {
   });
 }
 
+// Generic public GET for endpoints without a dedicated fetcher above
+// (news, funds, macro, dividends, …). Uses the optional shared PSX token.
+export function publicGet<T>(path: string): Promise<T> {
+  return get<T>(path);
+}
+
 // === User-authenticated requests (Supabase session JWT) ===
 
 async function userHeaders(json = false): Promise<Record<string, string>> {

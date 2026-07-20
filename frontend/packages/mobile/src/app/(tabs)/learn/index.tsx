@@ -1,7 +1,7 @@
 // Learn Hub (`/learn/`). Mirrors web /learn/: hero + XP, learning paths, lessons
 // grid, searchable glossary, flashcard mode, AI tutor chat sheet. Theme + i18n.
 import { useRouter } from "expo-router";
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Modal,
@@ -20,10 +20,11 @@ import { GlassScreen } from "@/components/glass/GlassScreen";
 import { Button, Text } from "@/components/ui";
 import { ProgressBar } from "@/components/ui/ProgressBar";
 import { fonts, radii, type ThemeColors } from "@/constants/theme";
+import { useTutorChat } from "@/hooks/ai/use-tutor-chat";
+import { useLearnSearch, type ApiLearnSearchResult } from "@/hooks/ai/use-learn-search";
 import { useLang } from "@/hooks/use-lang";
 import { useLearn, XP_GOAL } from "@/hooks/use-learn";
 import { useTheme } from "@/hooks/use-theme";
-import { askTutor, type TutorMessage } from "@/lib/ai-tutor";
 import { FLASHCARDS, GLOSSARY, LEARNING_PATHS, LESSON_ID_BY_TITLE, LESSONS, VIDEO_LESSON_IDS } from "@nafaiq/shared";
 import {
   ArrowRight,
@@ -32,6 +33,7 @@ import {
   Flame,
   iconFor,
   Layers,
+  LogIn,
   PartyPopper,
   RotateCcw,
   Search,
@@ -61,6 +63,12 @@ export default function LearnHub() {
     () => LESSONS.filter((l) => statusOf(LESSON_ID_BY_TITLE[l.title]) === "complete").length,
     [statusOf],
   );
+  const lessonsInProgress = useMemo(
+    () => LESSONS.filter((l) => statusOf(LESSON_ID_BY_TITLE[l.title]) === "in-progress").length,
+    [statusOf],
+  );
+  // Level derived from XP (real), replacing the old hardcoded "Beginner".
+  const level = xp >= 400 ? "Advanced" : xp >= 150 ? "Intermediate" : "Beginner";
   const terms = GLOSSARY.filter((term) => term.en.toLowerCase().includes(search.toLowerCase()));
 
   return (
@@ -80,12 +88,15 @@ export default function LearnHub() {
             <Text variant="mono" style={{ fontSize: 12 }}>{xp} / {XP_GOAL} XP</Text>
           </View>
           <View style={styles.chips}>
-            <StatChip icon={<Flame color={colors.warning} size={13} />} label={t("5 Day Streak")} color={colors.warning} />
+            <StatChip icon={<Flame color={colors.warning} size={13} />} label={`${lessonsInProgress} ${t("In progress")}`} color={colors.warning} />
             <StatChip icon={<Target color={colors.bull} size={13} />} label={`${lessonsDone} ${t("Done")}`} color={colors.bull} />
             <StatChip icon={<Star color={colors.gold} size={13} />} label={`${xp} XP`} color={colors.gold} />
-            <StatChip icon={<Trophy color="#8b5cf6" size={13} />} label={t("Beginner")} color="#8b5cf6" />
+            <StatChip icon={<Trophy color="#8b5cf6" size={13} />} label={t(level)} color="#8b5cf6" />
           </View>
         </GlassCard>
+
+        {/* AI content search (RAG) — only renders when the backend flag is on */}
+        <LearnSearchBox />
 
         {/* Learning Paths */}
         <Text variant="title">{t("Learning Paths")}</Text>
@@ -272,43 +283,136 @@ function FlashcardsModal({ visible, onClose }: { visible: boolean; onClose: () =
   );
 }
 
+/* --------------------------- AI content search --------------------------- */
+const SOURCE_BADGE: Record<ApiLearnSearchResult["source_type"], { label: string; color: (c: ThemeColors) => string }> = {
+  lesson_section: { label: "Lesson", color: (c) => c.bull },
+  lesson_overview: { label: "Lesson", color: (c) => c.bull },
+  glossary_term: { label: "Glossary", color: (c) => c.ai },
+  quiz_explanation: { label: "Quiz", color: (c) => c.warning },
+  learning_path: { label: "Path", color: (c) => c.textSecondary },
+};
+
+/**
+ * LearnHub RAG search over lessons, glossary, quiz explanations and paths.
+ * Debounced, network-backed; only renders when the backend feature flag is on
+ * (the hook returns an empty list otherwise). Selecting a result opens the
+ * matching lesson.
+ */
+function LearnSearchBox() {
+  const { colors } = useTheme();
+  const { lang, t, isUrdu } = useLang();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
+  const router = useRouter();
+  const [query, setQuery] = useState("");
+  const { results, loading, isEmpty, hasQuery } = useLearnSearch(query, lang);
+
+  function choose(r: ApiLearnSearchResult) {
+    if (r.lesson_id) router.push(`/(tabs)/learn/lesson/${r.lesson_id}`);
+    setQuery("");
+  }
+
+  return (
+    <View style={{ gap: 8 }}>
+      <View style={styles.search}>
+        <Search color={colors.textMuted} size={16} />
+        <TextInput
+          value={query}
+          onChangeText={setQuery}
+          placeholder={t("Search LearnHub…")}
+          placeholderTextColor={colors.textMuted}
+          style={{ flex: 1, color: colors.textPrimary }}
+          accessibilityLabel={t("Search LearnHub…")}
+        />
+      </View>
+
+      {loading && (
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 8, paddingHorizontal: 4 }}>
+          <ActivityIndicator color={colors.bull} size="small" />
+          <Text variant="muted" style={{ fontSize: 12 }}>{t("Searching…")}</Text>
+        </View>
+      )}
+      {hasQuery && !loading && isEmpty && (
+        <Text variant="muted" style={{ fontSize: 12, paddingHorizontal: 4 }}>{t("No results found")}</Text>
+      )}
+      {results.map((r, i) => {
+        const badge = SOURCE_BADGE[r.source_type];
+        const badgeColor = badge.color(colors);
+        const urduSnippet = isUrdu && r.snippet_ur != null;
+        const snippet = urduSnippet ? r.snippet_ur : r.snippet_en;
+        return (
+          <Pressable
+            key={`${r.source_type}-${r.lesson_id}-${r.section_id ?? ""}-${i}`}
+            onPress={() => choose(r)}
+            style={styles.searchResult}
+            accessibilityRole="button"
+            accessibilityLabel={`${t(badge.label)}: ${t(r.title)}`}
+          >
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+              <View style={{ backgroundColor: badgeColor + "1a", borderRadius: 4, paddingHorizontal: 6, paddingVertical: 2 }}>
+                <Text style={{ color: badgeColor, fontSize: 10, fontWeight: "600" }}>{t(badge.label)}</Text>
+              </View>
+              <Text style={{ fontWeight: "600", fontSize: 13, flexShrink: 1 }} numberOfLines={1}>{t(r.title)}</Text>
+            </View>
+            {snippet ? (
+              <Text
+                variant="muted"
+                style={[{ fontSize: 11, marginTop: 4 }, urduSnippet && { fontFamily: fonts.urdu, textAlign: "right" }]}
+                numberOfLines={2}
+              >
+                {snippet}
+              </Text>
+            ) : null}
+          </Pressable>
+        );
+      })}
+    </View>
+  );
+}
+
 /* ------------------------------- AI Tutor -------------------------------- */
 const HUB_PRESETS = ["What is the KSE-100 index?", "How do I start investing in PSX?", "Explain candlestick charts simply"];
 
 function TutorModal({ visible, onClose }: { visible: boolean; onClose: () => void }) {
   const { colors } = useTheme();
-  const { t } = useLang();
+  const { t, isUrdu } = useLang();
   const styles = useMemo(() => makeStyles(colors), [colors]);
-  const [messages, setMessages] = useState<TutorMessage[]>([
-    { role: "assistant", content: "Hi! I'm your NafaIQ tutor. Ask me anything about PSX investing, terms, or strategies." },
-  ]);
+  const router = useRouter();
+  const { messages, loading, quotaExceeded, signedOut, send, abort } = useTutorChat({
+    lessonTitle: "PSX investing basics",
+    greeting: t("Hi! I'm your NafaIQ tutor. Ask me anything about PSX investing, terms, or strategies."),
+    hydrate: true,
+  });
   const [input, setInput] = useState("");
-  const [loading, setLoading] = useState(false);
   const scrollRef = useRef<ScrollView>(null);
 
-  const send = async (text: string) => {
-    const trimmed = text.trim();
-    if (!trimmed || loading) return;
-    const history: TutorMessage[] = [...messages, { role: "user", content: trimmed }];
-    setMessages(history);
-    setInput("");
-    setLoading(true);
-    const reply = await askTutor({ lessonTitle: "PSX investing basics", messages: history.slice(-12) });
-    setMessages((m) => [...m, { role: "assistant", content: reply }]);
-    setLoading(false);
+  const close = () => {
+    abort();
+    onClose();
   };
 
+  useEffect(() => {
+    if (!visible) abort();
+  }, [visible, abort]);
+
+  const submit = (text: string) => {
+    send(text);
+    setInput("");
+  };
+
+  const showPresets = messages.length === 1 && !signedOut;
+  const disabled = loading || quotaExceeded;
+
   return (
-    <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
+    <Modal visible={visible} animationType="slide" transparent onRequestClose={close}>
       <View style={styles.sheetWrap}>
-        <Pressable style={StyleSheet.absoluteFill} onPress={onClose} accessibilityLabel="Close" />
+        <Pressable style={StyleSheet.absoluteFill} onPress={close} accessibilityRole="button" accessibilityLabel={t("Close")} />
         <View style={styles.sheet}>
           <View style={[styles.between, styles.sheetHeader]}>
             <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
               <Bot color={colors.bull} size={18} />
               <Text style={{ fontWeight: "700" }}>{t("Ask AI Tutor")}</Text>
             </View>
-            <Pressable onPress={onClose} hitSlop={8} accessibilityRole="button" accessibilityLabel="Close">
+            <Pressable onPress={close} hitSlop={8} accessibilityRole="button" accessibilityLabel={t("Close")}>
               <X color={colors.textSecondary} size={22} />
             </Pressable>
           </View>
@@ -319,10 +423,10 @@ function TutorModal({ visible, onClose }: { visible: boolean; onClose: () => voi
                 <TutorBubble content={m.content} role={m.role} color={m.role === "user" ? colors.bullForeground : colors.textPrimary} />
               </View>
             ))}
-            {messages.length === 1 && (
+            {showPresets && (
               <View style={{ gap: 6, paddingTop: 4 }}>
                 {HUB_PRESETS.map((p) => (
-                  <Pressable key={p} onPress={() => send(p)} style={styles.preset} accessibilityRole="button">
+                  <Pressable key={p} onPress={() => submit(p)} style={styles.preset} accessibilityRole="button" accessibilityLabel={t(p)}>
                     <Text style={{ color: colors.textSecondary, fontSize: 12 }}>{t(p)}</Text>
                   </Pressable>
                 ))}
@@ -334,14 +438,38 @@ function TutorModal({ visible, onClose }: { visible: boolean; onClose: () => voi
                 <Text variant="muted">{t("Thinking…")}</Text>
               </View>
             )}
+            {quotaExceeded && (
+              <View style={styles.quota}>
+                <Text style={[{ color: colors.warning, fontSize: 12 }, isUrdu && { fontFamily: fonts.urdu }]}>
+                  {t("Daily tutor limit reached — upgrade your plan or come back tomorrow.")}
+                </Text>
+              </View>
+            )}
           </ScrollView>
 
-          <View style={styles.inputBar}>
-            <TextInput value={input} onChangeText={setInput} placeholder={t("Ask about investing…")} placeholderTextColor={colors.textMuted} style={styles.chatInput} onSubmitEditing={() => send(input)} accessibilityLabel="Message the tutor" />
-            <Pressable onPress={() => send(input)} disabled={loading} style={styles.sendBtn} accessibilityRole="button" accessibilityLabel="Send">
-              {loading ? <ActivityIndicator color={colors.bullForeground} /> : <Send color={colors.bullForeground} size={16} />}
-            </Pressable>
-          </View>
+          {signedOut ? (
+            <View style={styles.signedOut}>
+              <Pressable
+                onPress={() => {
+                  close();
+                  router.push("/auth");
+                }}
+                style={styles.signInBtn}
+                accessibilityRole="button"
+                accessibilityLabel={t("Sign in to chat with your tutor")}
+              >
+                <LogIn color={colors.bullForeground} size={16} />
+                <Text style={{ color: colors.bullForeground, fontWeight: "700", fontSize: 13 }}>{t("Sign in to chat with your tutor")}</Text>
+              </Pressable>
+            </View>
+          ) : (
+            <View style={styles.inputBar}>
+              <TextInput value={input} onChangeText={setInput} placeholder={t("Ask about investing…")} placeholderTextColor={colors.textMuted} style={[styles.chatInput, disabled && { opacity: 0.5 }]} editable={!disabled} onSubmitEditing={() => submit(input)} accessibilityLabel={t("Message the tutor")} />
+              <Pressable onPress={() => submit(input)} disabled={disabled} style={[styles.sendBtn, disabled && { opacity: 0.5 }]} accessibilityRole="button" accessibilityLabel={t("Send")}>
+                <Send color={colors.bullForeground} size={16} />
+              </Pressable>
+            </View>
+          )}
         </View>
       </View>
     </Modal>
@@ -363,6 +491,7 @@ const makeStyles = (c: ThemeColors) =>
     badge: { flexDirection: "row", alignItems: "center", gap: 4, alignSelf: "flex-start", backgroundColor: c.elevated, borderRadius: 4, paddingHorizontal: 6, paddingVertical: 2 },
     flashBtn: { flexDirection: "row", alignItems: "center", gap: 6, borderWidth: 1, borderColor: c.bull + "66", backgroundColor: c.bull + "1a", borderRadius: 6, paddingHorizontal: 10, paddingVertical: 6 },
     search: { flexDirection: "row", alignItems: "center", gap: 8, borderWidth: 1, borderColor: c.border, backgroundColor: c.surface, borderRadius: radii.btn, paddingHorizontal: 12, minHeight: 44 },
+    searchResult: { borderWidth: 1, borderColor: c.border, backgroundColor: c.surface, borderRadius: 8, padding: 12, minHeight: 44 },
     term: { borderWidth: 1, borderColor: c.border, backgroundColor: c.surface, borderRadius: 8, padding: 12 },
     fab: { position: "absolute", right: 16, bottom: 24, width: 56, height: 56, borderRadius: 28, backgroundColor: c.bull, alignItems: "center", justifyContent: "center", elevation: 6 },
     flashCard: { width: "100%", minHeight: 240, borderWidth: 1, borderColor: c.border, borderRadius: 16, backgroundColor: c.surface, padding: 28, alignItems: "center", justifyContent: "center" },
@@ -372,8 +501,11 @@ const makeStyles = (c: ThemeColors) =>
     bubble: { maxWidth: "88%", borderRadius: 12, paddingHorizontal: 12, paddingVertical: 8 },
     bubbleUser: { alignSelf: "flex-end", backgroundColor: c.bull, borderBottomRightRadius: 2 },
     bubbleAI: { alignSelf: "flex-start", backgroundColor: c.elevated, borderBottomLeftRadius: 2 },
-    preset: { borderWidth: 1, borderColor: c.border, borderRadius: 999, paddingHorizontal: 12, paddingVertical: 8 },
+    preset: { borderWidth: 1, borderColor: c.border, borderRadius: 999, paddingHorizontal: 12, paddingVertical: 8, minHeight: 44, justifyContent: "center" },
+    quota: { borderWidth: 1, borderColor: c.warning + "66", backgroundColor: c.warning + "1a", borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8 },
+    signedOut: { padding: 12, borderTopWidth: 1, borderTopColor: c.border, alignItems: "center" },
+    signInBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, backgroundColor: c.bull, borderRadius: 8, paddingHorizontal: 16, minHeight: 44 },
     inputBar: { flexDirection: "row", alignItems: "center", gap: 8, padding: 12, borderTopWidth: 1, borderTopColor: c.border },
-    chatInput: { flex: 1, minHeight: 40, borderWidth: 1, borderColor: c.border, borderRadius: 8, paddingHorizontal: 12, color: c.textPrimary, backgroundColor: c.elevated },
-    sendBtn: { width: 40, height: 40, borderRadius: 8, backgroundColor: c.bull, alignItems: "center", justifyContent: "center" },
+    chatInput: { flex: 1, minHeight: 44, borderWidth: 1, borderColor: c.border, borderRadius: 8, paddingHorizontal: 12, color: c.textPrimary, backgroundColor: c.elevated },
+    sendBtn: { width: 44, height: 44, borderRadius: 8, backgroundColor: c.bull, alignItems: "center", justifyContent: "center" },
   });

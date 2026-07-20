@@ -33,6 +33,12 @@ import {
   useMarkAlertEventRead,
   useToggleAlert,
 } from "@/hooks/queries/use-alerts";
+import {
+  type PriceAlert,
+  useCreatePriceAlert,
+  useDeletePriceAlert,
+  usePriceAlerts,
+} from "@/hooks/queries/use-price-alerts";
 import { useAuth } from "@/hooks/use-auth";
 import { useFinanceBills, useFinanceBudgets, useFinanceGoals } from "@/hooks/queries/use-finance";
 import { useTheme } from "@/hooks/use-theme";
@@ -104,6 +110,10 @@ export default function AlertsScreen() {
   const deleteAlert = useDeleteAlert();
   const markRead = useMarkAlertEventRead();
   const evaluate = useEvaluateAlerts();
+  // Dedicated price alerts (price_alerts table) — carry persisted channels.
+  const priceAlertsQuery = usePriceAlerts(signedIn);
+  const createPriceAlert = useCreatePriceAlert();
+  const deletePriceAlert = useDeletePriceAlert();
 
   const [type, setType] = useState("Stock Price");
   const [stock, setStock] = useState(STOCK_OPTIONS[0]);
@@ -138,9 +148,25 @@ export default function AlertsScreen() {
         setError("Please enter a valid price.");
         return;
       }
-      title = `${stock} ${dir.toLowerCase()} PKR ${num}`;
-      meta = { symbol: stock, direction: dir.toLowerCase(), price: num };
-      alertType = "stock_price";
+      // Stock price → dedicated price_alerts (persists notify_push/notify_email).
+      createPriceAlert.mutate(
+        {
+          symbol: stock,
+          condition: dir === "Above" ? "above" : "below",
+          price: num,
+          one_time: false,
+          notify_push: push,
+          notify_email: email,
+        },
+        {
+          onSuccess: () => {
+            setPrice("");
+            setError("");
+          },
+          onError: (e) => setError(e instanceof Error ? e.message : "Failed to create alert."),
+        },
+      );
+      return;
     } else if (type === "Bill Reminder") {
       if (!selectedBill) {
         setError("Please select a bill.");
@@ -191,6 +217,16 @@ export default function AlertsScreen() {
       { text: "Delete", style: "destructive", onPress: () => deleteAlert.mutate(id) },
     ]);
   }
+
+  function confirmDeletePriceAlert(pa: PriceAlert) {
+    const label = `${pa.symbol} ${pa.condition.replace("_", " ")} PKR ${pa.price}`;
+    RNAlert.alert("Delete Price Alert", `Delete "${label}"?`, [
+      { text: "Cancel", style: "cancel" },
+      { text: "Delete", style: "destructive", onPress: () => deletePriceAlert.mutate(pa.id) },
+    ]);
+  }
+
+  const priceAlerts = priceAlertsQuery.data ?? [];
 
   const events = eventsQuery.data ?? [];
 
@@ -298,6 +334,46 @@ export default function AlertsScreen() {
         )}
       </View>
 
+      {/* Price alerts (dedicated) */}
+      <Text variant="title">Price Alerts</Text>
+      <View style={{ gap: 8 }}>
+        {priceAlertsQuery.isPending && signedIn ? (
+          <Card style={styles.centerCard}>
+            <ActivityIndicator color={colors.primary} />
+          </Card>
+        ) : priceAlerts.length === 0 ? (
+          <Card style={styles.centerCard}>
+            <Text variant="secondary">No price alerts. Add one with the Stock Price type below.</Text>
+          </Card>
+        ) : (
+          priceAlerts.map((pa) => (
+            <Card key={pa.id} style={styles.alertRow}>
+              <View style={styles.iconBox}>
+                <TrendingUp color={colors.textSecondary} size={16} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={{ fontWeight: "600" }}>
+                  {pa.symbol} {pa.condition.replace("_", " ")} PKR {pa.price}
+                </Text>
+                <Text variant="muted">
+                  {pa.one_time ? "One-time" : "Repeating"}
+                  {pa.enabled ? "" : " · Paused"}
+                </Text>
+              </View>
+              <Pressable
+                onPress={() => confirmDeletePriceAlert(pa)}
+                hitSlop={14}
+                disabled={deletePriceAlert.isPending}
+                accessibilityRole="button"
+                accessibilityLabel={`Delete price alert ${pa.symbol}`}
+              >
+                <Trash2 color={colors.textMuted} size={16} />
+              </Pressable>
+            </Card>
+          ))
+        )}
+      </View>
+
       {/* Add new alert */}
       <Text variant="title">Add New Alert</Text>
       <Card style={{ gap: 14 }}>
@@ -364,13 +440,21 @@ export default function AlertsScreen() {
           </View>
         )}
 
-        <View style={{ flexDirection: "row", gap: 20 }}>
-          <Checkbox label="Push" value={push} onToggle={() => setPush((v) => !v)} />
-          <Checkbox label="Email" value={email} onToggle={() => setEmail((v) => !v)} />
-        </View>
+        {/* Channels are persisted only for price alerts (backend supports
+            notify_push/notify_email there); bill/budget/goal have no channel. */}
+        {type === "Stock Price" ? (
+          <View style={{ flexDirection: "row", gap: 20 }}>
+            <Checkbox label="Push" value={push} onToggle={() => setPush((v) => !v)} />
+            <Checkbox label="Email" value={email} onToggle={() => setEmail((v) => !v)} />
+          </View>
+        ) : null}
 
         {error ? <Text style={{ color: colors.bear, fontSize: 12 }}>{error}</Text> : null}
-        <Button title="Create Alert" onPress={handleCreate} loading={createAlert.isPending} />
+        <Button
+          title="Create Alert"
+          onPress={handleCreate}
+          loading={createAlert.isPending || createPriceAlert.isPending}
+        />
       </Card>
 
       {/* Notification history header */}

@@ -29,24 +29,51 @@ import { fonts } from "@/constants/theme";
 import { useLang } from "@/hooks/use-lang";
 import {
   useIndexCards,
+  useMarketMovers,
   usePsxBatchSignals,
   usePsxHistory,
+  usePsxIndexData,
   usePsxLiveMarket,
   usePsxRealtime,
   usePsxScreenerMetrics,
   usePsxSectors,
   usePsxSignal,
   usePsxSymbols,
+  usePsxTreemap,
+  useUnusualActivity,
+  type ApiTreemapStock,
+  type ApiUnusualActivity,
+  type UiTicker,
 } from "@/hooks/queries/use-market";
 import { useMarketBrief } from "@/hooks/ai/use-market-brief";
 import { useTheme } from "@/hooks/use-theme";
-import { Sparkles } from "@/lib/icons";
+import { Activity, ChevronRight, Sparkles } from "@/lib/icons";
 import { fmtNum, type Signal } from "@nafaiq/shared";
 
 const AVENIR = Platform.select({ ios: "Avenir-Heavy", default: fonts.sans });
 
 const TIMEFRAMES: Record<string, number> = { "1W": 7, "1M": 30, "3M": 90, "6M": 180, "1Y": 260 };
 const SIGNALS: (Signal | "All")[] = ["All", "STRONG BUY", "BUY", "HOLD", "SELL", "STRONG SELL"];
+
+// Benchmark index display-name → backend code (for GET /api/index/{code}).
+// useIndexCards() drops the code, so we re-derive it here for the sparkline.
+const INDEX_CODE_BY_NAME: Record<string, string> = {
+  "KSE-100": "KSE100",
+  "KSE-30": "KSE30",
+  "KMI-30": "KMI30",
+  "KSE All Share": "ALLSHR",
+};
+const MOVER_TABS = ["Gainers", "Losers", "Most Active"] as const;
+const MARKET_VIEWS = ["Heatmap", "Treemap"] as const;
+
+// Colour a market tile by change% — same intensity ramp as the sector heatmap.
+function heatColor(pct: number, bull: string, bear: string): string {
+  const intensity = Math.min(0.5, Math.abs(pct) / 6 + 0.12);
+  const alpha = Math.round(intensity * 255)
+    .toString(16)
+    .padStart(2, "0");
+  return (pct >= 0 ? bull : bear) + alpha;
+}
 
 interface ScreenerRow {
   ticker: string;
@@ -70,6 +97,9 @@ export default function PsxScreen() {
   const [ma20, setMa20] = useState(true);
   const [ma50, setMa50] = useState(false);
   const [signal, setSignal] = useState<Signal | "All">("All");
+  const [selectedIdx, setSelectedIdx] = useState("KSE-100");
+  const [moverTab, setMoverTab] = useState<(typeof MOVER_TABS)[number]>("Gainers");
+  const [marketView, setMarketView] = useState<(typeof MARKET_VIEWS)[number]>("Heatmap");
 
   usePsxRealtime();
   const { data: snapshot, isPending: snapshotPending, isError: snapshotError } = usePsxLiveMarket();
@@ -84,6 +114,40 @@ export default function PsxScreen() {
   const { data: aiSignal } = usePsxSignal(sym);
   const brief = useMarketBrief();
   const indexCards = useIndexCards();
+
+  // Real EOD series for the selected index card — replaces the flat
+  // placeholder sparkline (GET /api/index/{code}).
+  const selectedCode = INDEX_CODE_BY_NAME[selectedIdx];
+  const { data: indexSeries } = usePsxIndexData(selectedCode);
+  const selectedSpark = useMemo(
+    () =>
+      (indexSeries ?? [])
+        .map((b) => b.close)
+        .filter((v): v is number => typeof v === "number" && Number.isFinite(v))
+        .slice(-40),
+    [indexSeries],
+  );
+
+  // Movers tabs (Gainers / Losers / Most Active) off the live snapshot.
+  const moverSort = moverTab === "Gainers" ? "gainers" : moverTab === "Losers" ? "losers" : "volume";
+  const movers = useMarketMovers(moverSort, 12);
+
+  const { data: treemap, isPending: treemapPending, isError: treemapError } = usePsxTreemap();
+  const treemapTiles = useMemo<ApiTreemapStock[]>(
+    () =>
+      (treemap?.sectors ?? [])
+        .flatMap((s) => s.stocks)
+        .slice()
+        .sort((a, b) => b.size_metric - a.size_metric)
+        .slice(0, 24),
+    [treemap],
+  );
+
+  const {
+    data: unusual,
+    isPending: unusualPending,
+    isError: unusualError,
+  } = useUnusualActivity(20);
 
   const nameMap = useMemo(
     () => new Map((symbolsData ?? []).map((s) => [s.symbol, s.name])),
@@ -170,23 +234,103 @@ export default function PsxScreen() {
     [router, colors],
   );
 
+  const renderMover = useCallback(
+    ({ item }: { item: UiTicker }) => {
+      const up = item.changePct >= 0;
+      return (
+        <Pressable
+          onPress={() => router.push(`/stock/${item.symbol}`)}
+          accessibilityRole="button"
+          accessibilityLabel={`${item.symbol}, ${fmtNum(item.price)}, ${up ? "up" : "down"} ${Math.abs(item.changePct).toFixed(2)} percent`}
+        >
+          <GlassCard radius={14} intensity={16} style={styles.moverCard}>
+            <Text style={styles.ticker} numberOfLines={1}>{item.symbol}</Text>
+            <Text variant="mono" style={{ fontSize: 13.5, marginTop: 2 }}>
+              {item.price != null ? fmtNum(item.price) : "—"}
+            </Text>
+            <Text style={{ fontSize: 12, marginTop: 2, fontFamily: fonts.mono, color: up ? colors.bull : colors.bear }}>
+              {up ? "+" : ""}
+              {item.changePct.toFixed(2)}%
+            </Text>
+            <Text variant="muted" style={{ fontSize: 10.5, marginTop: 2 }} numberOfLines={1}>
+              {t("Vol")} {fmtNum(item.volume)}
+            </Text>
+          </GlassCard>
+        </Pressable>
+      );
+    },
+    [router, colors, t],
+  );
+
+  const renderUnusual = useCallback(
+    ({ item }: { item: ApiUnusualActivity }) => {
+      const pct = item.change_pct ?? 0;
+      const up = pct >= 0;
+      return (
+        <Pressable
+          onPress={() => router.push(`/stock/${item.symbol}`)}
+          accessibilityRole="button"
+          accessibilityLabel={`${item.symbol}, ${up ? "up" : "down"} ${Math.abs(pct).toFixed(2)} percent${item.volume_ratio != null ? `, ${item.volume_ratio.toFixed(1)} times average volume` : ""}`}
+        >
+          <GlassCard radius={14} intensity={16} style={styles.unusualCard}>
+            <View style={styles.between}>
+              <Text style={styles.ticker} numberOfLines={1}>{item.symbol}</Text>
+              <Text style={{ fontSize: 12.5, fontFamily: fonts.mono, color: up ? colors.bull : colors.bear }}>
+                {up ? "+" : ""}
+                {pct.toFixed(2)}%
+              </Text>
+            </View>
+            {item.volume_ratio != null && (
+              <Text style={{ fontSize: 11, color: colors.warning, marginTop: 4, fontFamily: fonts.mono }}>
+                {item.volume_ratio.toFixed(1)}× {t("avg vol")}
+              </Text>
+            )}
+            {item.reason ? (
+              <Text variant="muted" style={{ fontSize: 10.5, marginTop: 4 }} numberOfLines={2}>
+                {item.reason}
+              </Text>
+            ) : null}
+          </GlassCard>
+        </Pressable>
+      );
+    },
+    [router, colors, t],
+  );
+
   const header = (
     <View style={{ gap: 16 }}>
       <Text variant="display" style={{ fontFamily: AVENIR }}>{t("PSX Market")}</Text>
 
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 12 }}>
-        {indexCards.map((idx) => (
-          <GlassCard key={idx.name} radius={16} intensity={18} style={styles.indexCard}>
-            <Text variant="muted">{idx.name}</Text>
-            <Text variant="mono" style={{ fontSize: 16, marginVertical: 2 }}>
-              {idx.value > 0 ? idx.value.toLocaleString() : "—"}
-            </Text>
-            <Text style={{ color: idx.changePct >= 0 ? colors.bull : colors.bear, fontSize: 12 }}>
-              {idx.changePct >= 0 ? "▲" : "▼"} {Math.abs(idx.changePct).toFixed(2)}%
-            </Text>
-            <Sparkline data={new Array(7).fill(idx.value)} width={120} height={28} />
-          </GlassCard>
-        ))}
+        {indexCards.map((idx) => {
+          const isSel = idx.name === selectedIdx;
+          // Real EOD closes for the selected card; a flat line otherwise.
+          const spark = isSel && selectedSpark.length >= 2 ? selectedSpark : new Array(7).fill(idx.value);
+          return (
+            <Pressable
+              key={idx.name}
+              onPress={() => setSelectedIdx(idx.name)}
+              accessibilityRole="button"
+              accessibilityState={{ selected: isSel }}
+              accessibilityLabel={`${idx.name}, ${idx.value > 0 ? idx.value.toLocaleString() : "no data"}, ${idx.changePct >= 0 ? "up" : "down"} ${Math.abs(idx.changePct).toFixed(2)} percent`}
+            >
+              <GlassCard
+                radius={16}
+                intensity={18}
+                style={[styles.indexCard, isSel && { borderColor: colors.primary + "88", borderWidth: 1 }]}
+              >
+                <Text variant="muted">{idx.name}</Text>
+                <Text variant="mono" style={{ fontSize: 16, marginVertical: 2 }}>
+                  {idx.value > 0 ? idx.value.toLocaleString() : "—"}
+                </Text>
+                <Text style={{ color: idx.changePct >= 0 ? colors.bull : colors.bear, fontSize: 12 }}>
+                  {idx.changePct >= 0 ? "▲" : "▼"} {Math.abs(idx.changePct).toFixed(2)}%
+                </Text>
+                <Sparkline data={spark} width={120} height={28} />
+              </GlassCard>
+            </Pressable>
+          );
+        })}
       </ScrollView>
 
       <GlassCard style={styles.chartCard}>
@@ -277,36 +421,136 @@ export default function PsxScreen() {
   );
 
   const footer = (
-    <View style={{ marginTop: 16, gap: 8 }}>
-      <Text variant="title">{t("Sector Heatmap")}</Text>
-      {sectorsPending ? (
-        <View style={styles.emptyBox}>
-          <ActivityIndicator color={colors.primary} accessibilityLabel={t("Loading sectors")} />
+    <View style={{ marginTop: 16, gap: 16 }}>
+      {/* ── Movers: Gainers / Losers / Most Active ── */}
+      <View style={{ gap: 8 }}>
+        <Text variant="title">{t("Movers")}</Text>
+        <ChipRow options={MOVER_TABS as unknown as string[]} value={moverTab} onChange={(v) => setMoverTab(v as (typeof MOVER_TABS)[number])} />
+        {movers.length === 0 ? (
+          <View style={styles.emptyBox}>
+            {snapshotPending ? (
+              <ActivityIndicator color={colors.primary} accessibilityLabel={t("Loading market data")} />
+            ) : (
+              <Text variant="muted">{t("No movers available.")}</Text>
+            )}
+          </View>
+        ) : (
+          <FlatList
+            horizontal
+            data={movers}
+            keyExtractor={(m) => m.symbol}
+            renderItem={renderMover}
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={{ gap: 10, paddingVertical: 2 }}
+          />
+        )}
+      </View>
+
+      {/* ── Unusual Activity (volume spikes) ── */}
+      <View style={{ gap: 8 }}>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+          <Activity color={colors.textSecondary} size={16} />
+          <Text variant="title">{t("Unusual Activity")}</Text>
         </View>
-      ) : !sectorData || sectorData.length === 0 ? (
-        <View style={styles.emptyBox}>
-          <Text variant="muted">{t("No sector data available.")}</Text>
-        </View>
-      ) : (
-        <View style={styles.heatGrid}>
-          {sectorData.map((s) => {
-            const up = s.pct >= 0;
-            const intensity = Math.min(0.5, Math.abs(s.pct) / 6 + 0.12);
-            return (
-              <View
-                key={s.name}
-                style={[styles.heatCell, { backgroundColor: (up ? colors.bull : colors.bear) + Math.round(intensity * 255).toString(16).padStart(2, "0") }]}
-              >
-                <Text style={{ fontSize: 12, fontWeight: "600" }} numberOfLines={1}>{s.name}</Text>
-                <Text variant="mono" style={{ fontSize: 12 }}>
-                  {up ? "+" : ""}
-                  {s.pct.toFixed(2)}%
-                </Text>
-              </View>
-            );
-          })}
-        </View>
-      )}
+        {unusualPending ? (
+          <View style={styles.emptyBox}>
+            <ActivityIndicator color={colors.primary} accessibilityLabel={t("Loading unusual activity")} />
+          </View>
+        ) : unusualError ? (
+          <View style={styles.emptyBox}>
+            <Text variant="muted">{t("Could not load unusual activity.")}</Text>
+          </View>
+        ) : !unusual || unusual.length === 0 ? (
+          <View style={styles.emptyBox}>
+            <Text variant="muted">{t("No unusual activity right now.")}</Text>
+          </View>
+        ) : (
+          <FlatList
+            horizontal
+            data={unusual}
+            keyExtractor={(u) => `${u.symbol}-${u.ts}`}
+            renderItem={renderUnusual}
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={{ gap: 10, paddingVertical: 2 }}
+          />
+        )}
+      </View>
+
+      {/* ── Market map: Sector Heatmap ↔ Treemap ── */}
+      <View style={{ gap: 8 }}>
+        <Text variant="title">{t("Market Map")}</Text>
+        <Segmented options={MARKET_VIEWS as unknown as string[]} value={marketView} onChange={(v) => setMarketView(v as (typeof MARKET_VIEWS)[number])} />
+        {marketView === "Heatmap" ? (
+          sectorsPending ? (
+            <View style={styles.emptyBox}>
+              <ActivityIndicator color={colors.primary} accessibilityLabel={t("Loading sectors")} />
+            </View>
+          ) : !sectorData || sectorData.length === 0 ? (
+            <View style={styles.emptyBox}>
+              <Text variant="muted">{t("No sector data available.")}</Text>
+            </View>
+          ) : (
+            <View style={styles.heatGrid}>
+              {sectorData.map((s) => {
+                const up = s.pct >= 0;
+                return (
+                  <View key={s.name} style={[styles.heatCell, { backgroundColor: heatColor(s.pct, colors.bull, colors.bear) }]}>
+                    <Text style={{ fontSize: 12, fontWeight: "600" }} numberOfLines={1}>{s.name}</Text>
+                    <Text variant="mono" style={{ fontSize: 12 }}>
+                      {up ? "+" : ""}
+                      {s.pct.toFixed(2)}%
+                    </Text>
+                  </View>
+                );
+              })}
+            </View>
+          )
+        ) : treemapPending ? (
+          <View style={styles.emptyBox}>
+            <ActivityIndicator color={colors.primary} accessibilityLabel={t("Loading treemap")} />
+          </View>
+        ) : treemapError ? (
+          <View style={styles.emptyBox}>
+            <Text variant="muted">{t("Could not load treemap.")}</Text>
+          </View>
+        ) : treemapTiles.length === 0 ? (
+          <View style={styles.emptyBox}>
+            <Text variant="muted">{t("No treemap data available.")}</Text>
+          </View>
+        ) : (
+          <View style={styles.heatGrid}>
+            {treemapTiles.map((s) => {
+              const up = s.change_pct >= 0;
+              return (
+                <Pressable
+                  key={s.symbol}
+                  onPress={() => router.push(`/stock/${s.symbol}`)}
+                  style={[styles.heatCell, { backgroundColor: heatColor(s.change_pct, colors.bull, colors.bear) }]}
+                  accessibilityRole="button"
+                  accessibilityLabel={`${s.symbol}, ${up ? "up" : "down"} ${Math.abs(s.change_pct).toFixed(2)} percent`}
+                >
+                  <Text style={{ fontSize: 12, fontWeight: "600" }} numberOfLines={1}>{s.symbol}</Text>
+                  <Text variant="mono" style={{ fontSize: 12 }}>
+                    {up ? "+" : ""}
+                    {s.change_pct.toFixed(2)}%
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+        )}
+      </View>
+
+      {/* ── Hub to News / Funds / Dividends / Macro ── */}
+      <Pressable
+        style={[styles.moreBtn, { borderColor: colors.border }]}
+        onPress={() => router.push("/more")}
+        accessibilityRole="button"
+        accessibilityLabel={t("More: news, funds, dividends and macro")}
+      >
+        <Text style={{ fontWeight: "600", fontSize: 14 }}>{t("News, Funds, Dividends & Macro")}</Text>
+        <ChevronRight color={colors.textMuted} size={18} />
+      </Pressable>
     </View>
   );
 
@@ -342,5 +586,17 @@ const styles = StyleSheet.create({
   sigCol: { width: 96, alignItems: "flex-end", paddingLeft: 8 },
   emptyBox: { paddingVertical: 24, alignItems: "center", justifyContent: "center" },
   heatGrid: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
-  heatCell: { width: "31%", borderRadius: 10, padding: 10, gap: 2 },
+  heatCell: { width: "31%", borderRadius: 10, padding: 10, gap: 2, minHeight: 44 },
+  moverCard: { width: 118, padding: 12 },
+  unusualCard: { width: 170, padding: 12 },
+  moreBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 14,
+    minHeight: 44,
+  },
 });

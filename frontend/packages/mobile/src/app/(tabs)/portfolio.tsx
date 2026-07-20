@@ -22,26 +22,30 @@ import { useAuth } from "@/hooks/use-auth";
 import {
   useAddHolding,
   useCreatePortfolio,
+  useCreateStockTransaction,
   usePortfolioAllocation,
   usePortfolioList,
   usePortfolioNetworth,
   usePortfolioPerformance,
   usePortfolioValue,
   useRemoveHolding,
+  useStockTransactions,
   useUpdateHolding,
   type HoldingValue,
+  type StockTransaction,
 } from "@/hooks/queries/use-portfolio";
 import { usePsxSymbols } from "@/hooks/queries/use-market";
 import { usePortfolioReport } from "@/hooks/ai/use-ai-report";
 import { useTheme } from "@/hooks/use-theme";
 import { fmtPKR } from "@nafaiq/shared";
-import { ArrowRight, Pencil, Plus, Trash2 } from "@/lib/icons";
+import { ArrowLeftRight, ArrowRight, Pencil, Plus, Trash2 } from "@/lib/icons";
 
 const AVENIR = Platform.select({ ios: "Avenir-Heavy", default: fonts.sans });
 const AVENIR_MED = Platform.select({ ios: "Avenir-Medium", default: fonts.sans });
 // Backend bounds /api/portfolio/performance days to [7, 365].
 const RANGES: Record<string, number> = { "1M": 30, "3M": 90, "6M": 180, "1Y": 365 };
 const emptyForm = { ticker: "", shares: "", avgCost: "" };
+const emptyTrade = { symbol: "", side: "buy" as "buy" | "sell", quantity: "", price: "" };
 
 export default function PortfolioScreen() {
   const router = useRouter();
@@ -83,11 +87,20 @@ export default function PortfolioScreen() {
   const updateHoldingApi = useUpdateHolding(portfolioId);
   const removeHoldingApi = useRemoveHolding(portfolioId);
   const createPortfolio = useCreatePortfolio();
+  const createTxn = useCreateStockTransaction();
+  const {
+    data: transactions,
+    isLoading: txnsLoading,
+    isError: txnsError,
+  } = useStockTransactions(100, isLoggedIn);
 
   const [formOpen, setFormOpen] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [form, setForm] = useState(emptyForm);
   const [formErr, setFormErr] = useState("");
+  const [tradeOpen, setTradeOpen] = useState(false);
+  const [trade, setTrade] = useState(emptyTrade);
+  const [tradeErr, setTradeErr] = useState("");
 
   const holdings: HoldingValue[] = portfolioValue?.holdings ?? [];
   const listLoading = portfoliosLoading || (!!portfolioId && valueLoading && !portfolioValue);
@@ -166,6 +179,62 @@ export default function PortfolioScreen() {
       });
     }
   }
+
+  const savingTrade = createTxn.isPending || createPortfolio.isPending;
+
+  function openTrade() {
+    setTrade(emptyTrade);
+    setTradeErr("");
+    setTradeOpen(true);
+  }
+  function saveTrade() {
+    setTradeErr("");
+    const quantity = Number(trade.quantity);
+    const price = Number(trade.price);
+    const symbol = trade.symbol.trim().toUpperCase();
+    if (!symbol) return setTradeErr("Please enter a stock symbol.");
+    // Backend requires a whole-share quantity > 0.
+    if (!trade.quantity || !Number.isInteger(quantity) || quantity <= 0)
+      return setTradeErr("Please enter a whole number of shares.");
+    if (!trade.price || Number.isNaN(price) || price < 0)
+      return setTradeErr("Please enter a valid price.");
+    const onError = () => setTradeErr("Could not record the trade. Please try again.");
+    const onSuccess = () => setTradeOpen(false);
+    const payload = { symbol, side: trade.side, quantity, price };
+
+    if (portfolioId) {
+      createTxn.mutate({ portfolio_id: portfolioId, ...payload }, { onSuccess, onError });
+    } else {
+      // First activity ever: auto-create the default portfolio (like holdings).
+      createPortfolio.mutate("Main", {
+        onSuccess: (p) => createTxn.mutate({ portfolio_id: p.id, ...payload }, { onSuccess, onError }),
+        onError,
+      });
+    }
+  }
+
+  const renderTxn = ({ item }: { item: StockTransaction }) => {
+    const buy = item.side === "buy";
+    const sell = item.side === "sell";
+    const tint = buy ? colors.bull : sell ? colors.bear : colors.textMuted;
+    const dateLabel = item.executed_at
+      ? new Date(item.executed_at).toLocaleDateString(undefined, { month: "short", day: "numeric" })
+      : "";
+    return (
+      <GlassCard radius={14} intensity={16} style={styles.txnCard}>
+        <View style={styles.between}>
+          <Text style={{ fontWeight: "700", fontSize: 14 }} numberOfLines={1}>{item.symbol}</Text>
+          <View style={[styles.sideBadge, { backgroundColor: tint + "22" }]}>
+            <Text style={{ color: tint, fontSize: 10.5, fontWeight: "700" }}>{item.side.toUpperCase()}</Text>
+          </View>
+        </View>
+        <Text variant="mono" style={{ fontSize: 12.5, marginTop: 6 }}>
+          {item.quantity ?? 0} @ {fmtPKR(item.price ?? 0)}
+        </Text>
+        <Text variant="muted" style={{ fontSize: 11, marginTop: 2 }}>{dateLabel}</Text>
+      </GlassCard>
+    );
+  };
 
   const header = (
     <View style={{ gap: 16 }}>
@@ -274,6 +343,55 @@ export default function PortfolioScreen() {
         </Text>
       ) : null}
       <Button title="Add Holding" onPress={openAdd} icon={<Plus color={colors.primaryForeground} size={16} />} />
+
+      {/* ── Stock Transactions (buy / sell ledger) ── */}
+      <View style={{ marginTop: 24, gap: 10 }}>
+        <View style={styles.between}>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+            <ArrowLeftRight color={colors.textSecondary} size={16} />
+            <Text variant="title">Transactions</Text>
+          </View>
+          {isLoggedIn && (
+            <Pressable
+              onPress={openTrade}
+              hitSlop={8}
+              style={[styles.addTradeBtn, { borderColor: colors.border }]}
+              accessibilityRole="button"
+              accessibilityLabel="Add trade"
+            >
+              <Plus color={colors.primary} size={14} />
+              <Text style={{ color: colors.primary, fontSize: 12.5, fontWeight: "600" }}>Add trade</Text>
+            </Pressable>
+          )}
+        </View>
+        {!isLoggedIn ? (
+          <Text variant="muted" style={{ textAlign: "center", paddingVertical: 12 }}>
+            Sign in to record and view your trades.
+          </Text>
+        ) : txnsLoading ? (
+          <Text variant="muted" style={{ textAlign: "center", paddingVertical: 12 }}>
+            Loading transactions…
+          </Text>
+        ) : txnsError ? (
+          <Text variant="muted" style={{ textAlign: "center", paddingVertical: 12 }}>
+            Could not load transactions.
+          </Text>
+        ) : !transactions || transactions.length === 0 ? (
+          <Text variant="muted" style={{ textAlign: "center", paddingVertical: 12 }}>
+            No trades yet. Record your first buy or sell.
+          </Text>
+        ) : (
+          <FlatList
+            horizontal
+            data={transactions}
+            keyExtractor={(txn) => String(txn.id)}
+            renderItem={renderTxn}
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={{ gap: 10, paddingVertical: 2 }}
+          />
+        )}
+      </View>
+
       <View style={{ height: 20 }} />
     </View>
   );
@@ -345,6 +463,37 @@ export default function PortfolioScreen() {
           loading={saving}
         />
       </GlassSheet>
+
+      <GlassSheet open={tradeOpen} onClose={() => setTradeOpen(false)} title="Add Trade">
+        <Segmented
+          options={["Buy", "Sell"]}
+          value={trade.side === "buy" ? "Buy" : "Sell"}
+          onChange={(v) => setTrade({ ...trade, side: v === "Buy" ? "buy" : "sell" })}
+        />
+        <Field
+          label="Stock symbol"
+          value={trade.symbol}
+          onChangeText={(v) => setTrade({ ...trade, symbol: v })}
+          placeholder="e.g. HBL"
+          autoCapitalize="characters"
+        />
+        <Field
+          label="Quantity (shares)"
+          value={trade.quantity}
+          onChangeText={(v) => setTrade({ ...trade, quantity: v })}
+          keyboardType="numeric"
+          placeholder="0"
+        />
+        <Field
+          label="Price (PKR)"
+          value={trade.price}
+          onChangeText={(v) => setTrade({ ...trade, price: v })}
+          keyboardType="numeric"
+          placeholder="0"
+        />
+        {tradeErr ? <Text style={{ color: colors.bear, fontSize: 12 }}>{tradeErr}</Text> : null}
+        <Button title="Record Trade" onPress={saveTrade} loading={savingTrade} />
+      </GlassSheet>
       </SafeAreaView>
     </GlassScreen>
   );
@@ -410,4 +559,16 @@ const makeStyles = (c: ThemeColors) =>
     aiLink: { flexDirection: "row", alignItems: "center", gap: 4, marginTop: 8, alignSelf: "flex-start" },
     aiLinkText: { fontFamily: AVENIR_MED, fontSize: 12, color: c.primary },
     actions: { flexDirection: "row", gap: 12, paddingLeft: 12 },
+    txnCard: { width: 150, padding: 12 },
+    sideBadge: { borderRadius: 4, paddingHorizontal: 6, paddingVertical: 2 },
+    addTradeBtn: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 4,
+      borderWidth: 1,
+      borderRadius: 8,
+      paddingHorizontal: 10,
+      paddingVertical: 8,
+      minHeight: 36,
+    },
   });

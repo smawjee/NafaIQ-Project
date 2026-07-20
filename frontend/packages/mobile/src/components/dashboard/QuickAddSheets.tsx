@@ -15,6 +15,7 @@ import { ChipRow, Segmented } from "@/components/ui/controls";
 import { fonts, type ThemeColors } from "@/constants/theme";
 import { useTheme } from "@/hooks/use-theme";
 import { type AlertEventType, useCreateAlert } from "@/hooks/queries/use-alerts";
+import { useCreatePriceAlert } from "@/hooks/queries/use-price-alerts";
 import {
   useCreateTransaction,
   useFinanceBills,
@@ -201,6 +202,7 @@ function AlertSheet({ open, onClose, onToast }: { open: boolean; onClose: () => 
   const goalOptions = useMemo(() => (goalsData ?? []).map((g) => g.name), [goalsData]);
 
   const createAlert = useCreateAlert();
+  const createPriceAlert = useCreatePriceAlert();
   const [kind, setKind] = useState<AlertKind>("Stock Price");
   const [symbol, setSymbol] = useState(ALERT_STOCKS[0]);
   const [direction, setDirection] = useState("Above");
@@ -251,17 +253,40 @@ function AlertSheet({ open, onClose, onToast }: { open: boolean; onClose: () => 
 
   function submit() {
     setErr("");
-    if (!push && !email) return setErr("Choose at least one channel");
+    const done = (msg: string) => {
+      setPrice("");
+      setErr("");
+      onClose();
+      onToast(msg);
+    };
+    const fail = (e: unknown) =>
+      setErr(e instanceof Error ? e.message : "Could not create the alert. Please try again.");
+
+    // Stock price → dedicated price_alerts (channels persist); the generic
+    // app-alert types (bill/budget/goal) have no channel field.
+    if (kind === "Stock Price") {
+      if (!push && !email) return setErr("Choose at least one channel");
+      const p = Math.abs(Number(price.replace(/[^0-9.]/g, "")));
+      if (!p) return setErr("Enter a target price");
+      createPriceAlert.mutate(
+        {
+          symbol,
+          condition: direction === "Above" ? "above" : "below",
+          price: p,
+          one_time: false,
+          notify_push: push,
+          notify_email: email,
+        },
+        { onSuccess: () => done("Price alert created"), onError: fail },
+      );
+      return;
+    }
+
     const built = build();
     if (!built) return;
     createAlert.mutate(built, {
-      onSuccess: () => {
-        setPrice("");
-        setErr("");
-        onClose();
-        onToast("Alert created");
-      },
-      onError: (e) => setErr(e instanceof Error ? e.message : "Could not create the alert. Please try again."),
+      onSuccess: () => done("Alert created"),
+      onError: fail,
     });
   }
 
@@ -317,13 +342,15 @@ function AlertSheet({ open, onClose, onToast }: { open: boolean; onClose: () => 
         </>
       )}
 
-      <View style={styles.channels}>
-        <Checkbox label="Push" checked={push} onToggle={() => setPush((v) => !v)} />
-        <Checkbox label="Email" checked={email} onToggle={() => setEmail((v) => !v)} />
-      </View>
+      {kind === "Stock Price" ? (
+        <View style={styles.channels}>
+          <Checkbox label="Push" checked={push} onToggle={() => setPush((v) => !v)} />
+          <Checkbox label="Email" checked={email} onToggle={() => setEmail((v) => !v)} />
+        </View>
+      ) : null}
 
       {err ? <Text style={styles.err}>{err}</Text> : null}
-      <GlassPrimaryButton label="Create Alert" loading={createAlert.isPending} icon={<Plus color={colors.primaryForeground} size={16} />} onPress={submit} />
+      <GlassPrimaryButton label="Create Alert" loading={createAlert.isPending || createPriceAlert.isPending} icon={<Plus color={colors.primaryForeground} size={16} />} onPress={submit} />
     </GlassSheet>
   );
 }

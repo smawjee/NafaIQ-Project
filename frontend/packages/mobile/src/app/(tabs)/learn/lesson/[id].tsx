@@ -4,22 +4,26 @@
 import { useLocalSearchParams, useRouter } from "expo-router";
 import * as WebBrowser from "expo-web-browser";
 import { useEffect, useMemo, useState } from "react";
-import { Pressable, ScrollView, StyleSheet, View } from "react-native";
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import Svg, { Circle } from "react-native-svg";
 
+import { TutorMessage as AiText } from "@/components/ai/AiText";
 import { GlassCard } from "@/components/glass/GlassCard";
 import { GlassScreen } from "@/components/glass/GlassScreen";
 import { TutorSheet } from "@/components/TutorSheet";
 import { Button, Text } from "@/components/ui";
 import { ProgressBar } from "@/components/ui/ProgressBar";
 import { fonts, radii, type ThemeColors } from "@/constants/theme";
+import { useLessonSummary, useQuizExplanation } from "@/hooks/ai/use-learn-ai";
+import { useLearnRagStatus, useRelatedLessons } from "@/hooks/ai/use-learn-search";
+import { useAuth } from "@/hooks/use-auth";
 import { useLang } from "@/hooks/use-lang";
 import { useLearn } from "@/hooks/use-learn";
 import { useTheme } from "@/hooks/use-theme";
 import { lessonOrder, xpForScore } from "@nafaiq/shared";
 import { LESSON_CONTENT, type ContentBlock, type LessonContent } from "@nafaiq/shared";
-import { ArrowLeft, Bookmark, Bot, Check, ChevronRight, iconFor, Info, Lightbulb, Play, RotateCcw, TriangleAlert, X } from "@/lib/icons";
+import { ArrowLeft, Bookmark, Bot, Check, ChevronRight, iconFor, Info, Lightbulb, Play, RotateCcw, Sparkles, TriangleAlert, X } from "@/lib/icons";
 
 const FALLBACK = Object.keys(LESSON_CONTENT)[0];
 
@@ -69,6 +73,7 @@ export default function LessonScreen() {
       {mode === "reading" && (
         <Reading
           lesson={lesson}
+          lessonId={id}
           statusComplete={statusOf(id) === "complete"}
           onScrollPct={setScrollPct}
           onStartQuiz={() => setMode("quiz")}
@@ -77,7 +82,7 @@ export default function LessonScreen() {
           onNext={nextId ? () => router.replace(`/(tabs)/learn/lesson/${nextId}`) : undefined}
         />
       )}
-      {mode === "quiz" && <Quiz lesson={lesson} onFinish={finishQuiz} />}
+      {mode === "quiz" && <Quiz lesson={lesson} lessonId={id} onFinish={finishQuiz} />}
       {mode === "results" && (
         <Results
           lesson={lesson}
@@ -97,6 +102,7 @@ export default function LessonScreen() {
 /* ------------------------------- Reading --------------------------------- */
 function Reading({
   lesson,
+  lessonId,
   statusComplete,
   onScrollPct,
   onStartQuiz,
@@ -105,6 +111,7 @@ function Reading({
   onNext,
 }: {
   lesson: LessonContent;
+  lessonId: string;
   statusComplete: boolean;
   onScrollPct: (p: number) => void;
   onStartQuiz: () => void;
@@ -158,6 +165,9 @@ function Reading({
           ))}
         </View>
       ))}
+
+      <LessonSummaryCard lessonId={lessonId} />
+      <RelatedLessons lessonId={lessonId} />
 
       <Button title={statusComplete ? t("Retake the Quiz") : t("Take the Quiz")} onPress={onStartQuiz} icon={<ChevronRight color={colors.primaryForeground} size={16} />} />
 
@@ -219,9 +229,12 @@ function Block({ block }: { block: ContentBlock }) {
 }
 
 /* --------------------------------- Quiz ---------------------------------- */
-function Quiz({ lesson, onFinish }: { lesson: LessonContent; onFinish: (correct: number) => void }) {
+function Quiz({ lesson, lessonId, onFinish }: { lesson: LessonContent; lessonId: string; onFinish: (correct: number) => void }) {
   const { colors } = useTheme();
-  const { t } = useLang();
+  const { t, lang } = useLang();
+  const { user } = useAuth();
+  const { enabled: ragEnabled } = useLearnRagStatus();
+  const explain = useQuizExplanation();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const questions = useMemo(
     () =>
@@ -242,13 +255,17 @@ function Quiz({ lesson, onFinish }: { lesson: LessonContent; onFinish: (correct:
   const [timeLeft, setTimeLeft] = useState(30);
   const q = questions[qi];
 
+  // Each question gets its own AI explanation — drop the previous one when the
+  // question changes so a stale answer never shows on the next card.
+  const { reset: resetExplanation } = explain;
   useEffect(() => {
     setTimeLeft(30);
     setPicked(null);
+    resetExplanation();
     if (!q) return;
     const timer = setInterval(() => setTimeLeft((s) => Math.max(0, s - 1)), 1000);
     return () => clearInterval(timer);
-  }, [qi, q]);
+  }, [qi, q, resetExplanation]);
 
   useEffect(() => {
     if (timeLeft === 0 && picked === null) setPicked(-1);
@@ -301,6 +318,58 @@ function Quiz({ lesson, onFinish }: { lesson: LessonContent; onFinish: (correct:
         <GlassCard style={{ gap: 6, padding: 16, borderColor: colors.ai + "44" }}>
           <Text style={{ color: colors.ai, fontWeight: "700" }}>{t("Explanation")}</Text>
           <Text variant="secondary">{q.explanation}</Text>
+
+          {/* Opt-in deep AI explanation. The static line above always stands;
+              this only fires on an explicit tap so it never silently spends the
+              learner's daily AI budget. Gated on the flag + a signed-in user. */}
+          {ragEnabled && user && !explain.data && (
+            <Pressable
+              onPress={() =>
+                explain.mutate({
+                  lessonId,
+                  question: q.q,
+                  selectedOption: picked !== null && picked >= 0 ? q.opts[picked].text : "",
+                  correctOption: q.opts.find((o) => o.correct)?.text ?? "",
+                  lang,
+                })
+              }
+              disabled={explain.isPending}
+              style={styles.explainBtn}
+              accessibilityRole="button"
+              accessibilityLabel={t("Explain in depth")}
+            >
+              {explain.isPending ? (
+                <>
+                  <ActivityIndicator color={colors.ai} size="small" />
+                  <Text style={{ color: colors.textMuted, fontSize: 12 }}>{t("Analyzing…")}</Text>
+                </>
+              ) : (
+                <>
+                  <Sparkles color={colors.ai} size={14} />
+                  <Text style={{ color: colors.textSecondary, fontSize: 12, fontWeight: "600" }}>{t("Explain in depth")}</Text>
+                </>
+              )}
+            </Pressable>
+          )}
+
+          {/* The endpoint answered but had nothing to ground on. Say so in one
+              muted line — the static explanation above still stands. */}
+          {explain.data && !explain.data.explanation && (
+            <Text variant="muted" style={{ fontSize: 12 }}>{t("No AI explanation available right now.")}</Text>
+          )}
+
+          {explain.data?.explanation && (
+            <View style={{ gap: 6, marginTop: 4, borderTopWidth: 1, borderTopColor: colors.ai + "26", paddingTop: 10 }}>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                <Sparkles color={colors.ai} size={13} />
+                <Text style={{ color: colors.ai, fontWeight: "700", fontSize: 12 }}>{t("AI explanation")}</Text>
+              </View>
+              <AiText content={explain.data.explanation} role="assistant" color={colors.textSecondary} />
+              {explain.data.sources.length > 0 && (
+                <Text variant="muted" style={{ fontSize: 11 }}>{t("Based on")} {explain.data.sources.join(" · ")}</Text>
+              )}
+            </View>
+          )}
         </GlassCard>
       )}
 
@@ -394,6 +463,143 @@ function ScoreRing({ correct, total }: { correct: number; total: number }) {
   );
 }
 
+/* --------------------------- AI lesson summary --------------------------- */
+/**
+ * "Key ideas from this lesson" — an on-demand, AI-generated recap grounded in
+ * the lesson's own content. Opt-in: renders as a modest button and only calls
+ * the model on tap. Renders nothing when the flag is off, the user is signed
+ * out, or the result is empty — a reading page shows no error box for an
+ * optional affordance.
+ */
+function LessonSummaryCard({ lessonId }: { lessonId: string }) {
+  const { colors } = useTheme();
+  const { t } = useLang();
+  const { user } = useAuth();
+  const { enabled } = useLearnRagStatus();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
+  const { mutate, data, isPending } = useLessonSummary(lessonId);
+
+  // `user` as well as the flag: /api/learn/ai/* needs a Supabase JWT, so for a
+  // signed-out reader this button could only ever 401 and vanish on tap.
+  if (!enabled || !user) return null;
+
+  if (isPending) {
+    return (
+      <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+        <ActivityIndicator color={colors.ai} size="small" />
+        <Text variant="muted" style={{ fontSize: 12 }}>{t("Analyzing…")}</Text>
+      </View>
+    );
+  }
+
+  if (!data) {
+    return (
+      <Pressable onPress={() => mutate()} style={styles.explainBtn} accessibilityRole="button" accessibilityLabel={t("Key ideas from this lesson")}>
+        <Sparkles color={colors.ai} size={14} />
+        <Text style={{ color: colors.textSecondary, fontSize: 12, fontWeight: "600" }}>{t("Key ideas from this lesson")}</Text>
+      </Pressable>
+    );
+  }
+
+  // The one failure worth a word — the learner just tapped, so silence would
+  // read as a broken button. Every other failure stays silent below.
+  if (data.limited) {
+    return <Text variant="muted" style={{ fontSize: 12 }}>{t("Daily AI limit reached — try again tomorrow.")}</Text>;
+  }
+
+  if (data.key_ideas.length === 0) return null;
+
+  return (
+    <View style={styles.summaryCard}>
+      <View style={{ flexDirection: "row", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+        <Sparkles color={colors.ai} size={14} />
+        <Text style={{ fontWeight: "700", fontSize: 13 }}>{t("Key ideas from this lesson")}</Text>
+        <View style={{ backgroundColor: colors.ai + "26", borderRadius: 4, paddingHorizontal: 6, paddingVertical: 2 }}>
+          <Text style={{ color: colors.ai, fontSize: 9, fontWeight: "700" }}>{t("AI generated")}</Text>
+        </View>
+      </View>
+
+      <View style={{ gap: 6, marginTop: 8 }}>
+        {data.key_ideas.map((idea) => (
+          <View key={idea} style={{ flexDirection: "row", gap: 6 }}>
+            <Text style={{ color: colors.ai }}>{"•"}</Text>
+            <View style={{ flex: 1 }}>
+              <AiText content={idea} role="assistant" color={colors.textSecondary} />
+            </View>
+          </View>
+        ))}
+      </View>
+
+      {data.terms.length > 0 && (
+        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6, marginTop: 10 }}>
+          {data.terms.map((term) => (
+            <View key={term} style={styles.termChip}>
+              <Text style={{ color: colors.textSecondary, fontSize: 11 }}>{term}</Text>
+            </View>
+          ))}
+        </View>
+      )}
+
+      {data.pitfall && (
+        <View style={styles.pitfall}>
+          <Text style={{ color: colors.warning, fontSize: 10, fontWeight: "700", textTransform: "uppercase" }}>{t("Common mistake")}</Text>
+          <Text variant="secondary" style={{ fontSize: 12, marginTop: 2 }}>{data.pitfall}</Text>
+        </View>
+      )}
+
+      {data.sources.length > 0 && (
+        <Text variant="muted" style={{ fontSize: 11, marginTop: 10 }}>{t("Based on")}: {data.sources.join(" · ")}</Text>
+      )}
+
+      <Text variant="muted" style={{ fontSize: 10, marginTop: 6 }}>{t("Summarised by AI from this lesson. Not financial advice.")}</Text>
+    </View>
+  );
+}
+
+/* ---------------------------- Related lessons ---------------------------- */
+/**
+ * "Related topics" — lessons ranked by content similarity to this one. Renders
+ * nothing when the flag is off, the API errors, or a related id has no body.
+ */
+function RelatedLessons({ lessonId }: { lessonId: string }) {
+  const { colors } = useTheme();
+  const { t } = useLang();
+  const router = useRouter();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
+  const related = useRelatedLessons(lessonId, 4);
+
+  const items = related
+    .map((r) => ({ lesson_id: r.lesson_id, lesson: LESSON_CONTENT[r.lesson_id] }))
+    .filter((r) => Boolean(r.lesson));
+
+  if (items.length === 0) return null;
+
+  return (
+    <View style={{ gap: 8 }}>
+      <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+        <Sparkles color={colors.ai} size={14} />
+        <Text style={{ fontWeight: "700", fontSize: 13 }}>{t("Related topics")}</Text>
+      </View>
+      <View style={{ gap: 8 }}>
+        {items.map(({ lesson_id, lesson }) => (
+          <Pressable
+            key={lesson_id}
+            onPress={() => router.replace(`/(tabs)/learn/lesson/${lesson_id}`)}
+            style={styles.relatedCard}
+            accessibilityRole="button"
+            accessibilityLabel={t(lesson.title)}
+          >
+            <Text style={{ fontWeight: "600", fontSize: 13 }} numberOfLines={1}>{t(lesson.title)}</Text>
+            {lesson.sections[0] && (
+              <Text variant="muted" style={{ fontSize: 11, marginTop: 2 }} numberOfLines={1}>{t(lesson.sections[0].heading)}</Text>
+            )}
+          </Pressable>
+        ))}
+      </View>
+    </View>
+  );
+}
+
 const makeStyles = (c: ThemeColors) =>
   StyleSheet.create({
     safe: { flex: 1 },
@@ -409,4 +615,9 @@ const makeStyles = (c: ThemeColors) =>
     td: { flex: 1, padding: 8, color: c.textPrimary },
     navRow: { flexDirection: "row", gap: 10 },
     option: { flexDirection: "row", alignItems: "center", gap: 8, borderWidth: 1, borderRadius: radii.btn, padding: 14, minHeight: 48 },
+    explainBtn: { flexDirection: "row", alignItems: "center", gap: 6, alignSelf: "flex-start", borderWidth: 1, borderColor: c.border, borderRadius: radii.btn, paddingHorizontal: 12, paddingVertical: 8, marginTop: 4, minHeight: 44 },
+    summaryCard: { borderWidth: 1, borderColor: c.ai + "33", backgroundColor: c.ai + "0d", borderRadius: radii.card, padding: 16 },
+    termChip: { backgroundColor: c.elevated, borderRadius: 4, paddingHorizontal: 8, paddingVertical: 3 },
+    pitfall: { borderLeftWidth: 2, borderLeftColor: c.warning, backgroundColor: c.elevated, borderRadius: radii.btn, paddingHorizontal: 10, paddingVertical: 6, marginTop: 10 },
+    relatedCard: { borderWidth: 1, borderColor: c.border, borderRadius: radii.btn, padding: 12, minHeight: 44 },
   });

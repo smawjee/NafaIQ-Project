@@ -25,6 +25,7 @@ import {
   fetchScreenerMetrics,
   fetchSignal,
   fetchSymbols,
+  publicGet,
 } from "@/lib/api";
 import { supabase } from "@/lib/supabase";
 
@@ -315,6 +316,78 @@ export function usePsxBatchSignals(limit = 50) {
     queryKey: ["psx", "signals", "batch", limit],
     queryFn: () => fetchBatchSignals(limit),
     staleTime: 300_000,
+  });
+}
+
+/* ── treemap (market depth) ── */
+// Shapes mirror web src/lib/psx/types.ts (ApiTreemap*) — not yet in
+// @nafaiq/shared, so declared locally. Backend: market_v2.py /market/treemap
+// → services/market/treemap.py.
+
+export interface ApiTreemapStock {
+  symbol: string;
+  name: string;
+  sector?: string;
+  price: number;
+  change_pct: number;
+  volume: number;
+  /** Real market cap, or null when listed_shares is unknown. Never a proxy. */
+  market_cap: number | null;
+  /** Value used to size the tile — a real cap or a volume proxy. Not a cap. */
+  size_metric: number;
+  sizing_basis: "market_cap" | "volume_proxy";
+  logoid?: string | null;
+}
+
+export interface ApiTreemapSector {
+  name: string;
+  avg_change_pct: number;
+  total_market_cap: number | null;
+  total_size_metric: number;
+  stock_count: number;
+  stocks: ApiTreemapStock[];
+}
+
+export interface ApiTreemap {
+  as_of: string;
+  sectors: ApiTreemapSector[];
+  stock_count: number;
+}
+
+/** Google-Finance-style treemap: sectors + stock tiles sized by market cap
+ * (or a volume proxy), colored by % change. GET /api/market/treemap. */
+export function usePsxTreemap() {
+  return useQuery({
+    queryKey: ["psx", "treemap"],
+    queryFn: () => publicGet<ApiTreemap>("/api/market/treemap"),
+    staleTime: 15_000,
+    refetchInterval: 30_000,
+    placeholderData: keepPreviousData,
+  });
+}
+
+/* ── unusual activity (volume spikes) ── */
+// Mirrors web ApiUnusualActivity (src/lib/psx/client.ts). Backend:
+// unusual.py /market/unusual → psx_unusual_activity (VolumeSpikeDetector).
+
+export interface ApiUnusualActivity {
+  symbol: string;
+  ts: string;
+  price: number | null;
+  change_pct: number | null;
+  volume: number | null;
+  volume_ratio: number | null;
+  reason: string | null;
+}
+
+/** Latest volume spikes / unusual activity. GET /api/market/unusual. */
+export function useUnusualActivity(limit = 20) {
+  return useQuery({
+    queryKey: ["psx", "unusual", limit],
+    queryFn: () => publicGet<ApiUnusualActivity[]>(`/api/market/unusual?limit=${limit}`),
+    staleTime: 60_000,
+    refetchInterval: 60_000,
+    placeholderData: keepPreviousData,
   });
 }
 
