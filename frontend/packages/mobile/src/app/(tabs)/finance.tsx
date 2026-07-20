@@ -22,6 +22,7 @@ import { GlassCard } from "@/components/glass/GlassCard";
 import { GlassScreen } from "@/components/glass/GlassScreen";
 import { GlassSheet } from "@/components/glass/GlassSheet";
 import { Field } from "@/components/Modal";
+import { AiReportSheet } from "@/components/ai/AiReportSheet";
 import { Button, Text } from "@/components/ui";
 import { ChipRow, Segmented } from "@/components/ui/controls";
 import { ProgressBar } from "@/components/ui/ProgressBar";
@@ -44,6 +45,7 @@ import {
   useFinanceTransactions,
   useMarkBillPaid,
 } from "@/hooks/queries/use-finance";
+import { useFinanceReport } from "@/hooks/ai/use-ai-report";
 import { useIncomeExpenseSeries } from "@/hooks/queries/use-finance-series";
 import { fmtPKR } from "@nafaiq/shared";
 import {
@@ -190,6 +192,7 @@ function Overview() {
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const summaryQ = useFinanceSummary();
   const seriesQ = useIncomeExpenseSeries(6);
+  const financeReport = useFinanceReport();
 
   if (summaryQ.isPending || seriesQ.isPending) {
     return (
@@ -284,6 +287,20 @@ function Overview() {
             : "No activity yet — add transactions to see your trend."}
         </Text>
       </GlassCard>
+
+      <AiReportSheet
+        title="AI Finance Report"
+        subtitle={financeReport.data?.content?.headline ?? "Tap for a verified review of your finances"}
+        variant="compact"
+        report={financeReport.data?.content}
+        isLoading={financeReport.isPending}
+        error={financeReport.error}
+        loadingLabel="Reviewing your finances…"
+        emptyLabel="Tap for a verified review of your finances"
+        onOpen={() => {
+          if (!financeReport.data && !financeReport.isPending) financeReport.mutate();
+        }}
+      />
     </ScrollView>
   );
 }

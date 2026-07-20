@@ -14,6 +14,7 @@ import { GlassCard } from "@/components/glass/GlassCard";
 import { GlassScreen } from "@/components/glass/GlassScreen";
 import { GlassSheet } from "@/components/glass/GlassSheet";
 import { Field } from "@/components/Modal";
+import { AiReportSheet } from "@/components/ai/AiReportSheet";
 import { Button, Change, Text } from "@/components/ui";
 import { Segmented } from "@/components/ui/controls";
 import { fonts, type ThemeColors } from "@/constants/theme";
@@ -31,6 +32,7 @@ import {
   type HoldingValue,
 } from "@/hooks/queries/use-portfolio";
 import { usePsxSymbols } from "@/hooks/queries/use-market";
+import { usePortfolioReport } from "@/hooks/ai/use-ai-report";
 import { useTheme } from "@/hooks/use-theme";
 import { fmtPKR } from "@nafaiq/shared";
 import { ArrowRight, Pencil, Plus, Trash2 } from "@/lib/icons";
@@ -64,6 +66,7 @@ export default function PortfolioScreen() {
     isLoggedIn,
   );
   const { data: networth } = usePortfolioNetworth(isLoggedIn);
+  const portfolioReport = usePortfolioReport(180);
   const { data: performance, isLoading: perfLoading } = usePortfolioPerformance(
     RANGES[range] ?? 180,
     isLoggedIn,
@@ -202,6 +205,22 @@ export default function PortfolioScreen() {
           <Legend color={colors.textMuted} label="KSE-100" />
         </View>
       </GlassCard>
+
+      {isLoggedIn && (
+        <AiReportSheet
+          title="AI Portfolio Report"
+          subtitle={portfolioReport.data?.content?.headline ?? "Tap to generate a verified analysis of your holdings"}
+          variant="compact"
+          report={portfolioReport.data?.content}
+          isLoading={portfolioReport.isPending}
+          error={portfolioReport.error}
+          loadingLabel="Analysing your portfolio…"
+          emptyLabel="Tap to generate a verified analysis of your holdings"
+          onOpen={() => {
+            if (!portfolioReport.data && !portfolioReport.isPending) portfolioReport.mutate();
+          }}
+        />
+      )}
 
       <GlassCard style={{ gap: 10, padding: 16, borderColor: colors.gold + "55" }}>
         <Text style={{ color: colors.gold, fontWeight: "700" }}>Haqeeqi Daulat™ — Real Returns</Text>

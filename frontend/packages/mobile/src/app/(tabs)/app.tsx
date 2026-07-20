@@ -37,7 +37,10 @@ import { usePsxIndexCards } from "@/hooks/queries/use-market";
 import { usePortfolioHistory, usePortfolioNetworth } from "@/hooks/queries/use-portfolio";
 import { useEnrichedWatchlist, useRemoveFromWatchlist } from "@/hooks/queries/use-watchlist";
 import { fmtNum, fmtPKR } from "@nafaiq/shared";
-import { ArrowUpRight, iconFor, Plus, Sparkles, TrendingUp, X } from "@/lib/icons";
+import { ArrowUpRight, iconFor, Plus, TrendingUp, X } from "@/lib/icons";
+import { AiReportSheet } from "@/components/ai/AiReportSheet";
+import { useDashboardRecommendation } from "@/hooks/ai/use-dashboard-recommendation";
+import { useLang } from "@/hooks/use-lang";
 
 // Backend bounds /api/portfolio/history days to [7, 365] — same map as web.
 const RANGES: Record<string, number> = { "1M": 30, "3M": 90, "6M": 180, "1Y": 365 };
@@ -57,6 +60,7 @@ export default function Dashboard() {
   const { profile, user } = useAuth();
   const signedIn = !!user;
   const { colors } = useTheme();
+  const { t } = useLang();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const router = useRouter();
   const { width } = useWindowDimensions();
@@ -68,7 +72,6 @@ export default function Dashboard() {
     [],
   );
 
-  const [showAI, setShowAI] = useState(true);
   const [range, setRange] = useState("6M");
   const [quickAdd, setQuickAdd] = useState<QuickAdd>(null);
   const [toast, setToast] = useState<string | null>(null);
@@ -128,38 +131,9 @@ export default function Dashboard() {
 
   const goals = (userGoals ?? []).slice(0, 3);
   const watch = watchlist ?? [];
-  const topSpending = (spendingByCat?.categories ?? [])
-    .slice()
-    .sort((a, b) => (b.amount ?? 0) - (a.amount ?? 0))[0];
-  const priorityGoal = goals
-    .slice()
-    .sort((a, b) => ((a.saved ?? 0) / Math.max(a.target ?? 1, 1)) - ((b.saved ?? 0) / Math.max(b.target ?? 1, 1)))[0];
-  const aiInsight = useMemo(() => {
-    if (topSpending && spendingByCat?.total) {
-      const share = Math.round(((topSpending.amount ?? 0) / Math.max(spendingByCat.total, 1)) * 100);
-      return {
-        headline: `${topSpending.category} is your largest spending area.`,
-        detail: `${topSpending.category} accounts for ${share}% of the last 30 days of tracked spending. Reviewing this category can help protect your savings rate without relying on market signals.`,
-        route: "/(tabs)/finance" as const,
-      };
-    }
-    if (priorityGoal) {
-      const remaining = Math.max((priorityGoal.target ?? 0) - (priorityGoal.saved ?? 0), 0);
-      return {
-        headline: `${priorityGoal.name} needs PKR ${fmtNum(remaining)} more.`,
-        detail: `This guidance is based on your saved amount and target amount. Add more transactions and goal contributions to make the insight more precise.`,
-        route: "/(tabs)/finance" as const,
-      };
-    }
-    if (hasNoHoldings) {
-      return {
-        headline: "Portfolio analysis is ready once holdings are added.",
-        detail: "Current portfolio insights use holdings, cost basis, current prices and allocation risk. ML prediction signals are reserved for a future release.",
-        route: "/(tabs)/portfolio" as const,
-      };
-    }
-    return null;
-  }, [hasNoHoldings, priorityGoal, spendingByCat?.total, topSpending]);
+  // Daily AI nudge — verified, cited, over the user's full finance picture.
+  // Auto-loads today's cached row (free); refresh regenerates (costs quota).
+  const dashRec = useDashboardRecommendation(signedIn);
 
   return (
     <GlassScreen>
@@ -291,31 +265,21 @@ export default function Dashboard() {
             )}
           </GlassCard>
 
-          {/* AI Recommendation — below the graph */}
-          {showAI && aiInsight && (
-            <Animated.View exiting={FadeOut}>
-              <GlassCard style={[styles.card, { borderColor: colors.ai + "44" }]}>
-                <View style={styles.aiHead}>
-                  <View style={styles.aiIcon}>
-                    <Sparkles color={colors.ai} size={18} />
-                  </View>
-                  <Text style={{ color: colors.ai, fontWeight: "700", fontSize: 14 }}>AI Recommendation</Text>
-                  <View style={styles.confPill}>
-                    <Text style={{ color: colors.ai, fontSize: 11, fontWeight: "700" }}>Data based</Text>
-                  </View>
-                </View>
-                <Text style={{ fontWeight: "700", fontSize: 15, marginTop: 4 }}>
-                  {aiInsight.headline}
-                </Text>
-                <Text variant="secondary" style={{ marginTop: 4, lineHeight: 20 }}>
-                  {aiInsight.detail}
-                </Text>
-                <View style={{ flexDirection: "row", gap: 10, marginTop: 12 }}>
-                  <GlassPrimaryButton label="View" compact onPress={() => router.push(aiInsight.route)} style={{ paddingHorizontal: 22 }} />
-                  <GlassButton label="Dismiss" compact onPress={() => setShowAI(false)} />
-                </View>
-              </GlassCard>
-            </Animated.View>
+          {/* AI recommendation of the day — verified, cited nudge over full finances */}
+          {signedIn && (
+            <AiReportSheet
+              title={t("AI recommendation for today")}
+              subtitle={dashRec.data?.content?.headline}
+              variant="nudge"
+              report={dashRec.data?.content}
+              isLoading={dashRec.isLoading}
+              error={dashRec.error}
+              loadingLabel={t("Preparing your daily insight…")}
+              emptyLabel={t("Tap for today's AI insight")}
+              onRefresh={() => dashRec.refresh()}
+              isRefreshing={dashRec.isRefreshing}
+              refreshError={dashRec.refreshError}
+            />
           )}
 
           {/* Spending breakdown */}
@@ -537,9 +501,6 @@ const makeStyles = (c: ThemeColors) =>
 
     card: { padding: 16, gap: 4 },
 
-    aiHead: { flexDirection: "row", alignItems: "center", gap: 8 },
-    aiIcon: { width: 34, height: 34, borderRadius: 12, backgroundColor: c.ai + "1f", alignItems: "center", justifyContent: "center" },
-    confPill: { backgroundColor: c.ai + "1a", borderRadius: 999, paddingHorizontal: 8, paddingVertical: 2 },
 
     netWorth: { fontFamily: fonts.mono, fontSize: 32, fontWeight: "700", color: c.textPrimary, marginTop: 4, letterSpacing: -0.5 },
 

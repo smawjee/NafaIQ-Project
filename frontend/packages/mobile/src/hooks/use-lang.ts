@@ -26,6 +26,14 @@ function setStore(lang: Lang) {
   listeners.forEach((l) => l());
 }
 
+/**
+ * Non-hook accessor for the current language — for API clients that thread
+ * `?lang=` into a request outside React (mirrors web `getCurrentLang()`).
+ */
+export function getCurrentLang(): Lang {
+  return current;
+}
+
 function subscribe(cb: () => void) {
   listeners.add(cb);
   return () => {

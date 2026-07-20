@@ -7,6 +7,7 @@ import { ActivityIndicator, Alert, Linking, Pressable, StyleSheet, View, useWind
 
 import { Screen } from "@/components/Screen";
 import { CandlestickChart } from "@/components/charts/CandlestickChart";
+import { AiReportSheet } from "@/components/ai/AiReportSheet";
 import { Button, Card, Change, SignalBadge, Text } from "@/components/ui";
 import {
   usePsxAnnouncements,
@@ -18,6 +19,7 @@ import {
   usePsxSymbols,
 } from "@/hooks/queries/use-market";
 import { useWatchlist } from "@/hooks/queries/use-watchlist";
+import { useStockAnalysisReport } from "@/hooks/ai/use-stock-analysis-report";
 import { useLang } from "@/hooks/use-lang";
 import { useTheme } from "@/hooks/use-theme";
 import { fmtNum } from "@nafaiq/shared";
@@ -68,6 +70,9 @@ export default function StockDetailScreen() {
   const { data: symbolsData } = usePsxSymbols();
   const wl = useWatchlist();
   const [wlBusy, setWlBusy] = useState(false);
+  // Lazy: only generate the LLM deep-dive when the user opens the sheet.
+  const [askedReport, setAskedReport] = useState(false);
+  const stockReport = useStockAnalysisReport(upper, askedReport);
 
   const symbolInfo = symbolsData?.find((x) => x.symbol === upper);
 
@@ -196,6 +201,20 @@ export default function StockDetailScreen() {
           </View>
         )}
       </Card>
+
+      {/* LLM deep-dive report — verified & cited, separate from the ML signal above */}
+      <AiReportSheet
+        title={t("AI Stock Analysis")}
+        subtitle={stockReport.data?.content?.headline}
+        variant="compact"
+        report={stockReport.data?.content}
+        isLoading={askedReport && stockReport.isLoading}
+        error={stockReport.error}
+        loadingLabel={t("Generating stock analysis…")}
+        emptyLabel={t("Tap for an AI deep-dive on this stock")}
+        unavailableLabel={t("This report is being wired to the verified pipeline. The backend is ready.")}
+        onOpen={() => setAskedReport(true)}
+      />
 
       <Card style={{ gap: 10 }}>
         <Text variant="title">{t("Recent Announcements")}</Text>

@@ -20,6 +20,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { CandlestickChart } from "@/components/charts/CandlestickChart";
 import { PriceLineChart } from "@/components/charts/PriceLineChart";
 import { Sparkline } from "@/components/charts/Sparkline";
+import { AiReportSheet } from "@/components/ai/AiReportSheet";
 import { GlassCard } from "@/components/glass/GlassCard";
 import { GlassScreen } from "@/components/glass/GlassScreen";
 import { SignalBadge, Text } from "@/components/ui";
@@ -37,6 +38,7 @@ import {
   usePsxSignal,
   usePsxSymbols,
 } from "@/hooks/queries/use-market";
+import { useMarketBrief } from "@/hooks/ai/use-market-brief";
 import { useTheme } from "@/hooks/use-theme";
 import { Sparkles } from "@/lib/icons";
 import { fmtNum, type Signal } from "@nafaiq/shared";
@@ -80,6 +82,7 @@ export default function PsxScreen() {
     TIMEFRAMES[tf],
   );
   const { data: aiSignal } = usePsxSignal(sym);
+  const brief = useMarketBrief();
   const indexCards = useIndexCards();
 
   const nameMap = useMemo(
@@ -236,6 +239,21 @@ export default function PsxScreen() {
           )}
         </View>
       </GlassCard>
+
+      {/* Whole-market AI brief — verified, cited read on today's PSX tape */}
+      <AiReportSheet
+        title={t("Today's PSX market analysis")}
+        subtitle={brief.data?.content?.headline}
+        variant="narrative"
+        report={brief.data?.content}
+        isLoading={brief.isLoading}
+        error={brief.error}
+        loadingLabel={t("Preparing today's market brief…")}
+        emptyLabel={t("Tap for the AI read on today's market")}
+        onRefresh={() => brief.refresh()}
+        isRefreshing={brief.isRefreshing}
+        refreshError={brief.refreshError}
+      />
 
       <Text variant="title">{t("Screener")}</Text>
       <ChipRow options={SIGNALS} value={signal} onChange={(v) => setSignal(v as Signal | "All")} />
