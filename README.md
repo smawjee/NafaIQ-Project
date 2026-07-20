@@ -96,6 +96,11 @@ dark** themes.
 - **Sector Taxonomy Fix** — TV sectors mapped to DPS taxonomy for consistency
 - **Treemap Heatmap** — Google-Finance-style market heatmap by sector
 - **Realtime Scope** — Supabase channel filtered to watchlist symbols only
+- **Index Freshness** - PSX index cards and charts now reject stale readings and prefer refreshed trading-day data.
+- **PSX Market Layout** - Market chart, screener, index cards, and heatmap containers were tuned for desktop, mobile, light theme, and dark theme.
+- **Heatmap Expand & Zoom** - Sector heatmap now supports an expanded inspection view with zoom, pan, sector focus, keyboard escape, and accessible controls.
+- **Mobile AI Reports** - Mobile app surfaces now consume AI report APIs for dashboard, PSX, finance, portfolio, and stock views, backed by Jest Expo tests.
+
 ---
 
 ## Tech Stack
@@ -383,5 +388,3 @@ is covered by a pytest suite.
 ## License
 
 Â© NafaIQ. All rights reserved. Proprietary â€” built for Pakistani investors.
-
-
