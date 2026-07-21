@@ -179,6 +179,7 @@ const TARGET_PATHS = new Set([
   "/finance",
   "/ai-insights",
   "/learn",
+  "/monetary",
   "/help",
   "/team",
 ]);
@@ -189,6 +190,7 @@ const PUBLIC_APP_ROUTES = new Set([
   "/finance",
   "/ai-insights",
   "/learn",
+  "/monetary",
   "/alerts",
   "/settings",
   "/help",

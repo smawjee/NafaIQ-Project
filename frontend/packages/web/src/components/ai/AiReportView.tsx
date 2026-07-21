@@ -237,11 +237,12 @@ function withTitle(section: ReportSection | null | undefined, fallback: string) 
 }
 
 function DetailedSection({ section }: { section: ReportSection }) {
+  const { t } = useLang();
   return (
     <section className="space-y-2">
       <div>
         <h4 className="text-sm font-semibold text-text-primary">
-          <AiText text={section.title} />
+          <AiText text={t(section.title)} />
         </h4>
         <p className="mt-1 text-sm leading-relaxed text-text-secondary">
           <AiText text={section.summary} />
@@ -271,13 +272,14 @@ function DetailedSection({ section }: { section: ReportSection }) {
 }
 
 function MetricPill({ metric }: { metric: ReportMetric }) {
+  const { t } = useLang();
   return (
     <div className="rounded-[6px] border border-border bg-surface/70 px-3 py-2">
       <p className="text-[11px] uppercase tracking-wide text-text-muted">
-        <AiText text={metric.label} />
+        <AiText text={t(metric.label)} />
       </p>
       <p className="mt-1 font-mono text-sm font-semibold text-text-primary">
-        {formatMetricValue(metric.value)}
+        {formatMetricValue(metric.value, t)}
       </p>
       {metric.interpretation && (
         <p className="mt-1 text-xs leading-relaxed text-text-secondary">
@@ -288,9 +290,9 @@ function MetricPill({ metric }: { metric: ReportMetric }) {
   );
 }
 
-function formatMetricValue(value: unknown): string {
+function formatMetricValue(value: unknown, t: (key: string) => string): string {
   if (typeof value === "number" || typeof value === "string") return String(value);
-  if (Array.isArray(value)) return `${value.length} items`;
-  if (value && typeof value === "object") return "Details available";
+  if (Array.isArray(value)) return `${value.length} ${t("items")}`;
+  if (value && typeof value === "object") return t("Details available");
   return "--";
 }

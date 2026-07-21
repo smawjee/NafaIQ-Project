@@ -7,9 +7,10 @@ from __future__ import annotations
 from datetime import date
 from typing import Optional
 
-from fastapi import APIRouter, Query, Request
+from fastapi import APIRouter, HTTPException, Query, Request
 
 from app.middleware.rate_limit import limiter
+from app.services.macro.monetary import get_monetary_snapshot
 
 router = APIRouter(tags=["macro"])
 
@@ -92,3 +93,16 @@ async def get_policy_rate(request: Request):
     if not rows:
         return {"series": "POLICY_RATE", "date": None, "value": None}
     return rows[0]
+
+
+@router.get("/macro/monetary")
+@limiter.limit("30/minute")
+async def get_monetary(request: Request, refresh: bool = Query(False)):
+    """Live currency conversion plus Pakistan gold/silver reference prices."""
+    try:
+        return await get_monetary_snapshot(force=refresh)
+    except Exception as exc:
+        raise HTTPException(
+            status_code=503,
+            detail="Live monetary data is unavailable right now.",
+        ) from exc

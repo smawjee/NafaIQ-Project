@@ -9,6 +9,7 @@
  */
 import { Link } from "@tanstack/react-router";
 import { Loader2, Sparkles, AlertTriangle, RefreshCw, ArrowUpRight, LogIn } from "lucide-react";
+import { useEffect } from "react";
 import { useLang } from "@/hooks/use-lang";
 import { ReportError, reportErrorKey } from "@/lib/ai/reports-client";
 import { AiReportView } from "@/components/ai/AiReportView";
@@ -40,12 +41,17 @@ export function ReportPanel({
   upgradeLink?: string;
   signInLink?: string;
 }) {
-  const { t } = useLang();
+  const { t, lang } = useLang();
   const data = mutation.data?.content;
+  const staleLanguageData = !!data?.lang && data.lang !== lang;
   const error = mutation.error;
   const isPending = mutation.isPending;
 
-  if (data) {
+  useEffect(() => {
+    if (staleLanguageData) onCloseReport();
+  }, [onCloseReport, staleLanguageData]);
+
+  if (data && !staleLanguageData) {
     return (
       <ReportView
         title={title}

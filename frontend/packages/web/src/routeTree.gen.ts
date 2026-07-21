@@ -17,6 +17,7 @@ import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as PsxRouteImport } from './routes/psx'
 import { Route as PortfolioRouteImport } from './routes/portfolio'
 import { Route as PlansRouteImport } from './routes/plans'
+import { Route as MonetaryRouteImport } from './routes/monetary'
 import { Route as LearnRouteImport } from './routes/learn'
 import { Route as HelpRouteImport } from './routes/help'
 import { Route as FundsRouteImport } from './routes/funds'
@@ -69,6 +70,11 @@ const PortfolioRoute = PortfolioRouteImport.update({
 const PlansRoute = PlansRouteImport.update({
   id: '/plans',
   path: '/plans',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const MonetaryRoute = MonetaryRouteImport.update({
+  id: '/monetary',
+  path: '/monetary',
   getParentRoute: () => rootRouteImport,
 } as any)
 const LearnRoute = LearnRouteImport.update({
@@ -148,6 +154,7 @@ export interface FileRoutesByFullPath {
   '/funds': typeof FundsRoute
   '/help': typeof HelpRoute
   '/learn': typeof LearnRouteWithChildren
+  '/monetary': typeof MonetaryRoute
   '/plans': typeof PlansRoute
   '/portfolio': typeof PortfolioRoute
   '/psx': typeof PsxRoute
@@ -170,6 +177,7 @@ export interface FileRoutesByTo {
   '/finance': typeof FinanceRoute
   '/funds': typeof FundsRoute
   '/help': typeof HelpRoute
+  '/monetary': typeof MonetaryRoute
   '/plans': typeof PlansRoute
   '/portfolio': typeof PortfolioRoute
   '/psx': typeof PsxRoute
@@ -194,6 +202,7 @@ export interface FileRoutesById {
   '/funds': typeof FundsRoute
   '/help': typeof HelpRoute
   '/learn': typeof LearnRouteWithChildren
+  '/monetary': typeof MonetaryRoute
   '/plans': typeof PlansRoute
   '/portfolio': typeof PortfolioRoute
   '/psx': typeof PsxRoute
@@ -219,6 +228,7 @@ export interface FileRouteTypes {
     | '/funds'
     | '/help'
     | '/learn'
+    | '/monetary'
     | '/plans'
     | '/portfolio'
     | '/psx'
@@ -241,6 +251,7 @@ export interface FileRouteTypes {
     | '/finance'
     | '/funds'
     | '/help'
+    | '/monetary'
     | '/plans'
     | '/portfolio'
     | '/psx'
@@ -264,6 +275,7 @@ export interface FileRouteTypes {
     | '/funds'
     | '/help'
     | '/learn'
+    | '/monetary'
     | '/plans'
     | '/portfolio'
     | '/psx'
@@ -288,6 +300,7 @@ export interface RootRouteChildren {
   FundsRoute: typeof FundsRoute
   HelpRoute: typeof HelpRoute
   LearnRoute: typeof LearnRouteWithChildren
+  MonetaryRoute: typeof MonetaryRoute
   PlansRoute: typeof PlansRoute
   PortfolioRoute: typeof PortfolioRoute
   PsxRoute: typeof PsxRoute
@@ -355,6 +368,13 @@ declare module '@tanstack/react-router' {
       path: '/plans'
       fullPath: '/plans'
       preLoaderRoute: typeof PlansRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/monetary': {
+      id: '/monetary'
+      path: '/monetary'
+      fullPath: '/monetary'
+      preLoaderRoute: typeof MonetaryRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/learn': {
@@ -474,6 +494,7 @@ const rootRouteChildren: RootRouteChildren = {
   FundsRoute: FundsRoute,
   HelpRoute: HelpRoute,
   LearnRoute: LearnRouteWithChildren,
+  MonetaryRoute: MonetaryRoute,
   PlansRoute: PlansRoute,
   PortfolioRoute: PortfolioRoute,
   PsxRoute: PsxRoute,

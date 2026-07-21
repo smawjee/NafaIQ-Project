@@ -617,6 +617,21 @@ async def job_refresh_sbp():
         await _record_health("sbp_macro", success=False, error=str(e))
 
 
+async def job_refresh_monetary_rates():
+    """Refresh keyless FX + gold/silver reference data into the local cache."""
+    try:
+        log.info("job:refresh_monetary_rates:start")
+        from app.services.macro.monetary import refresh_monetary_snapshot
+
+        snapshot = await refresh_monetary_snapshot()
+        rows = len(snapshot.get("currencies") or []) + len(snapshot.get("metals") or [])
+        log.info("job:refresh_monetary_rates:done", rows=rows)
+        await _record_health("monetary_rates", success=True, rows_updated=rows)
+    except Exception as e:
+        log.exception("job:refresh_monetary_rates:failed")
+        await _record_health("monetary_rates", success=False, error=str(e))
+
+
 async def job_refresh_mufap():
     """Refresh the MUFAP mutual-fund catalog + per-fund NAV history."""
     try:
@@ -909,6 +924,14 @@ def init_scheduler():
         job_refresh_sbp,
         CronTrigger(hour=9, minute=30, timezone="Asia/Karachi"),
         id="refresh_sbp",
+        replace_existing=True,
+    )
+    # Currency + metals reference data. This is keyless external data, so keep a
+    # short local cache warm without turning page views into provider traffic.
+    scheduler.add_job(
+        job_refresh_monetary_rates,
+        IntervalTrigger(minutes=10),
+        id="refresh_monetary_rates",
         replace_existing=True,
     )
     # MUFAP mutual funds. Weekday evenings 19:00 PKT — the public NAV report

@@ -1,5 +1,6 @@
 import {
   Bell,
+  Banknote,
   Bookmark,
   BriefcaseBusiness,
   ChartCandlestick,
@@ -22,6 +23,7 @@ export const NAV = [
   { to: "/alerts", label: "Alerts", icon: Bell },
   { to: "/funds", label: "Mutual Funds", icon: Landmark, mobile: "Funds" },
   { to: "/dividends", label: "Dividend Calculator", icon: Coins, mobile: "Dividends" },
+  { to: "/monetary", label: "Monetary Desk", icon: Banknote, mobile: "Rates" },
 ] as const;
 
 export const PRIMARY_NAV = NAV;
@@ -59,6 +61,7 @@ export const SIDEBAR_SECTIONS = [
     items: [
       { to: "/dividends", label: "Dividend Calculator", icon: Coins },
       { to: "/funds", label: "Mutual Funds", icon: Landmark },
+      { to: "/monetary", label: "Monetary Desk", icon: Banknote },
     ],
   },
 ] as const;
@@ -74,6 +77,7 @@ export const LABELS: Record<string, string> = {
   portfolio: "Portfolio",
   funds: "Mutual Funds",
   dividends: "Dividend Calculator",
+  monetary: "Monetary Desk",
   finance: "Finance",
   learn: "Learn Hub",
   alerts: "Alerts",

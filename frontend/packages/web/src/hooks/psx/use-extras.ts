@@ -7,6 +7,7 @@ import {
   fetchFundNavHistory,
   fetchLatestNews,
   fetchMacroFx,
+  fetchMonetarySnapshot,
   fetchMacroRates,
   fetchMutualFunds,
   fetchNews,
@@ -20,6 +21,7 @@ import {
   type ApiFundNavHistory,
   type ApiMacroFx,
   type ApiMacroRate,
+  type ApiMonetarySnapshot,
   type ApiMutualFund,
   type ApiNewsItem,
   type ApiUnusualActivity,
@@ -49,6 +51,16 @@ export function usePolicyRate() {
     queryKey: ["macro", "policy-rate"],
     queryFn: () => fetchPolicyRate(),
     staleTime: 60 * 60 * 1000,
+  });
+}
+
+/** Live keyless currency + Pakistan gold/silver reference data. */
+export function useMonetarySnapshot() {
+  return useQuery<ApiMonetarySnapshot>({
+    queryKey: ["macro", "monetary"],
+    queryFn: () => fetchMonetarySnapshot(),
+    staleTime: 5 * 60 * 1000,
+    refetchInterval: 10 * 60 * 1000,
   });
 }
 

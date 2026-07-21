@@ -642,4 +642,137 @@ export const UR: Record<string, string> = {
     "اس سبق سے اے آئی کے ذریعے خلاصہ۔ یہ مالی مشورہ نہیں ہے۔",
   "Daily AI limit reached — try again tomorrow.":
     "آج کی اے آئی حد پوری ہو گئی — کل دوبارہ کوشش کریں۔",
+  // ---- Help & Support ----
+  "Help & Support": "مدد اور سپورٹ",
+  "Find support options and account controls for your NafaIQ workspace.":
+    "اپنے NafaIQ ورک اسپیس کے لیے سپورٹ آپشنز اور اکاؤنٹ کنٹرولز دیکھیں۔",
+  "Account settings": "اکاؤنٹ کی ترتیبات",
+  "Manage profile, notifications, plan, and integrations.":
+    "پروفائل، اطلاعات، پلان اور انٹیگریشنز کا انتظام کریں۔",
+  "Open Settings": "ترتیبات کھولیں",
+  Support: "سپورٹ",
+  "For urgent issues, contact the NafaIQ team from your registered email.":
+    "فوری مسائل کے لیے اپنی رجسٹرڈ ای میل سے NafaIQ ٹیم سے رابطہ کریں۔",
+  "Support email": "سپورٹ ای میل",
+  "Phone support": "فون سپورٹ",
+
+  // ---- AI Insights / report chrome ----
+  "AI Investing Platform": "اے آئی سرمایہ کاری پلیٹ فارم",
+  "AI Insights": "اے آئی انسائٹس",
+  "Generate market, portfolio, finance, and stock analysis from one focused workspace.":
+    "مارکیٹ، پورٹ فولیو، مالیات اور اسٹاک تجزیہ ایک ہی ورک اسپیس سے بنائیں۔",
+  "analysis areas": "تجزیاتی شعبے",
+  "portfolio window": "پورٹ فولیو مدت",
+  "PSX context": "PSX تناظر",
+  "Market brief": "مارکیٹ بریف",
+  "Open the AI read on today's PSX conditions.":
+    "آج کے PSX حالات پر اے آئی تجزیہ کھولیں۔",
+  "Portfolio report": "پورٹ فولیو رپورٹ",
+  "Analyze diversification, risk, and rebalancing opportunities.":
+    "تنوع، خطرے اور ری بیلنسنگ کے مواقع کا تجزیہ کریں۔",
+  "Finance report": "مالیاتی رپورٹ",
+  "Review spending, budgets, savings, and money habits.":
+    "اخراجات، بجٹس، بچت اور مالی عادات کا جائزہ لیں۔",
+  "AI Report Center": "اے آئی رپورٹ سینٹر",
+  "Stock AI Analysis": "اسٹاک اے آئی تجزیہ",
+  "Search any PSX symbol to open its dedicated AI analysis card and signal context.":
+    "کسی بھی PSX علامت کو تلاش کریں تاکہ اس کا مخصوص اے آئی تجزیہ اور سگنل تناظر کھل سکے۔",
+  "Search stocks (e.g. HBL, ENGRO)...": "اسٹاک تلاش کریں (مثلاً HBL، ENGRO)...",
+  "Use the sidebar AI button for conversational investing help and PSX education.":
+    "سرمایہ کاری میں گفتگو کے ذریعے مدد اور PSX تعلیم کے لیے سائیڈ بار کا اے آئی بٹن استعمال کریں۔",
+  "Get a plain-English analysis - diversification score, risk assessment, top opportunities, and suggested rebalancing.":
+    "سادہ زبان میں تجزیہ حاصل کریں - تنوع، خطرے کا جائزہ، اہم مواقع، اور ری بیلنسنگ کے تعلیمی نکات۔",
+  "Get a plain-English analysis - income vs expense trends, budget health, savings rate assessment, and personalized money tips.":
+    "سادہ زبان میں تجزیہ حاصل کریں - آمدنی بمقابلہ اخراجات، بجٹ کی صحت، بچت کی شرح، اور مالی نکات۔",
+  "Executive summary": "خلاصہ",
+  "Financial health": "مالی صحت",
+  "Income analysis": "آمدنی کا تجزیہ",
+  "Expense analysis": "اخراجات کا تجزیہ",
+  "Cash flow analysis": "کیش فلو تجزیہ",
+  "Savings analysis": "بچت کا تجزیہ",
+  "Budget analysis": "بجٹ کا تجزیہ",
+  "Goal progress": "اہداف کی پیش رفت",
+  "Emergency fund review": "ایمرجنسی فنڈ کا جائزہ",
+  "Portfolio health": "پورٹ فولیو صحت",
+  "Profit/loss analysis": "نفع/نقصان کا تجزیہ",
+  "Allocation analysis": "تقسیم کا تجزیہ",
+  "Risk analysis": "خطرے کا تجزیہ",
+  "Holdings review": "ہولڈنگز کا جائزہ",
+  "Action plan": "عملی منصوبہ",
+  "Data quality": "ڈیٹا معیار",
+  "View sources": "ماخذ دیکھیں",
+  low: "کم",
+  medium: "درمیانہ",
+  high: "زیادہ",
+  now: "ابھی",
+  "next 30 days": "اگلے 30 دن",
+  "next 90 days": "اگلے 90 دن",
+  ongoing: "جاری",
+  items: "آئٹمز",
+  "Details available": "تفصیل دستیاب ہے",
+
+  // ---- Monetary Desk ----
+  "Monetary Desk": "مانیٹری ڈیسک",
+  Rates: "ریٹس",
+  "Live monetary desk": "لائیو مالی ڈیسک",
+  "Reference FX, dollar conversion, and Pakistan bullion prices with source checks.":
+    "سورس چیکس کے ساتھ حوالہ FX، ڈالر کنورژن، اور پاکستان بلین قیمتیں۔",
+  Updated: "اپ ڈیٹ",
+  Source: "ماخذ",
+  Cadence: "تازگی",
+  Quality: "معیار",
+  "Cross-checked": "کراس چیکڈ",
+  "Needs review": "جائزہ درکار",
+  "Single source": "واحد ماخذ",
+  "Dollar to PKR": "ڈالر سے روپیہ",
+  "for 1 US Dollar": "1 امریکی ڈالر کے لیے",
+  Cached: "کیشڈ",
+  "Currency converter": "کرنسی کنورٹر",
+  "Convert popular currencies through live USD rates.":
+    "مقبول کرنسیوں کو لائیو امریکی ڈالر ریٹس کے ذریعے تبدیل کریں۔",
+  "Swap currencies": "کرنسیاں تبدیل کریں",
+  "Refresh live rates": "لائیو ریٹس ریفریش کریں",
+  "Popular currencies": "مقبول کرنسیاں",
+  "Indicative value of one unit converted to Pakistani Rupees.":
+    "ایک یونٹ کی پاکستانی روپے میں اندازاً قیمت۔",
+  Base: "بنیاد",
+  "Loading monetary data...": "مالی ڈیٹا لوڈ ہو رہا ہے...",
+  "Unable to load live monetary data.": "لائیو مالی ڈیٹا لوڈ نہیں ہو سکا۔",
+  "The live provider may be temporarily unavailable. Try again in a moment.":
+    "لائیو فراہم کنندہ عارضی طور پر دستیاب نہیں ہو سکتا۔ کچھ دیر بعد دوبارہ کوشش کریں۔",
+  Refresh: "ریفریش",
+  "Gold and silver spot rates are temporarily unavailable.":
+    "سونے اور چاندی کے اسپاٹ ریٹس عارضی طور پر دستیاب نہیں ہیں۔",
+  "Reference interbank/spot data converted to PKR and cross-checked when secondary sources are available. Local premiums, taxes, spreads, and jeweller rates can differ.":
+    "حوالہ انٹربینک/اسپاٹ ڈیٹا روپے میں تبدیل کیا گیا ہے اور ثانوی ذرائع دستیاب ہوں تو کراس چیک کیا جاتا ہے۔ مقامی پریمیم، ٹیکس، اسپریڈز، اور جیولر ریٹس مختلف ہو سکتے ہیں۔",
+  "Gold or silver spot rates were not available from the live provider.":
+    "لائیو فراہم کنندہ سے سونے یا چاندی کے اسپاٹ ریٹس دستیاب نہیں تھے۔",
+  "Live refresh failed; showing the last cached snapshot.":
+    "لائیو ریفریش ناکام ہوا؛ آخری کیشڈ ڈیٹا دکھایا جا رہا ہے۔",
+  "No secondary reference was available for this refresh.":
+    "اس ریفریش کے لیے کوئی ثانوی حوالہ دستیاب نہیں تھا۔",
+  "USD/PKR was cross-checked against independent references.":
+    "USD/PKR کو آزاد حوالہ ذرائع کے ساتھ کراس چیک کیا گیا۔",
+  "USD/PKR differs from one or more reference sources; treat as indicative.":
+    "USD/PKR ایک یا زیادہ حوالہ ذرائع سے مختلف ہے؛ اسے اندازاً سمجھیں۔",
+  "Gold price": "سونے کی قیمت",
+  "Silver price": "چاندی کی قیمت",
+  Gold: "سونا",
+  Silver: "چاندی",
+  "Indicative spot": "اندازاً اسپاٹ",
+  "Per gram": "فی گرام",
+  "Per 10g": "فی 10 گرام",
+  "Per tola": "فی تولہ",
+  "US Dollar": "امریکی ڈالر",
+  Euro: "یورو",
+  "British Pound": "برطانوی پاؤنڈ",
+  "UAE Dirham": "یو اے ای درہم",
+  "Saudi Riyal": "سعودی ریال",
+  "Chinese Yuan": "چینی یوآن",
+  "Japanese Yen": "جاپانی ین",
+  "Canadian Dollar": "کینیڈین ڈالر",
+  "Australian Dollar": "آسٹریلین ڈالر",
+  "Pakistani Rupee": "پاکستانی روپیہ",
+  "Base dollar rate": "بنیادی ڈالر ریٹ",
+  "USD equivalent": "امریکی ڈالر کے برابر",
 };

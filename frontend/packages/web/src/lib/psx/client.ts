@@ -408,6 +408,56 @@ export interface ApiMacroFx {
   sell: number | null;
 }
 
+export interface ApiMonetaryCurrency {
+  code: string;
+  name: string;
+  per_usd: number;
+  one_unit_in_pkr: number;
+  one_pkr_in_unit: number;
+}
+
+export interface ApiMonetaryMetal {
+  code: "XAU" | "XAG";
+  name: string;
+  basis: string;
+  usd_per_troy_oz: number;
+  pkr_per_gram: number;
+  pkr_per_10g: number;
+  pkr_per_tola: number;
+}
+
+export interface ApiMonetarySnapshot {
+  base: "USD";
+  as_of: string | null;
+  refreshed_at: string;
+  expires_at: string;
+  ttl_seconds: number;
+  source: {
+    name: string;
+    url: string;
+    cadence: string;
+  };
+  usd_pkr: number;
+  rates: Record<string, number>;
+  currencies: ApiMonetaryCurrency[];
+  metals: ApiMonetaryMetal[];
+  validation: {
+    status: "cross_checked" | "single_source" | "review";
+    max_deviation_pct: number;
+    message: string;
+    checked_against: Array<{
+      name: string;
+      usd_pkr: number;
+      deviation_pct: number;
+      cadence: string;
+      official: boolean;
+    }>;
+  };
+  warnings: string[];
+  disclaimer: string;
+  stale: boolean;
+}
+
 export function fetchMacroRates(series?: string): Promise<ApiMacroRate[]> {
   const qs = series ? `?series=${encodeURIComponent(series)}` : "";
   return get<ApiMacroRate[]>(`/api/macro/rates${qs}`);
@@ -419,6 +469,10 @@ export function fetchMacroFx(): Promise<ApiMacroFx[]> {
 
 export function fetchPolicyRate(): Promise<ApiMacroRate> {
   return get<ApiMacroRate>("/api/macro/policy-rate");
+}
+
+export function fetchMonetarySnapshot(refresh = false): Promise<ApiMonetarySnapshot> {
+  return get<ApiMonetarySnapshot>(`/api/macro/monetary${refresh ? "?refresh=true" : ""}`);
 }
 
 // === News (Business Recorder) ===
