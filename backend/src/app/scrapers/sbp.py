@@ -19,6 +19,8 @@ import httpx
 import structlog
 from bs4 import BeautifulSoup
 
+from app.scrapers._http import ResilientHTTP
+
 log = structlog.get_logger()
 
 USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) NafaIQ-PSX-API/0.1"
@@ -57,30 +59,19 @@ class SBPScraper:
     """Scrapes sbp.org.pk for KIBOR, PKRV, FX, and policy rate."""
 
     def __init__(self) -> None:
-        self._sem = asyncio.Semaphore(2)
-        self._client: Optional[httpx.AsyncClient] = None
-
-    async def _get_client(self) -> httpx.AsyncClient:
-        if self._client is None:
-            self._client = httpx.AsyncClient(
-                http2=True,
-                headers=GET_HEADERS,
-                timeout=15.0,
-                follow_redirects=True,
-            )
-        return self._client
+        # Shared resilient client — retries the full TransportError family with
+        # backoff. This scraper had no retry at all before (audit §7).
+        self._http = ResilientHTTP(headers=GET_HEADERS, concurrency=2, name="sbp")
 
     async def close(self) -> None:
-        if self._client is not None:
-            await self._client.aclose()
-            self._client = None
+        await self._http.aclose()
+
+    async def aclose(self) -> None:
+        """Alias — callers use both spellings across the codebase."""
+        await self.close()
 
     async def _fetch(self, url: str) -> str:
-        client = await self._get_client()
-        async with self._sem:
-            r = await client.get(url)
-            r.raise_for_status()
-            return r.text
+        return await self._http.get_text(url)
 
     async def _try_fetch(self, urls: list[str]) -> str:
         """Try each URL in order; return the first successful body, else ''."""
@@ -133,14 +124,24 @@ class SBPScraper:
     # ---------- Policy rate ----------
 
     async def fetch_policy_rate(self) -> dict:
-        try:
-            html = await self._try_fetch(POLICY_URLS)
+        """Try each URL until one PARSES, not merely until one fetches.
+
+        `_try_fetch` returns the first page that responds, and the first policy
+        URL now responds with a page that carries no rate — so the parse failed
+        and the fallback URL (which does carry it) was never tried.
+        """
+        for url in POLICY_URLS:
+            try:
+                html = await self._fetch(url)
+            except Exception:
+                continue
             if not html:
-                return {}
-            return _parse_policy_rate_html(html)
-        except Exception:
-            log.warning("sbp_policy_rate_failed", exc_info=True)
-            return {}
+                continue
+            parsed = _parse_policy_rate_html(html)
+            if parsed:
+                return parsed
+        log.warning("sbp_policy_rate_unparsed", urls=POLICY_URLS)
+        return {}
 
 
 # ---------- parsers ----------
@@ -152,6 +153,10 @@ def _f(x) -> Optional[float]:
     s = str(x).strip().replace(",", "")
     if not s or s in {"-", "—", "N/A"}:
         return None
+    # SBP writes yields as "11.3968%" while KIBOR bid/offer are bare numbers.
+    # Without stripping the sign the whole cut-off yield curve parsed as None.
+    if s.endswith("%"):
+        s = s[:-1].strip()
     try:
         return float(s)
     except ValueError:
@@ -159,8 +164,19 @@ def _f(x) -> Optional[float]:
 
 
 def _parse_date_dmy(s: str) -> Optional[date]:
-    raw = str(s).strip()
-    for fmt in ("%d-%b-%Y", "%d/%m/%Y", "%Y-%m-%d", "%d %b %Y", "%b %d, %Y"):
+    """Parse the date spellings SBP uses. All of these appear on one page.
+
+    %b matches an abbreviated month and %B a full one; Python will not accept
+    "July" for %b, so both variants are needed. Two-digit years ("20-Jul-26")
+    are also live, hence %y.
+    """
+    raw = " ".join(str(s).split()).strip().rstrip(",")
+    for fmt in (
+        "%d-%b-%Y", "%d-%B-%Y", "%d-%b-%y", "%d-%B-%y",     # 06-Jul-2026, 15-July-2026, 20-Jul-26
+        "%d %b %Y", "%d %B %Y", "%d %b %y", "%d %B %y",     # 06 Jul 2026
+        "%d/%m/%Y", "%d/%m/%y", "%Y-%m-%d",
+        "%b %d, %Y", "%B %d, %Y", "%b %d %Y", "%B %d %Y",   # July 20, 2026 / July 15 2026
+    ):
         try:
             return datetime.strptime(raw, fmt).date()
         except ValueError:
@@ -169,27 +185,50 @@ def _parse_date_dmy(s: str) -> Optional[date]:
 
 
 def _find_page_date(html: str) -> Optional[str]:
-    """Try to extract a date from the page HTML (e.g. 'As of' or 'Last Updated')."""
-    # Common patterns: "Last Updated : 15-Jul-2026" or "As of 15/07/2026"
-    m = re.search(
-        r"(?:Last\s+[Uu]pdated|Date|[Aa]s\s+[Oo]f)\s*[:\-]?\s*(\d{1,2}[-/]\w{3}[-/]\d{2,4})",
-        html,
+    """Extract the 'as of' date from an SBP page.
+
+    Searches the RENDERED TEXT, not the raw HTML. SBP's current site splits the
+    date across inline tags (e.g. `July&nbsp;20,<span>2026</span>`), so a regex
+    over raw markup never matches even though the date is plainly on the page.
+    Because every parser here bails when this returns None, that one detail took
+    KIBOR, PKRV, FX and the policy rate offline together and left `macro_rates`
+    empty while the job still reported success (audit 2026-07-22 §7).
+
+    Formats accepted, all observed live on 2026-07-22:
+        "July 20, 2026"   "July 20 2026"   "20-Jul-26"   "15-July-2026"
+    """
+    text = BeautifulSoup(html, "lxml").get_text(" ", strip=True) if html else ""
+    if not text:
+        return None
+
+    month = (
+        r"(?:January|February|March|April|May|June|July|August|September|"
+        r"October|November|December|Jan|Feb|Mar|Apr|Jun|Jul|Aug|Sep|Sept|Oct|Nov|Dec)"
     )
-    if m:
-        d = _parse_date_dmy(m.group(1))
-        if d:
-            return d.isoformat()
-    # Look for "Month DD, YYYY"
-    m = re.search(
-        r"(?:January|February|March|April|May|June|"
-        r"July|August|September|October|November|December)\s+\d{1,2},?\s+\d{4}",
-        html,
-    )
-    if m:
-        d = _parse_date_dmy(m.group(0))
-        if d:
-            return d.isoformat()
-    return None
+    candidates: list[str] = []
+
+    # Prefer an explicitly labelled date ("as on July 06, 2026").
+    for pat in (
+        rf"(?:Last\s+Updated|Updated|As\s+on|As\s+of|Dated|Date)\s*[:\-]?\s*"
+        rf"(\d{{1,2}}[-/\s]{month}[-/\s]\d{{2,4}})",
+        rf"(?:Last\s+Updated|Updated|As\s+on|As\s+of|Dated|Date)\s*[:\-]?\s*"
+        rf"({month}\s+\d{{1,2}},?\s+\d{{4}})",
+    ):
+        candidates += re.findall(pat, text, re.I)
+
+    # Otherwise take any date on the page; the newest wins below.
+    candidates += re.findall(rf"\b\d{{1,2}}[-/\s]{month}[-/\s]\d{{2,4}}\b", text, re.I)
+    candidates += re.findall(rf"\b{month}\s+\d{{1,2}},?\s+\d{{4}}\b", text, re.I)
+
+    parsed = [d for d in (_parse_date_dmy(c) for c in candidates) if d]
+    if not parsed:
+        return None
+    # SBP pages carry news/announcement dates too, some of them in the future
+    # (scheduled auctions). Take the newest date that is not in the future — that
+    # is the "as of" for the rates actually shown.
+    today = date.today()
+    past = [d for d in parsed if d <= today]
+    return (max(past) if past else min(parsed)).isoformat()
 
 
 def _match_tenor(tenor: str, label: str) -> bool:
@@ -213,6 +252,65 @@ def _match_tenor(tenor: str, label: str) -> bool:
     return False
 
 
+def _header_index(table) -> dict[str, int]:
+    """Map UPPERCASED header label -> column index for the first row that looks
+    like a header (contains no parseable number)."""
+    for tr in table.find_all("tr"):
+        cells = [c.get_text(" ", strip=True) for c in tr.find_all(["td", "th"])]
+        if len(cells) < 2:
+            continue
+        if any(_f(c) is not None for c in cells):
+            continue  # a data row, not a header
+        return {c.strip().upper(): i for i, c in enumerate(cells) if c.strip()}
+    return {}
+
+
+def _find_table_with_headers(soup, *, required: tuple[str, ...], any_of: tuple[str, ...] = ()):
+    """The specific table whose header row carries these labels.
+
+    SBP's page hosts many tenor-keyed tables side by side — KIBOR, T-bill and PIB
+    cut-off YIELDS, and Sukuk cut-off PRICES. The old parser walked every table
+    and took whatever number sat in the last column of any row whose first cell
+    looked like a tenor, so it happily reported a Sukuk price of 100.2842 as
+    "KIBOR_3Y". Selecting by header makes that impossible.
+    """
+    for table in soup.find_all("table"):
+        headers = _header_index(table)
+        if not headers:
+            continue
+        has_required = all(any(req in h for h in headers) for req in required)
+        has_any = (not any_of) or any(opt in h for opt in any_of for h in headers)
+        if has_required and has_any:
+            return table
+    return None
+
+
+def _canonical_tenor(label: str) -> Optional[str]:
+    """Normalise an SBP tenor cell to our series suffix, or None.
+
+    SBP writes "3-M", "6-M", "12-M", "2-Y". We publish 1Y rather than 12M, so
+    12-M folds into 1Y — otherwise the one-year point silently went missing.
+    """
+    raw = label.strip().upper().replace(" ", "")
+    m = re.fullmatch(r"(\d{1,2})-?(M|Y|MONTH|MONTHS|YEAR|YEARS)", raw)
+    if not m:
+        return None
+    n, unit = int(m.group(1)), m.group(2)[0]
+    if unit == "M" and n == 12:
+        return "1Y"
+    tenor = f"{n}{unit}"
+    return tenor if tenor in KIBOR_TENORS else None
+
+
+def _plausible_rate(value: float) -> bool:
+    """An interest rate, not a price or an index level.
+
+    Guards against the class of bug where a cut-off PRICE (~100) or a bond index
+    is written into macro_rates as a percentage.
+    """
+    return 0.0 < value < 50.0
+
+
 def _parse_kibor_html(html: str) -> list[dict]:
     """Best-effort parse of the SBP KIBOR page. Returns one row per tenor.
 
@@ -228,35 +326,53 @@ def _parse_kibor_html(html: str) -> list[dict]:
         return []
 
     soup = BeautifulSoup(html, "lxml")
+    table = _find_table_with_headers(soup, required=("TENOR", "BID"), any_of=("OFFER", "ASK"))
+    if table is None:
+        log.warning("sbp:kibor_table_not_found")
+        return []
+
+    headers = _header_index(table)
+    i_bid = headers.get("BID")
+    i_offer = next((headers[k] for k in ("OFFER", "ASK") if k in headers), None)
+    if i_bid is None or i_offer is None:
+        log.warning("sbp:kibor_columns_not_found", headers=list(headers))
+        return []
+
     out: list[dict] = []
-    for table in soup.find_all("table"):
-        rows = table.find_all("tr")
-        if len(rows) < 2:
+    seen: set[str] = set()
+    for tr in table.find_all("tr"):
+        cells = [c.get_text(" ", strip=True) for c in tr.find_all(["td", "th"])]
+        if len(cells) <= max(i_bid, i_offer):
             continue
-        for tr in rows:
-            cells = [c.get_text(" ", strip=True) for c in tr.find_all(["td", "th"])]
-            if len(cells) < 2:
-                continue
-            label = cells[0].strip().upper()
-            for tenor in KIBOR_TENORS:
-                if _match_tenor(tenor, label):
-                    nums = [_f(c) for c in cells[1:]]
-                    nums = [n for n in nums if n is not None]
-                    if not nums:
-                        continue
-                    value = nums[-1]
-                    out.append({
-                        "series": f"KIBOR_{tenor}",
-                        "date": page_date,
-                        "value": value,
-                    })
-                    break
+        tenor = _canonical_tenor(cells[0])
+        if tenor is None or tenor in seen:
+            continue
+        bid, offer = _f(cells[i_bid]), _f(cells[i_offer])
+        if bid is None or offer is None:
+            continue
+        # Mid, as the module docstring promises. This used to take nums[-1] —
+        # the Offer — and label it as the rate.
+        value = round((bid + offer) / 2, 4)
+        if not _plausible_rate(value):
+            log.warning("sbp:kibor_implausible", tenor=tenor, value=value)
+            continue
+        seen.add(tenor)
+        out.append({"series": f"KIBOR_{tenor}", "date": page_date, "value": value})
     return out
 
 
 def _parse_pkrv_html(html: str) -> list[dict]:
-    """Parse the Pakistan Sovereign Yield curve. Same table heuristic as KIBOR
-    but with a ``PKRV_{TENOR}`` series prefix."""
+    """Parse government-securities cut-off YIELDS into ``PKRV_{TENOR}``.
+
+    Selected by header ("Cut-off Yield"), not by scanning every table. The old
+    version walked all tables on the same page KIBOR is parsed from and returned
+    values byte-identical to KIBOR — a fake yield curve that would have been
+    indistinguishable from real data downstream. It also swept up the Sukuk
+    "Cut-off Rental Rate/ Price" tables, reporting a price of ~100 as a yield.
+
+    NOTE: these are auction cut-off yields, which approximate but are not the
+    PKRV fixing. Series names are kept for schema stability.
+    """
     page_date = _find_page_date(html)
     if not page_date:
         log.warning("sbp:pkrv_date_not_found")
@@ -264,24 +380,27 @@ def _parse_pkrv_html(html: str) -> list[dict]:
 
     soup = BeautifulSoup(html, "lxml")
     out: list[dict] = []
+    seen: set[str] = set()
     for table in soup.find_all("table"):
+        headers = _header_index(table)
+        # "Cut-off Yield" only — never "Cut-off Rental Rate/ Price".
+        if not any("YIELD" in h for h in headers):
+            continue
+        i_val = next((headers[h] for h in headers if "YIELD" in h), None)
+        if i_val is None:
+            continue
         for tr in table.find_all("tr"):
             cells = [c.get_text(" ", strip=True) for c in tr.find_all(["td", "th"])]
-            if len(cells) < 2:
+            if len(cells) <= i_val:
                 continue
-            label = cells[0].strip().upper()
-            for tenor in KIBOR_TENORS:
-                if _match_tenor(tenor, label):
-                    nums = [_f(c) for c in cells[1:]]
-                    nums = [n for n in nums if n is not None]
-                    if not nums:
-                        continue
-                    out.append({
-                        "series": f"PKRV_{tenor}",
-                        "date": page_date,
-                        "value": nums[-1],
-                    })
-                    break
+            tenor = _canonical_tenor(cells[0])
+            if tenor is None or tenor in seen:
+                continue
+            value = _f(cells[i_val])
+            if value is None or not _plausible_rate(value):
+                continue
+            seen.add(tenor)
+            out.append({"series": f"PKRV_{tenor}", "date": page_date, "value": value})
     return out
 
 
@@ -341,7 +460,10 @@ def _parse_policy_rate_html(html: str) -> dict:
         log.warning("sbp:policy_rate_date_not_found")
         return {}
 
-    text = re.sub(r"\s+", " ", html)
+    # Rendered text, not raw markup: SBP wraps the figure in its own element
+    # ("SBP Policy Rate <span>11.50%</span> p.a."), so a regex over HTML sees
+    # tags between the label and the number and never matches.
+    text = re.sub(r"\s+", " ", BeautifulSoup(html, "lxml").get_text(" ", strip=True))
     m = re.search(
         r"(?:SBP\s+)?[Pp]olicy\s+[Rr]ate[^0-9\-]{0,40}(\d{1,2}(?:\.\d+)?)\s*%",
         text,

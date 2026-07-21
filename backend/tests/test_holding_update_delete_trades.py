@@ -3,9 +3,10 @@
 Semantics under test:
   - PATCH  -> `adjust` lot (absolute snapshot of corrected shares/avg_cost),
               NO finance reflection.
-  - DELETE -> `sell` lot for the full remaining quantity, NO finance reflection.
-The number of finance reflections must stay at 1 (only the opening buy from
-add_holding), proving corrections never book phantom cash.
+  - DELETE -> removes the symbol's lots and their reflections entirely.
+Through the PATCH steps the reflection count must stay at 1 (only the opening buy
+from add_holding), proving corrections never book phantom cash; DELETE then takes
+it to 0. A real sale goes through sell_holding instead — see test_sell_holding.py.
 """
 from __future__ import annotations
 
@@ -107,15 +108,15 @@ async def test_patch_and_delete_record_adjusting_lots_without_reflection() -> No
         # holding still reconstructs cleanly from its lots
         assert await portfolio_service.detect_holding_drift(pid) == []
 
-        # ---- DELETE: closing sell lot for the full quantity, no reflection ----
+        # ---- DELETE: lots and reflection are removed, not appended to ----
         res = await portfolio_service.delete_holding(uid, pid, hid)
-        assert res == {"deleted": hid}
-        lots = await _lots(pid)
-        assert [r["side"] for r in lots] == ["buy", "adjust", "adjust", "sell"]
-        assert int(lots[3]["quantity"]) == 6
-        assert await _reflection_count(uid) == 1
+        assert res["deleted"] == hid
+        assert res["lots_deleted"] == 3          # buy + 2 adjusts
+        assert res["reflections_deleted"] == 1   # the opening buy's reflection
+        assert await _lots(pid) == []
+        assert await _reflection_count(uid) == 0
 
-        # position is flat: no holding row, and the lots fold to zero -> no drift
+        # position is gone entirely: no holding row, no lots -> no drift
         async with connect() as conn:
             remaining = (await conn.execute(
                 text("SELECT COUNT(*) FROM psx_holdings WHERE portfolio_id = :pid"),

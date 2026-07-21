@@ -18,33 +18,54 @@ async def list_budgets(uid: str) -> list[dict[str, Any]]:
 
 
 async def create_budget(uid: str, body: BudgetCreate, user: dict) -> dict[str, Any]:
+    """Create a budget. `spent` is SERVER-OWNED and derived from transactions.
+
+    `BudgetCreate.spent` is still accepted so existing clients keep working, but
+    it is deliberately ignored: it used to be stored verbatim, which let any
+    client post a fictional spend figure that the alert engine then trusted
+    (audit 2026-07-22 §2.2).
+    """
     async with begin() as conn:
         current = await repo.count_budgets(conn, uid)
         check_count_limit(user, feature_key="max_budgets", current=current, label="Budgets")
-        return await repo.insert_budget(
+        row = await repo.insert_budget(
             conn,
             {
                 "user_id": uid,
                 "category": canonical_category(body.category),
-                "spent": body.spent,
+                "spent": 0,  # placeholder; recomputed from transactions below
                 "limit_amount": body.limit_amount,
                 "period": body.period,
                 "tip": body.tip,
             },
         )
+        await repo.recompute_budget_spent(conn, uid)
+        fresh = await repo.get_budget(conn, uid, row["id"])
+    return fresh or row
 
 
 async def update_budget(uid: str, budget_id: int, body: BudgetUpdate) -> dict[str, Any]:
+    """Update a budget. `spent` is server-owned — see create_budget."""
     values = body.model_dump(exclude_unset=True)
     if not values:
         raise HTTPException(400, "No fields to update")
+    # Never let a client write `spent`; it is derived from transactions.
+    values.pop("spent", None)
     if "category" in values:
         values["category"] = canonical_category(values["category"])
     async with begin() as conn:
-        row = await repo.update_budget(conn, uid, budget_id, values)
-    if not row:
-        raise HTTPException(404, "Budget not found")
-    return row
+        if values:
+            row = await repo.update_budget(conn, uid, budget_id, values)
+        else:
+            # A spent-only PATCH is now a no-op edit; still return the budget so
+            # the caller sees the authoritative figure rather than a 400.
+            row = await repo.get_budget(conn, uid, budget_id)
+        if not row:
+            raise HTTPException(404, "Budget not found")
+        # The period or category may have changed, which changes the window.
+        await repo.recompute_budget_spent(conn, uid)
+        fresh = await repo.get_budget(conn, uid, budget_id)
+    return fresh or row
 
 
 async def delete_budget(uid: str, budget_id: int) -> dict[str, int]:

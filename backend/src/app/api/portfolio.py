@@ -8,12 +8,14 @@ from fastapi import APIRouter, Depends
 from app.api.deps import require_user
 from app.schemas.portfolio import (
     HoldingCreate,
+    HoldingSell,
     HoldingUpdate,
     NetworthHolding,
     NetworthResponse,
     PortfolioCreate,
     PortfolioHistoryPoint,
     PortfolioHistoryResponse,
+    WatchlistCreate,
 )
 from app.services import portfolio as portfolio_service
 
@@ -62,12 +64,35 @@ async def update_holding(
     )
 
 
+@router.post("/portfolio/{portfolio_id}/holdings/{holding_id}/sell")
+async def sell_holding(
+    portfolio_id: int,
+    holding_id: int,
+    body: HoldingSell,
+    user: Annotated[dict, Depends(require_user)],
+):
+    """Sell the whole position at the user's stated price.
+
+    The "I sold it" branch of removing a holding: records a `sell` lot, books the
+    proceeds as income in personal finance, and returns realised P&L. Use DELETE
+    instead when the position should never have existed.
+    """
+    return await portfolio_service.sell_holding(
+        user["user_id"], portfolio_id, holding_id, body
+    )
+
+
 @router.delete("/portfolio/{portfolio_id}/holdings/{holding_id}")
 async def delete_holding(
     portfolio_id: int,
     holding_id: int,
     user: Annotated[dict, Depends(require_user)],
 ):
+    """Remove a holding that should never have existed.
+
+    Deletes its transactions and their finance reflections — no cash movement is
+    booked. Use POST .../sell when the user actually sold the position.
+    """
     return await portfolio_service.delete_holding(
         user["user_id"], portfolio_id, holding_id
     )
@@ -120,3 +145,24 @@ async def get_watchlist(
 ):
     """Return user's watchlist with real-time price and company name enrichment."""
     return await portfolio_service.enriched_watchlist(user["user_id"])
+
+
+@router.post("/watchlist")
+async def add_watchlist_symbol(
+    body: WatchlistCreate,
+    user: Annotated[dict, Depends(require_user)],
+):
+    """Add a PSX symbol to the watchlist (idempotent).
+
+    The web client still writes via Supabase JS; this endpoint is the validated
+    server-side path used by the assistant and by mobile.
+    """
+    return await portfolio_service.add_to_watchlist(user, body.symbol, body.notes)
+
+
+@router.delete("/watchlist/{symbol}")
+async def remove_watchlist_symbol(
+    symbol: str,
+    user: Annotated[dict, Depends(require_user)],
+):
+    return await portfolio_service.remove_from_watchlist(user["user_id"], symbol)

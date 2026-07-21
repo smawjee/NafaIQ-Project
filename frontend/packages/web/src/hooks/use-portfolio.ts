@@ -103,15 +103,66 @@ export function useUpdateHolding(portfolioId: number | null) {
   });
 }
 
+/**
+ * Remove a holding that should never have existed — deletes its stock
+ * transactions and their finance reflections. No cash movement is booked.
+ * Use `useSellHolding` when the user actually sold the position.
+ */
 export function useRemoveHolding(portfolioId: number | null) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (holdingId: number) => {
       if (!portfolioId) throw new Error("No portfolio selected");
-      return userDelete<{ deleted: number }>(`/api/portfolio/${portfolioId}/holdings/${holdingId}`);
+      return userDelete<{ deleted: number; lots_deleted: number; reflections_deleted: number }>(
+        `/api/portfolio/${portfolioId}/holdings/${holdingId}`,
+      );
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["portfolio"] });
+      qc.invalidateQueries({ queryKey: ["finance"] });
+    },
+  });
+}
+
+export interface SellHoldingResult {
+  sold: number;
+  symbol: string;
+  shares: number;
+  price: number;
+  fees: number;
+  proceeds: number;
+  cost_basis: number;
+  realized_pnl: number;
+  realized_pnl_pct: number;
+}
+
+/**
+ * Sell the whole position at the price the user actually got. Records a `sell`
+ * lot, books the proceeds as income in personal finance, and returns realised
+ * P&L. The buy history is preserved.
+ */
+export function useSellHolding(portfolioId: number | null) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      holdingId,
+      price,
+      fees,
+    }: {
+      holdingId: number;
+      price: number;
+      fees?: number;
+    }) => {
+      if (!portfolioId) throw new Error("No portfolio selected");
+      return userPost<SellHoldingResult>(
+        `/api/portfolio/${portfolioId}/holdings/${holdingId}/sell`,
+        { price, fees: fees ?? 0 },
+      );
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["portfolio"] });
+      // A sale books income, so the finance feed and summaries change too.
+      qc.invalidateQueries({ queryKey: ["finance"] });
     },
   });
 }

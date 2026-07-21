@@ -8,6 +8,7 @@ from typing import Any, Optional
 from sqlalchemy import text
 
 from app.repositories.alerts._common import jsonb
+from app.repositories.finance.budgets import BUDGET_SPENT_SQL
 
 Executor = Any
 
@@ -32,22 +33,21 @@ async def fetch_enabled_user_alerts(conn: Executor) -> list[dict[str, Any]]:
 async def get_budget_by_category(
     conn: Executor, user_id: str, category: str
 ) -> Optional[dict[str, Any]]:
-    """One budget with live-computed current-month spent (excluding stock trades)."""
+    """One budget with live-computed spent, using the shared BUDGET_SPENT_SQL.
+
+    Both the category lookup and the spend match are case-insensitive. They used
+    to be case-SENSITIVE here while the budgets screen was not, so a budget named
+    "bills" against transactions filed as "Bills" reported 5,622.96 on screen and
+    0 to the alert engine (audit 2026-07-22 §2.2).
+    """
     rows = await conn.execute(
         text(
-            """
+            f"""
             SELECT b.category, b.limit_amount,
-                COALESCE((
-                    SELECT SUM(t.amount) FROM user_transactions t
-                    WHERE t.user_id = b.user_id
-                      AND t.transaction_type = 'expense'
-                      AND (t.source IS DISTINCT FROM 'stock_trade')
-                      AND t.category = b.category
-                      AND DATE_TRUNC('month', t.transaction_date)
-                          = DATE_TRUNC('month', CURRENT_DATE)
-                ), 0)::numeric AS spent
+                   {BUDGET_SPENT_SQL} AS spent
             FROM user_budgets b
-            WHERE b.user_id = :uid AND b.category = :cat
+            WHERE b.user_id = :uid
+              AND lower(btrim(b.category)) = lower(btrim(:cat))
             LIMIT 1
             """
         ),
@@ -155,10 +155,17 @@ async def fetch_due_bills(conn: Executor, days_ahead: int) -> list[dict[str, Any
 
 
 async def fetch_all_budgets(conn: Executor) -> list[dict[str, Any]]:
+    """Every budget with live-computed spent.
+
+    This feeds the budget alert evaluator. It used to SELECT the stored
+    `b.spent` column, which nothing kept up to date — so the engine judged
+    budgets on numbers that could be months old. Two users sat ~50k over budget
+    with no alert firing (audit 2026-07-22 §2.2).
+    """
     rows = await conn.execute(
         text(
-            "SELECT b.id, b.user_id, b.category, b.spent, b.limit_amount, "
-            "b.period, b.tip FROM user_budgets b"
+            f"SELECT b.id, b.user_id, b.category, {BUDGET_SPENT_SQL} AS spent, "
+            f"b.limit_amount, b.period, b.tip FROM user_budgets b"
         )
     )
     return [dict(r) for r in rows.mappings().all()]

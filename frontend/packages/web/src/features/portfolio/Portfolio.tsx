@@ -14,12 +14,12 @@ import {
   useAddHolding,
   useUpdateHolding,
   useRemoveHolding,
+  useSellHolding,
   useCreatePortfolio,
   usePortfolioNetworth,
   usePortfolioHistory,
 } from "@/hooks/use-portfolio";
 import { usePsxSymbols } from "@/hooks/psx/use-psx";
-import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
 import type { StockSearchResult } from "@/lib/psx/stock-search";
 import { RANGES, ALLOCATION_PALETTE } from "@/features/portfolio/portfolio.data";
 import {
@@ -34,6 +34,10 @@ import { PortfolioPerformanceCard } from "@/features/portfolio/components/Portfo
 import { PortfolioAllocationCards } from "@/features/portfolio/components/PortfolioAllocationCards";
 import { PortfolioHoldingsTable } from "@/features/portfolio/components/PortfolioHoldingsTable";
 import { PortfolioHoldingFormModal } from "@/features/portfolio/components/PortfolioHoldingFormModal";
+import {
+  PortfolioRemoveHoldingModal,
+  type RemoveHoldingTarget,
+} from "@/features/portfolio/components/PortfolioRemoveHoldingModal";
 import { ReportPanel } from "@/components/ai/ReportPanel";
 import { usePortfolioReport } from "@/hooks/ai/use-ai-report";
 
@@ -58,6 +62,7 @@ export function Portfolio() {
   const addHoldingApi = useAddHolding(portfolioId);
   const updateHoldingApi = useUpdateHolding(portfolioId);
   const removeHoldingApi = useRemoveHolding(portfolioId);
+  const sellHoldingApi = useSellHolding(portfolioId);
   const createPortfolio = useCreatePortfolio();
 
   const apiPortfolioHoldings: Holding[] = (apiHoldings ?? []).map((h) => ({
@@ -128,7 +133,9 @@ export function Portfolio() {
   // When the entered buy price looks wildly off the live price we require a
   // second "Add anyway" click instead of silently storing a bad cost basis.
   const [confirmWarn, setConfirmWarn] = useState(false);
-  const [deleteIdx, setDeleteIdx] = useState<number | null>(null);
+  // Removing a holding asks whether it was sold or added by mistake — the two
+  // book completely different things, so the user picks explicitly.
+  const [removeTarget, setRemoveTarget] = useState<RemoveHoldingTarget | null>(null);
 
   // Patch form fields and clear any pending error / warning so the sanity
   // check re-runs against the new values.
@@ -175,12 +182,46 @@ export function Portfolio() {
     }));
   }
 
-  function remove(idx: number) {
-    if (!useDemoPortfolio && apiHoldings?.[idx]) {
-      removeHoldingApi.mutate(apiHoldings[idx].id);
+  // Open the sold-or-mistake chooser for a row in the holdings table.
+  function openRemove(idx: number) {
+    const h = holdings[idx];
+    if (!h) return;
+    setRemoveTarget({
+      holdingId: useDemoPortfolio ? null : (apiHoldings?.[idx]?.id ?? null),
+      index: idx,
+      symbol: h.ticker,
+      shares: h.shares,
+      avgCost: h.avgCost,
+      currentPrice: h.current,
+    });
+  }
+
+  // "Just remove it" — added by mistake, so no cash movement is booked. The API
+  // also deletes the backing stock transactions and their finance reflections.
+  function confirmRemove() {
+    if (!removeTarget) return;
+    if (removeTarget.holdingId != null) {
+      removeHoldingApi.mutate(removeTarget.holdingId);
     } else {
-      dispatch(removeHolding(idx));
+      dispatch(removeHolding(removeTarget.index));
     }
+    setRemoveTarget(null);
+  }
+
+  // "I sold it" — a real exit. The API records a sell lot at this price and
+  // books the proceeds as income. The demo portfolio has no server state, so it
+  // just drops the row locally.
+  function confirmSell(price: number, fees: number) {
+    if (!removeTarget) return;
+    if (removeTarget.holdingId != null) {
+      sellHoldingApi.mutate(
+        { holdingId: removeTarget.holdingId, price, fees },
+        { onSuccess: () => setRemoveTarget(null) },
+      );
+      return;
+    }
+    dispatch(removeHolding(removeTarget.index));
+    setRemoveTarget(null);
   }
 
   function saveHolding() {
@@ -309,7 +350,7 @@ export function Portfolio() {
         useDemoPortfolio={useDemoPortfolio}
         apiHoldings={apiHoldings}
         onEdit={openEdit}
-        onDelete={setDeleteIdx}
+        onDelete={openRemove}
         onAdd={openAdd}
       />
 
@@ -337,16 +378,12 @@ export function Portfolio() {
         onCloseReport={() => reportMutation.reset()}
       />
 
-      <ConfirmDialog
-        open={deleteIdx !== null}
-        onOpenChange={(o) => !o && setDeleteIdx(null)}
-        onConfirm={() => {
-          if (deleteIdx != null) remove(deleteIdx);
-          setDeleteIdx(null);
-        }}
-        title="Delete Holding"
-        description="Are you sure you want to delete this holding? This action cannot be undone."
-        confirmText="Delete"
+      <PortfolioRemoveHoldingModal
+        target={removeTarget}
+        pending={sellHoldingApi.isPending || removeHoldingApi.isPending}
+        onClose={() => setRemoveTarget(null)}
+        onSell={confirmSell}
+        onRemove={confirmRemove}
       />
     </div>
   );

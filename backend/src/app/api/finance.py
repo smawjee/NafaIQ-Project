@@ -16,8 +16,27 @@ from app.schemas.finance import (
     TransactionUpdate,
 )
 from app.services import finance as finance_service
+from app.services.finance.categories import CANONICAL_CATEGORIES
+from app.services.finance.payment_methods import PAYMENT_METHODS
 
 router = APIRouter(tags=["finance"])
+
+
+@router.get("/finance/vocabulary")
+async def finance_vocabulary(user: Annotated[dict, Depends(require_user)]):
+    """The controlled vocabularies a transaction write must use.
+
+    Serves the lists the frontend pickers previously hardcoded (CATEGORIES /
+    ACCOUNTS in finance.data.ts, duplicated in dashboard.data.ts) so the
+    frontend, the email importer and the assistant all read one source. The
+    category list matters most: budgets join transactions on the exact category
+    string, so a non-canonical spelling silently never moves a budget.
+    """
+    return {
+        "categories": list(CANONICAL_CATEGORIES),
+        "payment_methods": list(PAYMENT_METHODS),
+        "transaction_types": ["expense", "income"],
+    }
 
 
 @router.get("/finance/transactions")

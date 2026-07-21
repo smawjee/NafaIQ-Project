@@ -26,6 +26,30 @@ class HoldingUpdate(BaseModel):
     purchased_at: str | None = None
 
 
+class HoldingSell(BaseModel):
+    """Full exit of a holding at a user-supplied sale price.
+
+    Distinct from DELETE: a sale is a real cash movement, so it records a `sell`
+    lot and books income into personal finance. DELETE means the position should
+    never have existed and removes its transactions instead.
+
+    `price` is per-share and allows 0 to cover a worthless/delisted exit, matching
+    StockTransactionCreate.price.
+    """
+
+    price: float = Field(..., ge=0)
+    fees: float = Field(0, ge=0)
+    executed_at: Optional[datetime] = None
+    notes: Optional[str] = Field(None, max_length=500)
+
+
+class WatchlistCreate(BaseModel):
+    # 20 (not HoldingCreate's 10) to match StockTransactionCreate.symbol; the
+    # real gate is require_known_symbol against the PSX universe, not length.
+    symbol: str = Field(..., min_length=1, max_length=20)
+    notes: str | None = Field(None, max_length=500)
+
+
 class NetworthHolding(BaseModel):
     symbol: str
     shares: int

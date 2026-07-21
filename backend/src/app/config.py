@@ -110,6 +110,32 @@ class Settings(BaseSettings):
     # ReportUnavailable at this deadline instead of holding a request open.
     ai_report_deadline_s: float = 90.0
 
+    # NafaIQ Assistant (the agent behind "Ask NafaIQ AI"). Distinct from the AI
+    # tutor: it calls tools that read and write the user's own finance data, so
+    # every request carries confidential per-user context. That is why the
+    # provider defaults to Groq and why providers._assistant_provider reuses the
+    # same free-Gemini refusal as the confidential report path — routing this
+    # traffic to a tier that trains on prompts would leak a user's ledger.
+    ai_assistant_provider: str = "groq"
+    ai_assistant_model: str = "llama-3.3-70b-versatile"
+    # Bounded tool loop. 4 rounds covers resolve-then-act chains (e.g. resolve a
+    # symbol, then read its price) without letting a confused model burn a key
+    # pool on an unbounded cycle.
+    ai_assistant_max_tool_rounds: int = 4
+    ai_assistant_daily_limit: int = 40
+
+    # Speech-to-text for the assistant's voice input. Groq hosts Whisper on the
+    # same OpenAI-compatible base URL as its chat models, so the existing key
+    # pool, rotation and pooled clients all apply unchanged.
+    ai_stt_provider: str = "groq"
+    ai_stt_model: str = "whisper-large-v3-turbo"
+    # Caps on one upload. 30s is well past a spoken command ("add transaction of
+    # food via Meezan card" is ~3s) and bounds both cost and the request held
+    # open; the byte cap is the real guard since duration is only known after
+    # decoding, which we deliberately do not do.
+    ai_stt_max_seconds: int = 30
+    ai_stt_max_bytes: int = 5 * 1024 * 1024
+
     # LearnHub RAG (retrieval over the LearnHub corpus).
     # Kill switch: off => search/related return empty results and /api/learn/ai/*
     # returns 503; the UI hides all RAG affordances either way. Retrieval reads

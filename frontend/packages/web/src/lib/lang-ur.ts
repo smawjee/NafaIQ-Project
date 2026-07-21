@@ -353,6 +353,68 @@ export const UR: Record<string, string> = {
   "Ask AI Tutor": "اے آئی ٹیوٹر سے پوچھیں",
   "Ask AI": "اے آئی سے پوچھیں",
   "Thinking…": "سوچ رہا ہے…",
+  // NafaIQ Assistant (the "Ask NafaIQ AI" panel)
+  "Hi! I can add transactions, track bills and goals, manage your portfolio and watchlist, and answer questions about your money. Type or tap the mic.":
+    "سلام! میں ٹرانزیکشنز شامل کر سکتا ہوں، بلز اور اہداف پر نظر رکھ سکتا ہوں، آپ کا پورٹ فولیو اور واچ لسٹ سنبھال سکتا ہوں، اور آپ کے پیسوں سے متعلق سوالات کے جواب دے سکتا ہوں۔ لکھیں یا مائیک دبائیں۔",
+  "Ask or tell me what to do…": "پوچھیں یا بتائیں کیا کرنا ہے…",
+  "Sign in to use NafaIQ Assistant": "نفع آئی کیو اسسٹنٹ استعمال کرنے کے لیے سائن ان کریں",
+  "Daily assistant limit reached — it resets tomorrow.":
+    "آج کی اسسٹنٹ حد مکمل ہو گئی — یہ کل دوبارہ سیٹ ہو جائے گی۔",
+  "Add transaction of 1200 for food via Meezan card":
+    "میزان کارڈ سے کھانے کی 1200 کی ٹرانزیکشن شامل کریں",
+  "How much did I spend this month?": "میں نے اس مہینے کتنا خرچ کیا؟",
+  "Alert me when any goal reaches 50%": "کسی بھی ہدف کے 50% پہنچنے پر مجھے اطلاع دیں",
+  "Add MEBL to my watchlist": "MEBL کو میری واچ لسٹ میں شامل کریں",
+  // Voice input
+  "Speak your command": "اپنا حکم بولیں",
+  "Stop recording": "ریکارڈنگ روکیں",
+  "Voice input isn't supported in this browser.":
+    "اس براؤزر میں صوتی ان پٹ کی سہولت دستیاب نہیں ہے۔",
+  "Microphone access was blocked. Enable it in your browser settings.":
+    "مائیکروفون تک رسائی بلاک ہے۔ اسے اپنے براؤزر کی ترتیبات میں فعال کریں۔",
+  "I couldn't hear anything. Try again.": "مجھے کچھ سنائی نہیں دیا۔ دوبارہ کوشش کریں۔",
+  "Transcription failed": "تحریر میں تبدیلی ناکام",
+  // Action confirmation card
+  "Add transaction": "ٹرانزیکشن شامل کریں",
+  "Add bill": "بل شامل کریں",
+  "Create savings goal": "بچت کا ہدف بنائیں",
+  "Add to goal": "ہدف میں شامل کریں",
+  "Add holding": "ہولڈنگ شامل کریں",
+  "Record trade": "ٹریڈ ریکارڈ کریں",
+  "Add goal alert": "ہدف کا الرٹ شامل کریں",
+  "Add price alert": "قیمت کا الرٹ شامل کریں",
+  "Add to watchlist": "واچ لسٹ میں شامل کریں",
+  "Remove from watchlist": "واچ لسٹ سے ہٹائیں",
+  Merchant: "دکاندار",
+  // "Amount (PKR)", "Shares" and "Symbol" are already defined earlier in this
+  // dictionary with the same translations — re-adding them here is a duplicate
+  // key, which TypeScript rejects.
+  "Target (PKR)": "ہدف (روپے)",
+  "Already saved (PKR)": "پہلے سے جمع شدہ (روپے)",
+  "Average cost (PKR)": "اوسط لاگت (روپے)",
+  "Price (PKR)": "قیمت (روپے)",
+  "Fees (PKR)": "فیس (روپے)",
+  "Paid via": "ادائیگی بذریعہ",
+  "Due date": "آخری تاریخ",
+  "Target date": "ہدف کی تاریخ",
+  "Alert at (%)": "الرٹ اس فیصد پر (%)",
+  "When price is": "جب قیمت ہو",
+  Quantity: "مقدار",
+  Side: "قسم",
+  Bill: "بل",
+  Goal: "ہدف",
+  Note: "نوٹ",
+  expense: "خرچ",
+  income: "آمدنی",
+  buy: "خریداری",
+  sell: "فروخت",
+  above: "سے اوپر",
+  below: "سے نیچے",
+  "Choose…": "منتخب کریں…",
+  "Still needed": "ابھی درکار ہے",
+  Confirm: "تصدیق کریں",
+  Done: "مکمل",
+  "Something went wrong": "کچھ غلط ہو گیا",
   "Lesson not found": "سبق نہیں ملا",
   "Back to Learn Hub": "لرن ہب پر واپس",
   "In This Lesson": "اس سبق میں",
@@ -775,4 +837,29 @@ export const UR: Record<string, string> = {
   "Pakistani Rupee": "پاکستانی روپیہ",
   "Base dollar rate": "بنیادی ڈالر ریٹ",
   "USD equivalent": "امریکی ڈالر کے برابر",
+
+  // Remove-holding chooser (sold vs added by mistake).
+  // NOTE: lowercase "shares" is a distinct key from "Shares" above — it is used
+  // mid-phrase ("150 shares @ 320"), so both spellings are needed.
+  "Remove Holding": "ہولڈنگ ہٹائیں",
+  "Record Sale": "فروخت درج کریں",
+  shares: "حصص",
+  "What happened to this position?": "اس پوزیشن کے ساتھ کیا ہوا؟",
+  "I sold it": "میں نے یہ بیچ دیا",
+  "Records the sale at your price and adds the proceeds to your income.":
+    "آپ کی قیمت پر فروخت درج کرتا ہے اور حاصل شدہ رقم آپ کی آمدنی میں شامل کرتا ہے۔",
+  "Just remove it": "صرف ہٹا دیں",
+  "Added by mistake. Undoes the purchase; no new income is recorded. Income from any real past sales is kept.":
+    "غلطی سے شامل کیا گیا۔ خریداری واپس لے لیتا ہے؛ کوئی نئی آمدنی درج نہیں ہوتی۔ ماضی کی حقیقی فروخت سے آمدنی محفوظ رہتی ہے۔",
+  "Sale price per share (PKR)": "فی حصص فروخت کی قیمت (روپے)",
+  "Brokerage fees (PKR, optional)": "بروکریج فیس (روپے، اختیاری)",
+  Proceeds: "حاصل شدہ رقم",
+  "Cost basis": "لاگت کی بنیاد",
+  "Realised P&L": "حقیقی نفع/نقصان",
+  "Enter the price per share you sold at.": "وہ فی حصص قیمت درج کریں جس پر آپ نے بیچا۔",
+  "Fees must be a positive number.": "فیس ایک مثبت عدد ہونی چاہیے۔",
+  "Recording…": "درج ہو رہا ہے…",
+  "Confirm Sale": "فروخت کی تصدیق کریں",
+  Back: "واپس",
+  Cancel: "منسوخ کریں",
 };

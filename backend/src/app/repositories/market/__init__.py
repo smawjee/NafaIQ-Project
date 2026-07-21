@@ -11,4 +11,7 @@ from app.repositories.market.metrics import (  # noqa: F401
     recent_closes,
     sector_averages,
 )
-from app.repositories.market.reference import symbol_is_known  # noqa: F401
+from app.repositories.market.reference import (  # noqa: F401
+    search_symbols,
+    symbol_is_known,
+)

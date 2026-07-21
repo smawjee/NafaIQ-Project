@@ -9,8 +9,22 @@ Executor = Any
 
 
 async def get_settings_row(conn: Executor, uid: str) -> Optional[dict[str, Any]]:
+    # `plan` comes from profiles, the single authoritative source the permission
+    # layer gates on — NOT the local user_settings.plan copy. That copy is set to
+    # 'Free' once at insert and never updated, so it drifted: two users showed
+    # Premium in profiles but Free here (audit 2026-07-22 §3.3). Sourcing it from
+    # profiles makes the finance-settings display incapable of disagreeing with
+    # the user's actual plan.
     result = await conn.execute(
-        text("SELECT monthly_income, currency, language, plan FROM user_settings WHERE user_id = :uid"),
+        text(
+            """
+            SELECT s.monthly_income, s.currency, s.language,
+                   COALESCE(p.plan, 'Free') AS plan
+            FROM user_settings s
+            LEFT JOIN profiles p ON p.id = s.user_id
+            WHERE s.user_id = :uid
+            """
+        ),
         {"uid": uid},
     )
     row = result.mappings().first()

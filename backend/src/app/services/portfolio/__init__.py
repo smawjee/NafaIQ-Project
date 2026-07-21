@@ -14,6 +14,7 @@ from app.services.portfolio.holdings import (  # noqa: F401
     list_holdings_owned,
     list_portfolios,
     resolve_owned_portfolio,
+    sell_holding,
     update_holding,
 )
 from app.services.portfolio.networth import (  # noqa: F401
@@ -32,4 +33,8 @@ from app.services.portfolio.trades import (  # noqa: F401
     rebuild_holdings_from_transactions,
     record_trade_atomic,
 )
-from app.services.portfolio.watchlist import enriched_watchlist  # noqa: F401
+from app.services.portfolio.watchlist import (  # noqa: F401
+    add_to_watchlist,
+    enriched_watchlist,
+    remove_from_watchlist,
+)

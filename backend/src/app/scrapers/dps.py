@@ -9,6 +9,7 @@ import httpx
 from bs4 import BeautifulSoup
 
 from app.config import settings
+from app.scrapers._http import ResilientHTTP
 from app.models import (
     MarketSnapshotItem,
     OHLCVBar,
@@ -36,58 +37,45 @@ POST_HEADERS = {
 
 
 class DPSScraper:
-    """Scrapes dps.psx.com.pk for market data. Polite: max 2 concurrent requests."""
+    """Scrapes dps.psx.com.pk for market data. Polite: max 2 concurrent requests.
+
+    Transport reliability
+    ---------------------
+    Requests retry on the FULL family of transport failures via
+    ``httpx.TransportError``. The previous code caught only
+    ``(HTTPStatusError, ConnectError, ReadTimeout)``, which silently excluded
+    ``RemoteProtocolError`` — httpx's "Server disconnected without sending a
+    response". That one gap took down three jobs at once (audit 2026-07-22 §7):
+    refresh_dividends reported 1077/1077 symbols failed, and psx_announcements
+    and shariah_universe both recorded that exact message, while the same code
+    worked fine from a developer laptop.
+
+    The reason it only bit in production: a long-lived process reuses pooled
+    keepalive connections. DPS closes an idle one, and the next request on that
+    dead connection raises RemoteProtocolError. A laptop making a handful of
+    requests on a fresh client never sees it; a Railway worker crawling ~1,000
+    symbols hits it constantly.
+
+    So a protocol error also RECYCLES the client — the pooled connection is
+    poisoned and every subsequent request on it would fail the same way.
+    ``keepalive_expiry`` is short for the same reason.
+    """
 
     def __init__(self):
-        self._sem = asyncio.Semaphore(2)
-        self._client: Optional[httpx.AsyncClient] = None
-
-    async def _get_client(self) -> httpx.AsyncClient:
-        if self._client is None:
-            self._client = httpx.AsyncClient(
-                http2=True,
-                headers=GET_HEADERS,
-                timeout=15.0,
-                follow_redirects=True,
-            )
-        return self._client
+        self._http = ResilientHTTP(
+            headers=GET_HEADERS, concurrency=2, name="dps",
+        )
 
     async def close(self):
-        if self._client:
-            await self._client.aclose()
-            self._client = None
+        await self._http.aclose()
 
     async def _get(self, path: str) -> str:
-        client = await self._get_client()
-        url = f"{settings.dps_base_url}{path}"
-        async with self._sem:
-            for attempt in (1, 2):
-                try:
-                    r = await client.get(url)
-                    r.raise_for_status()
-                    return r.text
-                except (httpx.HTTPStatusError, httpx.ConnectError, httpx.ReadTimeout):
-                    if attempt == 1:
-                        await asyncio.sleep(2.0)
-                        continue
-                    raise
-            raise httpx.HTTPError(f"Unreachable after retries: {url}")
+        return await self._http.get_text(f"{settings.dps_base_url}{path}")
 
     async def _post(self, path: str, data: dict) -> str:
-        client = await self._get_client()
-        url = f"{settings.dps_base_url}{path}"
-        async with self._sem:
-            for attempt in (1, 2):
-                try:
-                    r = await client.post(url, data=data, headers=POST_HEADERS)
-                    r.raise_for_status()
-                    return r.text
-                except (httpx.HTTPStatusError, httpx.ConnectError, httpx.ReadTimeout):
-                    if attempt == 1:
-                        await asyncio.sleep(2.0)
-                        continue
-                    raise
-            raise httpx.HTTPError(f"Unreachable after retries: {url}")
+        return await self._http.post_text(
+            f"{settings.dps_base_url}{path}", data=data, headers=POST_HEADERS
+        )
 
     # ---------- market-watch ----------
 

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { userGet } from "@/lib/psx/client";
+import { userGet, userPost, userDelete } from "@/lib/psx/client";
 import { useAuth } from "@/hooks/use-auth";
 import { isDemoUser } from "@/lib/demo";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
@@ -57,9 +57,12 @@ export function useWatchlist() {
         return [...prev, sym];
       });
       try {
-        await supabase
-          .from("user_watchlist")
-          .upsert({ symbol: sym, user_id: user!.id }, { onConflict: "user_id,symbol" });
+        // Via the backend, not Supabase-direct: tighten_grants
+        // (20260722140000) revoked authenticated INSERT/UPDATE on
+        // user_watchlist, so a direct upsert now fails permission-denied. The
+        // backend endpoint runs as service_role and applies require_known_symbol
+        // + the max_watchlist quota.
+        await userPost("/api/watchlist", { symbol: sym });
       } catch {
         // Best-effort: the optimistic local update above already applied.
       }
@@ -78,7 +81,7 @@ export function useWatchlist() {
       }
       setSymbols((prev) => prev.filter((s) => s !== sym));
       try {
-        await supabase.from("user_watchlist").delete().eq("user_id", user!.id).eq("symbol", sym);
+        await userDelete(`/api/watchlist/${encodeURIComponent(sym)}`);
       } catch {
         // Best-effort: the optimistic local update above already applied.
       }
@@ -128,9 +131,7 @@ export function useAddToWatchlist() {
     mutationFn: async (symbol: string) => {
       const sym = symbol.toUpperCase().trim();
       if (!user) throw new Error("Not authenticated");
-      await supabase
-        .from("user_watchlist")
-        .upsert({ symbol: sym, user_id: user.id }, { onConflict: "user_id,symbol" });
+      await userPost("/api/watchlist", { symbol: sym });
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["watchlist"] });
@@ -146,7 +147,7 @@ export function useRemoveFromWatchlist() {
     mutationFn: async (symbol: string) => {
       const sym = symbol.toUpperCase().trim();
       if (!user) throw new Error("Not authenticated");
-      await supabase.from("user_watchlist").delete().eq("user_id", user.id).eq("symbol", sym);
+      await userDelete(`/api/watchlist/${encodeURIComponent(sym)}`);
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["watchlist"] });

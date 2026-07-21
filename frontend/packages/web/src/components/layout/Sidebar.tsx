@@ -1,5 +1,6 @@
 import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { ChevronLeft, ChevronRight, LogOut, PanelLeftClose, PanelRightClose, Sparkles, X } from "lucide-react";
 import logo from "@/assets/logo.png";
 import { useAuth } from "@/hooks/use-auth";
@@ -7,7 +8,7 @@ import { useLang } from "@/hooks/use-lang";
 import { SidebarLink } from "@/components/layout/SidebarLink";
 import { SIDEBAR_BOTTOM_NAV, SIDEBAR_SECTIONS } from "@/components/layout/layout.data";
 import { initial } from "@/components/layout/layout.utils";
-import { HubChatPanel } from "@/features/learn/hub/components/HubChatPanel";
+import { AssistantPanel } from "@/features/assistant/AssistantPanel";
 
 export function Sidebar({ onCollapse }: { onCollapse: () => void }) {
   const { t, isUrdu } = useLang();
@@ -139,42 +140,66 @@ export function Sidebar({ onCollapse }: { onCollapse: () => void }) {
         </button>
       </div>
 
-      {chatOpen && (
-        <div
-          className="fixed inset-0 z-50 flex items-end justify-end bg-black/55 p-0 backdrop-blur-sm sm:p-5"
-          onClick={() => setChatOpen(false)}
-        >
-          <div
-            className="flex h-[680px] max-h-[calc(100dvh-2.5rem)] w-full flex-col overflow-hidden rounded-t-[18px] border border-border bg-sidebar shadow-[0_24px_80px_rgba(0,0,0,0.45)] sm:w-[420px] sm:rounded-[18px]"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex shrink-0 items-center justify-between border-b border-border px-4 py-3">
-              <div className="flex items-center gap-2">
-                <span className="flex h-8 w-8 items-center justify-center rounded-[10px] bg-bull/10 text-bull">
-                  <Sparkles className="h-4 w-4" strokeWidth={1.9} />
-                </span>
-                <div>
-                  <div className="text-sm font-semibold text-text-primary">
-                    {t("Ask NafaIQ AI")}
-                  </div>
-                  <div className="text-[11px] text-text-muted">{t("AI Investing Platform")}</div>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => setChatOpen(false)}
-                aria-label={t("Close")}
-                className="flex h-8 w-8 items-center justify-center rounded-[8px] text-text-muted hover:bg-hover hover:text-text-primary"
-              >
-                <X className="h-4 w-4" strokeWidth={1.9} />
-              </button>
-            </div>
-            <div className="min-h-0 flex-1">
-              <HubChatPanel />
+      <AssistantOverlay open={chatOpen} onClose={() => setChatOpen(false)} />
+    </aside>
+  );
+}
+
+/** The assistant panel in a modal overlay.
+ *
+ * Portalled to document.body rather than rendered in place: the <aside> above
+ * is `hidden lg:flex`, so an overlay nested inside it could never open below
+ * the lg breakpoint even though it is `position: fixed`. The portal also lifts
+ * it out of the sidebar's stacking context.
+ */
+function AssistantOverlay({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const { t } = useLang();
+
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [open, onClose]);
+
+  if (!open || typeof document === "undefined") return null;
+
+  return createPortal(
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label={t("Ask NafaIQ AI")}
+      className="fixed inset-0 z-50 flex items-end justify-end bg-black/55 p-0 backdrop-blur-sm sm:p-5"
+      onClick={onClose}
+    >
+      <div
+        className="flex h-[680px] max-h-[calc(100dvh-2.5rem)] w-full flex-col overflow-hidden rounded-t-[18px] border border-border bg-sidebar shadow-[0_24px_80px_rgba(0,0,0,0.45)] sm:w-[420px] sm:rounded-[18px]"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex shrink-0 items-center justify-between border-b border-border px-4 py-3">
+          <div className="flex items-center gap-2">
+            <span className="flex h-8 w-8 items-center justify-center rounded-[10px] bg-bull/10 text-bull">
+              <Sparkles className="h-4 w-4" strokeWidth={1.9} />
+            </span>
+            <div>
+              <div className="text-sm font-semibold text-text-primary">{t("Ask NafaIQ AI")}</div>
+              <div className="text-[11px] text-text-muted">{t("AI Investing Platform")}</div>
             </div>
           </div>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label={t("Close")}
+            className="flex h-8 w-8 items-center justify-center rounded-[8px] text-text-muted hover:bg-hover hover:text-text-primary"
+          >
+            <X className="h-4 w-4" strokeWidth={1.9} />
+          </button>
         </div>
-      )}
-    </aside>
+        <div className="min-h-0 flex-1">
+          <AssistantPanel />
+        </div>
+      </div>
+    </div>,
+    document.body,
   );
 }

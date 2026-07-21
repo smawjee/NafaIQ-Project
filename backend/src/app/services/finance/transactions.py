@@ -8,7 +8,7 @@ from fastapi import HTTPException
 from app.repositories import finance as repo
 from app.repositories.base import begin, connect
 from app.schemas.finance import TransactionCreate, TransactionUpdate
-from app.services.finance._common import as_timestamp, transaction_type
+from app.services.finance._common import as_timestamp, not_in_future, transaction_type
 from app.services.finance.categories import canonical_category
 from app.services.notifier import fire_and_forget, notify_activity
 
@@ -29,9 +29,13 @@ async def create_transaction(uid: str, body: TransactionCreate) -> dict[str, Any
         "note": body.note,
     }
     if body.transaction_date is not None:
-        values["transaction_date"] = as_timestamp(body.transaction_date)
+        values["transaction_date"] = not_in_future(as_timestamp(body.transaction_date))
     async with begin() as conn:
         row = await repo.insert_transaction(conn, values)
+        # Keep the stored user_budgets.spent column truthful. Nothing used to
+        # refresh it on write — only the manual POST /finance/sync-budgets — so
+        # it drifted from reality and anything reading it directly was wrong.
+        await repo.recompute_budget_spent(conn, uid)
     sign = "+" if row["transaction_type"] == "income" else "-"
     fire_and_forget(
         notify_activity(
@@ -53,19 +57,23 @@ async def update_transaction(uid: str, txn_id: int, body: TransactionUpdate) -> 
     if values.get("category") is not None:
         values["category"] = canonical_category(values["category"])
     if "transaction_date" in values:
-        values["transaction_date"] = as_timestamp(values["transaction_date"])
+        values["transaction_date"] = not_in_future(as_timestamp(values["transaction_date"]))
     if not values:
         raise HTTPException(400, "No fields to update")
     async with begin() as conn:
         row = await repo.update_transaction(conn, uid, txn_id, values)
-    if not row:
-        raise HTTPException(404, "Transaction not found")
+        if not row:
+            raise HTTPException(404, "Transaction not found")
+        # Amount, category, type or date may have moved this in or out of a
+        # budget's window — resync so the stored column stays truthful.
+        await repo.recompute_budget_spent(conn, uid)
     return row
 
 
 async def delete_transaction(uid: str, txn_id: int) -> dict[str, int]:
     async with begin() as conn:
         deleted = await repo.delete_transaction(conn, uid, txn_id)
-    if deleted is None:
-        raise HTTPException(404, "Transaction not found")
+        if deleted is None:
+            raise HTTPException(404, "Transaction not found")
+        await repo.recompute_budget_spent(conn, uid)
     return {"deleted": txn_id}

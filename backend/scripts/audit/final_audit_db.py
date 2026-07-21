@@ -6,7 +6,7 @@ Runs a comprehensive read-only audit against the Supabase (Postgres) database.
 All 6 query blocks specified in the audit request are executed in full.
 
 Usage:
-    python -m scripts.final_audit_db
+    python -m scripts.audit.final_audit_db
 """
 
 import os

@@ -1,11 +1,84 @@
 """Watchlist data access (user_watchlist) with profile/snapshot enrichment."""
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Optional
 
 from sqlalchemy import text
 
 Executor = Any
+
+
+async def count_watchlist(conn: Executor, user_id: str) -> int:
+    """How many symbols the user is watching (for the max_watchlist quota)."""
+    result = await conn.execute(
+        text("SELECT COUNT(*) AS n FROM user_watchlist WHERE user_id = :uid"),
+        {"uid": user_id},
+    )
+    row = result.mappings().first()
+    return int(row["n"]) if row else 0
+
+
+async def watchlist_has_symbol(conn: Executor, user_id: str, symbol: str) -> bool:
+    """True if the symbol is already watched. Checked before the quota so a
+    re-add of an existing symbol is idempotent rather than a 403 at the cap."""
+    result = await conn.execute(
+        text(
+            """
+            SELECT 1 FROM user_watchlist
+            WHERE user_id = :uid AND upper(trim(symbol)) = upper(trim(:sym))
+            LIMIT 1
+            """
+        ),
+        {"uid": user_id, "sym": symbol},
+    )
+    return result.mappings().first() is not None
+
+
+async def insert_watchlist_symbol(
+    conn: Executor, user_id: str, symbol: str, notes: Optional[str] = None
+) -> dict[str, Any]:
+    """Upsert one symbol onto the user's watchlist.
+
+    ON CONFLICT DO UPDATE (not DO NOTHING) so the statement always RETURNINGs a
+    row — DO NOTHING returns nothing on a duplicate, which would make an
+    idempotent re-add look like a failed insert to the caller.
+    """
+    result = await conn.execute(
+        text(
+            """
+            INSERT INTO user_watchlist (user_id, symbol, notes)
+            VALUES (:uid, upper(trim(:sym)), :notes)
+            ON CONFLICT (user_id, symbol) DO UPDATE
+                SET notes = COALESCE(EXCLUDED.notes, user_watchlist.notes)
+            RETURNING id, symbol, added_at, notify_push, notify_email, notes
+            """
+        ),
+        {"uid": user_id, "sym": symbol, "notes": notes},
+    )
+    row = result.mappings().first()
+    return {
+        "id": row["id"],
+        "symbol": row["symbol"],
+        "added_at": row["added_at"].isoformat() if row["added_at"] else None,
+        "notify_push": bool(row["notify_push"]),
+        "notify_email": bool(row["notify_email"]),
+        "notes": row["notes"],
+    }
+
+
+async def delete_watchlist_symbol(conn: Executor, user_id: str, symbol: str) -> bool:
+    """Remove a symbol; True if a row was actually deleted."""
+    result = await conn.execute(
+        text(
+            """
+            DELETE FROM user_watchlist
+            WHERE user_id = :uid AND upper(trim(symbol)) = upper(trim(:sym))
+            RETURNING id
+            """
+        ),
+        {"uid": user_id, "sym": symbol},
+    )
+    return result.mappings().first() is not None
 
 
 async def fetch_watchlist_enriched(conn: Executor, user_id: str) -> list[dict[str, Any]]:

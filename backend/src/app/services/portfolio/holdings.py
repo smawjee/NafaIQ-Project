@@ -9,9 +9,13 @@ from history:
 - update_holding -> `adjust` lot (absolute snapshot of the corrected shares/
                             avg_cost), NO finance reflection — a correction is
                             not a trade and must not book phantom cash.
-- delete_holding -> `sell`  lot for the full remaining quantity (the exit in
-                            history; `adjust`-to-zero is impossible under the DB
-                            CHECK quantity > 0), NO finance reflection.
+- delete_holding -> deletes the symbol's lots and their finance reflections
+                            (a holding exists because a transaction happened, so
+                            removing the holding removes the transaction).
+- sell_holding   -> `sell`  lot at the user's stated sale price + finance
+                            reflection. The real-exit counterpart to delete: the
+                            UI offers both, because "I sold it" and "this
+                            shouldn't be here" are different economic events.
 """
 from __future__ import annotations
 
@@ -22,7 +26,12 @@ from fastapi import HTTPException
 
 from app.repositories import portfolio as repo
 from app.repositories.base import begin, connect, session
-from app.schemas.portfolio import HoldingCreate, HoldingUpdate, StockTransactionCreate
+from app.schemas.portfolio import (
+    HoldingCreate,
+    HoldingSell,
+    HoldingUpdate,
+    StockTransactionCreate,
+)
 from app.services.notifier import fire_and_forget, notify_activity
 from app.services.permissions import check_count_limit
 from app.services.portfolio.trades import record_trade_atomic
@@ -184,36 +193,122 @@ async def update_holding(
 
 
 async def delete_holding(user_id: str, portfolio_id: int, holding_id: int) -> dict[str, Any]:
-    """DELETE a holding: record a closing `sell` lot for the full remaining
-    quantity (so the exit is in history and the fold reconstructs a flat
-    position), then delete the row. No finance reflection — a correction/exit
-    is not booked as realised cash."""
+    """DELETE a holding: remove the position AND the transactions that created it.
+
+    Product rule: a holding exists because a transaction happened, so deleting
+    the holding deletes its `stock_transactions` lots and the buy `expense`
+    reflections mirroring them. This replaces the previous behaviour of appending
+    a closing `sell` lot, which left the transaction feed showing trades for a
+    position the user had explicitly removed.
+
+    Realised income from any real prior sales of the same symbol is PRESERVED —
+    that cash was actually received (see delete_symbol_lots). Scoped to this
+    (portfolio, symbol); other holdings are untouched.
+    """
+    async with session() as sess:
+        holding = await repo.get_owned_holding(sess, user_id, portfolio_id, holding_id)
+        if holding is None:
+            raise HTTPException(404, "Holding not found")
+
+        removed = await repo.delete_symbol_lots(sess, portfolio_id, holding["symbol"])
+        await repo.delete_holding_by_id(sess, holding_id)
+        await sess.commit()
+    return {
+        "deleted": holding_id,
+        "lots_deleted": removed["lots_deleted"],
+        "reflections_deleted": removed["reflections_deleted"],
+        # Realised income from any real prior sales of this symbol is kept, not
+        # erased — surfaced so the UI/caller can say so rather than implying a
+        # clean wipe.
+        "income_preserved": removed["income_preserved"],
+    }
+
+
+async def sell_holding(
+    user_id: str, portfolio_id: int, holding_id: int, body: HoldingSell
+) -> dict[str, Any]:
+    """Sell the ENTIRE position at a user-supplied price — a real exit.
+
+    The counterpart to `delete_holding`. The UI offers both when a user removes a
+    holding, because they are different economic events:
+
+      sell   -> cash came in. Records a `sell` lot at the stated price and
+                reflects the proceeds into personal finance as income, so the
+                exit shows up in the transaction feed like any other trade.
+      delete -> no cash ever moved. Removes the lots entirely (see delete_holding).
+
+    The sell takes shares to zero, so `_apply_holding_change` drops the holding
+    row and the surviving buy/sell lots fold to a flat position — no drift.
+
+    Realised P&L is returned for display. It is deliberately not stored: there is
+    no column for it, and the buy expense plus this sell income already net to the
+    same figure in the finance feed.
+
+    Partial sales are not handled here — this is the "remove this holding" flow.
+    Use POST /trades with side='sell' to sell part of a position.
+    """
     async with session() as sess:
         holding = await repo.get_owned_holding(sess, user_id, portfolio_id, holding_id)
         if holding is None:
             raise HTTPException(404, "Holding not found")
 
         shares = int(holding["shares"])
-        if shares > 0:
-            executed = datetime.now(timezone.utc)
-            trade = StockTransactionCreate(
-                portfolio_id=portfolio_id,
-                symbol=holding["symbol"],
-                side="sell",
-                quantity=shares,
-                price=float(holding["avg_cost"]),
-                fees=0.0,
-                executed_at=executed,
-                notes="Holding deleted (closing lot)",
-                source="manual",
-            )
-            await record_trade_atomic(
-                sess, user_id=user_id, body=trade, executed=executed,
-                apply_holding=False, reflect_finance=False,
-            )
-        await repo.delete_holding_by_id(sess, holding_id)
+        if shares <= 0:
+            raise HTTPException(400, "Holding has no shares to sell")
+
+        executed = body.executed_at or datetime.now(timezone.utc)
+        # A trade cannot have happened in the future; without this guard a
+        # mistyped year lands a phantom future cash movement in the finance feed.
+        if executed > datetime.now(timezone.utc):
+            raise HTTPException(400, "executed_at cannot be in the future")
+
+        symbol = holding["symbol"]
+        avg_cost = float(holding["avg_cost"])
+        price = float(body.price)
+        fees = float(body.fees)
+
+        trade = StockTransactionCreate(
+            portfolio_id=portfolio_id,
+            symbol=symbol,
+            side="sell",
+            quantity=shares,
+            price=price,
+            fees=fees,
+            executed_at=executed,
+            notes=body.notes or "Holding sold (full exit)",
+            source="manual",
+        )
+        await record_trade_atomic(
+            sess, user_id=user_id, body=trade, executed=executed,
+            apply_holding=True, reflect_finance=True,
+        )
         await sess.commit()
-    return {"deleted": holding_id}
+
+    cost_basis = avg_cost * shares
+    proceeds = round((price * shares) - fees, 2)
+    realized_pnl = round(proceeds - cost_basis, 2)
+    realized_pnl_pct = round((realized_pnl / cost_basis) * 100, 2) if cost_basis > 0 else 0.0
+
+    fire_and_forget(
+        notify_activity(
+            user_id,
+            "trade",
+            f"Holding sold: {symbol.upper()}",
+            f"Sold {shares} {symbol.upper()} at PKR {price:,.2f} "
+            f"for PKR {proceeds:,.2f} ({realized_pnl:+,.2f} realised).",
+        )
+    )
+    return {
+        "sold": holding_id,
+        "symbol": symbol,
+        "shares": shares,
+        "price": price,
+        "fees": fees,
+        "proceeds": proceeds,
+        "cost_basis": round(cost_basis, 2),
+        "realized_pnl": realized_pnl,
+        "realized_pnl_pct": realized_pnl_pct,
+    }
 
 
 async def resolve_owned_portfolio(user_id: str, portfolio_id: Optional[int]) -> Optional[int]:

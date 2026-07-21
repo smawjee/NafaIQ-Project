@@ -29,6 +29,10 @@ CANONICAL_CATEGORIES: tuple[str, ...] = (
     "Education",
     "Entertainment",
     "Subscriptions",
+    # 'Bills' was in live use (10 transactions, 1 budget) without being canonical,
+    # so "bills" and "Bills" coexisted and only survived because the budget join
+    # folds case (audit 2026-07-22 §6).
+    "Bills",
     "Savings",
     "Income",
     "Transfer",
