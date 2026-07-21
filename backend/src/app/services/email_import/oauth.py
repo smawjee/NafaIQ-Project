@@ -52,12 +52,20 @@ class ReconnectRequired(OAuthError):
     """
 
 
-def build_auth_url(user_id: str, platform: Platform) -> str:
+def build_auth_url(user_id: str, platform: Platform, redirect: str | None = None) -> str:
     """Consent URL for this user. `state` carries the identity (the callback is
-    public) and the platform (so the callback knows where to send them back)."""
-    state = encrypt_state(
-        {"user_id": str(user_id), "platform": platform, "nonce": secrets.token_urlsafe(8)}
-    )
+    public), the platform, and an optional client-supplied redirect URL (so an
+    Expo Go `exp://` session or a native `nafaiqmobile://` build both get sent
+    back to the exact URL they are listening on). The redirect lives inside the
+    encrypted, TTL-bound state so the public callback cannot be pointed elsewhere."""
+    payload: dict[str, Any] = {
+        "user_id": str(user_id),
+        "platform": platform,
+        "nonce": secrets.token_urlsafe(8),
+    }
+    if redirect:
+        payload["redirect"] = redirect
+    state = encrypt_state(payload)
     params = {
         "client_id": settings.google_client_id,
         "redirect_uri": settings.google_oauth_redirect_uri,

@@ -22,9 +22,14 @@ router = APIRouter(tags=["integrations"])
 async def connect_gmail(
     user: Annotated[dict, Depends(require_user)],
     platform: str = Query("web", description="web | mobile — where to return after consent"),
+    redirect: Optional[str] = Query(
+        None,
+        description="mobile only — the client's own deep link (exp:// in Expo Go, "
+        "nafaiqmobile:// in a native build) to return to after consent",
+    ),
 ):
     """Start the Gmail OAuth flow: returns the Google consent URL to open."""
-    return service.start_connect(user["user_id"], platform)
+    return service.start_connect(user["user_id"], platform, redirect)
 
 
 @router.get("/integrations/gmail/callback")

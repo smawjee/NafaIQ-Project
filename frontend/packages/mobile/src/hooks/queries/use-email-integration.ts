@@ -5,6 +5,7 @@
 // NOTE: Google rejects LAN-IP redirect URIs, so the OAuth round-trip only works
 // when EXPO_PUBLIC_API_URL points at the deployed backend (https), not a
 // laptop's http://192.168.x.x.
+import { makeRedirectUri } from "expo-auth-session";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import * as WebBrowser from "expo-web-browser";
 
@@ -38,18 +39,22 @@ export function useEmailIntegration(enabled: boolean = true) {
 }
 
 /**
- * Open Google consent in an auth session. The backend handles the exchange and
- * redirects to nafaiqmobile://settings?gmail=... — that deep link is what closes
- * the browser and returns control here (same mechanism as Google sign-in).
+ * Open Google consent in an auth session. We hand the backend the exact deep
+ * link this client is listening on — an `exp://…/--/settings` URL in Expo Go or
+ * `nafaiqmobile://settings` in a dev-client/standalone build — so the backend
+ * bounces the browser back to a URL that actually reopens the app (same
+ * mechanism as Google sign-in). The backend validates the scheme and carries it
+ * inside the signed OAuth state.
  */
 export function useConnectGmail() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async () => {
+      const redirectUrl = makeRedirectUri({ scheme: "nafaiqmobile", path: "settings" });
       const { auth_url } = await userGet<{ auth_url: string }>(
-        "/api/integrations/gmail/connect?platform=mobile",
+        `/api/integrations/gmail/connect?platform=mobile&redirect=${encodeURIComponent(redirectUrl)}`,
       );
-      const res = await WebBrowser.openAuthSessionAsync(auth_url, "nafaiqmobile://settings");
+      const res = await WebBrowser.openAuthSessionAsync(auth_url, redirectUrl);
       if (res.type !== "success") return { status: res.type };
       const status = res.url.includes("gmail=connected")
         ? "connected"

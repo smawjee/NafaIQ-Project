@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import logging
 from typing import Any, Optional
+from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 from fastapi import HTTPException
 
@@ -27,6 +28,33 @@ from app.services.email_import import (
 log = logging.getLogger(__name__)
 
 _VALID_PLATFORMS = ("web", "mobile")
+# Schemes an Expo client may legitimately ask us to redirect back to: the app's
+# own custom scheme (dev-client / standalone) and Expo Go's proxy schemes.
+_MOBILE_REDIRECT_SCHEMES = ("nafaiqmobile", "exp", "exps")
+
+
+def _validate_mobile_redirect(redirect: Optional[str]) -> Optional[str]:
+    """Return the redirect if its scheme is allowlisted, else raise 400.
+
+    Guards the public callback against open-redirect: a caller can only steer the
+    post-consent bounce to an app/Expo deep link, never to an arbitrary origin.
+    None is allowed — the caller falls back to the default deep link.
+    """
+    if not redirect:
+        return None
+    scheme = urlsplit(redirect).scheme.lower()
+    if scheme not in _MOBILE_REDIRECT_SCHEMES:
+        raise HTTPException(400, f"redirect scheme must be one of {_MOBILE_REDIRECT_SCHEMES}")
+    return redirect
+
+
+def _with_gmail_status(url: str, status: str) -> str:
+    """Append `gmail=<status>` to a redirect URL, preserving any existing query
+    and path (Expo Go `exp://…/--/settings` URLs may already carry both)."""
+    parts = urlsplit(url)
+    query = parse_qsl(parts.query, keep_blank_values=True)
+    query.append(("gmail", status))
+    return urlunsplit(parts._replace(query=urlencode(query)))
 
 
 def _require_enabled() -> None:
@@ -39,22 +67,31 @@ def _require_enabled() -> None:
         )
 
 
-def start_connect(user_id: str, platform: str) -> dict[str, str]:
-    """Return the Google consent URL for this user."""
+def start_connect(user_id: str, platform: str, redirect: Optional[str] = None) -> dict[str, str]:
+    """Return the Google consent URL for this user.
+
+    `redirect` (mobile only) is the client's own deep link — an Expo Go `exp://`
+    session URL or a native `nafaiqmobile://` URL — so the post-consent bounce
+    lands wherever the client is actually listening. It is scheme-validated here
+    and carried inside the signed state (see build_auth_url).
+    """
     _require_enabled()
     if platform not in _VALID_PLATFORMS:
         raise HTTPException(400, f"platform must be one of {_VALID_PLATFORMS}")
-    return {"auth_url": build_auth_url(user_id, platform)}  # type: ignore[arg-type]
+    validated = _validate_mobile_redirect(redirect) if platform == "mobile" else None
+    return {"auth_url": build_auth_url(user_id, platform, validated)}  # type: ignore[arg-type]
 
 
-def _redirect_target(platform: str, status: str) -> str:
+def _redirect_target(platform: str, status: str, redirect: Optional[str] = None) -> str:
     """Where to send the browser after the callback.
 
     Mobile gets a deep link, which is what closes the in-app auth session and
-    returns control to the app (same mechanism as Google sign-in).
+    returns control to the app (same mechanism as Google sign-in). A validated
+    client-supplied `redirect` (from the signed state) wins so Expo Go works;
+    otherwise fall back to the app's custom scheme (native builds).
     """
     if platform == "mobile":
-        return f"nafaiqmobile://settings?gmail={status}"
+        return _with_gmail_status(redirect or "nafaiqmobile://settings", status)
     return f"{settings.web_app_origin.rstrip('/')}/settings?gmail={status}"
 
 
@@ -77,16 +114,20 @@ async def complete_connect(code: Optional[str], state: Optional[str], error: Opt
     if not user_id:
         raise HTTPException(400, "Invalid state payload")
 
+    # The redirect was validated at connect time and signed into the state; the
+    # state is Fernet-encrypted + TTL-bound, so it is safe to trust here.
+    redirect = payload.get("redirect")
+
     if error or not code:
         # User hit "Cancel" on the consent screen.
         log.info("gmail consent aborted for %s: %s", user_id, error or "no code")
-        return _redirect_target(platform, "cancelled")
+        return _redirect_target(platform, "cancelled", redirect)
 
     try:
         tokens = await exchange_code(code)
     except OAuthError as e:
         log.warning("gmail code exchange failed for %s: %s", user_id, e)
-        return _redirect_target(platform, "error")
+        return _redirect_target(platform, "error", redirect)
 
     access_token = tokens.get("access_token", "")
     google_email = await fetch_google_email(access_token) or "Gmail account"
@@ -95,7 +136,7 @@ async def complete_connect(code: Optional[str], state: Optional[str], error: Opt
         token_enc = encrypt(tokens["refresh_token"])
     except CryptoError as e:
         log.error("failed to encrypt refresh token: %s", e)
-        return _redirect_target(platform, "error")
+        return _redirect_target(platform, "error", redirect)
 
     async with begin() as conn:
         await repo.upsert_integration(
@@ -106,7 +147,7 @@ async def complete_connect(code: Optional[str], state: Optional[str], error: Opt
             scope=tokens.get("scope"),
         )
     log.info("gmail connected for %s (%s)", user_id, google_email)
-    return _redirect_target(platform, "connected")
+    return _redirect_target(platform, "connected", redirect)
 
 
 async def get_status(user_id: str) -> Optional[dict[str, Any]]:
