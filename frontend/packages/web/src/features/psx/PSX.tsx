@@ -7,7 +7,16 @@ import { MarketBriefCard } from "@/features/psx/components/MarketBriefCard";
 import { Change } from "@/components/market/Change";
 import { CandlestickChart, PriceLineChart } from "@/components/charts/charts";
 import { ChartToolbar, type Indicator, type Timeframe } from "@/components/charts/ChartToolbar";
-import { INDICES, STOCKS, STOCK_LIST, generateOHLCV, sma, fmtNum, type Signal } from "@/lib/data";
+import {
+  INDICES,
+  STOCKS,
+  STOCK_LIST,
+  generateOHLCV,
+  sma,
+  fmtNum,
+  type Candle,
+  type Signal,
+} from "@/lib/data";
 import {
   usePsxLiveMarket,
   usePsxRealtime,
@@ -34,7 +43,12 @@ import { PsxScreenerCard } from "@/features/psx/components/PsxScreenerCard";
 import { PsxWatchlistCard } from "@/features/psx/components/PsxWatchlistCard";
 import { PsxMoversCard } from "@/features/psx/components/PsxMoversCard";
 import { PsxSectorHeatmap } from "@/features/psx/components/PsxSectorHeatmap";
-import { tfDays, symbolMeta } from "@/features/psx/psx.utils";
+import {
+  reconcileLiveCandle,
+  tfDays,
+  symbolMeta,
+  type LiveCandleInput,
+} from "@/features/psx/psx.utils";
 
 export function PSX() {
   const { t } = useLang();
@@ -58,12 +72,18 @@ export function PSX() {
   const { isDemo } = useDemo();
   const [addOpen, setAddOpen] = useState(false);
   const { data: snapshot, isLoading: snapshotLoading } = usePsxLiveMarket();
-  // Phase 0 / B8: scope the realtime channel to this user's watchlist. The
-  // /psx page keeps using the global snapshot, so we still re-render the
-  // table on changes — but the per-row update path no longer floods the
-  // browser for stocks the user isn't watching.
-  usePsxRealtime(watchlist.symbols);
   const selectedIndexCode = indexNameToCode(sym);
+  const selectedStockSymbol = selectedIndexCode ? undefined : sym.toUpperCase();
+  const realtimeSymbols = useMemo(
+    () =>
+      Array.from(
+        new Set([...watchlist.symbols, ...(selectedStockSymbol ? [selectedStockSymbol] : [])]),
+      ),
+    [selectedStockSymbol, watchlist.symbols],
+  );
+  // Scope realtime to this user's watchlist plus the active stock chart symbol,
+  // so the chart/header and watchlist refresh from the same live tick.
+  usePsxRealtime(realtimeSymbols);
   const { data: ohlcvData } = usePsxHistory(
     selectedIndexCode ? undefined : sym,
     Math.max(365, tfDays(tf)),
@@ -80,6 +100,33 @@ export function PSX() {
   );
   const indexCardsAll = useIndexCards(18);
   const indexCards = indexCardsAll;
+  const selectedIndexCard = selectedIndexCode
+    ? indexCards.find((card) => card.code === selectedIndexCode)
+    : undefined;
+  const selectedStockQuote = selectedStockSymbol
+    ? snapshot?.find((row) => row.symbol === selectedStockSymbol)
+    : undefined;
+  const chartLiveCandle = useMemo<LiveCandleInput | null>(() => {
+    if (selectedIndexCard) {
+      return {
+        price: selectedIndexCard.value,
+        change: selectedIndexCard.change,
+        changePct: selectedIndexCard.changePct,
+        date: selectedIndexCard.date,
+      };
+    }
+    if (selectedStockQuote) {
+      return {
+        price: selectedStockQuote.price,
+        change: selectedStockQuote.change,
+        changePct: selectedStockQuote.change_pct,
+        dayHigh: selectedStockQuote.day_high,
+        dayLow: selectedStockQuote.day_low,
+        volume: selectedStockQuote.volume,
+      };
+    }
+    return null;
+  }, [selectedIndexCard, selectedStockQuote]);
 
   const getSparkline = useCallback(
     (ic: { name: string; value: number; change: number; changePct: number }, index: number) => {
@@ -123,10 +170,11 @@ export function PSX() {
   const full = useMemo(() => {
     const asc = <T extends { date: string }>(rows: T[]) =>
       [...rows].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+    let historical: Candle[] = [];
     // Indices live in psx_index_eod/live index endpoints, never psx_ohlcv.
     if (selectedIndexCode) {
       if (selectedIndexData && selectedIndexData.length > 0) {
-        return asc(selectedIndexData).map((b) => ({
+        historical = asc(selectedIndexData).map((b) => ({
           date: b.date,
           t: new Date(b.date).getTime(),
           open: b.open ?? b.close,
@@ -141,28 +189,31 @@ export function PSX() {
       // fetched series and `data` below slices it to the selected timeframe.
       // A .slice(-250) here silently pinned "All" (tfDays = 3650) to 250 bars,
       // defeating the deep-history paging all the way from get_history.
-      return asc(ohlcvData);
+      historical = asc(ohlcvData);
     }
+    if (historical.length > 0) return reconcileLiveCandle(historical, chartLiveCandle);
     // Demo users see realistic generated candles; real users never see dummy data
     // (an empty array renders a clean "no data" state below).
     if (isDemo) {
       const meta = symbolMeta(sym);
-      return generateOHLCV(meta.seed, meta.start, meta.end, 250, meta.vMin, meta.vMax);
+      return reconcileLiveCandle(
+        generateOHLCV(meta.seed, meta.start, meta.end, 250, meta.vMin, meta.vMax),
+        chartLiveCandle,
+      );
     }
     return [];
-  }, [selectedIndexCode, selectedIndexData, sym, ohlcvData, isDemo]);
+  }, [selectedIndexCode, selectedIndexData, sym, ohlcvData, chartLiveCandle, isDemo]);
 
   // Phase 0 / B3: detect "OHLC columns are all-null" (true for many index EOD
   // rows from DPS). In that case, fall back to a line chart so the user sees a
   // real curve instead of a row of flat dojis.
   const allIndexOhlcNull = useMemo(() => {
     if (!selectedIndexCode) return false;
-    if (full.length === 0) return false;
+    if (!selectedIndexData || selectedIndexData.length === 0) return false;
     // Any non-null open/high/low means we have real candles.
-    return full.every((b) => b.open === b.high && b.high === b.low && b.low === b.close);
-  }, [selectedIndexCode, full]);
+    return selectedIndexData.every((b) => b.open == null && b.high == null && b.low == null);
+  }, [selectedIndexCode, selectedIndexData]);
   const effectiveType = allIndexOhlcNull ? "line" : type;
-  const liveIndexClose = full.length > 0 ? full[full.length - 1].close : null;
 
   const data = full.slice(-visibleCount);
   const hasData = data.length > 0;
@@ -178,9 +229,14 @@ export function PSX() {
     };
   }, [full, visibleCount]);
   const last = data[data.length - 1];
-  const first = data[0];
-  const chg = hasData ? last.close - first.open : 0;
-  const chgPct = hasData && first.open ? (chg / first.open) * 100 : 0;
+  const livePrice =
+    chartLiveCandle?.price != null && Number.isFinite(chartLiveCandle.price)
+      ? chartLiveCandle.price
+      : null;
+  const displayPrice = livePrice ?? last?.close ?? 0;
+  const displayChange = chartLiveCandle?.change ?? (hasData ? last.close - last.open : 0);
+  const displayChangePct =
+    chartLiveCandle?.changePct ?? (hasData && last.open ? (displayChange / last.open) * 100 : 0);
 
   const metricsMap = useMemo(() => {
     const m = new Map<string, { rsi: number | null; market_cap: number | null }>();
@@ -410,12 +466,15 @@ export function PSX() {
                 {/* Price overlay */}
                 <div className="mb-3 flex flex-wrap items-baseline gap-x-3 gap-y-1">
                   <span className="font-mono text-2xl font-bold tabular-nums text-text-primary">
-                    {fmtNum(last.close)}
+                    {fmtNum(displayPrice)}
                   </span>
-                  <Change value={`${chg >= 0 ? "+" : ""}${fmtNum(chg)}`} pct={chgPct} />
+                  <Change
+                    value={`${displayChange >= 0 ? "+" : ""}${fmtNum(displayChange)}`}
+                    pct={displayChangePct}
+                  />
                   <span className="font-mono text-xs tabular-nums text-text-muted">
-                    O {fmtNum(first.open)} · H {fmtNum(Math.max(...data.map((d) => d.high)))} · L{" "}
-                    {fmtNum(Math.min(...data.map((d) => d.low)))} · Vol {last.volume}M
+                    O {fmtNum(last.open)} · H {fmtNum(last.high)} · L {fmtNum(last.low)} · Vol{" "}
+                    {formatNumber(last.volume, 0)}
                   </span>
                 </div>
 
@@ -430,6 +489,7 @@ export function PSX() {
                       height={9999}
                       mas={mas}
                       maSeries={maSeries}
+                      currentPrice={!selectedIndexCode ? displayPrice : undefined}
                     />
                   ) : (
                     <CandlestickChart
@@ -438,10 +498,11 @@ export function PSX() {
                       height={9999}
                       mas={mas}
                       maSeries={maSeries}
+                      currentPrice={!selectedIndexCode ? displayPrice : undefined}
                     />
                   )}
                 </div>
-                {allIndexOhlcNull && liveIndexClose != null && (
+                {allIndexOhlcNull && selectedIndexCard?.value != null && (
                   <p className="mt-2 text-[11px] text-text-muted">
                     {t(
                       "Index OHLC is daily-only — showing a close line. Live tick is the latest point.",
