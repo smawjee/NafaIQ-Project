@@ -27,16 +27,18 @@ export function MarketTicker() {
   return (
     <div className="market-strip overflow-hidden rounded-[10px]">
       <div className="flex items-stretch">
-        <div className="market-strip flex shrink-0 items-center gap-1.5 rounded-none border-y-0 border-l-0 px-3 text-[11px] font-semibold uppercase tracking-wide">
+        <div className="market-strip-live flex shrink-0 items-center gap-1.5 px-3 text-[11px] font-semibold uppercase tracking-wide">
           <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-bull" />
           <span className="text-bull">{t("Live")}</span>
         </div>
-        <div className="flex-1 overflow-hidden py-2">
+        <div className="market-strip-tape flex-1 overflow-hidden py-2">
           <div className="flex w-max animate-ticker gap-6 pl-6">
             {row.map((s, i) => (
               <span key={i} className="flex items-center gap-2 whitespace-nowrap text-[12px]">
-                <span className="font-semibold text-text-primary">{s.symbol}</span>
-                <span className="font-mono tabular-nums market-strip-muted">{fmtNum(s.price)}</span>
+                <span className="market-strip-symbol font-semibold">{s.symbol}</span>
+                <span className="market-strip-muted font-mono tabular-nums">
+                  {fmtNum(s.price)}
+                </span>
                 <span
                   className={cn(
                     "font-mono tabular-nums",

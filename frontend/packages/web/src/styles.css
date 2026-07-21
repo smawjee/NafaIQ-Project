@@ -889,23 +889,223 @@ html {
   border: 1px solid rgba(255, 255, 255, 0.06);
   box-shadow: 0 1px 2px rgba(15, 23, 42, 0.12);
 }
+.market-strip-live {
+  background: rgba(255, 255, 255, 0.04);
+  border-right: 1px solid rgba(255, 255, 255, 0.06);
+}
+.market-strip .market-strip-symbol {
+  color: #f8fafc;
+}
 .market-strip .market-strip-muted {
   color: #94a3b8;
 }
 
 /* Light theme ticker override */
 .theme-light .market-strip {
-  background: var(--color-surface-alt);
-  color: var(--color-text-primary);
-  border: 1px solid var(--color-border);
-  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.06);
+  background: #ffffff;
+  color: #0f172a;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 10px 28px rgba(15, 23, 42, 0.06);
+}
+.theme-light .market-strip-live {
+  background: #ecfdf9;
+  border-right: 1px solid #d8f3ef;
+}
+.theme-light .market-strip .market-strip-symbol {
+  color: #0f172a;
 }
 .theme-light .market-strip .market-strip-muted {
-  color: var(--color-text-muted);
+  color: #475569;
 }
 
 .theme-light .heatmap-tile-label {
   text-shadow: none !important;
+}
+
+/* ============================================================
+   Premium app sidebar. Dark mode uses the default design tokens;
+   light mode matches the approved high-fidelity sidebar mockup.
+   ============================================================ */
+.premium-sidebar {
+  background: var(--color-sidebar);
+  border-color: var(--color-border);
+}
+.premium-sidebar-scroll {
+  scrollbar-gutter: stable;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(148, 163, 184, 0.42) transparent;
+}
+.premium-sidebar-scroll::-webkit-scrollbar {
+  width: 10px;
+}
+.premium-sidebar-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+.premium-sidebar-scroll::-webkit-scrollbar-thumb {
+  min-height: 42px;
+  border: 3px solid transparent;
+  border-radius: 999px;
+  background: rgba(148, 163, 184, 0.42);
+  background-clip: content-box;
+}
+.premium-sidebar-scroll::-webkit-scrollbar-thumb:hover {
+  background: rgba(148, 163, 184, 0.6);
+  background-clip: content-box;
+}
+.premium-sidebar-scroll::-webkit-scrollbar-button {
+  display: none;
+  width: 0;
+  height: 0;
+}
+.premium-sidebar-logo,
+.premium-sidebar-profile-name {
+  color: var(--color-text-primary);
+}
+.premium-sidebar-subtitle,
+.premium-sidebar-profile-chevron {
+  color: var(--color-text-secondary);
+}
+.premium-sidebar-collapse,
+.premium-sidebar-profile {
+  background: var(--color-elevated);
+  border-color: var(--color-border);
+  color: var(--color-text-secondary);
+}
+.premium-sidebar-collapse:hover,
+.premium-sidebar-profile:hover {
+  background: var(--color-hover);
+  border-color: var(--color-border-hover);
+  color: var(--color-text-primary);
+}
+.premium-sidebar-ai-cta {
+  background: color-mix(in oklab, var(--color-elevated) 92%, var(--color-bull) 8%);
+  border-color: color-mix(in oklab, var(--color-border) 70%, var(--color-bull) 30%);
+  color: var(--color-bull);
+}
+.premium-sidebar-ai-cta:hover {
+  border-color: color-mix(in oklab, var(--color-border-hover) 55%, var(--color-bull) 45%);
+  box-shadow: 0 18px 40px rgba(0, 212, 170, 0.12);
+}
+.premium-sidebar-ai-icon,
+.premium-sidebar-avatar,
+.premium-sidebar-badge {
+  background: rgba(0, 212, 170, 0.12);
+  border-color: rgba(0, 212, 170, 0.28);
+  color: var(--color-bull);
+}
+.premium-sidebar-section-label {
+  color: var(--color-text-muted);
+}
+.premium-sidebar-footer {
+  border-color: var(--color-border);
+}
+.premium-sidebar-link {
+  color: var(--color-text-secondary);
+}
+.premium-sidebar-link:hover {
+  background: var(--color-hover);
+  color: var(--color-text-primary);
+}
+.premium-sidebar-link-pill {
+  background: rgba(0, 212, 170, 0.1);
+}
+.premium-sidebar-link-indicator {
+  background: var(--color-bull);
+}
+.premium-sidebar-link-icon {
+  color: var(--color-text-muted);
+}
+.premium-sidebar-link:hover .premium-sidebar-link-icon,
+.premium-sidebar-link.is-active,
+.premium-sidebar-link.is-active .premium-sidebar-link-icon {
+  color: var(--color-bull);
+}
+
+.theme-light .premium-sidebar {
+  background: #fcfcfd;
+  border-color: #eaecf0;
+  box-shadow: 10px 0 34px rgba(16, 24, 40, 0.04);
+}
+.theme-light .premium-sidebar-scroll {
+  scrollbar-color: #cbd5e1 transparent;
+}
+.theme-light .premium-sidebar-scroll::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  background-clip: content-box;
+}
+.theme-light .premium-sidebar-scroll::-webkit-scrollbar-thumb:hover {
+  background: #98a2b3;
+  background-clip: content-box;
+}
+.theme-light .premium-sidebar-logo,
+.theme-light .premium-sidebar-profile-name {
+  color: #101828;
+}
+.theme-light .premium-sidebar-subtitle,
+.theme-light .premium-sidebar-profile-chevron {
+  color: #667085;
+}
+.theme-light .premium-sidebar-collapse,
+.theme-light .premium-sidebar-profile {
+  background: #ffffff;
+  border-color: #eaecf0;
+  color: #667085;
+}
+.theme-light .premium-sidebar-collapse:hover,
+.theme-light .premium-sidebar-profile:hover {
+  background: #f4f7f9;
+  border-color: #d0d5dd;
+  color: #101828;
+}
+.theme-light .premium-sidebar-ai-cta {
+  background: #ffffff;
+  border-color: #d8f3ef;
+  color: #0f766e;
+  box-shadow: 0 14px 34px rgba(20, 184, 166, 0.14);
+}
+.theme-light .premium-sidebar-ai-cta:hover {
+  border-color: #99e6dd;
+  box-shadow: 0 18px 40px rgba(20, 184, 166, 0.18);
+}
+.theme-light .premium-sidebar-ai-icon,
+.theme-light .premium-sidebar-avatar {
+  background: #ddf6f2;
+  color: #0f766e;
+}
+.theme-light .premium-sidebar-ai-cta:hover .premium-sidebar-ai-icon {
+  background: #d8f3ef;
+}
+.theme-light .premium-sidebar-badge {
+  background: #e7f8f5;
+  border-color: #b8eee6;
+  color: #0f766e;
+}
+.theme-light .premium-sidebar-section-label {
+  color: #98a2b3;
+}
+.theme-light .premium-sidebar-footer {
+  border-color: #eaecf0;
+}
+.theme-light .premium-sidebar-link {
+  color: #667085;
+}
+.theme-light .premium-sidebar-link:hover {
+  background: #f4f7f9;
+  color: #101828;
+}
+.theme-light .premium-sidebar-link-pill {
+  background: #e7f8f5;
+}
+.theme-light .premium-sidebar-link-indicator {
+  background: #14b8a6;
+}
+.theme-light .premium-sidebar-link-icon {
+  color: #667085;
+}
+.theme-light .premium-sidebar-link:hover .premium-sidebar-link-icon,
+.theme-light .premium-sidebar-link.is-active,
+.theme-light .premium-sidebar-link.is-active .premium-sidebar-link-icon {
+  color: #14b8a6;
 }
 
 /* ============================================================
@@ -1184,12 +1384,12 @@ html {
 }
 
 /* Landing light: market strip — deep forest data band */
-.landing-light .market-strip {
+.landing-light:not(.theme-light) .market-strip {
   background: #1a2820;
   color: #e8e4d8;
   border-color: rgba(232, 228, 216, 0.08);
 }
-.landing-light .market-strip .market-strip-muted {
+.landing-light:not(.theme-light) .market-strip .market-strip-muted {
   color: #a89e88;
 }
 

@@ -241,7 +241,6 @@ export function LessonInner({ lesson }: { lesson: LessonContent }) {
             <QuizView
               lesson={lesson}
               onExit={() => setMode("reading")}
-              onBackToHub={() => navigate({ to: "/learn" })}
               onFinish={(correct) => {
                 const gain = onQuizFinish(correct);
                 setMode("results");

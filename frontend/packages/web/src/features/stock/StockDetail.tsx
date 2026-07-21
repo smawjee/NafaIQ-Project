@@ -259,13 +259,14 @@ export function StockDetail() {
 
       {/* Desktop action bar */}
       <Card hover={false} className="hidden lg:block">
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="grid gap-3 md:grid-cols-3">
           <ActionButtons
             isInWatchlist={isInWatchlist}
             wlBusy={wlBusy}
             onToggleWatchlist={toggleWatchlist}
             onAddPortfolio={() => navigate({ to: "/portfolio" })}
             onSetAlert={openAlert}
+            compact
             t={t}
           />
         </div>

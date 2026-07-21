@@ -170,9 +170,29 @@ function Spinner() {
   );
 }
 
-const TARGET_PATHS = new Set(["/", "/app", "/psx", "/portfolio", "/finance", "/learn", "/team"]);
+const TARGET_PATHS = new Set([
+  "/",
+  "/app",
+  "/psx",
+  "/portfolio",
+  "/watchlist",
+  "/finance",
+  "/ai-insights",
+  "/learn",
+  "/help",
+  "/team",
+]);
 
-const PUBLIC_APP_ROUTES = new Set(["/portfolio", "/finance", "/learn", "/alerts", "/settings"]);
+const PUBLIC_APP_ROUTES = new Set([
+  "/portfolio",
+  "/watchlist",
+  "/finance",
+  "/ai-insights",
+  "/learn",
+  "/alerts",
+  "/settings",
+  "/help",
+]);
 
 function PageTransition({ routeKey, children }: { routeKey: string; children: ReactNode }) {
   const reduce = useReducedMotion();

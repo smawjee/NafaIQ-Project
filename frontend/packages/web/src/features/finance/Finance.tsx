@@ -45,22 +45,25 @@ export function Finance() {
         ))}
       </div>
 
-      {tab === "Overview" && <Overview />}
+      {tab === "Overview" && (
+        <>
+          <Overview />
+          <ReportPanel
+            title={tr("AI Finance Report")}
+            blurb={tr(
+              "Get a plain-English analysis - income vs expense trends, budget health, savings rate assessment, and personalized money tips.",
+            )}
+            reportType="finance"
+            mutation={reportMutation}
+            onCloseReport={() => reportMutation.reset()}
+          />
+        </>
+      )}
       {tab === "Transactions" && <Transactions />}
       {tab === "Budgets" && <Budgets />}
       {tab === "Bills" && <Bills />}
       {tab === "Goals" && <Goals />}
       {tab === "Zakat" && <Zakat />}
-
-      <ReportPanel
-        title={tr("AI Finance Report")}
-        blurb={tr(
-          "Get a plain-English analysis — income vs expense trends, budget health, savings rate assessment, and personalized money tips.",
-        )}
-        reportType="finance"
-        mutation={reportMutation}
-        onCloseReport={() => reportMutation.reset()}
-      />
     </div>
   );
 }

@@ -9,6 +9,7 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as WatchlistRouteImport } from './routes/watchlist'
 import { Route as UrduQaRouteImport } from './routes/urdu-qa'
 import { Route as TeamRouteImport } from './routes/team'
 import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
@@ -17,17 +18,24 @@ import { Route as PsxRouteImport } from './routes/psx'
 import { Route as PortfolioRouteImport } from './routes/portfolio'
 import { Route as PlansRouteImport } from './routes/plans'
 import { Route as LearnRouteImport } from './routes/learn'
+import { Route as HelpRouteImport } from './routes/help'
 import { Route as FundsRouteImport } from './routes/funds'
 import { Route as FinanceRouteImport } from './routes/finance'
 import { Route as DividendsRouteImport } from './routes/dividends'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AppRouteImport } from './routes/app'
 import { Route as AlertsRouteImport } from './routes/alerts'
+import { Route as AiInsightsRouteImport } from './routes/ai-insights'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as LearnIndexRouteImport } from './routes/learn.index'
 import { Route as StockTickerRouteImport } from './routes/stock.$ticker'
 import { Route as LearnLessonIdRouteImport } from './routes/learn.lesson.$id'
 
+const WatchlistRoute = WatchlistRouteImport.update({
+  id: '/watchlist',
+  path: '/watchlist',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const UrduQaRoute = UrduQaRouteImport.update({
   id: '/urdu-qa',
   path: '/urdu-qa',
@@ -68,6 +76,11 @@ const LearnRoute = LearnRouteImport.update({
   path: '/learn',
   getParentRoute: () => rootRouteImport,
 } as any)
+const HelpRoute = HelpRouteImport.update({
+  id: '/help',
+  path: '/help',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const FundsRoute = FundsRouteImport.update({
   id: '/funds',
   path: '/funds',
@@ -98,6 +111,11 @@ const AlertsRoute = AlertsRouteImport.update({
   path: '/alerts',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AiInsightsRoute = AiInsightsRouteImport.update({
+  id: '/ai-insights',
+  path: '/ai-insights',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
@@ -121,12 +139,14 @@ const LearnLessonIdRoute = LearnLessonIdRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/ai-insights': typeof AiInsightsRoute
   '/alerts': typeof AlertsRoute
   '/app': typeof AppRoute
   '/auth': typeof AuthRoute
   '/dividends': typeof DividendsRoute
   '/finance': typeof FinanceRoute
   '/funds': typeof FundsRoute
+  '/help': typeof HelpRoute
   '/learn': typeof LearnRouteWithChildren
   '/plans': typeof PlansRoute
   '/portfolio': typeof PortfolioRoute
@@ -135,18 +155,21 @@ export interface FileRoutesByFullPath {
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/team': typeof TeamRoute
   '/urdu-qa': typeof UrduQaRoute
+  '/watchlist': typeof WatchlistRoute
   '/stock/$ticker': typeof StockTickerRoute
   '/learn/': typeof LearnIndexRoute
   '/learn/lesson/$id': typeof LearnLessonIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/ai-insights': typeof AiInsightsRoute
   '/alerts': typeof AlertsRoute
   '/app': typeof AppRoute
   '/auth': typeof AuthRoute
   '/dividends': typeof DividendsRoute
   '/finance': typeof FinanceRoute
   '/funds': typeof FundsRoute
+  '/help': typeof HelpRoute
   '/plans': typeof PlansRoute
   '/portfolio': typeof PortfolioRoute
   '/psx': typeof PsxRoute
@@ -154,6 +177,7 @@ export interface FileRoutesByTo {
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/team': typeof TeamRoute
   '/urdu-qa': typeof UrduQaRoute
+  '/watchlist': typeof WatchlistRoute
   '/stock/$ticker': typeof StockTickerRoute
   '/learn': typeof LearnIndexRoute
   '/learn/lesson/$id': typeof LearnLessonIdRoute
@@ -161,12 +185,14 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/ai-insights': typeof AiInsightsRoute
   '/alerts': typeof AlertsRoute
   '/app': typeof AppRoute
   '/auth': typeof AuthRoute
   '/dividends': typeof DividendsRoute
   '/finance': typeof FinanceRoute
   '/funds': typeof FundsRoute
+  '/help': typeof HelpRoute
   '/learn': typeof LearnRouteWithChildren
   '/plans': typeof PlansRoute
   '/portfolio': typeof PortfolioRoute
@@ -175,6 +201,7 @@ export interface FileRoutesById {
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/team': typeof TeamRoute
   '/urdu-qa': typeof UrduQaRoute
+  '/watchlist': typeof WatchlistRoute
   '/stock/$ticker': typeof StockTickerRoute
   '/learn/': typeof LearnIndexRoute
   '/learn/lesson/$id': typeof LearnLessonIdRoute
@@ -183,12 +210,14 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/ai-insights'
     | '/alerts'
     | '/app'
     | '/auth'
     | '/dividends'
     | '/finance'
     | '/funds'
+    | '/help'
     | '/learn'
     | '/plans'
     | '/portfolio'
@@ -197,18 +226,21 @@ export interface FileRouteTypes {
     | '/sitemap.xml'
     | '/team'
     | '/urdu-qa'
+    | '/watchlist'
     | '/stock/$ticker'
     | '/learn/'
     | '/learn/lesson/$id'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/ai-insights'
     | '/alerts'
     | '/app'
     | '/auth'
     | '/dividends'
     | '/finance'
     | '/funds'
+    | '/help'
     | '/plans'
     | '/portfolio'
     | '/psx'
@@ -216,18 +248,21 @@ export interface FileRouteTypes {
     | '/sitemap.xml'
     | '/team'
     | '/urdu-qa'
+    | '/watchlist'
     | '/stock/$ticker'
     | '/learn'
     | '/learn/lesson/$id'
   id:
     | '__root__'
     | '/'
+    | '/ai-insights'
     | '/alerts'
     | '/app'
     | '/auth'
     | '/dividends'
     | '/finance'
     | '/funds'
+    | '/help'
     | '/learn'
     | '/plans'
     | '/portfolio'
@@ -236,6 +271,7 @@ export interface FileRouteTypes {
     | '/sitemap.xml'
     | '/team'
     | '/urdu-qa'
+    | '/watchlist'
     | '/stock/$ticker'
     | '/learn/'
     | '/learn/lesson/$id'
@@ -243,12 +279,14 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AiInsightsRoute: typeof AiInsightsRoute
   AlertsRoute: typeof AlertsRoute
   AppRoute: typeof AppRoute
   AuthRoute: typeof AuthRoute
   DividendsRoute: typeof DividendsRoute
   FinanceRoute: typeof FinanceRoute
   FundsRoute: typeof FundsRoute
+  HelpRoute: typeof HelpRoute
   LearnRoute: typeof LearnRouteWithChildren
   PlansRoute: typeof PlansRoute
   PortfolioRoute: typeof PortfolioRoute
@@ -257,11 +295,19 @@ export interface RootRouteChildren {
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
   TeamRoute: typeof TeamRoute
   UrduQaRoute: typeof UrduQaRoute
+  WatchlistRoute: typeof WatchlistRoute
   StockTickerRoute: typeof StockTickerRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/watchlist': {
+      id: '/watchlist'
+      path: '/watchlist'
+      fullPath: '/watchlist'
+      preLoaderRoute: typeof WatchlistRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/urdu-qa': {
       id: '/urdu-qa'
       path: '/urdu-qa'
@@ -318,6 +364,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LearnRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/help': {
+      id: '/help'
+      path: '/help'
+      fullPath: '/help'
+      preLoaderRoute: typeof HelpRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/funds': {
       id: '/funds'
       path: '/funds'
@@ -358,6 +411,13 @@ declare module '@tanstack/react-router' {
       path: '/alerts'
       fullPath: '/alerts'
       preLoaderRoute: typeof AlertsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/ai-insights': {
+      id: '/ai-insights'
+      path: '/ai-insights'
+      fullPath: '/ai-insights'
+      preLoaderRoute: typeof AiInsightsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/': {
@@ -405,12 +465,14 @@ const LearnRouteWithChildren = LearnRoute._addFileChildren(LearnRouteChildren)
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AiInsightsRoute: AiInsightsRoute,
   AlertsRoute: AlertsRoute,
   AppRoute: AppRoute,
   AuthRoute: AuthRoute,
   DividendsRoute: DividendsRoute,
   FinanceRoute: FinanceRoute,
   FundsRoute: FundsRoute,
+  HelpRoute: HelpRoute,
   LearnRoute: LearnRouteWithChildren,
   PlansRoute: PlansRoute,
   PortfolioRoute: PortfolioRoute,
@@ -419,6 +481,7 @@ const rootRouteChildren: RootRouteChildren = {
   SitemapDotxmlRoute: SitemapDotxmlRoute,
   TeamRoute: TeamRoute,
   UrduQaRoute: UrduQaRoute,
+  WatchlistRoute: WatchlistRoute,
   StockTickerRoute: StockTickerRoute,
 }
 export const routeTree = rootRouteImport

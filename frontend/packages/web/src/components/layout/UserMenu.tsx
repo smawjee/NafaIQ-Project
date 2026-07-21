@@ -31,10 +31,10 @@ export function UserMenu() {
     { label: "Plans / Upgrade", icon: CreditCard, to: "/plans" as const },
   ];
   return (
-    <div ref={ref} className="relative shrink-0">
+    <div ref={ref} className="relative flex h-9 w-9 shrink-0 items-center justify-center">
       <button
         onClick={() => setOpen((v) => !v)}
-        className="flex h-7 w-7 items-center justify-center rounded-full bg-primary/15 text-xs font-semibold text-primary transition hover:brightness-110"
+        className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/15 text-sm font-semibold text-primary transition hover:brightness-110"
         aria-label={t("User menu")}
       >
         {initial(profile?.display_name, user?.email)}

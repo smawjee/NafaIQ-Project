@@ -41,14 +41,14 @@ export function StockTabs({
   const { t } = useLang();
   return (
     <Card>
-      <div className="mb-3 flex items-center gap-1.5">
+      <div className="mb-4 flex flex-wrap items-center justify-center gap-2">
         {TABS.map(({ key, label, icon: Icon }) => (
           <button
             key={key}
             type="button"
             onClick={() => onTabChange(key)}
             className={cn(
-              "rounded-[6px] px-2.5 py-1 text-xs font-semibold transition",
+              "rounded-[8px] px-3 py-1.5 text-xs font-semibold transition",
               Icon && "inline-flex items-center gap-1",
               tab === key
                 ? "bg-bull text-bull-foreground"
