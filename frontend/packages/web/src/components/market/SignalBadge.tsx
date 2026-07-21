@@ -8,6 +8,7 @@ const styles: Record<Signal, string> = {
   HOLD: "signal-hold border border-text-secondary/25 bg-text-secondary/10 text-text-secondary",
   SELL: "border border-warning/30 bg-warning/10 text-warning",
   "STRONG SELL": "border border-bear/30 bg-bear/15 text-bear font-bold",
+  "NO SIGNAL": "border border-text-secondary/25 bg-text-secondary/10 text-text-muted",
 };
 
 export function SignalBadge({ signal, className }: { signal: Signal; className?: string }) {

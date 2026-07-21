@@ -205,6 +205,17 @@ CHECKS: List[MigrationCheck] = [
         ],
     ),
     MigrationCheck(
+        filename="20260721100000_psx_signals_v2.sql",
+        description="Signals V2 explainable multi-horizon cache",
+        checks=[
+            Check("psx_signals_v2 table", "SELECT to_regclass('public.psx_signals_v2') IS NOT NULL"),
+            Check("psx_signals_v2 symbol+horizon primary key",
+                  "SELECT 1 FROM pg_constraint WHERE conname='psx_signals_v2_pkey'"),
+            Check("idx_psx_signals_v2_rank_score index",
+                  "SELECT to_regclass('public.idx_psx_signals_v2_rank_score') IS NOT NULL"),
+        ],
+    ),
+    MigrationCheck(
         filename="20260716010000_apply_sector_map.sql (permanently disabled)",
         description="DPS owns psx_profile.sector; TV_SECTOR_MAP is the fallback only",
         checks=[

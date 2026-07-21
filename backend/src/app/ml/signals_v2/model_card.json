@@ -1,0 +1,30 @@
+{
+  "status": "shadow_trained",
+  "models": [
+    "LogisticRegression",
+    "HistGradientBoostingClassifier",
+    "LightGBM optional",
+    "XGBoost optional",
+    "CatBoost optional"
+  ],
+  "trained_horizons": [
+    "5D",
+    "20D",
+    "60D"
+  ],
+  "horizons": [
+    "5D",
+    "20D",
+    "60D"
+  ],
+  "labeling": "triple_barrier_atr_scaled",
+  "validation": "walk_forward_with_gap",
+  "calibration": "walk_forward_empirical_confidence_bins",
+  "fusion": "disabled_until_thresholds_pass",
+  "feature_count": 38,
+  "acceptance_gate": {
+    "buy_precision_lift_over_technical": 0.05,
+    "false_buy_rate_no_worse_than_baseline": true,
+    "avg_20d_return_after_costs_gt_kse100": true
+  }
+}

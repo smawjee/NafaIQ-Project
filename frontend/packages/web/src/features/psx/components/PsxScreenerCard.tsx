@@ -1,8 +1,12 @@
 import { Link } from "@tanstack/react-router";
-import { Filter } from "lucide-react";
+import { Filter, Info } from "lucide-react";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Card } from "@/components/shared/Card";
 import { Change } from "@/components/market/Change";
 import { SignalBadge } from "@/components/market/SignalBadge";
+import { SignalConfidence } from "@/features/signals/SignalConfidence";
+import { SignalReasonList } from "@/features/signals/SignalReasonList";
+import { SignalRiskChips } from "@/features/signals/SignalRiskChips";
 import { fmtNum, type Signal } from "@/lib/data";
 import { cn } from "@/lib/utils";
 import { useLang } from "@/hooks/use-lang";
@@ -42,6 +46,54 @@ export function PsxScreenerCard({
   onSignalChange: (value: string) => void;
 }) {
   const { t } = useLang();
+  const renderSignal = (s: PsxScreenRow) => {
+    if (!s.signal) {
+      return (
+        <span className="text-text-muted" title={t("Signal unavailable")}>
+          —
+        </span>
+      );
+    }
+    return (
+      <div className="inline-flex items-center gap-1">
+        <SignalBadge signal={s.signal} />
+        {s.signalDetails && (
+          <Popover>
+            <PopoverTrigger asChild>
+              <button
+                type="button"
+                aria-label={`${s.ticker} signal details`}
+                className="rounded-full p-0.5 text-text-muted hover:bg-hover hover:text-text-primary"
+              >
+                <Info className="h-3.5 w-3.5" />
+              </button>
+            </PopoverTrigger>
+            <PopoverContent align="center" className="w-80">
+              <div className="space-y-3">
+                <div className="flex items-center justify-between gap-2">
+                  <div>
+                    <div className="text-sm font-semibold text-text-primary">
+                      {s.ticker} {t("Signal")}
+                    </div>
+                    <div className="text-[11px] text-text-muted">
+                      {s.signalDetails.horizon} · {s.signalDetails.engine_version}
+                    </div>
+                  </div>
+                  <SignalBadge signal={s.signalDetails.signal} />
+                </div>
+                <SignalConfidence
+                  confidence={s.signalDetails.confidence}
+                  signal={s.signalDetails.signal}
+                />
+                <SignalRiskChips signal={s.signalDetails} />
+                <SignalReasonList signal={s.signalDetails} compact />
+              </div>
+            </PopoverContent>
+          </Popover>
+        )}
+      </div>
+    );
+  };
   return (
     <Card className="overflow-hidden">
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
@@ -98,22 +150,24 @@ export function PsxScreenerCard({
         </select>
       </div>
       <div className="mb-3 flex flex-wrap gap-1.5">
-        {(["All", "STRONG BUY", "BUY", "HOLD", "SELL", "STRONG SELL"] as (string | Signal)[]).map(
-          (f) => (
-            <button
-              key={f}
-              onClick={() => onSignalChange(f)}
-              className={cn(
-                "rounded-full px-3 py-1 text-xs font-medium",
-                signalFilter === f
-                  ? "bg-bull text-bull-foreground"
-                  : "border border-border text-text-secondary hover:bg-hover",
-              )}
-            >
-              {t(f)}
-            </button>
-          ),
-        )}
+        {(
+          ["All", "STRONG BUY", "BUY", "HOLD", "SELL", "STRONG SELL", "NO SIGNAL"] as (
+            string | Signal
+          )[]
+        ).map((f) => (
+          <button
+            key={f}
+            onClick={() => onSignalChange(f)}
+            className={cn(
+              "rounded-full px-3 py-1 text-xs font-medium",
+              signalFilter === f
+                ? "bg-bull text-bull-foreground"
+                : "border border-border text-text-secondary hover:bg-hover",
+            )}
+          >
+            {t(f)}
+          </button>
+        ))}
       </div>
       <div className="overflow-x-auto">
         <table className="w-full min-w-[780px] text-xs">
@@ -124,6 +178,7 @@ export function PsxScreenerCard({
               <th className="text-right">{t("Price")}</th>
               <th className="text-right">{t("Change")}</th>
               <th className="text-center">{t("Signal")}</th>
+              <th className="text-right">{t("Conf.")}</th>
               <th className="text-right">RSI</th>
               <th className="text-right">{t("Volume")}</th>
               <th className="pr-2 text-right">{t("Mkt Cap")}</th>
@@ -152,13 +207,15 @@ export function PsxScreenerCard({
                   <Change pct={s.changePct} />
                 </td>
                 <td className="text-center">
-                  {s.signal ? (
-                    <SignalBadge signal={s.signal} />
-                  ) : (
+                  {renderSignal(s)}
+                  {s.signal == null && s.signalDetails != null && (
                     <span className="text-text-muted" title={t("Signal unavailable")}>
                       —
                     </span>
                   )}
+                </td>
+                <td className="text-right font-mono tabular-nums text-text-secondary">
+                  {s.signalDetails ? `${s.signalDetails.confidence.toFixed(0)}%` : "—"}
                 </td>
                 <td className="text-right font-mono tabular-nums">
                   {s.rsi == null ? (

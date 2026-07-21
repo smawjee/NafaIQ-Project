@@ -1,7 +1,7 @@
 // Central dummy data + deterministic OHLCV generation for NafaIQ
 import { formatNumber, formatPKR } from "@/lib/format";
 
-export type Signal = "STRONG BUY" | "BUY" | "HOLD" | "SELL" | "STRONG SELL";
+export type Signal = "STRONG BUY" | "BUY" | "HOLD" | "SELL" | "STRONG SELL" | "NO SIGNAL";
 
 export interface Candle {
   date: string;

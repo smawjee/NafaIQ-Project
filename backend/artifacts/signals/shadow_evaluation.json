@@ -1,0 +1,19 @@
+{
+  "status": "blocked",
+  "fusion_enabled": false,
+  "primary_horizon": "20D",
+  "checks": {
+    "metrics_available": true,
+    "buy_precision_minimum": false,
+    "false_buy_rate_cap": false,
+    "positive_excess_return": false,
+    "beats_technical_buy_precision": false
+  },
+  "selected_model": "LightGBM",
+  "metrics": {
+    "buy_precision": 0.3854,
+    "false_buy_rate": 0.6146,
+    "avg_buy_excess_return": -0.014,
+    "technical_buy_precision": 0.3513
+  }
+}

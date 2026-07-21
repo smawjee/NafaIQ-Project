@@ -15,7 +15,10 @@ import type {
   ApiTreemap,
   ApiIndicatorPayload,
   ApiSignal,
+  ApiSignalV2,
   BatchSignalsResponse,
+  BatchSignalsV2Response,
+  SignalHorizon,
   ScreenerRequest,
   ScreenerResponse,
   BacktestRequest,
@@ -171,7 +174,6 @@ export function fetchScreenerMetrics(): Promise<ApiScreenerMetric[]> {
   return get<ApiScreenerMetric[]>("/api/market/metrics");
 }
 
-
 export function fetchTreemap(): Promise<ApiTreemap> {
   return get<ApiTreemap>("/api/market/treemap");
 }
@@ -198,6 +200,29 @@ export function fetchSignal(symbol: string): Promise<ApiSignal> {
 
 export function fetchBatchSignals(limit = 50): Promise<BatchSignalsResponse> {
   return post<BatchSignalsResponse>("/api/signals/batch", { limit });
+}
+
+export function fetchSignalV2(
+  symbol: string,
+  horizon: SignalHorizon = "20D",
+): Promise<ApiSignalV2> {
+  return get<ApiSignalV2>(`/api/signals/v2/${symbol}?horizon=${horizon}`);
+}
+
+export function fetchBatchSignalsV2(
+  limit = 50,
+  horizon: SignalHorizon = "20D",
+): Promise<BatchSignalsV2Response> {
+  return post<BatchSignalsV2Response>("/api/signals/v2/batch", { limit, horizon });
+}
+
+export function fetchSignalLeaderboardV2(
+  limit = 50,
+  horizon: SignalHorizon = "20D",
+): Promise<BatchSignalsV2Response> {
+  return get<BatchSignalsV2Response>(
+    `/api/signals/v2/leaderboard?horizon=${horizon}&limit=${limit}`,
+  );
 }
 
 // === User-authenticated request exports ===
@@ -531,11 +556,7 @@ export interface ApiLearnSearchResult {
   lesson_id: string | null;
   section_id: string | null;
   source_type:
-    | "lesson_section"
-    | "lesson_overview"
-    | "glossary_term"
-    | "quiz_explanation"
-    | "learning_path";
+    "lesson_section" | "lesson_overview" | "glossary_term" | "quiz_explanation" | "learning_path";
   title: string;
   heading: string | null;
   snippet_en: string;
