@@ -404,7 +404,7 @@ function TrustItem({ icon: Icon, label }: { icon: typeof ShieldCheck; label: str
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.background },
-  scrim: { ...StyleSheet.absoluteFillObject, backgroundColor: "#050816" },
+  scrim: { ...StyleSheet.absoluteFillObject, backgroundColor: colors.background },
   bottomGlow: { position: "absolute", left: 0, right: 0, bottom: 0, height: "34%" },
 
   heroWrap: { ...StyleSheet.absoluteFillObject, alignItems: "center", justifyContent: "center" },

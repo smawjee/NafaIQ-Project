@@ -229,7 +229,7 @@ const makeStyles = (c: ThemeColors) =>
     signOutBtn: { minHeight: 44, justifyContent: "center", paddingHorizontal: 8 },
     content: { padding: 16, gap: 16 },
     heading: { fontFamily: AVENIR, fontSize: 22, fontWeight: "800", color: c.textPrimary, textAlign: "center", letterSpacing: -0.3, lineHeight: 28 },
-    toggle: { flexDirection: "row", alignSelf: "center", borderWidth: 1, borderColor: c.input, borderRadius: 999, padding: 4, backgroundColor: c.surface },
+    toggle: { flexDirection: "row", alignSelf: "center", borderWidth: 1, borderColor: c.input, borderRadius: 999, padding: 4, backgroundColor: c.glassFillStrong },
     toggleBtn: { flexDirection: "row", alignItems: "center", gap: 8, borderRadius: 999, paddingHorizontal: 18, paddingVertical: 9 },
     saveBadge: { backgroundColor: c.gold + "26", borderRadius: 999, paddingHorizontal: 6, paddingVertical: 2 },
     tierWrap: { marginTop: 20 },

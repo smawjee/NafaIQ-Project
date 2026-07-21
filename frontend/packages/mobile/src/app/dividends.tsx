@@ -139,7 +139,7 @@ const makeStyles = (c: ThemeColors) =>
     backBtn: { minWidth: 44, minHeight: 44, alignItems: "center", justifyContent: "center", marginLeft: -10 },
     list: { paddingHorizontal: 16, paddingBottom: 28, flexGrow: 1 },
     row: { flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 14, paddingHorizontal: 4, minHeight: 44, borderRadius: 8 },
-    iconBox: { width: 36, height: 36, borderRadius: 8, borderWidth: 1, borderColor: c.border, backgroundColor: c.elevated, alignItems: "center", justifyContent: "center" },
+    iconBox: { width: 36, height: 36, borderRadius: 8, borderWidth: 1, borderColor: c.border, backgroundColor: c.glassFill, alignItems: "center", justifyContent: "center" },
     sep: { height: StyleSheet.hairlineWidth, backgroundColor: c.border },
     center: { alignItems: "center", gap: 10, paddingVertical: 28, marginTop: 8 },
   });

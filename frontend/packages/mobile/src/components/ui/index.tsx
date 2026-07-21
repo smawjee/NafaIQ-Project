@@ -11,6 +11,7 @@ import {
   type ViewProps,
 } from "react-native";
 
+import { GlassCard } from "@/components/glass/GlassCard";
 import { fonts, radii, signalColorFor, type ThemeColors } from "@/constants/theme";
 import { useLang } from "@/hooks/use-lang";
 import { useTheme } from "@/hooks/use-theme";
@@ -44,9 +45,15 @@ export function Text({ variant = "body", style, ...rest }: RNTextProps & { varia
 }
 
 /* ---------------------------------- Card --------------------------------- */
-export function Card({ style, ...rest }: ViewProps) {
-  const { colors } = useTheme();
-  return <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }, style]} {...rest} />;
+// Liquid-glass surface. Backed by GlassCard (frosted blur + sheen + hairline
+// edge) so every screen built on Card inherits the premium glass aesthetic
+// instead of a flat opaque panel.
+export function Card({ style, children }: ViewProps) {
+  return (
+    <GlassCard radius={radii.card} style={[styles.card, style]}>
+      {children}
+    </GlassCard>
+  );
 }
 
 /* -------------------------------- StatCard ------------------------------- */
@@ -146,7 +153,9 @@ export function Button({
 }
 
 const styles = StyleSheet.create({
-  card: { borderWidth: 1, borderRadius: radii.card, padding: 16 },
+  // GlassCard supplies the frosted fill + hairline border + radius; Card only
+  // adds default padding (callers can still override via their own style).
+  card: { padding: 16 },
   statCard: { flex: 1, minWidth: 150 },
   badge: { alignSelf: "flex-start", minWidth: 84, alignItems: "center", justifyContent: "center", borderWidth: 1, borderRadius: radii.full, paddingHorizontal: 8, paddingVertical: 3 },
   btn: { minHeight: 44, borderRadius: radii.btn, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, paddingHorizontal: 16 },

@@ -4,6 +4,7 @@ import { useRouter } from "expo-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
+  KeyboardAvoidingView,
   Modal,
   Platform,
   Pressable,
@@ -12,6 +13,7 @@ import {
   TextInput,
   View,
 } from "react-native";
+import { BlurView } from "expo-blur";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { TutorMessage as TutorBubble } from "@/components/ai/AiText";
@@ -74,7 +76,12 @@ export default function LearnHub() {
   return (
     <GlassScreen>
       <SafeAreaView style={{ flex: 1 }} edges={["top", "left", "right"]}>
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
+      <ScrollView
+        contentContainerStyle={styles.content}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+      >
         <Text variant="display" style={{ fontFamily: AVENIR }}>{t("Learn Hub")}</Text>
         {/* Hero */}
         <GlassCard style={{ gap: 8, padding: 16, borderColor: colors.ai + "33" }}>
@@ -182,6 +189,7 @@ export default function LearnHub() {
         </View>
         <View style={{ height: 40 }} />
       </ScrollView>
+      </KeyboardAvoidingView>
 
       <Pressable style={styles.fab} onPress={() => setTutorOpen(true)} accessibilityRole="button" accessibilityLabel={t("Ask AI Tutor")}>
         <Bot color={colors.bullForeground} size={24} />
@@ -235,8 +243,9 @@ function FlashcardsModal({ visible, onClose }: { visible: boolean; onClose: () =
 
   return (
     <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
-      <SafeAreaView style={[styles.safe, { padding: 16 }]}>
-        <View style={styles.between}>
+      <GlassScreen>
+        <SafeAreaView style={[styles.safe, { padding: 16 }]}>
+          <View style={styles.between}>
           <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
             <Layers color={colors.textPrimary} size={18} />
             <Text variant="title">{t("Flashcards")}</Text>
@@ -277,8 +286,9 @@ function FlashcardsModal({ visible, onClose }: { visible: boolean; onClose: () =
               </View>
             </View>
           )}
-        </View>
-      </SafeAreaView>
+          </View>
+        </SafeAreaView>
+      </GlassScreen>
     </Modal>
   );
 }
@@ -373,7 +383,7 @@ function LearnSearchBox() {
 const HUB_PRESETS = ["What is the KSE-100 index?", "How do I start investing in PSX?", "Explain candlestick charts simply"];
 
 function TutorModal({ visible, onClose }: { visible: boolean; onClose: () => void }) {
-  const { colors } = useTheme();
+  const { colors, mode } = useTheme();
   const { t, isUrdu } = useLang();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const router = useRouter();
@@ -404,9 +414,10 @@ function TutorModal({ visible, onClose }: { visible: boolean; onClose: () => voi
 
   return (
     <Modal visible={visible} animationType="slide" transparent onRequestClose={close}>
-      <View style={styles.sheetWrap}>
+      <KeyboardAvoidingView style={styles.sheetWrap} behavior={Platform.OS === "ios" ? "padding" : undefined}>
         <Pressable style={StyleSheet.absoluteFill} onPress={close} accessibilityRole="button" accessibilityLabel={t("Close")} />
         <View style={styles.sheet}>
+          <BlurView tint={mode === "light" ? "light" : "dark"} intensity={40} experimentalBlurMethod="dimezisBlurView" style={StyleSheet.absoluteFill} />
           <View style={[styles.between, styles.sheetHeader]}>
             <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
               <Bot color={colors.bull} size={18} />
@@ -471,41 +482,41 @@ function TutorModal({ visible, onClose }: { visible: boolean; onClose: () => voi
             </View>
           )}
         </View>
-      </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }
 
 const makeStyles = (c: ThemeColors) =>
   StyleSheet.create({
-    safe: { flex: 1, backgroundColor: c.background },
+    safe: { flex: 1 },
     content: { padding: 16, gap: 16 },
     between: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
     chips: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: 6 },
-    pathCard: { width: 220, borderWidth: 1, borderLeftWidth: 3, borderColor: c.border, borderRadius: 12, backgroundColor: c.surface, padding: 16 },
-    pathIcon: { width: 40, height: 40, borderRadius: 8, borderWidth: 1, borderColor: c.border, backgroundColor: c.elevated, alignItems: "center", justifyContent: "center" },
+    pathCard: { width: 220, borderWidth: 1, borderLeftWidth: 3, borderColor: c.border, borderRadius: 12, backgroundColor: c.glassFillStrong, padding: 16 },
+    pathIcon: { width: 40, height: 40, borderRadius: 8, borderWidth: 1, borderColor: c.border, backgroundColor: c.glassFill, alignItems: "center", justifyContent: "center" },
     pathBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, borderRadius: 8, paddingVertical: 9, marginTop: 12 },
     grid: { flexDirection: "row", flexWrap: "wrap", gap: 12 },
-    lessonCard: { width: "47%", flexGrow: 1, borderWidth: 1, borderColor: c.border, borderRadius: radii.card, backgroundColor: c.surface, padding: 14 },
-    lessonIcon: { width: 40, height: 40, borderRadius: 8, borderWidth: 1, borderColor: c.border, backgroundColor: c.elevated, alignItems: "center", justifyContent: "center" },
-    badge: { flexDirection: "row", alignItems: "center", gap: 4, alignSelf: "flex-start", backgroundColor: c.elevated, borderRadius: 4, paddingHorizontal: 6, paddingVertical: 2 },
+    lessonCard: { width: "47%", flexGrow: 1, borderWidth: 1, borderColor: c.border, borderRadius: radii.card, backgroundColor: c.glassFillStrong, padding: 14 },
+    lessonIcon: { width: 40, height: 40, borderRadius: 8, borderWidth: 1, borderColor: c.border, backgroundColor: c.glassFill, alignItems: "center", justifyContent: "center" },
+    badge: { flexDirection: "row", alignItems: "center", gap: 4, alignSelf: "flex-start", backgroundColor: c.glassFill, borderRadius: 4, paddingHorizontal: 6, paddingVertical: 2 },
     flashBtn: { flexDirection: "row", alignItems: "center", gap: 6, borderWidth: 1, borderColor: c.bull + "66", backgroundColor: c.bull + "1a", borderRadius: 6, paddingHorizontal: 10, paddingVertical: 6 },
-    search: { flexDirection: "row", alignItems: "center", gap: 8, borderWidth: 1, borderColor: c.border, backgroundColor: c.surface, borderRadius: radii.btn, paddingHorizontal: 12, minHeight: 44 },
-    searchResult: { borderWidth: 1, borderColor: c.border, backgroundColor: c.surface, borderRadius: 8, padding: 12, minHeight: 44 },
-    term: { borderWidth: 1, borderColor: c.border, backgroundColor: c.surface, borderRadius: 8, padding: 12 },
+    search: { flexDirection: "row", alignItems: "center", gap: 8, borderWidth: 1, borderColor: c.border, backgroundColor: c.glassFillStrong, borderRadius: radii.btn, paddingHorizontal: 12, minHeight: 44 },
+    searchResult: { borderWidth: 1, borderColor: c.border, backgroundColor: c.glassFillStrong, borderRadius: 8, padding: 12, minHeight: 44 },
+    term: { borderWidth: 1, borderColor: c.border, backgroundColor: c.glassFillStrong, borderRadius: 8, padding: 12 },
     fab: { position: "absolute", right: 16, bottom: 24, width: 56, height: 56, borderRadius: 28, backgroundColor: c.bull, alignItems: "center", justifyContent: "center", elevation: 6 },
-    flashCard: { width: "100%", minHeight: 240, borderWidth: 1, borderColor: c.border, borderRadius: 16, backgroundColor: c.surface, padding: 28, alignItems: "center", justifyContent: "center" },
+    flashCard: { width: "100%", minHeight: 240, borderWidth: 1, borderColor: c.border, borderRadius: 16, backgroundColor: c.glassFillStrong, padding: 28, alignItems: "center", justifyContent: "center" },
     sheetWrap: { flex: 1, justifyContent: "flex-end", backgroundColor: "rgba(0,0,0,0.6)" },
-    sheet: { height: "80%", backgroundColor: c.sidebar, borderTopLeftRadius: 16, borderTopRightRadius: 16, borderTopWidth: 1, borderColor: c.border },
+    sheet: { height: "80%", backgroundColor: c.glassFillStrong, borderTopLeftRadius: 16, borderTopRightRadius: 16, borderTopWidth: 1, borderColor: c.border, overflow: "hidden" },
     sheetHeader: { paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: c.border },
     bubble: { maxWidth: "88%", borderRadius: 12, paddingHorizontal: 12, paddingVertical: 8 },
     bubbleUser: { alignSelf: "flex-end", backgroundColor: c.bull, borderBottomRightRadius: 2 },
-    bubbleAI: { alignSelf: "flex-start", backgroundColor: c.elevated, borderBottomLeftRadius: 2 },
+    bubbleAI: { alignSelf: "flex-start", backgroundColor: c.glassFill, borderBottomLeftRadius: 2 },
     preset: { borderWidth: 1, borderColor: c.border, borderRadius: 999, paddingHorizontal: 12, paddingVertical: 8, minHeight: 44, justifyContent: "center" },
     quota: { borderWidth: 1, borderColor: c.warning + "66", backgroundColor: c.warning + "1a", borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8 },
     signedOut: { padding: 12, borderTopWidth: 1, borderTopColor: c.border, alignItems: "center" },
     signInBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, backgroundColor: c.bull, borderRadius: 8, paddingHorizontal: 16, minHeight: 44 },
     inputBar: { flexDirection: "row", alignItems: "center", gap: 8, padding: 12, borderTopWidth: 1, borderTopColor: c.border },
-    chatInput: { flex: 1, minHeight: 44, borderWidth: 1, borderColor: c.border, borderRadius: 8, paddingHorizontal: 12, color: c.textPrimary, backgroundColor: c.elevated },
+    chatInput: { flex: 1, minHeight: 44, borderWidth: 1, borderColor: c.border, borderRadius: 8, paddingHorizontal: 12, color: c.textPrimary, backgroundColor: c.glassFill },
     sendBtn: { width: 44, height: 44, borderRadius: 8, backgroundColor: c.bull, alignItems: "center", justifyContent: "center" },
   });

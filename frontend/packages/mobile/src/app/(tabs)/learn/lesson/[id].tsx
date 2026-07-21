@@ -212,7 +212,7 @@ function Block({ block }: { block: ContentBlock }) {
   }
   return (
     <View style={styles.table}>
-      <View style={[styles.tr, { backgroundColor: colors.elevated }]}>
+      <View style={[styles.tr, { backgroundColor: colors.glassFill }]}>
         {block.head.map((h, i) => (
           <Text key={i} style={[styles.td, { fontWeight: "700", fontSize: 12 }]}>{h}</Text>
         ))}
@@ -609,7 +609,7 @@ const makeStyles = (c: ThemeColors) =>
     hero: { borderWidth: 1, borderRadius: radii.card, padding: 16, gap: 2 },
     heroIcon: { width: 44, height: 44, borderRadius: 10, alignItems: "center", justifyContent: "center" },
     callout: { flexDirection: "row", gap: 8, borderLeftWidth: 3, borderRadius: 8, padding: 10 },
-    formula: { backgroundColor: c.surfaceAlt, borderRadius: 8, padding: 12, gap: 2 },
+    formula: { backgroundColor: c.glassFill, borderRadius: 8, padding: 12, gap: 2 },
     table: { borderWidth: 1, borderColor: c.border, borderRadius: 8, overflow: "hidden" },
     tr: { flexDirection: "row" },
     td: { flex: 1, padding: 8, color: c.textPrimary },
@@ -617,7 +617,7 @@ const makeStyles = (c: ThemeColors) =>
     option: { flexDirection: "row", alignItems: "center", gap: 8, borderWidth: 1, borderRadius: radii.btn, padding: 14, minHeight: 48 },
     explainBtn: { flexDirection: "row", alignItems: "center", gap: 6, alignSelf: "flex-start", borderWidth: 1, borderColor: c.border, borderRadius: radii.btn, paddingHorizontal: 12, paddingVertical: 8, marginTop: 4, minHeight: 44 },
     summaryCard: { borderWidth: 1, borderColor: c.ai + "33", backgroundColor: c.ai + "0d", borderRadius: radii.card, padding: 16 },
-    termChip: { backgroundColor: c.elevated, borderRadius: 4, paddingHorizontal: 8, paddingVertical: 3 },
-    pitfall: { borderLeftWidth: 2, borderLeftColor: c.warning, backgroundColor: c.elevated, borderRadius: radii.btn, paddingHorizontal: 10, paddingVertical: 6, marginTop: 10 },
+    termChip: { backgroundColor: c.glassFill, borderRadius: 4, paddingHorizontal: 8, paddingVertical: 3 },
+    pitfall: { borderLeftWidth: 2, borderLeftColor: c.warning, backgroundColor: c.glassFill, borderRadius: radii.btn, paddingHorizontal: 10, paddingVertical: 6, marginTop: 10 },
     relatedCard: { borderWidth: 1, borderColor: c.border, borderRadius: radii.btn, padding: 12, minHeight: 44 },
   });

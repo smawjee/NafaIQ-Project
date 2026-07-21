@@ -7,6 +7,7 @@ import {
   ActivityIndicator,
   Alert,
   FlatList,
+  KeyboardAvoidingView,
   Platform,
   Pressable,
   ScrollView,
@@ -1386,24 +1387,29 @@ function Zakat() {
   );
 
   return (
-    <FlatList
-      data={historyQ.data ?? []}
-      keyExtractor={(r) => String(r.id)}
-      renderItem={renderRecord}
-      contentContainerStyle={[styles.content, { gap: 10 }]}
-      showsVerticalScrollIndicator={false}
-      keyboardShouldPersistTaps="handled"
-      ListHeaderComponent={header}
-      ListEmptyComponent={
-        settingsQ.isPending || historyQ.isPending ? (
-          <LoadingCard label="Loading zakat history…" />
-        ) : historyQ.isError ? (
-          <ErrorCard message="Could not load your zakat history." onRetry={() => historyQ.refetch()} />
-        ) : (
-          <EmptyCard title="No saved records yet." sub="Calculate and save to build your zakat history." />
-        )
-      }
-    />
+    <KeyboardAvoidingView
+      style={{ flex: 1 }}
+      behavior={Platform.OS === "ios" ? "padding" : undefined}
+    >
+      <FlatList
+        data={historyQ.data ?? []}
+        keyExtractor={(r) => String(r.id)}
+        renderItem={renderRecord}
+        contentContainerStyle={[styles.content, { gap: 10 }]}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+        ListHeaderComponent={header}
+        ListEmptyComponent={
+          settingsQ.isPending || historyQ.isPending ? (
+            <LoadingCard label="Loading zakat history…" />
+          ) : historyQ.isError ? (
+            <ErrorCard message="Could not load your zakat history." onRetry={() => historyQ.refetch()} />
+          ) : (
+            <EmptyCard title="No saved records yet." sub="Calculate and save to build your zakat history." />
+          )
+        }
+      />
+    </KeyboardAvoidingView>
   );
 }
 
@@ -1425,13 +1431,13 @@ const makeStyles = (c: ThemeColors) =>
     grid: { flexDirection: "row", flexWrap: "wrap", gap: 12 },
     kpi: { width: "47%", flexGrow: 1, padding: 14 },
     iconChip: { width: 34, height: 34, borderRadius: 10, alignItems: "center", justifyContent: "center" },
-    search: { flexDirection: "row", alignItems: "center", gap: 8, borderWidth: 1, borderColor: c.border, backgroundColor: c.surface, borderRadius: radii.btn, paddingHorizontal: 12, minHeight: 44 },
+    search: { flexDirection: "row", alignItems: "center", gap: 8, borderWidth: 1, borderColor: c.border, backgroundColor: c.glassFillStrong, borderRadius: radii.btn, paddingHorizontal: 12, minHeight: 44 },
     txn: { flexDirection: "row", alignItems: "center", gap: 12, paddingHorizontal: 12, paddingVertical: 10 },
     dot: { width: 34, height: 34, borderRadius: 17, alignItems: "center", justifyContent: "center" },
     monthNav: { flexDirection: "row", justifyContent: "center", alignItems: "center", gap: 20 },
     tip: { flexDirection: "row", gap: 8, borderLeftWidth: 2, borderLeftColor: c.ai, backgroundColor: c.aiTint, padding: 8, borderRadius: 6 },
     billRow: { flexDirection: "row", alignItems: "center", gap: 10, padding: 14 },
-    avatar: { width: 40, height: 40, borderRadius: 20, backgroundColor: c.elevated, alignItems: "center", justifyContent: "center" },
+    avatar: { width: 40, height: 40, borderRadius: 20, backgroundColor: c.glassFill, alignItems: "center", justifyContent: "center" },
     statusBadge: { borderRadius: 4, paddingHorizontal: 6, paddingVertical: 2 },
     checkBtn: { width: 32, height: 32, borderRadius: 16, borderWidth: 1, borderColor: c.bull, alignItems: "center", justifyContent: "center" },
     dashed: { flexDirection: "row", justifyContent: "center", alignItems: "center", gap: 8, borderWidth: 1, borderStyle: "dashed", borderColor: c.border, borderRadius: radii.btn, paddingVertical: 14 },

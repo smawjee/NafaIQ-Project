@@ -72,8 +72,8 @@ function RootNavigator() {
         <Stack.Screen name="(tabs)" />
         <Stack.Screen name="settings" />
 
-        <Stack.Screen name="alerts" options={{ headerShown: true, title: "Alerts" }} />
-        <Stack.Screen name="stock/[ticker]" options={{ headerShown: true, title: "Stock" }} />
+        <Stack.Screen name="alerts" />
+        <Stack.Screen name="stock/[ticker]" />
       </Stack>
     </NavThemeProvider>
   );

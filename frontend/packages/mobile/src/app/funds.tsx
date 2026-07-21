@@ -131,7 +131,7 @@ const makeStyles = (c: ThemeColors) =>
     chips: { paddingHorizontal: 16, paddingBottom: 8 },
     list: { paddingHorizontal: 16, paddingBottom: 28, gap: 8, flexGrow: 1 },
     row: { flexDirection: "row", alignItems: "center", gap: 12, padding: 14 },
-    iconBox: { width: 36, height: 36, borderRadius: 8, borderWidth: 1, borderColor: c.border, backgroundColor: c.elevated, alignItems: "center", justifyContent: "center" },
+    iconBox: { width: 36, height: 36, borderRadius: 8, borderWidth: 1, borderColor: c.border, backgroundColor: c.glassFill, alignItems: "center", justifyContent: "center" },
     navCol: { alignItems: "flex-end", minWidth: 92 },
     center: { alignItems: "center", gap: 10, paddingVertical: 28, marginTop: 8 },
   });

@@ -2,9 +2,10 @@
 // Streams tokens from the FastAPI /api/ai/tutor SSE endpoint via useTutorChat —
 // quota banner, signed-out CTA, abort on close. (Replaces the legacy ask-tutor
 // Supabase Edge Function.)
+import { BlurView } from "expo-blur";
 import { useRouter } from "expo-router";
 import { useEffect, useRef, useState } from "react";
-import { Modal, Pressable, ScrollView, StyleSheet, TextInput, View } from "react-native";
+import { KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, TextInput, View } from "react-native";
 
 import { TutorMessage as TutorBubble } from "@/components/ai/AiText";
 import { Text } from "@/components/ui";
@@ -58,9 +59,10 @@ export function TutorSheet({
 
   return (
     <Modal visible={visible} animationType="slide" transparent onRequestClose={close}>
-      <View style={styles.wrap}>
+      <KeyboardAvoidingView style={styles.wrap} behavior={Platform.OS === "ios" ? "padding" : undefined}>
         <Pressable style={StyleSheet.absoluteFill} onPress={close} accessibilityRole="button" accessibilityLabel={t("Close")} />
         <View style={styles.sheet}>
+          <BlurView tint="dark" intensity={40} experimentalBlurMethod="dimezisBlurView" style={StyleSheet.absoluteFill} />
           <View style={styles.header}>
             <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
               <Bot color={colors.bull} size={18} />
@@ -154,25 +156,25 @@ export function TutorSheet({
             </View>
           )}
         </View>
-      </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }
 
 const styles = StyleSheet.create({
   wrap: { flex: 1, justifyContent: "flex-end", backgroundColor: "rgba(0,0,0,0.6)" },
-  sheet: { height: "80%", backgroundColor: colors.sidebar, borderTopLeftRadius: 16, borderTopRightRadius: 16, borderTopWidth: 1, borderColor: colors.border },
+  sheet: { height: "80%", backgroundColor: "rgba(10,16,30,0.72)", borderTopLeftRadius: 16, borderTopRightRadius: 16, borderTopWidth: 1, borderColor: colors.border, overflow: "hidden" },
   header: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: colors.border },
   aiBadge: { backgroundColor: colors.ai + "26", borderRadius: 999, paddingHorizontal: 8, paddingVertical: 2 },
   bubble: { maxWidth: "88%", borderRadius: 12, paddingHorizontal: 12, paddingVertical: 8 },
   user: { alignSelf: "flex-end", backgroundColor: colors.bull, borderBottomRightRadius: 2 },
-  ai: { alignSelf: "flex-start", backgroundColor: colors.elevated, borderBottomLeftRadius: 2 },
+  ai: { alignSelf: "flex-start", backgroundColor: colors.glassFill, borderBottomLeftRadius: 2 },
   preset: { borderWidth: 1, borderColor: colors.border, borderRadius: 999, paddingHorizontal: 12, paddingVertical: 8, minHeight: 44, justifyContent: "center" },
   quota: { borderWidth: 1, borderColor: colors.warning + "66", backgroundColor: colors.warning + "1a", borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8 },
   quotaText: { color: colors.warning, fontSize: 12 },
   signedOut: { padding: 12, borderTopWidth: 1, borderTopColor: colors.border, alignItems: "center" },
   signInBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, backgroundColor: colors.bull, borderRadius: 8, paddingHorizontal: 16, minHeight: 44 },
   inputBar: { flexDirection: "row", alignItems: "center", gap: 8, padding: 12, borderTopWidth: 1, borderTopColor: colors.border },
-  input: { flex: 1, minHeight: 44, borderWidth: 1, borderColor: colors.border, borderRadius: 8, paddingHorizontal: 12, color: colors.textPrimary, backgroundColor: colors.elevated },
+  input: { flex: 1, minHeight: 44, borderWidth: 1, borderColor: colors.border, borderRadius: 8, paddingHorizontal: 12, color: colors.textPrimary, backgroundColor: colors.glassFill },
   sendBtn: { width: 44, height: 44, borderRadius: 8, backgroundColor: colors.bull, alignItems: "center", justifyContent: "center" },
 });

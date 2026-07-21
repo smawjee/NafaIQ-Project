@@ -67,7 +67,7 @@ export function Segmented({
   const longest = options.reduce((m, o) => Math.max(m, o.length), 0);
   const fontSize = options.length >= 5 || longest >= 10 ? 10.5 : 12;
   return (
-    <View style={[styles.segment, { backgroundColor: colors.surfaceAlt }]}>
+    <View style={[styles.segment, { backgroundColor: colors.glassFill }]}>
       {options.map((o) => {
         const active = o === value;
         return (
@@ -76,7 +76,7 @@ export function Segmented({
             onPress={() => onChange(o)}
             accessibilityRole="button"
             accessibilityState={{ selected: active }}
-            style={[styles.segItem, active && { backgroundColor: colors.elevated }]}
+            style={[styles.segItem, active && { backgroundColor: colors.glassFill }]}
           >
             <Text numberOfLines={1} style={{ fontSize, color: active ? colors.textPrimary : colors.textMuted }}>
               {o}

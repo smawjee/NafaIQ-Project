@@ -234,7 +234,7 @@ export default function StockDetailScreen() {
   const subtitle = [name, sector ? t(sector) : null].filter(Boolean).join(" · ");
 
   return (
-    <Screen title={upper} subtitle={subtitle || t("Pakistan Stock Exchange")}>
+    <Screen title={upper} subtitle={subtitle || t("Pakistan Stock Exchange")} back>
       <Card style={{ gap: 8 }}>
         <View style={styles.between}>
           <Text variant="mono" style={{ fontSize: 22 }}>

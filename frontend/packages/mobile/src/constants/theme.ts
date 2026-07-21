@@ -46,6 +46,11 @@ export const darkColors = {
   input: "rgba(255,255,255,0.08)",
   ring: "#00d4aa",
 
+  // Translucent inner-surface fills — used for chips/iconBoxes/segments/list
+  // rows so the liquid-glass backdrop shows through instead of a solid panel.
+  glassFill: "rgba(255,255,255,0.055)",
+  glassFillStrong: "rgba(255,255,255,0.09)",
+
   chart,
 };
 
@@ -84,6 +89,9 @@ export const lightColors: typeof darkColors = {
   hover: "rgba(15,23,42,0.045)",
   input: "rgba(15,23,42,0.12)",
   ring: "#0d9488",
+
+  glassFill: "rgba(15,23,42,0.05)",
+  glassFillStrong: "rgba(15,23,42,0.08)",
 
   chart,
 };

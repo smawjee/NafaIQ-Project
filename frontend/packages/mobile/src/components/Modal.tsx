@@ -24,7 +24,7 @@ export function Modal({
     <RNModal visible={open} transparent animationType="slide" onRequestClose={onClose}>
       <View style={styles.wrap}>
         <Pressable style={StyleSheet.absoluteFill} onPress={onClose} accessibilityLabel="Close" />
-        <View style={[styles.sheet, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+        <View style={[styles.sheet, { backgroundColor: colors.glassFillStrong, borderColor: colors.border }]}>
           <View style={styles.header}>
             <Text variant="title">{title}</Text>
             <Pressable onPress={onClose} hitSlop={8} accessibilityRole="button" accessibilityLabel="Close">
@@ -49,7 +49,7 @@ export function Field({
       <TextInput
         placeholderTextColor={colors.textMuted}
         accessibilityLabel={label}
-        style={[styles.field, { borderColor: colors.input, color: colors.textPrimary, backgroundColor: colors.elevated }]}
+        style={[styles.field, { borderColor: colors.input, color: colors.textPrimary, backgroundColor: colors.glassFill }]}
         {...props}
       />
     </View>

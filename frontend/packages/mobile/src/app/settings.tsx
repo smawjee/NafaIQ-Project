@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
+  KeyboardAvoidingView,
   Platform,
   Pressable,
   ScrollView,
@@ -124,7 +125,15 @@ export default function SettingsScreen() {
   return (
     <GlassScreen>
       <SafeAreaView style={{ flex: 1 }} edges={["top", "left", "right"]}>
-        <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+        <KeyboardAvoidingView
+          style={{ flex: 1 }}
+          behavior={Platform.OS === "ios" ? "padding" : undefined}
+        >
+        <ScrollView
+          contentContainerStyle={styles.content}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+        >
           <View style={{ marginBottom: 2 }}>
             <Text variant="display" style={{ fontFamily: AVENIR }}>{t("Settings")}</Text>
             <Text variant="secondary" style={{ marginTop: 2 }}>{t("Personalise how NafaIQ looks and feels.")}</Text>
@@ -199,7 +208,7 @@ export default function SettingsScreen() {
                 autoFocus
                 placeholder={t("Display name")}
                 placeholderTextColor={colors.textMuted}
-                style={[styles.input, { color: colors.textPrimary, borderColor: colors.border, backgroundColor: colors.surface }]}
+                style={[styles.input, { color: colors.textPrimary, borderColor: colors.border, backgroundColor: colors.glassFillStrong }]}
                 accessibilityLabel={t("Display name")}
               />
               <Pressable
@@ -253,6 +262,7 @@ export default function SettingsScreen() {
         </View>
           </GlassCard>
         </ScrollView>
+        </KeyboardAvoidingView>
       </SafeAreaView>
     </GlassScreen>
   );
@@ -338,7 +348,7 @@ function BankEmailCard() {
 
       {connected ? (
         <View style={{ gap: 10 }}>
-          <View style={[styles.option, { borderColor: colors.border, backgroundColor: colors.surface }]}>
+          <View style={[styles.option, { borderColor: colors.border, backgroundColor: colors.glassFillStrong }]}>
             <View style={{ flex: 1 }}>
               <Text style={{ fontWeight: "600", fontSize: 13 }}>{status.data?.google_email}</Text>
               <Text variant="muted" style={{ marginTop: 2 }}>
@@ -396,7 +406,7 @@ function OptionRow({
       onPress={onPress}
       accessibilityRole="radio"
       accessibilityState={{ selected: active }}
-      style={[styles.option, { borderColor: active ? colors.primary : colors.border, backgroundColor: active ? colors.primary + "1a" : colors.surface }]}
+      style={[styles.option, { borderColor: active ? colors.primary : colors.border, backgroundColor: active ? colors.primary + "1a" : colors.glassFill }]}
     >
       <View style={[styles.badge, { backgroundColor: active ? colors.primary + "22" : colors.hover }]}>{badge}</View>
       <View style={{ flex: 1 }}>
@@ -546,7 +556,7 @@ function FinanceSettingsCard() {
               keyboardType="numeric"
               placeholder="0"
               placeholderTextColor={colors.textMuted}
-              style={[styles.input, { color: colors.textPrimary, borderColor: colors.border, backgroundColor: colors.surface }]}
+              style={[styles.input, { color: colors.textPrimary, borderColor: colors.border, backgroundColor: colors.glassFillStrong }]}
               accessibilityLabel={t("Monthly income")}
             />
           </View>

@@ -277,7 +277,7 @@ function MetricPill({
   colors: ReturnType<typeof useTheme>["colors"];
 }) {
   return (
-    <View style={[styles.metricPill, { borderColor: colors.border, backgroundColor: colors.surface }]}>
+    <View style={[styles.metricPill, { borderColor: colors.border, backgroundColor: colors.glassFillStrong }]}>
       <Text variant="muted" style={{ fontSize: 10, textTransform: "uppercase" }}>
         {metric.label}
       </Text>

@@ -43,7 +43,7 @@ const styles = StyleSheet.create({
   badge: {
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "#0D1424",
+    backgroundColor: colors.surface,
     borderWidth: 1,
     borderColor: colors.border,
   },

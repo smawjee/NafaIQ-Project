@@ -130,7 +130,7 @@ function HeatTile({
 function Filter({ metric, onChange, t }: { metric: Metric; onChange: (m: Metric) => void; t: (s: string) => string }) {
   const { colors } = useTheme();
   return (
-    <View style={[styles.filterWrap, { backgroundColor: colors.surfaceAlt, borderColor: colors.border }]}>
+    <View style={[styles.filterWrap, { backgroundColor: colors.glassFill, borderColor: colors.border }]}>
       {METRICS.map((m) => {
         const active = m.key === metric;
         return (
@@ -139,7 +139,7 @@ function Filter({ metric, onChange, t }: { metric: Metric; onChange: (m: Metric)
             onPress={() => onChange(m.key)}
             accessibilityRole="button"
             accessibilityState={{ selected: active }}
-            style={[styles.filterItem, active && { backgroundColor: colors.elevated }]}
+            style={[styles.filterItem, active && { backgroundColor: colors.glassFill }]}
           >
             <Text numberOfLines={1} style={{ fontSize: 11, fontWeight: active ? "700" : "500", color: active ? colors.textPrimary : colors.textMuted }}>
               {t(m.label)}
@@ -169,7 +169,7 @@ function ViewToggle({ view, onChange, t }: { view: "grid" | "list"; onChange: (v
     );
   };
   return (
-    <View style={[styles.toggleWrap, { backgroundColor: colors.surfaceAlt, borderColor: colors.border }]}>
+    <View style={[styles.toggleWrap, { backgroundColor: colors.glassFill, borderColor: colors.border }]}>
       <Btn v="grid" Icon={LayoutGrid} label="Heatmap view" />
       <Btn v="list" Icon={List} label="List view" />
     </View>
@@ -356,7 +356,7 @@ export function SectorHeatmap({
                         {t(s.name)}
                       </Text>
                       <Text variant="muted" style={{ fontSize: 11, width: 22 }}>{s.stock_count}</Text>
-                      <View style={[styles.barTrack, { backgroundColor: colors.surfaceAlt }]}>
+                      <View style={[styles.barTrack, { backgroundColor: colors.glassFill }]}>
                         <View
                           style={{
                             height: "100%",

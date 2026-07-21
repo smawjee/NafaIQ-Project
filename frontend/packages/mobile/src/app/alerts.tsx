@@ -4,11 +4,13 @@
 // notification history (GET /api/alerts/events + PATCH .../read) with a
 // "Check now" manual evaluate (POST /api/alerts/evaluate).
 // History is a virtualized FlatList (psx.tsx pattern); sections live in its header.
+import { useRouter } from "expo-router";
 import { useCallback, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Alert as RNAlert,
   FlatList,
+  KeyboardAvoidingView,
   Platform,
   Pressable,
   StyleSheet,
@@ -43,6 +45,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { useFinanceBills, useFinanceBudgets, useFinanceGoals } from "@/hooks/queries/use-finance";
 import { useTheme } from "@/hooks/use-theme";
 import {
+  ArrowLeft,
   Bell,
   Calendar,
   Check,
@@ -91,6 +94,7 @@ function formatWhen(iso: string | null | undefined): string {
 }
 
 export default function AlertsScreen() {
+  const router = useRouter();
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const { user } = useAuth();
@@ -276,9 +280,20 @@ export default function AlertsScreen() {
 
   const header = (
     <View style={{ gap: 16, marginBottom: 8 }}>
-      <Text variant="display" style={{ fontFamily: AVENIR }}>
-        Alerts
-      </Text>
+      <View style={styles.titleRow}>
+        <Pressable
+          onPress={() => router.back()}
+          hitSlop={12}
+          style={styles.backBtn}
+          accessibilityRole="button"
+          accessibilityLabel="Go back"
+        >
+          <ArrowLeft color={colors.textPrimary} size={22} />
+        </Pressable>
+        <Text variant="display" style={{ fontFamily: AVENIR }}>
+          Alerts
+        </Text>
+      </View>
 
       {/* Active alerts */}
       <Text variant="title">Active Alerts</Text>
@@ -485,30 +500,35 @@ export default function AlertsScreen() {
   return (
     <GlassScreen>
       <SafeAreaView style={{ flex: 1 }} edges={["top", "left", "right"]}>
-        <FlatList
-          data={eventsQuery.isPending ? [] : events}
-          keyExtractor={(ev) => String(ev.id)}
-          renderItem={renderEvent}
-          ListHeaderComponent={header}
-          ListEmptyComponent={
-            eventsQuery.isPending && signedIn ? null : eventsQuery.isError ? (
-              <Card style={styles.centerCard}>
-                <Text variant="secondary">Could not load notifications.</Text>
-                <Button title="Retry" variant="outline" onPress={() => eventsQuery.refetch()} />
-              </Card>
-            ) : (
-              <Card style={styles.centerCard}>
-                <Text variant="secondary">No notifications yet.</Text>
-                <Text variant="muted" style={{ textAlign: "center" }}>
-                  Your triggered alerts will appear here. Tap &quot;Check now&quot; to evaluate alerts manually.
-                </Text>
-              </Card>
-            )
-          }
-          contentContainerStyle={{ padding: 16, paddingBottom: 28 }}
-          showsVerticalScrollIndicator={false}
-          keyboardShouldPersistTaps="handled"
-        />
+        <KeyboardAvoidingView
+          style={{ flex: 1 }}
+          behavior={Platform.OS === "ios" ? "padding" : undefined}
+        >
+          <FlatList
+            data={eventsQuery.isPending ? [] : events}
+            keyExtractor={(ev) => String(ev.id)}
+            renderItem={renderEvent}
+            ListHeaderComponent={header}
+            ListEmptyComponent={
+              eventsQuery.isPending && signedIn ? null : eventsQuery.isError ? (
+                <Card style={styles.centerCard}>
+                  <Text variant="secondary">Could not load notifications.</Text>
+                  <Button title="Retry" variant="outline" onPress={() => eventsQuery.refetch()} />
+                </Card>
+              ) : (
+                <Card style={styles.centerCard}>
+                  <Text variant="secondary">No notifications yet.</Text>
+                  <Text variant="muted" style={{ textAlign: "center" }}>
+                    Your triggered alerts will appear here. Tap &quot;Check now&quot; to evaluate alerts manually.
+                  </Text>
+                </Card>
+              )
+            }
+            contentContainerStyle={{ padding: 16, paddingBottom: 28 }}
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+          />
+        </KeyboardAvoidingView>
       </SafeAreaView>
     </GlassScreen>
   );
@@ -537,16 +557,18 @@ function Checkbox({ label, value, onToggle }: { label: string; value: boolean; o
 const makeStyles = (c: ThemeColors) =>
   StyleSheet.create({
     between: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
+    titleRow: { flexDirection: "row", alignItems: "center", gap: 6 },
+    backBtn: { minWidth: 40, minHeight: 40, alignItems: "center", justifyContent: "center", marginLeft: -10 },
     alertRow: { flexDirection: "row", alignItems: "center", gap: 10 },
-    iconBox: { width: 34, height: 34, borderRadius: 8, borderWidth: 1, borderColor: c.border, backgroundColor: c.elevated, alignItems: "center", justifyContent: "center" },
+    iconBox: { width: 34, height: 34, borderRadius: 8, borderWidth: 1, borderColor: c.border, backgroundColor: c.glassFill, alignItems: "center", justifyContent: "center" },
     typeGrid: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
     typeCard: { width: "47%", flexGrow: 1, alignItems: "center", gap: 6, borderWidth: 1, borderColor: c.border, borderRadius: 10, paddingVertical: 12 },
-    input: { minHeight: 44, borderWidth: 1, borderColor: c.border, borderRadius: radii.btn, paddingHorizontal: 12, color: c.textPrimary, backgroundColor: c.elevated },
+    input: { minHeight: 44, borderWidth: 1, borderColor: c.border, borderRadius: radii.btn, paddingHorizontal: 12, color: c.textPrimary, backgroundColor: c.glassFill },
     checkbox: { flexDirection: "row", alignItems: "center", gap: 8, minHeight: 32 },
     box: { width: 20, height: 20, borderRadius: 4, borderWidth: 1, borderColor: c.borderHover, alignItems: "center", justifyContent: "center" },
     checkBtn: { minHeight: 32, justifyContent: "center", paddingHorizontal: 10, borderWidth: 1, borderColor: c.border, borderRadius: radii.btn },
     centerCard: { alignItems: "center", gap: 10, paddingVertical: 20 },
-    notif: { flexDirection: "row", alignItems: "center", gap: 12, paddingHorizontal: 12, paddingVertical: 12, minHeight: 44, backgroundColor: c.surface, borderLeftWidth: 1, borderRightWidth: 1, borderColor: c.border },
+    notif: { flexDirection: "row", alignItems: "center", gap: 12, paddingHorizontal: 12, paddingVertical: 12, minHeight: 44, backgroundColor: c.glassFill, borderLeftWidth: 1, borderRightWidth: 1, borderColor: c.border },
     notifFirst: { borderTopWidth: 1, borderTopLeftRadius: radii.card, borderTopRightRadius: radii.card },
     notifLast: { borderBottomWidth: 1, borderBottomLeftRadius: radii.card, borderBottomRightRadius: radii.card },
     dot: { width: 8, height: 8, borderRadius: 4 },
