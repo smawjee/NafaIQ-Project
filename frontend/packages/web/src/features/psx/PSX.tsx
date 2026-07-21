@@ -32,7 +32,7 @@ import {
   indexNameToCode,
 } from "@/hooks/psx/use-psx";
 import { usePersistedTfMap } from "@/hooks/psx/use-persisted-tf-map";
-import { formatNumber, formatCompactPKR } from "@/lib/format";
+import { formatNumber, formatCompact, formatCompactPKR } from "@/lib/format";
 import { useWatchlist } from "@/hooks/psx/use-watchlist";
 import { useDemo } from "@/hooks/use-demo";
 import { StatsGridSkeleton, ChartSkeleton, TableSkeleton } from "@/components/shared/PageSkeleton";
@@ -338,7 +338,7 @@ export function PSX() {
         signal: signalMap.get(m.symbol) ?? null,
         signalDetails: signalDetailsMap.get(m.symbol) ?? null,
         rsi: metricsMap.get(m.symbol)?.rsi ?? null,
-        volume: formatNumber(m.volume ?? 0, 0),
+        volume: formatCompact(m.volume ?? 0),
         marketCap:
           metricsMap.get(m.symbol)?.market_cap != null
             ? formatCompactPKR(metricsMap.get(m.symbol)!.market_cap!)
