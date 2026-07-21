@@ -26,7 +26,7 @@ export function DonutChart({
   }) => {
     const { cx, cy, midAngle, innerRadius, outerRadius, percent } = props;
     if (percent < 0.12) return null;
-    const radius = innerRadius + (outerRadius - innerRadius) * 0.5;
+    const radius = innerRadius + (outerRadius - innerRadius) * 0.3;
     const RADIAN = Math.PI / 180;
     const x = cx + radius * Math.cos(-midAngle * RADIAN);
     const y = cy + radius * Math.sin(-midAngle * RADIAN);
@@ -37,7 +37,7 @@ export function DonutChart({
         fill={ct.light ? "#0f172a" : "#ffffff"}
         textAnchor="middle"
         dominantBaseline="central"
-        fontSize={ct.light ? 13 : 10}
+        fontSize={12}
         fontWeight={600}
       >
         {`${(percent * 100).toFixed(0)}%`}
@@ -102,7 +102,7 @@ export function DonutChart({
       </ResponsiveContainer>
       {centerValue && (
         <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
-          <span className="font-mono text-sm font-bold tabular-nums text-text-primary">
+          <span className="max-w-[92px] text-center font-mono text-sm font-bold tabular-nums leading-tight text-text-primary">
             {centerValue}
           </span>
           {centerLabel && <span className="text-[10px] text-text-muted">{t(centerLabel)}</span>}

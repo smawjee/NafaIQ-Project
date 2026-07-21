@@ -53,7 +53,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       <div className="ambient-glow -top-40 right-[-12%] h-[420px] w-[420px] bg-primary/[0.03]" />
 
       {!collapsed && <Sidebar onCollapse={() => toggleCollapsed(true)} />}
-      <div className={cn("relative", !collapsed && "lg:ps-[212px]")}>
+      <div className={cn("relative", !collapsed && "lg:ps-[260px]")}>
         <Header
           onMenu={() => setDrawer(true)}
           collapsed={collapsed}

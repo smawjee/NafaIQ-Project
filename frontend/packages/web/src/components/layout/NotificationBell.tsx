@@ -81,15 +81,15 @@ export function NotificationBell() {
     : [...liveKseNotification, ...localItems.slice(0, 9)];
 
   return (
-    <div ref={ref} className="relative shrink-0">
+    <div ref={ref} className="relative flex h-9 w-9 shrink-0 items-center justify-center">
       <button
         onClick={() => setOpen((v) => !v)}
-        className="relative text-text-secondary transition-colors hover:text-text-primary"
+        className="relative flex h-9 w-9 items-center justify-center rounded-[9px] text-text-secondary transition-colors hover:bg-white/[0.04] hover:text-text-primary"
         aria-label={t("Notifications")}
       >
         <Bell className="h-[18px] w-[18px]" strokeWidth={1.75} />
         {unreadCount > 0 && (
-          <span className="absolute -top-1.5 -end-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-bear px-1 text-[9px] font-bold text-white">
+          <span className="absolute -top-1 -end-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-bear px-1 text-[9px] font-bold leading-none text-white">
             {unreadCount}
           </span>
         )}

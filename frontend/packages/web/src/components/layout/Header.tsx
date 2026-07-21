@@ -62,19 +62,19 @@ export function Header({
       <div className="flex-1" />
 
       {/* utility cluster — evenly spaced, right-aligned */}
-      <div className="flex shrink-0 items-center gap-3 sm:gap-4">
+      <div className="flex shrink-0 items-center gap-2">
         {cta.show && (
           <>
             <Link
               to="/plans"
-              className="hidden shrink-0 items-center gap-1.5 rounded-[8px] border border-bull/40 bg-bull/10 px-3 py-1.5 text-[12px] font-semibold text-bull transition hover:border-bull/60 hover:bg-bull/15 sm:inline-flex"
+              className="hidden h-9 shrink-0 items-center gap-1.5 rounded-[9px] border border-bull/40 bg-bull/10 px-3 text-[12px] font-semibold text-bull transition hover:border-bull/60 hover:bg-bull/15 sm:inline-flex"
             >
               <Sparkles className="h-3.5 w-3.5" /> {t(cta.label)}
             </Link>
             <Link
               to="/plans"
               aria-label={cta.label}
-              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[8px] border border-bull/40 bg-bull/10 text-bull sm:hidden"
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[9px] border border-bull/40 bg-bull/10 text-bull sm:hidden"
             >
               <Sparkles className="h-4 w-4" />
             </Link>

@@ -5,7 +5,6 @@ import {
   ArrowRight,
   Brain,
   CheckCircle2,
-  ChevronRight,
   Lightbulb,
   Loader2,
   Sparkles,
@@ -26,12 +25,10 @@ import { buildShuffled } from "@/features/learn/lesson/lesson.utils";
 export function QuizView({
   lesson,
   onExit,
-  onBackToHub,
   onFinish,
 }: {
   lesson: LessonContent;
   onExit: () => void;
-  onBackToHub: () => void;
   onFinish: (correct: number) => void;
 }) {
   const { t, lang } = useLang();
@@ -116,22 +113,7 @@ export function QuizView({
 
   return (
     <div className="learn-fade-in mx-auto max-w-[1100px]">
-      {/* Single breadcrumb + one back action */}
-      <div className="flex items-center justify-between gap-3">
-        <nav className="flex min-w-0 items-center gap-1.5 text-xs text-text-secondary">
-          <button onClick={onBackToHub} className="shrink-0 hover:text-text-primary">
-            {t("Learn Hub")}
-          </button>
-          <ChevronRight className="h-3.5 w-3.5 shrink-0 text-text-muted" />
-          <span className="hidden shrink-0 sm:inline">{t(lesson.category)}</span>
-          <ChevronRight className="hidden h-3.5 w-3.5 shrink-0 text-text-muted sm:inline" />
-          <button
-            onClick={onExit}
-            className="truncate font-medium text-text-primary hover:text-bull"
-          >
-            {t(lesson.title)}
-          </button>
-        </nav>
+      <div className="flex justify-end">
         <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-bull/10 px-3 py-1 text-xs font-semibold text-bull">
           <Star className="h-3.5 w-3.5" strokeWidth={1.5} /> {t("Up to 50 XP")}
         </span>
