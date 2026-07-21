@@ -38,49 +38,49 @@
       "positive_excess_return": false,
       "beats_technical_buy_precision": false
     },
-    "selected_model": "HistGradientBoostingClassifier",
+    "selected_model": "LightGBM",
     "metrics": {
-      "buy_precision": 0.3627,
-      "false_buy_rate": 0.6373,
-      "avg_buy_excess_return": -0.0105,
-      "technical_buy_precision": 0.3414
+      "buy_precision": 0.3854,
+      "false_buy_rate": 0.6146,
+      "avg_buy_excess_return": -0.014,
+      "technical_buy_precision": 0.3513
     }
   },
   "metrics_summary": {
     "5D": {
-      "model": "HistGradientBoostingClassifier",
-      "samples": 7358,
-      "buy_precision": 0.2724,
-      "false_buy_rate": 0.7276,
-      "avg_buy_excess_return": 0.0144,
+      "model": "LightGBM",
+      "samples": 75540,
+      "buy_precision": 0.1713,
+      "false_buy_rate": 0.8287,
+      "avg_buy_excess_return": 0.0018,
       "calibration": {
-        "raw_ece": 0.1597,
-        "calibrated_ece": 0.0372,
-        "global_accuracy": 0.7036
+        "raw_ece": 0.0987,
+        "calibrated_ece": 0.0411,
+        "global_accuracy": 0.4541
       }
     },
     "20D": {
-      "model": "HistGradientBoostingClassifier",
-      "samples": 7342,
-      "buy_precision": 0.3627,
-      "false_buy_rate": 0.6373,
-      "avg_buy_excess_return": -0.0105,
+      "model": "LightGBM",
+      "samples": 74205,
+      "buy_precision": 0.3854,
+      "false_buy_rate": 0.6146,
+      "avg_buy_excess_return": -0.014,
       "calibration": {
-        "raw_ece": 0.3105,
-        "calibrated_ece": 0.1025,
-        "global_accuracy": 0.3862
+        "raw_ece": 0.1316,
+        "calibrated_ece": 0.0508,
+        "global_accuracy": 0.4201
       }
     },
     "60D": {
       "model": "HistGradientBoostingClassifier",
-      "samples": 6455,
-      "buy_precision": 0.4784,
-      "false_buy_rate": 0.5216,
-      "avg_buy_excess_return": -0.0378,
+      "samples": 70666,
+      "buy_precision": 0.5148,
+      "false_buy_rate": 0.4852,
+      "avg_buy_excess_return": -0.0701,
       "calibration": {
-        "raw_ece": 0.3046,
-        "calibrated_ece": 0.0818,
-        "global_accuracy": 0.4757
+        "raw_ece": 0.103,
+        "calibrated_ece": 0.0287,
+        "global_accuracy": 0.5008
       }
     }
   }
