@@ -20,7 +20,7 @@ export function PsxMoversCard({
   const { t } = useLang();
   return (
     <Card className="h-fit overflow-hidden p-5">
-      <div className="mb-3 flex gap-1">
+      <div className="mb-3 flex flex-wrap gap-1">
         {(["Gainers", "Losers", "Most Active"] as const).map((tab) => (
           <button
             key={tab}
@@ -34,36 +34,38 @@ export function PsxMoversCard({
           </button>
         ))}
       </div>
-      <table className="w-full text-xs">
-        <tbody>
-          {movers.map((s, i) => (
-            <tr key={s.ticker} className={cn(i % 2 ? "bg-surface-alt" : "bg-surface")}>
-              <td className="w-7 py-1.5 pl-1 pr-2 text-right tabular-nums text-text-muted">
-                {i + 1}
-              </td>
-              <td className="whitespace-nowrap pr-3 font-semibold text-text-primary">
-                {s.ticker}
-              </td>
-              <td className="whitespace-nowrap pl-2 text-right font-mono tabular-nums text-text-primary">
-                {fmtNum(s.price)}
-              </td>
-              <td className="whitespace-nowrap px-1.5 text-right">
-                <Change pct={s.changePct} />
-              </td>
-              <td className="whitespace-nowrap px-1.5 text-right">
-                {s.signal ? (
-                  <SignalBadge signal={s.signal} className="px-2 text-[9px] tracking-normal" />
-                ) : (
-                  <span className="text-text-muted">-</span>
-                )}
-              </td>
-              <td className="whitespace-nowrap pr-1 text-right font-mono text-[11px] tabular-nums text-text-muted">
-                {s.volume}
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+      <div className="space-y-1 text-xs">
+        {movers.map((s, i) => (
+          <div
+            key={s.ticker}
+            className={cn(
+              "grid min-w-0 grid-cols-[1.5rem_minmax(4rem,1fr)_4.5rem_5rem_5.25rem_4.25rem] items-center rounded-[8px] py-1.5",
+              i % 2 ? "bg-surface-alt" : "bg-surface",
+            )}
+          >
+            <span className="text-right tabular-nums text-text-muted">{i + 1}</span>
+            <span className="min-w-0 truncate pl-2 pr-2 font-semibold text-text-primary">
+              {s.ticker}
+            </span>
+            <span className="whitespace-nowrap text-right font-mono tabular-nums text-text-primary">
+              {fmtNum(s.price)}
+            </span>
+            <span className="whitespace-nowrap text-right">
+              <Change pct={s.changePct} />
+            </span>
+            <span className="min-w-0 justify-self-end overflow-hidden">
+              {s.signal ? (
+                <SignalBadge signal={s.signal} className="max-w-full px-2 text-[9px] tracking-normal" />
+              ) : (
+                <span className="text-text-muted">-</span>
+              )}
+            </span>
+            <span className="whitespace-nowrap text-right font-mono text-[11px] tabular-nums text-text-muted">
+              {s.volume}
+            </span>
+          </div>
+        ))}
+      </div>
     </Card>
   );
 }

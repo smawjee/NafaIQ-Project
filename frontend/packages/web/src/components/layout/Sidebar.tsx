@@ -1,6 +1,6 @@
-import { Link, useRouterState } from "@tanstack/react-router";
+import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import { useState } from "react";
-import { ChevronLeft, ChevronRight, PanelLeftClose, PanelRightClose, Sparkles, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, LogOut, PanelLeftClose, PanelRightClose, Sparkles, X } from "lucide-react";
 import logo from "@/assets/logo.png";
 import { useAuth } from "@/hooks/use-auth";
 import { useLang } from "@/hooks/use-lang";
@@ -11,8 +11,9 @@ import { HubChatPanel } from "@/features/learn/hub/components/HubChatPanel";
 
 export function Sidebar({ onCollapse }: { onCollapse: () => void }) {
   const { t, isUrdu } = useLang();
+  const navigate = useNavigate();
   const path = useRouterState({ select: (s) => s.location.pathname });
-  const { profile, user } = useAuth();
+  const { profile, user, signOut } = useAuth();
   const [chatOpen, setChatOpen] = useState(false);
   const name = profile?.display_name || user?.email?.split("@")[0] || "User";
   const plan = profile?.plan || "Premium";
@@ -25,6 +26,10 @@ export function Sidebar({ onCollapse }: { onCollapse: () => void }) {
     if (!item || typeof item !== "object" || !("activeWhen" in item)) return undefined;
     return (item as { activeWhen?: readonly string[] }).activeWhen;
   };
+  async function handleSignOut() {
+    await signOut();
+    navigate({ to: "/auth" });
+  }
 
   return (
     <aside className="premium-sidebar fixed top-0 start-0 z-30 hidden h-screen w-[260px] flex-col border-e shadow-[10px_0_34px_rgba(0,0,0,0.18)] lg:flex">
@@ -124,6 +129,14 @@ export function Sidebar({ onCollapse }: { onCollapse: () => void }) {
             <ChevronRight className="premium-sidebar-profile-chevron h-4 w-4 shrink-0" strokeWidth={1.9} />
           )}
         </Link>
+        <button
+          type="button"
+          onClick={handleSignOut}
+          className="premium-sidebar-signout mt-1.5 flex h-8 w-full items-center justify-center gap-2 rounded-[10px] text-xs font-semibold transition-colors duration-200"
+        >
+          <LogOut className="h-4 w-4" strokeWidth={1.8} />
+          {t("Logout")}
+        </button>
       </div>
 
       {chatOpen && (
