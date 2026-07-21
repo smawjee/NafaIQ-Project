@@ -3,7 +3,6 @@ import {
   Banknote,
   Bookmark,
   BriefcaseBusiness,
-  ChartCandlestick,
   CircleHelp,
   Coins,
   GraduationCap,
@@ -11,12 +10,13 @@ import {
   Landmark,
   Settings,
   Sparkles,
+  TrendingUp,
   Wallet,
 } from "lucide-react";
 
 export const NAV = [
   { to: "/app", label: "Home", icon: House, mobile: "Home" },
-  { to: "/psx", label: "PSX Market", icon: ChartCandlestick, mobile: "Markets" },
+  { to: "/psx", label: "PSX Market", icon: TrendingUp, mobile: "Markets" },
   { to: "/portfolio", label: "Portfolio", icon: BriefcaseBusiness, mobile: "Portfolio" },
   { to: "/finance", label: "Finance", icon: Wallet, mobile: "Finance" },
   { to: "/learn", label: "Learn Hub", icon: GraduationCap, mobile: "Learn" },
@@ -33,7 +33,7 @@ export const SIDEBAR_SECTIONS = [
     label: "Overview",
     items: [
       { to: "/app", label: "Home", icon: House },
-      { to: "/psx", label: "PSX Market", icon: ChartCandlestick },
+      { to: "/psx", label: "PSX Market", icon: TrendingUp },
     ],
   },
   {
