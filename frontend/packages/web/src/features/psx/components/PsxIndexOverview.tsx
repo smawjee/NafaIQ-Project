@@ -74,26 +74,6 @@ export function PsxIndexOverview({
               {showAll ? t("Show 4") : t("Show all")}
             </button>
           )}
-          <div className="hidden items-center gap-1 sm:flex">
-            <button
-              type="button"
-              onClick={() => scrollRail(-1)}
-              disabled={!canScrollLeft}
-              className="inline-flex h-8 w-8 items-center justify-center rounded-[6px] border border-border text-text-secondary transition hover:bg-hover hover:text-text-primary disabled:cursor-not-allowed disabled:opacity-35"
-              aria-label={t("Scroll indices left")}
-            >
-              <ChevronLeft className="h-4 w-4" />
-            </button>
-            <button
-              type="button"
-              onClick={() => scrollRail(1)}
-              disabled={!canScrollRight}
-              className="inline-flex h-8 w-8 items-center justify-center rounded-[6px] border border-border text-text-secondary transition hover:bg-hover hover:text-text-primary disabled:cursor-not-allowed disabled:opacity-35"
-              aria-label={t("Scroll indices right")}
-            >
-              <ChevronRight className="h-4 w-4" />
-            </button>
-          </div>
         </div>
       </div>
 
@@ -103,6 +83,28 @@ export function PsxIndexOverview({
         )}
         {canScrollRight && (
           <div className="pointer-events-none absolute inset-y-0 right-0 z-10 hidden w-12 bg-gradient-to-l from-background to-transparent sm:block" />
+        )}
+        {(canScrollLeft || canScrollRight) && (
+          <>
+            <button
+              type="button"
+              onClick={() => scrollRail(-1)}
+              disabled={!canScrollLeft}
+              className="absolute -left-6 top-1/2 z-20 hidden h-9 w-9 -translate-y-1/2 items-center justify-center rounded-[8px] border border-border bg-surface/95 text-text-secondary shadow-sm backdrop-blur transition hover:bg-hover hover:text-text-primary disabled:cursor-not-allowed disabled:opacity-40 sm:inline-flex"
+              aria-label={t("Scroll indices left")}
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </button>
+            <button
+              type="button"
+              onClick={() => scrollRail(1)}
+              disabled={!canScrollRight}
+              className="absolute right-2 top-1/2 z-20 hidden h-9 w-9 -translate-y-1/2 items-center justify-center rounded-[8px] border border-border bg-surface/95 text-text-secondary shadow-sm backdrop-blur transition hover:bg-hover hover:text-text-primary disabled:cursor-not-allowed disabled:opacity-40 sm:inline-flex"
+              aria-label={t("Scroll indices right")}
+            >
+              <ChevronRight className="h-4 w-4" />
+            </button>
+          </>
         )}
         <div
           ref={railRef}

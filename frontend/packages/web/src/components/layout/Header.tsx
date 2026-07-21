@@ -1,4 +1,4 @@
-import { Link } from "@tanstack/react-router";
+import { Link, useRouterState } from "@tanstack/react-router";
 import { Menu, Sparkles, PanelLeft, PanelRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useLang } from "@/hooks/use-lang";
@@ -25,6 +25,13 @@ export function Header({
   const isDark = theme === "dark";
   const { plan } = usePermissions();
   const cta = upgradeCta(plan);
+  const pathname = useRouterState({ select: (s) => s.location.pathname });
+  const showStockSearch =
+    pathname === "/psx" ||
+    pathname.startsWith("/stock/") ||
+    pathname === "/watchlist" ||
+    pathname === "/portfolio" ||
+    pathname === "/ai-insights";
   return (
     <header
       className={cn(
@@ -55,8 +62,8 @@ export function Header({
         <Logo />
       </div>
 
-      {/* search anchored left at a fixed max-width */}
-      <StockSearch />
+      {/* Stock search only appears in market/investment contexts. */}
+      {showStockSearch && <StockSearch />}
 
       {/* spacer pushes the utility cluster flush to the right edge */}
       <div className="flex-1" />
