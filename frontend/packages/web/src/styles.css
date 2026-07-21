@@ -1061,11 +1061,11 @@ html {
   background: #ffffff;
   border-color: #d8f3ef;
   color: #0f766e;
-  box-shadow: 0 14px 34px rgba(20, 184, 166, 0.14);
+  box-shadow: 0 8px 18px rgba(16, 24, 40, 0.06);
 }
 .theme-light .premium-sidebar-ai-cta:hover {
   border-color: #99e6dd;
-  box-shadow: 0 18px 40px rgba(20, 184, 166, 0.18);
+  box-shadow: 0 10px 22px rgba(16, 24, 40, 0.08);
 }
 .theme-light .premium-sidebar-ai-icon,
 .theme-light .premium-sidebar-avatar {
