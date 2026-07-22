@@ -37,6 +37,46 @@ BANK_SENDER_DOMAINS: tuple[str, ...] = (
     "nayapay.com",
 )
 
+# Each sender's OWN names (lowercase), used by sanitize.py to reject a bank
+# signing its own alert as the "merchant" ("from Bank Alfalah" in the footer
+# matches the from-X regex otherwise). Scoped per sender domain on purpose: a
+# transfer TO JazzCash reported BY Alfalah has JazzCash as a legitimate
+# counterparty — only the sending bank's self-reference is garbage.
+BANK_SELF_NAMES: dict[str, tuple[str, ...]] = {
+    "hbl.com": ("hbl", "habib bank"),
+    "meezanbank.com": ("meezan", "meezan bank", "meezan bank limited"),
+    "ubldigital.com": ("ubl", "united bank", "ubl digital"),
+    "ubl.com.pk": ("ubl", "united bank"),
+    "mcb.com.pk": ("mcb", "mcb bank"),
+    "bankalfalah.com": ("alfalah", "bank alfalah", "bank alfalah limited", "alfa"),
+    "faysalbank.com": ("faysal", "faysal bank"),
+    "js.com": ("js bank", "jsbl"),
+    "jsbl.com": ("js bank", "jsbl"),
+    "sc.com": ("standard chartered", "standard chartered bank"),
+    "askaribank.com.pk": ("askari", "askari bank"),
+    "bankislami.com.pk": ("bankislami", "bank islami"),
+    "soneribank.com": ("soneri", "soneri bank"),
+    "summitbank.com.pk": ("summit bank",),
+    "nbp.com.pk": ("nbp", "national bank", "national bank of pakistan"),
+    "easypaisa.com.pk": ("easypaisa", "telenor microfinance"),
+    "telenorbank.pk": ("telenor bank", "telenor microfinance", "easypaisa"),
+    "jazzcash.com.pk": ("jazzcash", "mobilink microfinance"),
+    "sadapay.pk": ("sadapay",),
+    "nayapay.com": ("nayapay",),
+}
+
+
+def self_names(sender_domain: str | None) -> tuple[str, ...]:
+    """The sending bank's own names for a From-header domain (suffix-matched,
+    so alerts.bankalfalah.com resolves to bankalfalah.com's names)."""
+    if not sender_domain:
+        return ()
+    d = sender_domain.lower()
+    for domain, names in BANK_SELF_NAMES.items():
+        if d == domain or d.endswith("." + domain):
+            return names
+    return ()
+
 # Subject/body keywords that indicate a transaction alert rather than a
 # statement, marketing mail, or OTP.
 TRANSACTION_HINTS: tuple[str, ...] = (

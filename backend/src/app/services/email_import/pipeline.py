@@ -56,7 +56,7 @@ class SyncResult:
 
 async def _parse_message(msg: RawMessage, llm_budget: list[int]) -> ParsedTransaction | None:
     """Rules first (free, exact); LLM only if rules miss and budget remains."""
-    parsed = rules.parse(msg.subject, msg.body, msg.received_at)
+    parsed = rules.parse(msg.subject, msg.body, msg.received_at, sender=msg.sender)
     if parsed is not None:
         return parsed
     if llm_budget[0] <= 0 or not llm.is_configured():
