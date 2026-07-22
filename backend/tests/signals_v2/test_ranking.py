@@ -253,3 +253,50 @@ def test_symmetric_policy_gates():
     # any gate fails -> NO_SIGNAL
     assert sig(0.98, 0.65, 0.02, 0.65, 0.03, q=False) == SignalLabel.NO_SIGNAL
     assert sig(0.98, 0.65, 0.02, 0.65, 0.03, sup=False) == SignalLabel.NO_SIGNAL
+
+
+def test_score_layer_percentiles_within_date_and_key_alignment():
+    pytest.importorskip("xgboost")
+    pytest.importorskip("lightgbm")
+    from app.services.signals_v2.ranking import (
+        RankingDataset, score_layer, train_absolute_model, train_ranker)
+    from app.services.signals_v2.training import SIGNAL_FEATURES_V3
+
+    rng = np.random.default_rng(5)
+    n_dates, names = 60, 35
+    base = date(2022, 1, 3)
+    fdates, X, fwd, bench, syms, secs, edts, xdts = [], [], [], [], [], [], [], []
+    for k in range(n_dates):
+        d = base + timedelta(days=7 * k)
+        alpha = rng.normal(0, 0.03, names)
+        feats = rng.normal(0, 1, (names, len(SIGNAL_FEATURES_V3)))
+        feats[:, 0] = alpha / 0.03 + rng.normal(0, 0.3, names)
+        for j in range(names):
+            fdates.append(d); syms.append(f"S{j:02d}"); secs.append("SEC")
+            edts.append(d + timedelta(days=1)); xdts.append(d + timedelta(days=21))
+            X.append(feats[j]); fwd.append(0.002 + alpha[j]); bench.append(0.002)
+    fwd, bench = np.asarray(fwd), np.asarray(bench)
+    from app.services.signals_v2.ranking import relative_deciles, three_layer_split
+    dec = relative_deciles(fdates, fwd - bench, min_names=30)
+    ds = RankingDataset(
+        X=np.asarray(X), y=np.asarray([str(int(v)) for v in dec], dtype=object),
+        dates=fdates, symbols=syms, forward_returns=fwd, benchmark_forward_returns=bench,
+        technical_labels=np.asarray(["HOLD"] * len(fdates), dtype=object),
+        feature_names=list(SIGNAL_FEATURES_V3), feature_dates=fdates, entry_dates=edts,
+        exit_dates=xdts, sectors=secs)
+    layers = three_layer_split(ds.feature_dates, min_support={"dev": 20, "calibration": 5, "holdout": 5})
+    ranker = train_ranker(ds, horizon="20D", split_indices=layers["dev"], folds=3,
+                          configs=[{"name": "t", "learning_rate": 0.05, "max_depth": 3, "n_estimators": 60}])
+    absolute = train_absolute_model(ds, horizon="20D", split_indices=layers["dev"], folds=3)
+    records = score_layer(ranker["model"], absolute["clf"], absolute["reg"], ds,
+                          layers["calibration"], "20D")
+    assert len(records) == len(layers["calibration"])
+    cal_dates = {ds.feature_dates[i] for i in layers["calibration"]}
+    for r in records:
+        assert r.feature_date in cal_dates                       # only calibration layer scored
+        assert 0.0 <= r.percentile <= 1.0
+        assert r.forward_return == float(ds.forward_returns[r.sample_index])   # key-aligned
+    # percentiles span the full range within each date's cross-section
+    one_date = next(iter(cal_dates))
+    day = [r.percentile for r in records if r.feature_date == one_date]
+    assert min(day) == 0.0 and max(day) == 1.0

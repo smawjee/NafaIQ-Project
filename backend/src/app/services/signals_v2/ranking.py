@@ -577,3 +577,45 @@ def policy_metrics(calibrated: list["CalibratedPrediction"], config: PolicyConfi
         "top_sector_share": round(max(sec_counts.values()) / total, 4) if sec_counts else 0.0,
         "n_buys": int(len(buys)),
     }
+
+
+def score_layer(ranker_model: Any, clf: Any, reg: Any, ds: "RankingDataset",
+                indices: np.ndarray, horizon: str) -> list[CombinedOOSPrediction]:
+    """Score a later time-layer (calibration/holdout) with already-fitted models.
+
+    Returns one CombinedOOSPrediction per sample with percentiles computed within
+    each feature date's cross-section. The models must have been fitted strictly
+    before this layer's dates (three_layer_split guarantees the ordering).
+    """
+    idx = np.asarray(indices, dtype=np.int64)
+    if len(idx) == 0:
+        return []
+    X = ds.X[idx]
+    scores = np.asarray(ranker_model.predict(X), dtype=np.float64)
+    proba = clf.predict_proba(X)[:, list(clf.classes_).index(1)] \
+        if 1 in list(clf.classes_) else np.zeros(len(idx))
+    preds = np.asarray(reg.predict(X), dtype=np.float64)
+
+    by_date: dict[date, list[int]] = defaultdict(list)
+    for local, i in enumerate(idx):
+        by_date[ds.feature_dates[int(i)]].append(local)
+
+    out: list[CombinedOOSPrediction] = []
+    for locs in by_date.values():
+        larr = np.asarray(locs)
+        s = scores[larr]
+        pct = (rankdata(s, method="average") - 1) / (len(s) - 1) if len(s) > 1 else np.asarray([0.5])
+        for k, local in enumerate(larr):
+            i = int(idx[local])
+            out.append(CombinedOOSPrediction(
+                sample_index=i, symbol=ds.symbols[i], sector=ds.sectors[i],
+                feature_date=ds.feature_dates[i], entry_date=ds.entry_dates[i],
+                exit_date=ds.exit_dates[i], horizon=horizon,
+                rank_score=float(s[k]), percentile=float(pct[k]),
+                forward_return=float(ds.forward_returns[i]),
+                benchmark_return=float(ds.benchmark_forward_returns[i]),
+                excess_return=float(ds.forward_returns[i] - ds.benchmark_forward_returns[i]),
+                technical_label=str(ds.technical_labels[i]),
+                absolute_class_score=float(proba[local]),
+                absolute_regression_score=float(preds[local])))
+    return out
