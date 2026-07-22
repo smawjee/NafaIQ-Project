@@ -1,12 +1,12 @@
-"""The structured result of parsing a bank-alert email.
+"""The structured result of parsing a finance email.
 
 Shared by the rules parser and the LLM fallback so both paths produce exactly
-the same shape, and validation happens in one place.
+one validated shape before the pipeline writes user financial data.
 """
 from __future__ import annotations
 
-from datetime import datetime
-from typing import Literal, Optional
+from datetime import date, datetime
+from typing import Literal, Optional, TypeAlias
 
 from pydantic import BaseModel, Field, field_validator
 
@@ -24,6 +24,7 @@ KNOWN_CATEGORIES: tuple[str, ...] = (
     "education",
     "entertainment",
     "subscriptions",
+    "bills",
     "savings",
     "income",
     "transfer",
@@ -33,7 +34,7 @@ KNOWN_CATEGORIES: tuple[str, ...] = (
 
 
 class ParsedTransaction(BaseModel):
-    """A transaction extracted from a bank email."""
+    """A completed transaction extracted from a bank email."""
 
     amount: float = Field(..., gt=0)
     merchant: str = Field(..., min_length=1, max_length=120)
@@ -61,3 +62,21 @@ class ParsedTransaction(BaseModel):
     def transaction_type(self) -> str:
         """debit = money out = expense; credit = money in = income."""
         return "expense" if self.direction == "debit" else "income"
+
+
+class ParsedBill(BaseModel):
+    """An unpaid bill/invoice extracted from an email."""
+
+    amount: float = Field(..., gt=0)
+    name: str = Field(..., min_length=1, max_length=120)
+    due_date: date
+    recurring: bool = True
+    confidence: float = Field(default=1.0, ge=0.0, le=1.0)
+
+    @field_validator("name")
+    @classmethod
+    def _clean_name(cls, v: str) -> str:
+        return " ".join(v.split()).strip(" .,:;-")[:120]
+
+
+ParsedEmailItem: TypeAlias = ParsedTransaction | ParsedBill

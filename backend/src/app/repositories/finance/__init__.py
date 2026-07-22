@@ -9,6 +9,7 @@ from app.repositories.finance.bills import (  # noqa: F401
     count_bills,
     delete_bill,
     insert_bill,
+    insert_bill_dedup,
     list_bills,
     mark_bill_paid,
     update_bill,
