@@ -515,3 +515,65 @@ def calibration_report(combined: list[CombinedOOSPrediction], calibrator: DualCa
     return {"beat_market": {"brier": b_brier, "ece": b_ece},
             "positive_absolute": {"brier": p_brier, "ece": p_ece},
             "support": calibrator.support}
+
+
+@dataclass(frozen=True)
+class PolicyConfig:
+    buy_pct: float = 0.90
+    strong_buy_pct: float = 0.97
+    sell_pct: float = 0.10
+    strong_sell_pct: float = 0.03
+    min_p_beat: float = 0.55
+    min_p_positive: float = 0.55
+
+
+DEFAULT_POLICY = PolicyConfig()
+
+
+def rank_to_signal(*, percentile: float, p_beat_market: float, expected_excess_net: float,
+                   p_positive_absolute: float, expected_absolute_net: float,
+                   data_quality_ok: bool, liquidity_ok: bool, risk_ok: bool,
+                   calibration_support_ok: bool, config: PolicyConfig = DEFAULT_POLICY) -> SignalLabel:
+    if not (data_quality_ok and calibration_support_ok):
+        return SignalLabel.NO_SIGNAL
+    # BUY side: rank AND relative AND absolute AND conviction AND tradability
+    if percentile >= config.buy_pct and liquidity_ok and risk_ok:
+        if (p_beat_market >= config.min_p_beat and expected_excess_net > 0
+                and p_positive_absolute >= config.min_p_positive and expected_absolute_net > 0):
+            return SignalLabel.STRONG_BUY if percentile >= config.strong_buy_pct else SignalLabel.BUY
+        return SignalLabel.HOLD
+    # SELL side: bottom rank AND negative absolute expectation AND low P(positive)
+    if percentile <= config.sell_pct:
+        if expected_absolute_net < 0 and p_positive_absolute < (1 - config.min_p_positive):
+            return SignalLabel.STRONG_SELL if percentile <= config.strong_sell_pct else SignalLabel.SELL
+        return SignalLabel.HOLD          # underperformer, not a faller
+    return SignalLabel.HOLD
+
+
+def policy_metrics(calibrated: list["CalibratedPrediction"], config: PolicyConfig = DEFAULT_POLICY) -> dict:
+    from collections import Counter
+
+    labels, buys_net, sectors_top = [], [], []
+    for c in calibrated:
+        lab = rank_to_signal(percentile=c.raw.percentile, p_beat_market=c.p_beat_market,
+                             expected_excess_net=c.expected_excess_net,
+                             p_positive_absolute=c.p_positive_absolute,
+                             expected_absolute_net=c.expected_absolute_net,
+                             data_quality_ok=True, liquidity_ok=True, risk_ok=True,
+                             calibration_support_ok=c.calibration_support >= MIN_CAL_SUPPORT, config=config)
+        labels.append(lab.value)
+        if lab in (SignalLabel.BUY, SignalLabel.STRONG_BUY):
+            buys_net.append(c.raw.forward_return - ROUND_TRIP_COST)
+            sectors_top.append(c.raw.sector)
+    buys = np.asarray(buys_net)
+    sec_counts = Counter(sectors_top)
+    total = sum(sec_counts.values()) or 1
+    hhi = sum((n / total) ** 2 for n in sec_counts.values())
+    return {
+        "coverage": round(float(np.mean([l in ("BUY", "STRONG_BUY") for l in labels])), 4),
+        "large_loss_rate": round(float(np.mean(buys < -0.02)) if len(buys) else 0.0, 4),
+        "buy_hit_rate": round(float(np.mean(buys > 0)) if len(buys) else 0.0, 4),
+        "sector_hhi": round(hhi, 4),
+        "top_sector_share": round(max(sec_counts.values()) / total, 4) if sec_counts else 0.0,
+        "n_buys": int(len(buys)),
+    }

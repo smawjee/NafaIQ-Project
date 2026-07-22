@@ -227,3 +227,29 @@ def test_dual_calibrator_monotone_and_wraps():
     assert hi.p_beat_market > lo.p_beat_market
     assert hi.p_positive_absolute > lo.p_positive_absolute
     assert hi.calibration_support > 0
+
+
+def test_symmetric_policy_gates():
+    from app.services.signals_v2.ranking import rank_to_signal
+
+    def sig(pct, pb, ee, pp, ea, q=True, liq=True, risk=True, sup=True):
+        return rank_to_signal(percentile=pct, p_beat_market=pb, expected_excess_net=ee,
+                              p_positive_absolute=pp, expected_absolute_net=ea,
+                              data_quality_ok=q, liquidity_ok=liq, risk_ok=risk,
+                              calibration_support_ok=sup)
+
+    # top rank + all positives + gates -> STRONG BUY / BUY
+    assert sig(0.98, 0.65, 0.02, 0.65, 0.03) == SignalLabel.STRONG_BUY
+    assert sig(0.92, 0.60, 0.01, 0.60, 0.01) == SignalLabel.BUY
+    # top rank but absolute expectation negative -> HOLD (not BUY)
+    assert sig(0.98, 0.65, 0.02, 0.65, -0.005) == SignalLabel.HOLD
+    # top rank but low conviction -> HOLD
+    assert sig(0.98, 0.50, 0.02, 0.65, 0.03) == SignalLabel.HOLD
+    # bottom rank BUT positive absolute expectation -> HOLD (underperformer, NOT sell)
+    assert sig(0.05, 0.30, -0.03, 0.60, 0.01) == SignalLabel.HOLD
+    # bottom rank + negative absolute + low P(positive) -> SELL / STRONG SELL
+    assert sig(0.05, 0.30, -0.03, 0.30, -0.02) == SignalLabel.SELL
+    assert sig(0.01, 0.20, -0.05, 0.20, -0.04) == SignalLabel.STRONG_SELL
+    # any gate fails -> NO_SIGNAL
+    assert sig(0.98, 0.65, 0.02, 0.65, 0.03, q=False) == SignalLabel.NO_SIGNAL
+    assert sig(0.98, 0.65, 0.02, 0.65, 0.03, sup=False) == SignalLabel.NO_SIGNAL
