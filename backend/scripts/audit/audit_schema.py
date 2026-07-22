@@ -5,7 +5,7 @@ Supabase Schema Audit Script
 Read-only audit of all tables, columns, constraints, indexes, RLS,
 row counts, data quality, and column-level null analysis.
 
-Usage:  python -m scripts.audit_schema
+Usage:  python -m scripts.audit.audit_schema
 """
 
 import os

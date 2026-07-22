@@ -171,16 +171,18 @@ async def create_stock_transaction(user: dict, body: StockTransactionCreate) -> 
                 )
 
         executed = body.executed_at or datetime.now(timezone.utc)
-        # Preserve existing behaviour: only buy/sell apply a holding change +
-        # finance reflection; a bare `adjust` posted here records history only.
-        do_side = body.side in ("buy", "sell")
+        # Every side applies the holding change — `_apply_holding_change` and
+        # `_fold_lots` both read `adjust` as an absolute snapshot, so recording an
+        # adjust lot WITHOUT applying it guarantees the aggregate and its
+        # reconstruction disagree. Only real trades reflect into finance: an
+        # adjust is a correction, not a cash movement.
         r = await record_trade_atomic(
             sess,
             user_id=user["user_id"],
             body=body,
             executed=executed,
-            apply_holding=do_side,
-            reflect_finance=do_side,
+            apply_holding=True,
+            reflect_finance=body.side in ("buy", "sell"),
         )
         await sess.commit()
     verb = {"buy": "Bought", "sell": "Sold", "adjust": "Adjusted"}.get(body.side, body.side)

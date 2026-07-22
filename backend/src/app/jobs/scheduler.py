@@ -4,7 +4,7 @@ import asyncio
 import hashlib
 import json
 from collections.abc import Awaitable, Callable
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 from typing import Optional
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
@@ -71,12 +71,28 @@ async def _is_market_open() -> bool:
     return now.weekday() < 5 and 570 <= now.hour * 60 + now.minute <= 930
 
 
-async def _record_health(source: str, success: bool, rows_updated: int = 0, error: str | None = None):
+async def _record_health(
+    source: str,
+    success: bool,
+    rows_updated: int = 0,
+    error: str | None = None,
+    *,
+    allow_zero_rows: bool = False,
+):
     """Upsert a row into psx_data_source_health.
 
     On success: clears any prior error state so the row reflects the latest
     successful run. On failure: sets last_error/last_error_message and leaves
     last_success untouched.
+
+    A "successful" run that wrote ZERO rows is downgraded to a failure unless the
+    caller passes ``allow_zero_rows=True``. Audit 2026-07-22 §7 found four
+    sources reporting green while their tables sat empty — sbp_macro, mufap_nav,
+    financials_5y and psx_fundamentals all had last_success set and
+    rows_updated=0, so nothing surfaced that KIBOR/FX had been broken for weeks.
+    Monitoring that cannot distinguish "wrote everything" from "wrote nothing" is
+    not monitoring. Pass allow_zero_rows=True only where an empty result is a
+    genuine no-op (e.g. a poller with nothing new to fetch).
 
     Never raises. An observability write must not be able to fail the job it is
     observing: most call sites sit inside an ``except`` block (with no enclosing
@@ -84,6 +100,13 @@ async def _record_health(source: str, success: bool, rows_updated: int = 0, erro
     would either escape to APScheduler or turn a successful run into a spurious
     "job failed". Failures are logged at error level and swallowed.
     """
+    if success and rows_updated == 0 and not allow_zero_rows:
+        success = False
+        error = error or (
+            "run completed but wrote 0 rows — the upstream source returned "
+            "nothing usable, or its page format changed"
+        )
+        log.warning("health:zero_rows_downgraded", source=source)
     now = datetime.now(timezone.utc).isoformat()
     payload = {
         "source": source,
@@ -249,8 +272,48 @@ async def _run_concurrently(
     await asyncio.gather(*[wrapped(sym) for sym in symbols], return_exceptions=True)
 
 
+async def _last_bar_dates() -> dict[str, "date"]:
+    """Latest stored bar date per symbol, in one query.
+
+    Drives the incremental upsert and the staleness ordering below.
+    """
+    from sqlalchemy import text as _sql_text
+
+    from app.repositories.base import connect as _connect
+
+    async with _connect() as conn:
+        rows = await conn.execute(
+            _sql_text("SELECT symbol, max(date) AS last_date FROM psx_ohlcv GROUP BY symbol")
+        )
+        return {r["symbol"]: r["last_date"] for r in rows.mappings().all()}
+
+
 async def job_backfill_history():
+    """Refresh daily bars for every symbol.
+
+    Fixed 2026-07-22 after the audit found the back half of the alphabet had no
+    bars for over a week — PPL, PSO, POL, PTC, SEARL, SNGP, SSGC, TRG and UBL
+    among them, all trading millions of shares a day. Three compounding faults:
+
+    1. WRITE VOLUME. `fetch_historical` returns a symbol's ENTIRE history (~2,400
+       bars) and every one was re-upserted nightly: 1,077 symbols x ~2,400 =
+       ~2.6M row writes per run. The job could not finish in its window. Now only
+       bars NEWER than what we already hold are written, which is a handful per
+       symbol on a normal day.
+
+    2. STARVATION. Symbols were always processed in the same alphabetical order,
+       so a truncated run starved the exact same tail every single night —
+       a permanent blind spot from "PIBTL" onward, not a transient gap. Now the
+       STALEST symbols go first, so any backlog is self-healing: whatever was
+       missed last night is at the front of the queue tonight.
+
+    3. FALSE GREEN. Health reported success regardless of coverage. It now
+       records how many symbols were actually covered and fails when a
+       meaningful share were missed.
+    """
     total_bars = 0
+    covered = 0
+    failed: list[str] = []
     try:
         log.info("job:backfill_history:start")
         rows = await select_all("psx_profile", "symbol", order_by="symbol")
@@ -258,23 +321,62 @@ async def job_backfill_history():
         if not symbols:
             return
 
+        last_dates = await _last_bar_dates()
+        # Stalest first; a symbol we have never seen sorts to the very front.
+        symbols.sort(key=lambda s: (last_dates.get(s) or date.min, s))
+
         async def _backfill(sym: str) -> None:
-            nonlocal total_bars
+            nonlocal total_bars, covered
             try:
                 bars = await dps.fetch_historical(sym)
+                known = last_dates.get(sym)
+                if known is not None:
+                    # Incremental: only what we do not already store. Re-writing
+                    # a decade of unchanged history every night is what starved
+                    # the tail of the alphabet.
+                    bars = [b for b in bars if b.date > known]
                 if bars:
-                    rows = [b.to_dict() for b in bars]
-                    await async_execute(lambda c: c.table("psx_ohlcv").upsert(rows, on_conflict="symbol,date"))
+                    payload = [b.to_dict() for b in bars]
+                    await async_execute(
+                        lambda c, _p=payload: c.table("psx_ohlcv").upsert(
+                            _p, on_conflict="symbol,date"
+                        )
+                    )
                     total_bars += len(bars)
-                log.info("job:backfill_history:symbol_done", symbol=sym, bars=len(bars))
+                covered += 1
+                log.debug("job:backfill_history:symbol_done", symbol=sym, bars=len(bars))
             except Exception as e:
+                failed.append(sym)
                 # One symbol failing is routine (upstream drops connections);
                 # the traceback is httpx internals and identical every time.
                 log.warning("job:backfill_history:failed", symbol=sym, error=str(e))
 
         await _run_concurrently(symbols, _backfill, max_concurrent=5)
-        log.info("job:backfill_history:done", total_bars=total_bars)
-        await _record_health("backfill_history", success=True, rows_updated=total_bars)
+
+        coverage_pct = round(100.0 * covered / len(symbols), 1) if symbols else 0.0
+        log.info(
+            "job:backfill_history:done",
+            total_bars=total_bars, covered=covered, symbols=len(symbols),
+            coverage_pct=coverage_pct, failed=len(failed),
+        )
+        # Bars written can legitimately be 0 (a holiday, or a re-run the same
+        # day), so success is judged on COVERAGE, not row count.
+        ok = coverage_pct >= 95.0
+        if not ok:
+            log.warning(
+                "job:backfill_history:incomplete_coverage",
+                coverage_pct=coverage_pct, missed=len(failed),
+                first_missed=failed[:10],
+            )
+        await _record_health(
+            "backfill_history",
+            success=ok,
+            rows_updated=total_bars,
+            allow_zero_rows=True,
+            error=None if ok
+            else f"only {covered}/{len(symbols)} symbols covered ({coverage_pct}%); "
+                 f"first missed: {', '.join(failed[:5])}",
+        )
     except Exception as e:
         log.exception("job:backfill_history:failed")
         await _record_health("backfill_history", success=False, error=str(e))
@@ -289,6 +391,7 @@ async def job_refresh_fundamentals():
         if not symbols:
             return
         now = datetime.now(timezone.utc).isoformat()
+        errors: list[str] = []
 
         async def _refresh(sym: str) -> None:
             nonlocal total
@@ -336,11 +439,24 @@ async def job_refresh_fundamentals():
                 )
                 total += 1
             except Exception as e:
+                errors.append(f"{sym}: {e}")
                 log.warning("job:refresh_fundamentals:failed", symbol=sym, error=str(e))
 
         await _run_concurrently(symbols, _refresh, max_concurrent=5)
-        log.info("job:refresh_fundamentals:done", total=total)
-        await _record_health("psx_fundamentals", success=True, rows_updated=total)
+        log.info(
+            "job:refresh_fundamentals:done", total=total, errors=len(errors),
+            symbols=len(symbols),
+        )
+        # This used to report success=True even when every symbol failed, so a
+        # total DPS outage looked identical to a clean run. listed_shares is the
+        # market-cap input, and it silently went stale for weeks.
+        await _record_health(
+            "psx_fundamentals",
+            success=total > 0 and len(errors) < len(symbols),
+            rows_updated=total,
+            error=None if not errors
+            else f"{len(errors)}/{len(symbols)} symbols failed; first: {errors[0][:180]}",
+        )
     except Exception as e:
         log.exception("job:refresh_fundamentals:failed")
         await _record_health("psx_fundamentals", success=False, error=str(e))
@@ -585,16 +701,17 @@ async def job_refresh_sbp():
         log.info("job:refresh_sbp:start")
         now_iso = datetime.now(timezone.utc).isoformat()
         total = 0
-        for series, rows in (
+        # Per-feed counts, so one dead feed cannot hide behind healthy ones. FX
+        # was returning nothing for weeks while the job reported success.
+        counts: dict[str, int] = {}
+        for name, rows in (
             ("kibor", await sbp.fetch_kibor()),
             ("pkrv", await sbp.fetch_pkrv()),
             ("fx", await sbp.fetch_fx_rates()),
         ):
+            counts[name] = len(rows)
             if rows:
-                payload = [
-                    {**r, "refreshed_at": now_iso}
-                    for r in rows
-                ]
+                payload = [{**r, "refreshed_at": now_iso} for r in rows]
                 await async_execute(
                     lambda c, _p=payload: c.table("macro_rates").upsert(
                         _p, on_conflict="series,date"
@@ -602,7 +719,8 @@ async def job_refresh_sbp():
                 )
                 total += len(rows)
         pr = await sbp.fetch_policy_rate()
-        if pr and pr.get("value") is not None:
+        counts["policy_rate"] = 1 if (pr and pr.get("value") is not None) else 0
+        if counts["policy_rate"]:
             await async_execute(
                 lambda c: c.table("macro_rates").upsert(
                     [{**pr, "refreshed_at": now_iso}],
@@ -610,8 +728,17 @@ async def job_refresh_sbp():
                 )
             )
             total += 1
-        log.info("job:refresh_sbp:done", rows=total)
-        await _record_health("sbp_macro", success=True, rows_updated=total)
+
+        empty = sorted(k for k, v in counts.items() if v == 0)
+        log.info("job:refresh_sbp:done", rows=total, **counts)
+        if empty:
+            log.warning("job:refresh_sbp:empty_feeds", feeds=empty)
+        await _record_health(
+            "sbp_macro",
+            success=not empty,
+            rows_updated=total,
+            error=None if not empty else f"no rows from: {', '.join(empty)}",
+        )
     except Exception as e:
         log.exception("job:refresh_sbp:failed")
         await _record_health("sbp_macro", success=False, error=str(e))
@@ -774,6 +901,8 @@ async def job_refresh_financials_5y():
         if not symbols:
             return
         now_iso = datetime.now(timezone.utc).isoformat()
+        written: dict[str, Any] = {"rows": 0, "errors": 0, "first_error": ""}
+
         async def _per_symbol(sym: str) -> None:
             try:
                 annual = await financials_psx.fetch_annual(sym)
@@ -784,6 +913,7 @@ async def job_refresh_financials_5y():
                             _p, on_conflict="symbol,year"
                         )
                     )
+                    written["rows"] += len(annual)
                 quarterly = await financials_psx.fetch_quarterly(sym)
                 if quarterly:
                     payload = [{**r, "refreshed_at": now_iso} for r in quarterly]
@@ -792,12 +922,29 @@ async def job_refresh_financials_5y():
                             _p, on_conflict="symbol,period"
                         )
                     )
-            except Exception:
+                    written["rows"] += len(quarterly)
+            except Exception as e:
+                written["errors"] += 1
+                if not written["first_error"]:
+                    written["first_error"] = f"{sym}: {e}"
                 log.debug("financials_5y_failed", symbol=sym, exc_info=True)
 
         await _run_concurrently(symbols, _per_symbol, max_concurrent=3)
-        log.info("job:refresh_financials_5y:done")
-        await _record_health("financials_5y", success=True, rows_updated=0)
+        log.info(
+            "job:refresh_financials_5y:done",
+            rows=written["rows"], errors=written["errors"], symbols=len(symbols),
+        )
+        # rows_updated was hardcoded to 0 here, so this job's health row could
+        # never distinguish a full scrape from a total failure — and both
+        # financials tables have been empty since the feature shipped.
+        await _record_health(
+            "financials_5y",
+            success=written["rows"] > 0,
+            rows_updated=written["rows"],
+            error=None if written["rows"] > 0
+            else f"wrote 0 rows; {written['errors']}/{len(symbols)} symbols failed; "
+                 f"first: {(written['first_error'] or 'n/a')[:180]}",
+        )
     except Exception as e:
         log.exception("job:refresh_financials_5y:failed")
         await _record_health("financials_5y", success=False, error=str(e))

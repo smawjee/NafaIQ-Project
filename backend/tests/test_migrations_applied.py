@@ -67,15 +67,11 @@ CHECKS: List[MigrationCheck] = [
             Check("psx_dividends table", "SELECT to_regclass('public.psx_dividends') IS NOT NULL"),
             Check("psx_index_eod table", "SELECT to_regclass('public.psx_index_eod') IS NOT NULL"),
             Check("psx_ticks table", "SELECT to_regclass('public.psx_ticks') IS NOT NULL"),
-            # psx_watchlist / psx_alerts (v1) are superseded by user_watchlist +
-            # price_alerts, and 20260716050030_drop_v1_schema.sql exists to drop
-            # them — but that migration has NOT been applied to the live DB (it
-            # is absent from apply_migrations_20260716.py's list). Verified
-            # 2026-07-15: both tables still exist and hold 0 rows, while the v2
-            # tables are live. These assertions therefore track CURRENT reality.
-            # Flip them to `IS NULL` in the same change that applies the drop.
-            Check("psx_watchlist table (v1)", "SELECT to_regclass('public.psx_watchlist') IS NOT NULL"),
-            Check("psx_alerts table (v1)", "SELECT to_regclass('public.psx_alerts') IS NOT NULL"),
+            # psx_watchlist / psx_alerts (v1) were superseded by user_watchlist +
+            # price_alerts and DROPPED by 20260716050030_drop_v1_schema.sql
+            # (applied 2026-07-22). Both must now be absent.
+            Check("psx_watchlist table (v1) dropped", "SELECT to_regclass('public.psx_watchlist') IS NULL"),
+            Check("psx_alerts table (v1) dropped", "SELECT to_regclass('public.psx_alerts') IS NULL"),
             Check("psx_portfolios table", "SELECT to_regclass('public.psx_portfolios') IS NOT NULL"),
             Check("psx_holdings table", "SELECT to_regclass('public.psx_holdings') IS NOT NULL"),
             # idx_psx_ms_sym and idx_psx_ohlcv_sym_date were dropped by the
@@ -83,8 +79,8 @@ CHECKS: List[MigrationCheck] = [
             # the surviving index of each pair (kept for the symbol/date reads).
             Check("psx_market_snapshot(symbol) index", "SELECT to_regclass('public.idx_psx_market_snapshot_symbol') IS NOT NULL"),
             Check("psx_ohlcv(symbol,date) index", "SELECT to_regclass('public.idx_psx_ohlcv_symbol_date_desc') IS NOT NULL"),
-            # Lives or dies with psx_alerts — see the note above; drop pending.
-            Check("idx_psx_alerts_user index", "SELECT to_regclass('public.idx_psx_alerts_user') IS NOT NULL"),
+            # idx_psx_alerts_user went with psx_alerts when it was dropped.
+            Check("idx_psx_alerts_user index dropped", "SELECT to_regclass('public.idx_psx_alerts_user') IS NULL"),
             Check("RLS on psx_holdings", "SELECT relrowsecurity FROM pg_class WHERE relname='psx_holdings'"),
         ],
     ),
@@ -108,12 +104,8 @@ CHECKS: List[MigrationCheck] = [
         filename="20260707100000_rls_with_check_fix.sql",
         description="Add WITH CHECK clauses to RLS policies",
         checks=[
-            Check("psx_watchlist has WITH CHECK policy",
-                  "SELECT with_check IS NOT NULL FROM pg_policies "
-                  "WHERE schemaname='public' AND tablename='psx_watchlist'"),
-            Check("psx_alerts has WITH CHECK policy",
-                  "SELECT with_check IS NOT NULL FROM pg_policies "
-                  "WHERE schemaname='public' AND tablename='psx_alerts'"),
+            # psx_watchlist / psx_alerts WITH CHECK policies went with the v1
+            # tables when 20260716050030_drop_v1_schema dropped them (2026-07-22).
             Check("psx_portfolios has WITH CHECK policy",
                   "SELECT with_check IS NOT NULL FROM pg_policies "
                   "WHERE schemaname='public' AND tablename='psx_portfolios'"),

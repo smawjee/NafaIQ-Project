@@ -1,3 +1,15 @@
+-- ============================================================================
+-- SUPERSEDED (2026-07-22) — do not run this file.
+--
+-- Promoted to a tracked migration:
+--     database/migrations/20260722110000_backfill_holdings_opening_lots.sql
+--
+-- Same semantics, plus a post-condition check and an _applied_migrations entry.
+-- This copy is retained for history only; running it duplicates nothing (the
+-- NOT EXISTS guard makes it a no-op once the migration has run) but it bypasses
+-- the ledger, which is how it went unapplied for a week in the first place.
+-- ============================================================================
+--
 -- Backfill: synthetic opening lots for holdings that predate the unified write path.
 -- Spec: docs/superpowers/specs/2026-07-14-ai-analysis-reports-design.md (§2.5 item 7)
 --

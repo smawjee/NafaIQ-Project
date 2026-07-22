@@ -134,6 +134,79 @@ async def fetch_symbol_lots(
     ]
 
 
+async def delete_symbol_lots(
+    conn: Executor, portfolio_id: int, symbol: str
+) -> dict[str, int]:
+    """Delete a (portfolio, symbol)'s lots when its holding is removed as a
+    mistake, WITHOUT erasing realised income from real prior sales.
+
+    The delete path means "this position never should have existed". That
+    undoes the buys — their lots and their EXPENSE reflections. It must NOT
+    touch INCOME reflections: if the user genuinely sold part of the position
+    earlier (POST /trades side='sell'), real cash came in and was booked to the
+    finance feed. That income is money they actually received; deleting it
+    silently would falsify their finance history (audit 2026-07-22, HIGH).
+
+    So: delete only the expense reflections, then delete every lot. The
+    surviving income reflections have their `stock_transaction_id` set to NULL
+    by the FK's ON DELETE SET NULL — no longer linked to a lot (there is no
+    position left to link to), but retained as standalone, truthful realised
+    income. Deleting all lots (not just the buys) keeps the symbol free of
+    orphan sell lots, so a later rebuild_holdings_from_transactions cannot
+    reconstruct a nonsensical negative position from a lone sell.
+
+    Expense reflections go FIRST, before their lots: `stock_transaction_id` is
+    ON DELETE SET NULL, so removing a buy lot first would strand its expense
+    reflection with a NULL link — a phantom expense the user never made.
+
+    Scoped to the symbol: other positions in the same portfolio are untouched.
+    """
+    sym = symbol.upper()
+    # Only the expenses (the mistaken buys). Income from real sells is preserved.
+    reflections = await conn.execute(
+        text(
+            "DELETE FROM user_transactions "
+            "WHERE source = 'stock_trade' AND transaction_type = 'expense' "
+            "AND stock_transaction_id IN ("
+            "    SELECT id FROM stock_transactions "
+            "    WHERE portfolio_id = :pid AND symbol = :sym"
+            ") RETURNING id"
+        ),
+        {"pid": portfolio_id, "sym": sym},
+    )
+    reflections_deleted = len(reflections.fetchall())
+
+    # Count income reflections that will survive (their link is about to NULL),
+    # for an honest return value the caller can surface.
+    income_kept = await conn.execute(
+        text(
+            "SELECT count(*) AS n FROM user_transactions "
+            "WHERE source = 'stock_trade' AND transaction_type = 'income' "
+            "AND stock_transaction_id IN ("
+            "    SELECT id FROM stock_transactions "
+            "    WHERE portfolio_id = :pid AND symbol = :sym"
+            ")"
+        ),
+        {"pid": portfolio_id, "sym": sym},
+    )
+    income_preserved = int(income_kept.mappings().first()["n"])
+
+    lots = await conn.execute(
+        text(
+            "DELETE FROM stock_transactions "
+            "WHERE portfolio_id = :pid AND symbol = :sym RETURNING id"
+        ),
+        {"pid": portfolio_id, "sym": sym},
+    )
+    lots_deleted = len(lots.fetchall())
+
+    return {
+        "lots_deleted": lots_deleted,
+        "reflections_deleted": reflections_deleted,
+        "income_preserved": income_preserved,
+    }
+
+
 async def insert_finance_reflection(
     conn: Executor,
     *,

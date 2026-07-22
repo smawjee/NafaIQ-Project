@@ -30,6 +30,7 @@ from app.repositories.portfolio.portfolios import (  # noqa: F401
     list_portfolios,
 )
 from app.repositories.portfolio.trades import (  # noqa: F401
+    delete_symbol_lots,
     fetch_portfolio_lots,
     fetch_symbol_lots,
     insert_finance_reflection,
@@ -47,5 +48,9 @@ from app.repositories.portfolio.valuation import (  # noqa: F401
     fetch_symbols_ohlcv,
 )
 from app.repositories.portfolio.watchlist import (  # noqa: F401
+    count_watchlist,
+    delete_watchlist_symbol,
     fetch_watchlist_enriched,
+    insert_watchlist_symbol,
+    watchlist_has_symbol,
 )

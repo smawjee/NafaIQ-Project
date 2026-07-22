@@ -14,8 +14,10 @@ from app.repositories.finance.bills import (  # noqa: F401
     update_bill,
 )
 from app.repositories.finance.budgets import (  # noqa: F401
+    BUDGET_SPENT_SQL,
     count_budgets,
     delete_budget,
+    get_budget,
     insert_budget,
     list_budgets,
     recompute_budget_spent,

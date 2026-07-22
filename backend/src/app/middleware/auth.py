@@ -22,6 +22,9 @@ USER_PATHS_PREFIXES = (
     # paths first, which is what keeps these authenticated while plain
     # /api/learn search stays open.
     "/api/learn/ai",
+    # NafaIQ Assistant: every route reads or writes the caller's own finance
+    # data, so the shared PSX API token must never satisfy it — JWT only.
+    "/api/assistant",
     "/api/portfolio",
     "/api/profile",
     "/api/watchlist",

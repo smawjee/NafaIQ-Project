@@ -6,17 +6,20 @@ import { useCallback } from "react";
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { useAuth } from "@/hooks/use-auth";
-import { userGet } from "@/lib/api";
+import { userGet, userPost, userDelete } from "@/lib/api";
 import { supabase } from "@/lib/supabase";
 
-async function upsertSymbol(userId: string, symbol: string) {
-  await supabase
-    .from("user_watchlist")
-    .upsert({ symbol, user_id: userId }, { onConflict: "user_id,symbol" });
+// Writes go through the backend, not Supabase-direct: tighten_grants
+// (20260722140000) revoked authenticated INSERT/UPDATE/DELETE on user_watchlist,
+// so a direct write now fails permission-denied. The backend endpoint runs as
+// service_role and applies require_known_symbol + the max_watchlist quota. The
+// SELECT below still works (SELECT was re-granted).
+async function upsertSymbol(_userId: string, symbol: string) {
+  await userPost("/api/watchlist", { symbol });
 }
 
-async function deleteSymbol(userId: string, symbol: string) {
-  await supabase.from("user_watchlist").delete().eq("user_id", userId).eq("symbol", symbol);
+async function deleteSymbol(_userId: string, symbol: string) {
+  await userDelete(`/api/watchlist/${encodeURIComponent(symbol)}`);
 }
 
 export function useWatchlist() {

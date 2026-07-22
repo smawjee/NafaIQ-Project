@@ -1,4 +1,4 @@
-"""Business Recorder news scraper.
+﻿"""Business Recorder news scraper.
 
 Reads brecorder's RSS feeds, not the HTML pages: as of 2026-07-16 every HTML
 page (/markets, /business, markets.brecorder.com) returns **403** to any
@@ -24,6 +24,8 @@ from xml.etree import ElementTree as ET
 import httpx
 import structlog
 from bs4 import BeautifulSoup
+
+from app.scrapers._http import ResilientHTTP
 
 log = structlog.get_logger()
 
@@ -51,33 +53,18 @@ class BRecorderScraper:
     """Scrapes brecorder.com/markets for the latest PSX-relevant headlines."""
 
     def __init__(self) -> None:
-        self._sem = asyncio.Semaphore(2)
-        self._client: Optional[httpx.AsyncClient] = None
-
-    async def _get_client(self) -> httpx.AsyncClient:
-        if self._client is None:
-            self._client = httpx.AsyncClient(
-                http2=True,
-                headers=GET_HEADERS,
-                timeout=15.0,
-                follow_redirects=True,
-            )
-        return self._client
+        # Shared resilient client — retries the full TransportError family with
+        # backoff. This scraper had no retry at all before (audit §7).
+        self._http = ResilientHTTP(headers=GET_HEADERS, concurrency=2, name="brecorder")
 
     async def close(self) -> None:
-        if self._client is not None:
-            await self._client.aclose()
-            self._client = None
+        await self._http.aclose()
 
     async def _try_fetch(self, urls: list[str]) -> str:
         last_exc: Exception | None = None
         for url in urls:
             try:
-                client = await self._get_client()
-                async with self._sem:
-                    r = await client.get(url)
-                    r.raise_for_status()
-                    return r.text
+                return await self._http.get_text(url)
             except Exception as e:  # noqa: BLE001
                 last_exc = e
                 continue

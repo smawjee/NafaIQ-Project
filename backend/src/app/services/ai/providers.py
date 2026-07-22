@@ -33,6 +33,7 @@ from __future__ import annotations
 
 import math
 import os
+import re
 import time
 from typing import Any, AsyncIterator, NamedTuple, Optional, Type, TypeVar
 
@@ -49,12 +50,38 @@ from app.config import settings
 # `instructor.from_openai` wraps — so swapping this one symbol instruments all
 # call paths with zero changes at the call sites. Only used when tracing is
 # configured; otherwise the plain client, so unconfigured runs are unaffected.
+#
+# Guarded by ImportError as well as the flag: `langfuse_enabled` is true as soon
+# as the two LANGFUSE_* keys appear in the environment, which is a deployment
+# decision, whereas the package being installed is a build decision. When those
+# two drift — keys added to .env against an image that never installed the
+# extra — an unguarded import takes down the ENTIRE app at module load, not just
+# tracing. Optional observability must never be able to do that.
 if settings.langfuse_enabled:
-    from langfuse.openai import AsyncOpenAI  # noqa: F401  (instrumented)
+    try:
+        from langfuse.openai import AsyncOpenAI  # noqa: F401  (instrumented)
+    except ImportError:  # pragma: no cover - depends on the build
+        from openai import AsyncOpenAI
+
+        _LANGFUSE_IMPORT_FAILED = True
+    else:
+        _LANGFUSE_IMPORT_FAILED = False
 else:
     from openai import AsyncOpenAI
 
+    _LANGFUSE_IMPORT_FAILED = False
+
 log = structlog.get_logger(__name__)
+
+if _LANGFUSE_IMPORT_FAILED:
+    # Loud, because the operator asked for tracing and is not getting it — but
+    # a warning, because the app itself is fine without it.
+    log.warning(
+        "langfuse_configured_but_not_installed",
+        detail="LANGFUSE_* keys are set but the langfuse package is missing; "
+        "LLM calls will run untraced. Install it (it is in requirements.txt) "
+        "or clear the keys.",
+    )
 
 GEMINI_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/openai/"
 GROQ_BASE_URL = "https://api.groq.com/openai/v1"
@@ -66,15 +93,41 @@ GROQ_URL = GROQ_BASE_URL + "/chat/completions"
 
 PROVIDER_GROQ = "groq"
 PROVIDER_GEMINI = "gemini"
+# Same endpoint and key pool as PROVIDER_GEMINI, different NAME — which is the
+# whole point. Google trains on prompts and permits human review only on the
+# free AI Studio tier; a key with billing enabled is excluded from both. The
+# privacy guards below key off the provider name, so billing-enabled deployments
+# select this one and confidential traffic is allowed through, while a
+# misconfigured free key still hits the refusal. Set
+# AI_ASSISTANT_PROVIDER=gemini_paid only when the key really is billed.
+PROVIDER_GEMINI_PAID = "gemini_paid"
 
 _PROVIDER_BASE_URL = {
     PROVIDER_GROQ: GROQ_BASE_URL,
     PROVIDER_GEMINI: GEMINI_BASE_URL,
+    PROVIDER_GEMINI_PAID: GEMINI_BASE_URL,
 }
 
 
 class ProviderError(Exception):
     """Provider unusable: missing key, HTTP error, transport error."""
+
+
+class ProviderRateLimited(ProviderError):
+    """Every key in the pool is rate-limited or out of quota.
+
+    Split out from the generic error because the two need opposite messages:
+    "something broke, try again" is wrong and slightly alarming when the real
+    answer is "you're going too fast, wait a moment". A subclass, so existing
+    `except ProviderError` handlers keep catching it.
+
+    `retry_after_s` is parsed from the provider's message where it offers one,
+    so the UI can say how long rather than guessing.
+    """
+
+    def __init__(self, message: str, retry_after_s: Optional[float] = None):
+        super().__init__(message)
+        self.retry_after_s = retry_after_s
 
 
 # ===========================================================================
@@ -108,6 +161,9 @@ _ROTATE_MARKERS = (
 _PROVIDER_KEY_POOL = {
     PROVIDER_GROQ: lambda: settings.groq_api_key_pool,
     PROVIDER_GEMINI: lambda: settings.gemini_api_key_pool,
+    # Same pool as the free tier: it is the same Google API, and whether a key
+    # is billed is a property of its project, not of the credential.
+    PROVIDER_GEMINI_PAID: lambda: settings.gemini_api_key_pool,
 }
 
 
@@ -150,8 +206,50 @@ def _should_rotate(exc: BaseException) -> bool:
     return False
 
 
+# Providers state the wait in prose ("Please try again in 11.51s", "in
+# 33m40.032s"), not in a header the SDK surfaces, so it is read back out of the
+# message. Best-effort: a miss just means the UI says "in a moment".
+_RETRY_AFTER_RE = re.compile(
+    r"try again in (?:(\d+)m)?([\d.]+)s", re.IGNORECASE
+)
+
+
+def _retry_after(exc: BaseException | None) -> Optional[float]:
+    match = _RETRY_AFTER_RE.search(str(exc or ""))
+    if not match:
+        return None
+    minutes, seconds = match.group(1), match.group(2)
+    try:
+        return (int(minutes) * 60 if minutes else 0) + float(seconds)
+    except ValueError:
+        return None
+
+
 def _exhausted(provider: str, count: int, last: BaseException | None) -> ProviderError:
-    return ProviderError(f"all {count} {provider} keys exhausted: {last}")
+    """Pool exhausted. Rate-limit exhaustion is its own type — see
+    ProviderRateLimited for why the two need different messages."""
+    message = f"all {count} {provider} keys exhausted: {last}"
+    if last is not None and _condemns_key(last) and _is_rate_limit(last):
+        return ProviderRateLimited(message, _retry_after(last))
+    return ProviderError(message)
+
+
+def _is_rate_limit(exc: BaseException) -> bool:
+    """Quota/throughput exhaustion, as opposed to a dead or invalid key.
+
+    Both rotate, but only this one is worth telling the user to wait out — a
+    revoked key will still be revoked in a minute.
+    """
+    if isinstance(exc, openai.RateLimitError):
+        return True
+    if getattr(exc, "status_code", None) == 429:
+        return True
+    text = str(exc).lower()
+    return any(
+        marker in text
+        for marker in ("quota", "rate limit", "rate_limit", "ratelimit", "resource_exhausted",
+                       "resource has been exhausted", "too many requests")
+    )
 
 
 # One client per (base_url, api_key), reused for the process lifetime.
@@ -300,6 +398,20 @@ def stream_groq(
 # the direct cause of invented numbers that verify_report then rejects, and each
 # rejection costs a whole second generation. 0 is the right default for both.
 _EXTRACTION_TEMPERATURE = 0.0
+
+# Used only to retry a malformed tool call (see complete_with_tools). Small on
+# purpose: enough entropy to escape a deterministic bad generation, not enough
+# to change which tool the model picks or what it puts in the arguments.
+_TOOL_RETRY_TEMPERATURE = 0.3
+
+
+def _malformed_tool_call(exc: BaseException) -> bool:
+    """Groq's `tool_use_failed`: the model wrote its tool call as plain text.
+
+    A model fault, not a key fault — retrying the same key with a nudge is the
+    fix, and rotating would waste the pool on something every key reproduces.
+    """
+    return "tool_use_failed" in str(exc)
 
 
 # ===========================================================================
@@ -487,6 +599,85 @@ async def embed_gemini(
             _fit_embedding(list(d.embedding), settings.ai_embedding_dim) for d in data
         ]
     raise _exhausted(PROVIDER_GEMINI, len(keys), last) from last
+
+
+# ===========================================================================
+# Speech-to-text — Whisper on Groq
+# ===========================================================================
+#
+# Groq serves Whisper on the same OpenAI-compatible base URL as its chat
+# models, so the key pool, rotation rules and pooled clients above all apply
+# unchanged. Nothing is handed to the caller until the full transcript is in
+# hand (same shape as _complete_json / embed_gemini), so every key in the pool
+# can be tried freely — unlike streaming, there is no partial output to
+# duplicate on a retry.
+#
+# Privacy: spoken commands carry the user's own finance data ("add transaction
+# of 12000 salary"), so this is confidential traffic and must not route to a
+# tier that trains on inputs — hence Groq, matching _report_provider's
+# confidential branch.
+
+
+async def transcribe_audio(
+    audio: bytes,
+    *,
+    filename: str = "audio.webm",
+    content_type: str = "audio/webm",
+    language: Optional[str] = None,
+    transport: Optional[httpx.AsyncBaseTransport] = None,
+) -> str:
+    """Transcribe one short audio clip, rotating keys on quota/auth failures.
+
+    `language` is an ISO-639-1 hint ("en" / "ur"). Passing it materially
+    improves Urdu accuracy and stops Whisper from silently translating to
+    English, but it is a hint only — a wrong hint degrades rather than fails,
+    so callers pass the UI language without trying to detect speech first.
+    """
+    if not audio:
+        raise ProviderError("no audio supplied")
+
+    provider = settings.ai_stt_provider.strip().lower()
+    base_url = _PROVIDER_BASE_URL.get(provider)
+    if base_url is None:
+        raise ProviderError(f"unknown STT provider: {provider!r}")
+
+    keys = _keys_for(provider)
+    if not keys:
+        raise ProviderError(f"no API key configured for {base_url}")
+
+    last: Optional[BaseException] = None
+    for index, api_key in enumerate(keys):
+        try:
+            client = _client(base_url, api_key, transport)
+            res = await client.audio.transcriptions.create(
+                model=settings.ai_stt_model,
+                file=(filename, audio, content_type),
+                # "json" (not verbose_json): we need the text and nothing else,
+                # and the compat layers differ on the verbose payload's shape.
+                response_format="json",
+                **({"language": language} if language else {}),
+            )
+        except (openai.OpenAIError, httpx.HTTPError) as e:
+            last = e
+            if not _should_rotate(e):
+                raise ProviderError(f"{base_url}: {e}") from e
+            log.warning(
+                "llm_key_rotated",
+                provider=provider,
+                key_index=index,
+                key_count=len(keys),
+                call="transcriptions",
+                error=type(e).__name__,
+            )
+            continue
+        except Exception as e:
+            # Same rule as the other non-streaming calls: everything leaving
+            # this function is a ProviderError, so callers key on that type.
+            raise ProviderError(f"{base_url}: {type(e).__name__}: {e}") from e
+
+        return (getattr(res, "text", "") or "").strip()
+
+    raise _exhausted(provider, len(keys), last) from last
 
 
 # ===========================================================================
@@ -762,3 +953,161 @@ async def _create_rotating(
         # from the transport afterwards.
         if rc is not report_client:
             await aclose_report_client(rc)
+
+
+# ===========================================================================
+# Assistant — tool-calling chat for the NafaIQ Assistant agent
+# ===========================================================================
+#
+# The assistant differs from every call shape above: it needs the model to pick
+# a *tool* (add_transaction, get_finance_summary, ...) rather than produce prose
+# or a fixed schema. Instructor is the wrong instrument here — it forces exactly
+# one response_model, whereas the agent must choose among ~20 tools or answer in
+# plain text. So this talks to the tools API directly.
+#
+# Privacy: every assistant turn carries the user's own ledger in its prompt, so
+# it is confidential by construction and reuses the same free-Gemini refusal as
+# make_report_client. There is no non-confidential assistant path to configure.
+
+
+def assistant_provider() -> str:
+    """The provider assistant traffic routes to, with the privacy guard applied.
+
+    Mirrors make_report_client's confidential branch: the free Gemini AI Studio
+    tier trains on prompts and permits human review, so a user's transactions
+    and holdings must never be sent there. Misconfiguration fails loudly at the
+    first request rather than leaking quietly.
+    """
+    provider = settings.ai_assistant_provider.strip().lower()
+    if provider not in _PROVIDER_BASE_URL:
+        raise ProviderError(f"unknown assistant provider: {provider!r}")
+    if provider in _GEMINI_FREE_PROVIDERS:
+        raise ProviderError(
+            "refusing to route assistant traffic to the free Gemini AI Studio "
+            "tier: every assistant turn carries the user's own finance data, "
+            "and that tier trains on prompts and permits human review. Enable "
+            "billing on the Gemini key and set AI_ASSISTANT_PROVIDER=gemini_paid, "
+            "or stay on Groq."
+        )
+    return provider
+
+
+def assistant_model(provider: str) -> str:
+    """The model to use for a provider.
+
+    Groq and Gemini need different model names for the same job, so the single
+    `ai_assistant_model` setting cannot serve both. Gemini's name is overridable
+    via env for the same reason `_report_model` allows it: switching tiers or
+    model generations should be config, not a code change.
+    """
+    if provider == PROVIDER_GROQ:
+        return settings.ai_assistant_model
+    if provider in (PROVIDER_GEMINI, PROVIDER_GEMINI_PAID):
+        return os.getenv("AI_ASSISTANT_MODEL_GEMINI", settings.ai_tutor_model_primary)
+    raise ProviderError(f"unknown assistant provider: {provider!r}")
+
+
+async def complete_with_tools(
+    messages: list[dict[str, Any]],
+    tools: list[dict[str, Any]],
+    *,
+    tool_choice: str = "auto",
+    transport: Optional[httpx.AsyncBaseTransport] = None,
+) -> Any:
+    """One non-streaming tool-calling turn; returns the raw assistant message.
+
+    Non-streaming on purpose. A turn that picks a tool has no prose to stream —
+    the user-visible latency is the tool call plus the write, not token output —
+    and streaming tool_calls means reassembling arguments from partial JSON
+    fragments, which fails messily on exactly the malformed-arguments case we
+    most need to handle cleanly. The final narration turn streams separately via
+    stream_assistant_reply.
+
+    Returns the OpenAI ChatCompletionMessage so the caller can inspect both
+    `.content` and `.tool_calls`. Rotates keys like every other non-streaming
+    call: nothing is emitted until the whole response is in hand.
+    """
+    provider = assistant_provider()
+    base_url = _PROVIDER_BASE_URL[provider]
+    keys = _keys_for(provider)
+    if not keys:
+        raise ProviderError(f"no API key configured for {base_url}")
+
+    last: Optional[BaseException] = None
+    for index, api_key in enumerate(keys):
+        client = _client(base_url, api_key, transport)
+        # `attempt` exists only for the malformed-tool-call retry below, which is
+        # why the second pass raises the temperature instead of repeating an
+        # identical request.
+        for attempt in range(2):
+            try:
+                res = await client.chat.completions.create(
+                    model=assistant_model(provider),
+                    messages=messages,  # type: ignore[arg-type]
+                    tools=tools,  # type: ignore[arg-type]
+                    tool_choice=tool_choice,  # type: ignore[arg-type]
+                    temperature=(
+                        _EXTRACTION_TEMPERATURE if attempt == 0 else _TOOL_RETRY_TEMPERATURE
+                    ),
+                )
+            except (openai.OpenAIError, httpx.HTTPError) as e:
+                last = e
+                if _malformed_tool_call(e) and attempt == 0:
+                    # Llama sometimes emits its tool call as literal text
+                    # ("<function=add_goal_alert{...}</function>") and Groq
+                    # rejects it with a 400 tool_use_failed. It is sampling
+                    # noise, not a bad key — so rotating is pointless and the
+                    # 400 correctly does not trigger it — but at temperature 0
+                    # a plain retry is deterministic and reproduces the exact
+                    # same bad generation. A small temperature bump is what
+                    # actually breaks out of it.
+                    log.warning(
+                        "assistant_tool_call_malformed_retrying",
+                        provider=provider,
+                        key_index=index,
+                    )
+                    continue
+                if not _should_rotate(e):
+                    raise ProviderError(f"{base_url}: {e}") from e
+                log.warning(
+                    "llm_key_rotated",
+                    provider=provider,
+                    key_index=index,
+                    key_count=len(keys),
+                    call="assistant_tools",
+                    error=type(e).__name__,
+                )
+                break  # next key
+            except Exception as e:
+                raise ProviderError(f"{base_url}: {type(e).__name__}: {e}") from e
+
+            if not res.choices:
+                raise ProviderError(f"{base_url}: empty choices in assistant response")
+            return res.choices[0].message
+        else:
+            # Both attempts on this key were malformed generations. Another key
+            # runs the same model and would produce the same thing, so stop.
+            raise ProviderError(f"{base_url}: {last}") from last
+
+    raise _exhausted(provider, len(keys), last) from last
+
+
+def stream_assistant_reply(
+    messages: list[dict[str, Any]],
+    *,
+    transport: Optional[httpx.AsyncBaseTransport] = None,
+) -> AsyncIterator[str]:
+    """Stream the assistant's final prose turn (no tools offered).
+
+    Deliberately reuses _stream_chat, so the mid-stream no-rotation rule and the
+    ProviderError contract are identical to the tutor's. Tools are omitted: this
+    is only called once the agent has decided it is answering, so re-offering
+    tools would let the model start another round mid-narration.
+    """
+    provider = assistant_provider()
+    return _stream_chat(
+        provider,
+        assistant_model(provider),
+        messages,  # type: ignore[arg-type]
+        transport,
+    )

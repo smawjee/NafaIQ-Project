@@ -248,7 +248,7 @@ def _load_is_fresh():
     import importlib.util
     from pathlib import Path
 
-    path = Path(__file__).resolve().parents[1] / "scripts" / "ingest_learnhub.py"
+    path = Path(__file__).resolve().parents[1] / "scripts" / "data" / "ingest_learnhub.py"
     spec = importlib.util.spec_from_file_location("ingest_learnhub", path)
     mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mod)

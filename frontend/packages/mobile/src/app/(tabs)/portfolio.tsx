@@ -30,6 +30,7 @@ import {
   usePortfolioValue,
   useRemoveHolding,
   useStockTransactions,
+  useSellHolding,
   useUpdateHolding,
   type HoldingValue,
   type StockTransaction,
@@ -46,6 +47,7 @@ const AVENIR_MED = Platform.select({ ios: "Avenir-Medium", default: fonts.sans }
 const RANGES: Record<string, number> = { "1M": 30, "3M": 90, "6M": 180, "1Y": 365 };
 const emptyForm = { ticker: "", shares: "", avgCost: "" };
 const emptyTrade = { symbol: "", side: "buy" as "buy" | "sell", quantity: "", price: "" };
+const emptySellForm = { price: "", fees: "" };
 
 export default function PortfolioScreen() {
   const router = useRouter();
@@ -86,6 +88,7 @@ export default function PortfolioScreen() {
   const addHoldingApi = useAddHolding(portfolioId);
   const updateHoldingApi = useUpdateHolding(portfolioId);
   const removeHoldingApi = useRemoveHolding(portfolioId);
+  const sellHoldingApi = useSellHolding(portfolioId);
   const createPortfolio = useCreatePortfolio();
   const createTxn = useCreateStockTransaction();
   const {
@@ -101,6 +104,14 @@ export default function PortfolioScreen() {
   const [tradeOpen, setTradeOpen] = useState(false);
   const [trade, setTrade] = useState(emptyTrade);
   const [tradeErr, setTradeErr] = useState("");
+
+  // Removing a holding asks whether it was sold or added by mistake — the two
+  // book completely different things, so the user picks explicitly rather than
+  // the tap silently destroying the position's transaction history.
+  const [removeTarget, setRemoveTarget] = useState<HoldingValue | null>(null);
+  const [sellMode, setSellMode] = useState(false);
+  const [sellForm, setSellForm] = useState(emptySellForm);
+  const [sellErr, setSellErr] = useState("");
 
   const holdings: HoldingValue[] = portfolioValue?.holdings ?? [];
   const listLoading = portfoliosLoading || (!!portfolioId && valueLoading && !portfolioValue);
@@ -145,8 +156,46 @@ export default function PortfolioScreen() {
     setFormErr("");
     setFormOpen(true);
   }
-  function remove(h: HoldingValue) {
-    removeHoldingApi.mutate(h.id);
+  // Open the sold-or-mistake chooser. Previously this deleted immediately with
+  // no confirmation, which is now more destructive: DELETE also removes the
+  // holding's stock transactions and their finance reflections.
+  function openRemove(h: HoldingValue) {
+    setRemoveTarget(h);
+    setSellMode(false);
+    setSellErr("");
+    setSellForm({
+      price: h.current_price != null && h.current_price > 0 ? String(h.current_price) : "",
+      fees: "",
+    });
+  }
+
+  function closeRemove() {
+    setRemoveTarget(null);
+    setSellMode(false);
+    setSellErr("");
+    setSellForm(emptySellForm);
+  }
+
+  // "Just remove it" — added by mistake, so no cash movement is booked.
+  function confirmRemove() {
+    if (!removeTarget) return;
+    removeHoldingApi.mutate(removeTarget.id, { onSuccess: closeRemove });
+  }
+
+  // "I sold it" — a real exit. Records a sell lot at this price and books the
+  // proceeds as income.
+  function confirmSell() {
+    if (!removeTarget) return;
+    const price = Number(sellForm.price);
+    const fees = sellForm.fees ? Number(sellForm.fees) : 0;
+    if (!sellForm.price || Number.isNaN(price) || price < 0)
+      return setSellErr("Enter the price per share you sold at.");
+    if (Number.isNaN(fees) || fees < 0) return setSellErr("Fees must be a positive number.");
+    setSellErr("");
+    sellHoldingApi.mutate(
+      { holdingId: removeTarget.id, price, fees },
+      { onSuccess: closeRemove },
+    );
   }
   function saveHolding() {
     setFormErr("");
@@ -427,7 +476,7 @@ export default function PortfolioScreen() {
                 <Pressable onPress={() => openEdit(item)} hitSlop={12} accessibilityRole="button" accessibilityLabel={`Edit ${item.symbol}`}>
                   <Pencil color={colors.textMuted} size={15} />
                 </Pressable>
-                <Pressable onPress={() => remove(item)} hitSlop={12} accessibilityRole="button" accessibilityLabel={`Delete ${item.symbol}`}>
+                <Pressable onPress={() => openRemove(item)} hitSlop={12} accessibilityRole="button" accessibilityLabel={`Remove ${item.symbol}`}>
                   <Trash2 color={colors.textMuted} size={15} />
                 </Pressable>
               </View>
@@ -464,6 +513,8 @@ export default function PortfolioScreen() {
         />
       </GlassSheet>
 
+      {/* Add Trade (record a buy/sell execution). Kept alongside the
+          remove/sell sheet below — the two are distinct flows. */}
       <GlassSheet open={tradeOpen} onClose={() => setTradeOpen(false)} title="Add Trade">
         <Segmented
           options={["Buy", "Sell"]}
@@ -493,6 +544,75 @@ export default function PortfolioScreen() {
         />
         {tradeErr ? <Text style={{ color: colors.bear, fontSize: 12 }}>{tradeErr}</Text> : null}
         <Button title="Record Trade" onPress={saveTrade} loading={savingTrade} />
+      </GlassSheet>
+
+      {/* Sold vs added-by-mistake. Booking the wrong one corrupts the finance
+          feed, so the choice is explicit rather than a default with an undo. */}
+      <GlassSheet
+        open={removeTarget !== null}
+        onClose={closeRemove}
+        title={sellMode ? "Record Sale" : "Remove Holding"}
+      >
+        {removeTarget && (
+          <View style={{ gap: 10 }}>
+            <Text variant="muted">
+              {removeTarget.symbol} · {removeTarget.shares} shares @{" "}
+              {fmtPKR(removeTarget.avg_cost ?? 0)}
+            </Text>
+
+            {sellMode ? (
+              <>
+                <Field
+                  label="Sale price per share (PKR)"
+                  value={sellForm.price}
+                  onChangeText={(v) => {
+                    setSellForm({ ...sellForm, price: v });
+                    setSellErr("");
+                  }}
+                  keyboardType="numeric"
+                  placeholder="0"
+                />
+                <Field
+                  label="Brokerage fees (PKR, optional)"
+                  value={sellForm.fees}
+                  onChangeText={(v) => {
+                    setSellForm({ ...sellForm, fees: v });
+                    setSellErr("");
+                  }}
+                  keyboardType="numeric"
+                  placeholder="0"
+                />
+                {sellErr ? (
+                  <Text style={{ color: colors.bear, fontSize: 12 }}>{sellErr}</Text>
+                ) : null}
+                <Button
+                  title="Confirm Sale"
+                  onPress={confirmSell}
+                  loading={sellHoldingApi.isPending}
+                />
+                <Button title="Back" variant="ghost" onPress={() => setSellMode(false)} />
+              </>
+            ) : (
+              <>
+                <Text variant="muted">What happened to this position?</Text>
+                <Button title="I sold it" onPress={() => setSellMode(true)} />
+                <Text variant="muted" style={{ fontSize: 11 }}>
+                  Records the sale at your price and adds the proceeds to your income.
+                </Text>
+                <Button
+                  title="Just remove it"
+                  variant="ghost"
+                  onPress={confirmRemove}
+                  loading={removeHoldingApi.isPending}
+                />
+                <Text variant="muted" style={{ fontSize: 11 }}>
+                  Added by mistake. Undoes the purchase; no new income is recorded. Income
+                  from any real past sales is kept.
+                </Text>
+              </>
+            )}
+          </View>
+        )}
       </GlassSheet>
       </SafeAreaView>
     </GlassScreen>
