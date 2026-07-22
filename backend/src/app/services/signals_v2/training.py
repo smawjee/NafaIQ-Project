@@ -486,3 +486,35 @@ def load_dataset(path: str) -> Dataset:
         technical_labels=np.asarray(loaded["technical_labels"], dtype=object),
         feature_names=[str(value) for value in loaded["feature_names"].tolist()],
     )
+
+
+_FUNDAMENTAL_FEATURES = {"pe", "pb", "roe", "div_yield", "payout"}
+_REVERSAL_FEATURES = ["ret_120d", "ret_240d", "ret_240d_ex20"]
+
+SIGNAL_FEATURES_V3 = [f for f in SIGNAL_FEATURES if f not in _FUNDAMENTAL_FEATURES] + _REVERSAL_FEATURES
+
+CORE_PRICE_FEATURES = ["ret_5d", "ret_20d", "rsi14", "price_sma50_ratio"]
+
+
+def vectorize_v3(features: dict[str, Any], names: Iterable[str]) -> np.ndarray:
+    """Vectorize preserving missing values as NaN (GBDT-native), never silent-zero."""
+    out = []
+    for name in names:
+        v = features.get(name)
+        try:
+            f = float(v) if v is not None else np.nan
+            out.append(f if np.isfinite(f) else np.nan)
+        except (TypeError, ValueError):
+            out.append(np.nan)
+    return np.asarray(out, dtype=np.float64)
+
+
+def has_core_features(features: dict[str, Any]) -> bool:
+    for name in CORE_PRICE_FEATURES:
+        v = features.get(name)
+        try:
+            if v is None or not np.isfinite(float(v)):
+                return False
+        except (TypeError, ValueError):
+            return False
+    return True
