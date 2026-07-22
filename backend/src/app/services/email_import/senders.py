@@ -77,6 +77,48 @@ def self_names(sender_domain: str | None) -> tuple[str, ...]:
             return names
     return ()
 
+
+# Clean, human bank names per sender domain — shown as the imported transaction's
+# `source` ("way of transaction"), matching the manual picker's style ("Meezan
+# Debit") instead of the raw "bank_email" tag. Suffix-matched like self_names.
+BANK_DISPLAY_NAMES: dict[str, str] = {
+    "hbl.com": "HBL",
+    "meezanbank.com": "Meezan Bank",
+    "ubldigital.com": "UBL",
+    "ubl.com.pk": "UBL",
+    "mcb.com.pk": "MCB",
+    "bankalfalah.com": "Bank Alfalah",
+    "faysalbank.com": "Faysal Bank",
+    "js.com": "JS Bank",
+    "jsbl.com": "JS Bank",
+    "sc.com": "Standard Chartered",
+    "askaribank.com.pk": "Askari Bank",
+    "bankislami.com.pk": "BankIslami",
+    "soneribank.com": "Soneri Bank",
+    "summitbank.com.pk": "Summit Bank",
+    "nbp.com.pk": "NBP",
+    "easypaisa.com.pk": "Easypaisa",
+    "telenorbank.pk": "Easypaisa",
+    "jazzcash.com.pk": "JazzCash",
+    "sadapay.pk": "SadaPay",
+    "nayapay.com": "NayaPay",
+}
+
+
+def bank_display_name(from_header: str) -> str | None:
+    """Human bank name for a From header ('...@meezanbank.com' -> 'Meezan Bank').
+
+    Suffix-matched so alerts.meezanbank.com resolves to meezanbank.com. Returns
+    None for senders we don't have a display name for (the caller falls back to a
+    generic label)."""
+    domain = sender_domain(from_header)
+    if not domain:
+        return None
+    for d, name in BANK_DISPLAY_NAMES.items():
+        if domain == d or domain.endswith("." + d):
+            return name
+    return None
+
 # Subject/body keywords that indicate a transaction alert rather than a
 # statement, marketing mail, or OTP.
 TRANSACTION_HINTS: tuple[str, ...] = (

@@ -37,7 +37,16 @@ log = logging.getLogger(__name__)
 # gates the LLM path.
 MIN_CONFIDENCE = 0.6
 
-SOURCE = "bank_email"
+# What the transaction shows as its "way of transaction". The finance UI renders
+# `source` verbatim, so it must be a human label — the bank name from the sender
+# ("Meezan Bank"), tagged so users can tell it was auto-imported rather than
+# hand-entered. Unknown senders fall back to a generic label.
+SOURCE_FALLBACK = "Bank email · auto"
+
+
+def _source_label(sender: str) -> str:
+    bank = senders.bank_display_name(sender)
+    return f"{bank} · auto" if bank else SOURCE_FALLBACK
 
 # Shown in Settings when the Google grant dies. In Google "Testing" mode refresh
 # tokens expire after 7 days, so this is expected, not exceptional.
@@ -79,7 +88,7 @@ async def _import_message(
         # a "Food & Dining" budget joins against.
         "category": canonical_category(parsed.category),
         "transaction_date": parsed.transaction_date or msg.received_at,
-        "source": SOURCE,
+        "source": _source_label(msg.sender),
         "note": f"Auto-imported from {msg.subject}"[:500],
         "email_message_id": msg.message_id,
     }
