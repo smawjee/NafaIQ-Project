@@ -141,3 +141,40 @@ def test_eligible_universe_filters_short_and_illiquid():
     as_of = date.fromisoformat(good["S0"][-1]["date"])
     universe = eligible_universe(good, as_of)
     assert "SHORT" not in universe and "S0" in universe
+
+
+def test_train_ranker_recovers_planted_alpha():
+    pytest.importorskip("xgboost")
+    from app.services.signals_v2.ranking import RankingDataset, train_ranker
+    from app.services.signals_v2.training import SIGNAL_FEATURES_V3
+
+    rng = np.random.default_rng(11)
+    n_dates, names = 50, 40
+    base = date(2022, 1, 3)
+    fdates, X, fwd, bench, syms, secs, edts, xdts = [], [], [], [], [], [], [], []
+    for k in range(n_dates):
+        d = base + timedelta(days=7 * k)
+        alpha = rng.normal(0, 0.03, names)
+        feats = rng.normal(0, 1, (names, len(SIGNAL_FEATURES_V3)))
+        feats[:, 0] = alpha / 0.03 + rng.normal(0, 0.3, names)   # feature 0 ~ alpha
+        market = rng.normal(0.002, 0.01)
+        for j in range(names):
+            fdates.append(d); syms.append(f"S{j:02d}"); secs.append("SEC")
+            edts.append(d + timedelta(days=1)); xdts.append(d + timedelta(days=21))
+            X.append(feats[j]); fwd.append(market + alpha[j]); bench.append(market)
+    fwd, bench = np.asarray(fwd), np.asarray(bench)
+    from app.services.signals_v2.ranking import relative_deciles
+    dec = relative_deciles(fdates, fwd - bench, min_names=30)
+    ds = RankingDataset(
+        X=np.asarray(X), y=np.asarray([str(int(v)) for v in dec], dtype=object),
+        dates=fdates, symbols=syms, forward_returns=fwd, benchmark_forward_returns=bench,
+        technical_labels=np.asarray(["HOLD"] * len(fdates), dtype=object),
+        feature_names=list(SIGNAL_FEATURES_V3), feature_dates=fdates, entry_dates=edts,
+        exit_dates=xdts, sectors=secs)
+    result = train_ranker(ds, horizon="20D", folds=3)
+    assert result["metrics"]["daily_rank_ic"] > 0.5
+    assert result["metrics"]["top_decile_excess_after_cost"] > 0
+    assert len(result["oos"]) > 0
+    o = result["oos"][0]
+    assert o.entry_date > o.feature_date and 0.0 <= o.percentile <= 1.0
+    assert result["model"].predict(ds.X[:1]).shape == (1,)

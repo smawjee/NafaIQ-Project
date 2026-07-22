@@ -224,3 +224,140 @@ def build_ranking_dataset(*, histories: dict[str, list[dict[str, Any]]],
         feature_dates=[fdates[i] for i in k], entry_dates=[edates[i] for i in k],
         exit_dates=[xdates[i] for i in k], sectors=[sectors[i] for i in k],
     )
+
+
+DEFAULT_RANKER_CONFIGS: list[dict] = [
+    {"name": "lr05_d6", "learning_rate": 0.05, "max_depth": 6, "n_estimators": 400},
+    {"name": "lr03_d4", "learning_rate": 0.03, "max_depth": 4, "n_estimators": 600},
+    {"name": "lr05_d3", "learning_rate": 0.05, "max_depth": 3, "n_estimators": 500},
+]
+
+BUY_PCT = 0.90
+STRONG_BUY_PCT = 0.97
+SELL_PCT = 0.10
+STRONG_SELL_PCT = 0.03
+
+
+@dataclass(frozen=True)
+class RankerOOSPrediction:
+    sample_index: int
+    symbol: str
+    sector: str
+    feature_date: date
+    entry_date: date
+    exit_date: date
+    horizon: str
+    rank_score: float
+    percentile: float
+    forward_return: float
+    benchmark_return: float
+    excess_return: float
+    technical_label: str
+
+
+def _ndcg_at_k(excess_sorted_by_score_desc: np.ndarray, k: int) -> float:
+    # relevance = positive excess; simple gain = max(excess,0)
+    gains = np.maximum(excess_sorted_by_score_desc, 0.0)
+    k = min(k, len(gains))
+    if k == 0:
+        return 0.0
+    discounts = 1.0 / np.log2(np.arange(2, k + 2))
+    dcg = float(np.sum(gains[:k] * discounts))
+    ideal = np.sort(np.maximum(excess_sorted_by_score_desc, 0.0))[::-1]
+    idcg = float(np.sum(ideal[:k] * discounts))
+    return dcg / idcg if idcg > 0 else 0.0
+
+
+def train_ranker(ds: "RankingDataset", *, horizon: str, split_indices: np.ndarray | None = None,
+                 configs: list[dict] | None = None, folds: int = 4, random_state: int = 42) -> dict:
+    import xgboost
+    from scipy.stats import spearmanr
+
+    configs = configs or DEFAULT_RANKER_CONFIGS
+    sel = np.asarray(split_indices if split_indices is not None else np.arange(len(ds.y)), dtype=np.int64)
+    order = np.lexsort((np.asarray([ds.symbols[i] for i in sel], dtype=object),
+                        np.asarray([ds.feature_dates[i].toordinal() for i in sel])))
+    orig = sel[order]                       # stable original-dataset indices, date-sorted
+    X = ds.X[orig]
+    y = np.asarray([int(v) for v in ds.y[orig]], dtype=np.int64)
+    fdates = [ds.feature_dates[i] for i in orig]
+    edates = [ds.entry_dates[i] for i in orig]
+    xdates = [ds.exit_dates[i] for i in orig]
+    syms = [ds.symbols[i] for i in orig]
+    secs = [ds.sectors[i] for i in orig]
+    tech = ds.technical_labels[orig]
+    fwd = ds.forward_returns[orig]
+    bench = ds.benchmark_forward_returns[orig]
+    excess = fwd - bench
+    qid = np.asarray([d.toordinal() for d in fdates], dtype=np.int64)
+    splits = purged_date_splits(fdates, xdates, folds=folds)
+
+    def _make(cfg):
+        return xgboost.XGBRanker(objective="rank:ndcg", learning_rate=cfg["learning_rate"],
+                                 max_depth=cfg["max_depth"], n_estimators=cfg["n_estimators"],
+                                 subsample=0.85, colsample_bytree=0.85, random_state=random_state)
+
+    best = None
+    daily_by_config: dict[str, dict[date, float]] = {}
+    for cfg in configs:
+        oos: list[RankerOOSPrediction] = []
+        daily_top: dict[date, float] = {}
+        ics, ndcg5, ndcg10, p5, p10, fold_positive = [], [], [], [], [], []
+        for train_idx, test_idx in splits:
+            model = _make(cfg)
+            model.fit(X[train_idx], y[train_idx], qid=qid[train_idx])
+            scores = model.predict(X[test_idx])
+            fold_daily: list[float] = []
+            for od in np.unique(qid[test_idx]):
+                mask = qid[test_idx] == od
+                s = scores[mask]
+                if len(s) < 3:
+                    continue
+                pct = (rankdata(s, method="average") - 1) / (len(s) - 1)
+                day_idx = test_idx[mask]        # indices into the sorted arrays
+                exc = excess[day_idx]
+                sd = np.argsort(s)[::-1]
+                ic = spearmanr(pct, exc).statistic
+                if np.isfinite(ic):
+                    ics.append(float(ic))
+                ndcg5.append(_ndcg_at_k(exc[sd], 5)); ndcg10.append(_ndcg_at_k(exc[sd], 10))
+                p5.append(float(np.mean(exc[sd][:5] > 0))); p10.append(float(np.mean(exc[sd][:10] > 0)))
+                top = exc[pct >= BUY_PCT]
+                d0 = fdates[day_idx[0]]
+                val = float(np.mean(top) - ROUND_TRIP_COST) if len(top) else 0.0
+                daily_top[d0] = val
+                fold_daily.append(val)
+                for local, ti in enumerate(day_idx):
+                    oos.append(RankerOOSPrediction(
+                        sample_index=int(orig[ti]), symbol=syms[ti], sector=secs[ti],
+                        feature_date=fdates[ti], entry_date=edates[ti], exit_date=xdates[ti],
+                        horizon=horizon, rank_score=float(s[local]), percentile=float(pct[local]),
+                        forward_return=float(fwd[ti]), benchmark_return=float(bench[ti]),
+                        excess_return=float(exc[local]), technical_label=str(tech[ti])))
+            if fold_daily:
+                fold_positive.append(1 if float(np.mean(fold_daily)) > 0 else 0)
+        top_excess = float(np.mean(list(daily_top.values()))) if daily_top else -1.0
+        daily_by_config[cfg["name"]] = daily_top
+        cand = {"config": cfg, "oos": oos,
+                "metrics": {"daily_rank_ic": round(float(np.mean(ics)) if ics else 0.0, 4),
+                            "ndcg_at_5": round(float(np.mean(ndcg5)) if ndcg5 else 0.0, 4),
+                            "ndcg_at_10": round(float(np.mean(ndcg10)) if ndcg10 else 0.0, 4),
+                            "precision_at_5": round(float(np.mean(p5)) if p5 else 0.0, 4),
+                            "precision_at_10": round(float(np.mean(p10)) if p10 else 0.0, 4),
+                            "top_decile_excess_after_cost": round(top_excess, 4),
+                            "folds_positive_frac": round(float(np.mean(fold_positive)) if fold_positive else 0.0, 4),
+                            "n_dates": int(len(np.unique(qid))), "samples": int(len(y))},
+                "top_excess": top_excess}
+        if best is None or cand["top_excess"] > best["top_excess"]:
+            best = cand
+
+    final = _make(best["config"])
+    final.fit(X, y, qid=qid)
+    # dates x configs matrix of daily after-cost top-decile excess (PBO input: every trial, not just the winner)
+    all_dates = sorted(set().union(*[set(d) for d in daily_by_config.values()])) if daily_by_config else []
+    matrix = [[daily_by_config[c["name"]].get(d, 0.0) for c in configs] for d in all_dates]
+    best["metrics"]["n_trials"] = len(configs)
+    return {"model": final, "config": best["config"], "oos": best["oos"], "metrics": best["metrics"],
+            "trial_matrix": {"dates": [d.isoformat() for d in all_dates],
+                             "configs": [c["name"] for c in configs],
+                             "matrix": matrix}}
