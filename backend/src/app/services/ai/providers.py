@@ -787,6 +787,32 @@ def make_report_client(
     return _build_report_client(provider, key_index=0, transport=transport)
 
 
+def make_report_failover_client(
+    *,
+    confidential: bool,
+    primary_provider: str,
+    transport: Optional[httpx.AsyncBaseTransport] = None,
+) -> Optional[ReportClient]:
+    """Groq fallback for a report whose primary provider just failed, or None
+    when failover doesn't apply.
+
+    Only NON-confidential reports (shared, no-PII: market brief, stock analysis)
+    fail over. Their primary is the free Gemini tier, which can be down, rate-
+    limited, or unconfigured; Groq is a confidential-safe provider, so falling
+    back to it is always privacy-safe. Confidential reports already run on Groq
+    and must never be routed to the free Gemini tier (spec §4.5), so there is
+    nothing to fail over to — return None. Also None when the primary is already
+    Groq, or when no Groq keys are configured to fall back to.
+    """
+    if confidential:
+        return None
+    if primary_provider == PROVIDER_GROQ:
+        return None
+    if not _keys_for(PROVIDER_GROQ):
+        return None
+    return _build_report_client(PROVIDER_GROQ, key_index=0, transport=transport)
+
+
 def _build_report_client(
     provider: str,
     *,

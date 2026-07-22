@@ -25,6 +25,7 @@ import pytest
 
 from app.schemas.reports import Citation, MarketBriefReport, PortfolioReport
 from app.services.ai import engine
+from app.services.ai.providers import ProviderError
 from app.services.ai.specs import ReportSpec
 
 BUNDLE = {
@@ -384,3 +385,67 @@ def test_a_genuinely_market_led_nudge_still_routes_to_the_stock():
         ],
     )
     assert _dashboard_view_target(bundle, report) == "/stock/SHNI"
+
+
+# --------------------------------------------------------------------------- #
+# (i) non-confidential report fails over Gemini -> Groq on a provider error    #
+# --------------------------------------------------------------------------- #
+class _GenFailThenOk:
+    """Raises ProviderError on the first (primary) call, returns a canned report
+    on the next — simulating a dead primary provider and a healthy fallback.
+    Records the provider of each client it was called with."""
+
+    def __init__(self, report):
+        self._report = report
+        self.providers: list = []
+
+    async def __call__(self, client, *, response_model, messages, report_type="", lang="en", **kw):
+        self.providers.append(getattr(client, "provider", None))
+        if len(self.providers) == 1:
+            raise ProviderError("primary provider is down")
+        return self._report
+
+
+def _patch_failover(monkeypatch, gen: _GenFailThenOk):
+    def _fake_make(*, confidential, transport=None):
+        # Mirror the real routing: confidential -> Groq, shared -> Gemini.
+        return SimpleNamespace(
+            client=object(), model="m", provider="groq" if confidential else "gemini"
+        )
+
+    def _fake_failover(*, confidential, primary_provider, transport=None):
+        # Mirror make_report_failover_client's gating.
+        if confidential or primary_provider == "groq":
+            return None
+        return SimpleNamespace(client=object(), model="groq-model", provider="groq")
+
+    monkeypatch.setattr(engine, "generate_structured", gen)
+    monkeypatch.setattr(engine, "make_report_client", _fake_make)
+    monkeypatch.setattr(engine, "make_report_failover_client", _fake_failover)
+
+
+async def test_non_confidential_fails_over_to_groq(monkeypatch):
+    gen = _GenFailThenOk(_clean_report())
+    _patch_failover(monkeypatch, gen)
+
+    result = await engine.generate_report(_spec(confidential=False), lang="en")
+
+    assert result.report.headline == "Daily market update"
+    assert result.verification.verified is True
+    # Primary (gemini) refused, so the served report came from the groq fallback.
+    assert result.provider == "groq"
+    assert gen.providers == ["gemini", "groq"]
+
+
+async def test_confidential_report_does_not_fail_over(monkeypatch):
+    gen = _GenFailThenOk(_clean_report())
+    _patch_failover(monkeypatch, gen)
+
+    # A confidential report has no privacy-safe fallback, so the provider error
+    # propagates (the API layer turns it into a 503) — it is NEVER retried on the
+    # free Gemini tier.
+    with pytest.raises(ProviderError):
+        await engine.generate_report(
+            _spec(confidential=True, schema=PortfolioReport), lang="en"
+        )
+    assert gen.providers == ["groq"]  # only the primary attempt, no failover

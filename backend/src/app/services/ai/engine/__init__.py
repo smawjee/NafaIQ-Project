@@ -31,10 +31,13 @@ from app.config import settings
 from app.schemas.reports import VerificationResult
 from app.services.ai.guardrails import check_report
 from app.services.ai.providers import (
+    ProviderError,
+    ReportClient,
     generate_structured,
     log_report_generation,
     aclose_report_client,
     make_report_client,
+    make_report_failover_client,
 )
 from app.services.ai.specs import ReportSpec
 from app.services.ai.verify import verify_report
@@ -75,9 +78,8 @@ async def generate_report(
     lang: str = "en",
     transport: Optional[httpx.AsyncBaseTransport] = None,
 ) -> GeneratedReport:
-    started = time.perf_counter()
-
-    # Assemble the bundle of facts.
+    # Assemble the bundle of facts (provider-independent — done once even when we
+    # fail over).
     bundle = await spec.context_builder(
         None, subject=subject, days=days, user_id=user_id
     )
@@ -93,8 +95,53 @@ async def generate_report(
         {"role": "user", "content": "Generate the report as structured output now."},
     ]
 
-    # Generate against the routed provider.
-    client = make_report_client(confidential=spec.confidential, transport=transport)
+    # Generate against the routed provider. A non-confidential report whose
+    # primary is the free Gemini tier falls back to Groq when Gemini is down /
+    # rate-limited / unconfigured — so a Gemini outage degrades gracefully
+    # instead of hard-failing the shared market brief with a 503 (and then a
+    # 5-minute cooldown). Confidential reports never fail over (they are already
+    # on Groq and must never touch the free Gemini tier). A ProviderError is the
+    # provider refusing (auth/quota/exhausted); a ReportUnavailable is our own
+    # verification failing, which the other provider would hit too, so only the
+    # former triggers failover.
+    primary = make_report_client(confidential=spec.confidential, transport=transport)
+    try:
+        try:
+            return await _generate_once(spec, primary, messages, bundle, lang)
+        except ProviderError:
+            fallback = make_report_failover_client(
+                confidential=spec.confidential,
+                primary_provider=primary.provider,
+                transport=transport,
+            )
+            if fallback is None:
+                raise
+            log_report_generation(
+                report_type=spec.report_type,
+                failover_from=primary.provider,
+                failover_to=fallback.provider,
+                lang=lang,
+            )
+            try:
+                return await _generate_once(spec, fallback, messages, bundle, lang)
+            finally:
+                await aclose_report_client(fallback)
+    finally:
+        await aclose_report_client(primary)
+
+
+async def _generate_once(
+    spec: ReportSpec,
+    client: ReportClient,
+    messages: list[dict[str, str]],
+    bundle: dict[str, Any],
+    lang: str,
+) -> GeneratedReport:
+    """One full generation against a single already-built provider client:
+    generate -> verify + guardrails -> one correction retry -> strip fallback ->
+    fail closed. Does NOT own the client's lifecycle — the caller closes it, so
+    the same pipeline can be re-run against a failover client."""
+    started = time.perf_counter()
     try:
         # Total wall-clock budget. The provider's per-request timeout bounds one
         # HTTP call, not the pipeline: 2 Instructor attempts x 2
@@ -204,9 +251,5 @@ async def generate_report(
                 f"{spec.report_type}: provider structured-output validation failed"
             ) from e
         raise
-    finally:
-        # make_report_client() builds an httpx.AsyncClient and AsyncOpenAI does
-        # not own an injected one's lifecycle, so without this every report —
-        # including the fail-closed and regenerate paths — stranded a
-        # connection pool for the life of the process.
-        await aclose_report_client(client)
+    # The client's connection pool is closed by generate_report (which owns the
+    # client's lifecycle, so a failover attempt can reuse this same pipeline).
