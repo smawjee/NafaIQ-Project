@@ -1,6 +1,5 @@
 import { useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { useTheme } from "@/hooks/use-theme";
 import { useAuth } from "@/hooks/use-auth";
 import { useDemo } from "@/hooks/use-demo";
 import { useDashboardData } from "@/hooks/use-demo-data";
@@ -28,7 +27,6 @@ import { NewsFeed } from "@/features/psx/components/NewsFeed";
 export function Dashboard() {
   const { profile, user } = useAuth();
   const { isDemo } = useDemo();
-  const { theme } = useTheme();
   const navigate = useNavigate();
   const useShowcaseDashboard = isDemo;
 
@@ -161,7 +159,6 @@ export function Dashboard() {
         spendingByCatLoading={spendingByCatLoading}
         spendingByCat={spendingByCat}
         showcaseSpending={showcase.spending}
-        theme={theme}
       />
 
       {/* Workstream D: macro snapshot + unusual activity + latest news */}

@@ -26,6 +26,11 @@ from app.services.finance.goals import (  # noqa: F401
     delete_goal,
     list_goals,
 )
+from app.services.finance.payment_methods import (  # noqa: F401
+    create_payment_method,
+    list_payment_method_labels,
+    list_user_payment_methods,
+)
 from app.services.finance.summary import (  # noqa: F401
     get_settings,
     income_expense_series,

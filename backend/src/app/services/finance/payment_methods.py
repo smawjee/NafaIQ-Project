@@ -19,6 +19,12 @@ from __future__ import annotations
 
 import re
 
+from fastapi import HTTPException
+
+from app.repositories import finance as repo
+from app.repositories.base import begin, connect
+from app.schemas.finance import PaymentMethodCreate
+
 # The canonical labels, in picker order. Must stay in sync with the frontend
 # ACCOUNTS list; GET /api/finance/vocabulary serves this so the frontend can
 # stop hardcoding it in two places (finance.data.ts and dashboard.data.ts).
@@ -27,6 +33,10 @@ PAYMENT_METHODS: tuple[str, ...] = (
     "Meezan Debit",
     "Easypaisa",
     "Meezan Savings",
+    "Allied Bank Card",
+    "Cheque",
+    "Cash",
+    "Bank Transfer",
 )
 
 # What the machine-set `source` values mean, for callers that need to tell a
@@ -98,3 +108,35 @@ def canonical_payment_method(value: str | None) -> str | None:
     """
     matches = match_payment_methods(value)
     return matches[0] if len(matches) == 1 else None
+
+
+def _clean_label(label: str) -> str:
+    cleaned = " ".join(label.strip().split())
+    if not cleaned:
+        raise HTTPException(400, "Payment method is required")
+    if len(cleaned) > 80:
+        raise HTTPException(400, "Payment method must be 80 characters or less")
+    return cleaned
+
+
+async def list_user_payment_methods(uid: str) -> list[dict]:
+    async with connect() as conn:
+        return await repo.list_payment_methods(conn, uid)
+
+
+async def list_payment_method_labels(uid: str) -> list[str]:
+    rows = await list_user_payment_methods(uid)
+    labels: list[str] = []
+    seen: set[str] = set()
+    for label in [*PAYMENT_METHODS, *(row["label"] for row in rows)]:
+        key = label.strip().lower()
+        if key and key not in seen:
+            labels.append(label)
+            seen.add(key)
+    return labels
+
+
+async def create_payment_method(uid: str, body: PaymentMethodCreate) -> dict:
+    label = _clean_label(body.label)
+    async with begin() as conn:
+        return await repo.upsert_payment_method(conn, uid, label)
