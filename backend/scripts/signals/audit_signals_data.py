@@ -37,7 +37,11 @@ def detect_corp_action_events(
     announcements: list[dict[str, Any]],
     *,
     gap_threshold: float = 0.30,
-    split_ratios: tuple[float, ...] = (1.1, 1.25, 1.5, 2.0, 3.0),
+    # NOTE: 1.1 deliberately excluded — a 10% bonus gap is indistinguishable from an
+    # ordinary PSX limit-down day on daily closes; including it flagged ~3% of ALL
+    # bars (median 23 dates/symbol) in the 2026-07-22 audit, which would have
+    # excluded nearly every training sample via the T8 contamination windows.
+    split_ratios: tuple[float, ...] = (1.25, 1.5, 2.0, 2.5, 3.0, 4.0, 5.0),
     ratio_tol: float = 0.03,
     volume_mult: float = 3.0,
 ) -> list[dict[str, Any]]:

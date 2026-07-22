@@ -39,3 +39,11 @@ def test_detect_corp_action_ignores_smooth_series():
     rows = _rows([100.0 * (1.005 ** i) for i in range(10)])  # smooth 0.5%/day
     events = audit.detect_corp_action_events(rows, dividends=[], announcements=[])
     assert events == []
+
+
+def test_detect_corp_action_ignores_limit_down_day():
+    # a single -9% day is ordinary PSX volatility (circuit-breaker territory),
+    # NOT a 1.1 bonus/split - must not be flagged (over-flagging destroys samples)
+    rows = _rows([100.0] * 5 + [91.0] * 5)
+    events = audit.detect_corp_action_events(rows, dividends=[], announcements=[])
+    assert events == []
