@@ -178,3 +178,29 @@ def test_train_ranker_recovers_planted_alpha():
     o = result["oos"][0]
     assert o.entry_date > o.feature_date and 0.0 <= o.percentile <= 1.0
     assert result["model"].predict(ds.X[:1]).shape == (1,)
+
+
+def test_join_oos_key_based_and_1to1():
+    from app.services.signals_v2.ranking import (
+        AbsoluteOOSPrediction, CombinedOOSPrediction, RankerOOSPrediction, join_oos)
+    d = date(2024, 1, 1)
+    r = [RankerOOSPrediction(1, "A", "S", d, d + timedelta(days=1), d + timedelta(days=21),
+                             "20D", 0.5, 0.9, 0.03, 0.01, 0.02, "HOLD"),
+         RankerOOSPrediction(2, "B", "S", d, d + timedelta(days=1), d + timedelta(days=21),
+                             "20D", 0.1, 0.2, -0.01, 0.01, -0.02, "SELL")]
+    a = [AbsoluteOOSPrediction(2, "B", d, "20D", 0.3, -0.005),
+         AbsoluteOOSPrediction(1, "A", d, "20D", 0.7, 0.02)]     # deliberately shuffled
+    combined = join_oos(r, a)
+    assert len(combined) == 2
+    by_sym = {c.symbol: c for c in combined}
+    assert by_sym["A"].absolute_regression_score == 0.02       # joined by KEY, not position
+    assert by_sym["B"].absolute_class_score == 0.3
+    assert isinstance(combined[0], CombinedOOSPrediction)
+
+
+def test_join_oos_raises_on_mismatch():
+    from app.services.signals_v2.ranking import AbsoluteOOSPrediction, RankerOOSPrediction, join_oos
+    d = date(2024, 1, 1)
+    r = [RankerOOSPrediction(1, "A", "S", d, d, d, "20D", 0.5, 0.9, 0.0, 0.0, 0.0, "HOLD")]
+    with pytest.raises(ValueError):
+        join_oos(r, [])                                          # no matching absolute record

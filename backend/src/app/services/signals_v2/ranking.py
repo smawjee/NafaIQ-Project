@@ -361,3 +361,91 @@ def train_ranker(ds: "RankingDataset", *, horizon: str, split_indices: np.ndarra
             "trial_matrix": {"dates": [d.isoformat() for d in all_dates],
                              "configs": [c["name"] for c in configs],
                              "matrix": matrix}}
+
+
+@dataclass(frozen=True)
+class AbsoluteOOSPrediction:
+    sample_index: int
+    symbol: str
+    feature_date: date
+    horizon: str
+    absolute_class_score: float
+    absolute_regression_score: float
+
+
+@dataclass(frozen=True)
+class CombinedOOSPrediction:
+    sample_index: int
+    symbol: str
+    sector: str
+    feature_date: date
+    entry_date: date
+    exit_date: date
+    horizon: str
+    rank_score: float
+    percentile: float
+    forward_return: float
+    benchmark_return: float
+    excess_return: float
+    technical_label: str
+    absolute_class_score: float
+    absolute_regression_score: float
+
+
+def _abs_model_factory():
+    try:
+        import lightgbm
+        clf = lightgbm.LGBMClassifier(n_estimators=400, learning_rate=0.04, num_leaves=31,
+                                      subsample=0.85, colsample_bytree=0.85, random_state=42, verbose=-1)
+        reg = lightgbm.LGBMRegressor(n_estimators=400, learning_rate=0.04, num_leaves=31,
+                                     subsample=0.85, colsample_bytree=0.85, random_state=42, verbose=-1)
+        return clf, reg
+    except ImportError:
+        from sklearn.ensemble import HistGradientBoostingClassifier, HistGradientBoostingRegressor
+        return (HistGradientBoostingClassifier(max_iter=300, learning_rate=0.045, random_state=42),
+                HistGradientBoostingRegressor(max_iter=300, learning_rate=0.045, random_state=42))
+
+
+def train_absolute_model(ds: "RankingDataset", *, horizon: str,
+                         split_indices: np.ndarray | None = None, folds: int = 4) -> dict:
+    import copy
+
+    sel = np.asarray(split_indices if split_indices is not None else np.arange(len(ds.y)), dtype=np.int64)
+    X = ds.X[sel]
+    fdates = [ds.feature_dates[i] for i in sel]
+    syms = [ds.symbols[i] for i in sel]
+    net = ds.forward_returns[sel] - ROUND_TRIP_COST
+    y_pos = (net > 0).astype(np.int64)
+    label_end = [ds.exit_dates[i] for i in sel]
+    splits = purged_date_splits(fdates, label_end, folds=folds)
+    clf_proto, reg_proto = _abs_model_factory()
+
+    oos: list[AbsoluteOOSPrediction] = []
+    for train_idx, test_idx in splits:
+        clf = copy.deepcopy(clf_proto); reg = copy.deepcopy(reg_proto)
+        clf.fit(X[train_idx], y_pos[train_idx]); reg.fit(X[train_idx], net[train_idx])
+        proba = clf.predict_proba(X[test_idx])[:, list(clf.classes_).index(1)] \
+            if 1 in list(clf.classes_) else np.zeros(len(test_idx))
+        preds = reg.predict(X[test_idx])
+        for local, ti in enumerate(test_idx):
+            oos.append(AbsoluteOOSPrediction(int(sel[ti]), syms[ti], fdates[ti], horizon,
+                                             float(proba[local]), float(preds[local])))
+    clf_final = copy.deepcopy(clf_proto); reg_final = copy.deepcopy(reg_proto)
+    clf_final.fit(X, y_pos); reg_final.fit(X, net)
+    return {"clf": clf_final, "reg": reg_final, "oos": oos}
+
+
+def join_oos(ranker_oos: list[RankerOOSPrediction],
+             absolute_oos: list[AbsoluteOOSPrediction]) -> list[CombinedOOSPrediction]:
+    abs_by_key = {(a.sample_index, a.symbol, a.feature_date, a.horizon): a for a in absolute_oos}
+    combined: list[CombinedOOSPrediction] = []
+    for r in ranker_oos:
+        key = (r.sample_index, r.symbol, r.feature_date, r.horizon)
+        a = abs_by_key.get(key)
+        if a is None:
+            raise ValueError(f"no absolute OOS record for ranker sample {key}")
+        combined.append(CombinedOOSPrediction(
+            r.sample_index, r.symbol, r.sector, r.feature_date, r.entry_date, r.exit_date, r.horizon,
+            r.rank_score, r.percentile, r.forward_return, r.benchmark_return, r.excess_return,
+            r.technical_label, a.absolute_class_score, a.absolute_regression_score))
+    return combined
