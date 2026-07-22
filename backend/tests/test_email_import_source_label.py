@@ -29,3 +29,14 @@ def test_source_label_known_bank_is_named_and_auto_tagged():
 
 def test_source_label_unknown_bank_falls_back_to_bank_email():
     assert _source_label("noreply@some-unlisted-bank.example") == "Bank email · auto"
+
+
+def test_biller_sender_is_candidate_for_invoice():
+    from app.services.email_import.senders import biller_display_name, is_candidate
+
+    assert biller_display_name("Spotify <billing@spotify.com>") == "Spotify"
+    assert is_candidate(
+        "billing@ptcl.com.pk",
+        "PTCL bill ready",
+        "Amount Due Rs. 5499. Due Date 05-Aug-2026",
+    )

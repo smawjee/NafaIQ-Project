@@ -12,16 +12,16 @@ from __future__ import annotations
 
 import logging
 import re
-from datetime import datetime
+from datetime import date, datetime
 from typing import Optional
 
-from app.services.email_import.models import ParsedTransaction
+from app.services.email_import.models import ParsedBill, ParsedTransaction
 from app.services.email_import.sanitize import (
     clean_merchant,
     fallback_title,
     is_valid_merchant,
 )
-from app.services.email_import.senders import sender_domain
+from app.services.email_import.senders import biller_display_name, sender_domain
 
 log = logging.getLogger(__name__)
 
@@ -359,4 +359,117 @@ def parse(
         )
     except Exception:
         log.debug("rules parse produced an invalid transaction", exc_info=True)
+        return None
+
+# ── bill/invoice parsing ─────────────────────────────────────────────────────
+# Bills are not completed transactions yet: they belong in user_bills so the due
+# bill evaluator can alert close to the due date. Keep these patterns anchored to
+# invoice language, not generic bank debit/credit alerts.
+_BILL_WORD_RE = re.compile(
+    r"\b(?:bill|invoice|amount\s+due|total\s+due|payment\s+due|due\s+date|pay\s+by|last\s+date|subscription|renewal)\b",
+    re.IGNORECASE,
+)
+_BILL_AMOUNT_LABEL_RE = re.compile(
+    r"(?is)\b(?:amount\s+due|total\s+due|bill\s+amount|invoice\s+amount|"
+    r"amount\s+payable|payable\s+amount|current\s+charges|balance\s+due|total)"
+    r"\D{0,32}(?:PKR|Rs\.?|RS)\s*([\d,]+(?:\.\d{1,2})?)"
+)
+_DUE_DATE_LABEL_RE = re.compile(
+    r"(?is)\b(?:due\s+date|payment\s+due\s+date|pay\s+by|due\s+by|last\s+date|valid\s+till)"
+    r"\D{0,24}([A-Za-z]{3,9}\s+\d{1,2},?\s+\d{4}|\d{1,2}[-\s][A-Za-z]{3,9}[-\s]\d{4}|"
+    r"\d{4}-\d{1,2}-\d{1,2}|\d{1,2}[/-]\d{1,2}[/-]\d{2,4})"
+)
+_BILL_NAME_STOP_RE = re.compile(
+    r"\b(?:bill|invoice|receipt|statement|payment|due|amount|for\s+the\s+month)\b.*$",
+    re.IGNORECASE,
+)
+_MONTH_FORMATS = (
+    "%d %b %Y",
+    "%d %B %Y",
+    "%b %d %Y",
+    "%B %d %Y",
+    "%b %d, %Y",
+    "%B %d, %Y",
+)
+
+
+def _parse_due_date(raw: str) -> Optional[date]:
+    original = " ".join((raw or "").replace(",", " ").split())
+    if not original:
+        return None
+    for fmt in ("%Y-%m-%d", "%d-%m-%Y", "%d/%m/%Y", "%d-%m-%y", "%d/%m/%y"):
+        try:
+            return datetime.strptime(original, fmt).date()
+        except ValueError:
+            pass
+    month_value = " ".join(original.replace("-", " ").split())
+    for fmt in _MONTH_FORMATS:
+        try:
+            return datetime.strptime(month_value, fmt).date()
+        except ValueError:
+            pass
+    return None
+
+
+def _bill_amount(text: str) -> Optional[float]:
+    labelled = _BILL_AMOUNT_LABEL_RE.search(text)
+    if labelled:
+        return _to_amount(labelled.group(1))
+    amounts = [_to_amount(m.group(1)) for m in _AMOUNT_RE.finditer(text)]
+    amounts = [a for a in amounts if a is not None]
+    return amounts[0] if len(amounts) == 1 else None
+
+
+def _bill_due_date(text: str) -> Optional[date]:
+    match = _DUE_DATE_LABEL_RE.search(text)
+    return _parse_due_date(match.group(1)) if match else None
+
+
+def _bill_name(subject: str, body: str, sender: str) -> str:
+    display = biller_display_name(sender)
+    if display:
+        return display
+    subject_head = re.split(r"[|:-]", subject or "", maxsplit=1)[0]
+    subject_head = _BILL_NAME_STOP_RE.sub("", subject_head).strip(" .,:;-")
+    if 2 <= len(subject_head) <= 80 and not subject_head.lower() in {"your", "monthly"}:
+        return clean_merchant(subject_head)
+    first_line = next((line.strip() for line in body.splitlines() if line.strip()), "")
+    first_line = _BILL_NAME_STOP_RE.sub("", first_line).strip(" .,:;-")
+    return clean_merchant(first_line) if 2 <= len(first_line) <= 80 else "Imported Bill"
+
+
+def _bill_recurring(text: str, sender: str) -> bool:
+    haystack = f"{sender} {text}".lower()
+    if any(word in haystack for word in ("one-time", "one time", "non recurring")):
+        return False
+    return True
+
+
+def parse_bill(subject: str, body: str, received_at: datetime, sender: str = "") -> Optional[ParsedBill]:
+    """Parse an unpaid bill/invoice email, or return None when it is not a bill.
+
+    A completed bank debit like "bill payment successful" must stay on the
+    transaction path. This parser therefore requires invoice/bill wording, an
+    amount due, and a due date.
+    """
+    clean_body = strip_boilerplate(body)
+    text = f"{subject}\n{clean_body}"
+    if not _BILL_WORD_RE.search(text):
+        return None
+    if _direction(text) is not None and not _DUE_DATE_LABEL_RE.search(text):
+        return None
+    amount = _bill_amount(text)
+    due = _bill_due_date(text)
+    if amount is None or due is None:
+        return None
+    try:
+        return ParsedBill(
+            amount=amount,
+            name=_bill_name(subject, clean_body, sender),
+            due_date=due,
+            recurring=_bill_recurring(text, sender),
+            confidence=0.95,
+        )
+    except Exception:
+        log.debug("rules parse produced an invalid bill", exc_info=True)
         return None

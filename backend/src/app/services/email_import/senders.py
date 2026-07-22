@@ -1,12 +1,12 @@
-"""Bank sender allowlist — the gate before anything is fetched or parsed.
+"""Finance sender allowlist - the gate before anything is fetched or parsed.
 
 This list is pushed into Gmail's server-side `q` (see gmail_query), so mail from
 anyone else is never downloaded at all: a privacy control as much as a cost one.
 is_candidate() then re-checks locally and applies the exclusion rules Gmail
 search can't express (OTPs, declined transactions, statements).
 
-Domains cover the main Pakistani banks and wallets. Add entries here as new
-bank formats are encountered.
+Domains cover the main Pakistani banks, wallets, utilities, internet providers,
+and subscription billers. Add entries here as new finance email formats appear.
 """
 from __future__ import annotations
 
@@ -36,6 +36,31 @@ BANK_SENDER_DOMAINS: tuple[str, ...] = (
     "sadapay.pk",
     "nayapay.com",
 )
+
+# Utility, internet and subscription billers whose invoices should land in
+# user_bills, not user_transactions. Kept separate from BANK_SENDER_DOMAINS so
+# transaction parsing remains bank-gated while Gmail can still fetch invoices.
+BILL_SENDER_DOMAINS: tuple[str, ...] = (
+    "ptcl.com.pk",
+    "stormfiber.com",
+    "nayatel.com",
+    "transworld-home.com",
+    "worldcall.net.pk",
+    "optix.pk",
+    "fiberlink.net.pk",
+    "k-electric.com",
+    "ke.com.pk",
+    "sngpl.com.pk",
+    "ssgc.com.pk",
+    "spotify.com",
+    "netflix.com",
+    "youtube.com",
+    "google.com",
+    "apple.com",
+    "openai.com",
+)
+
+FINANCE_SENDER_DOMAINS: tuple[str, ...] = BANK_SENDER_DOMAINS + BILL_SENDER_DOMAINS
 
 # Each sender's OWN names (lowercase), used by sanitize.py to reject a bank
 # signing its own alert as the "merchant" ("from Bank Alfalah" in the footer
@@ -119,6 +144,37 @@ def bank_display_name(from_header: str) -> str | None:
             return name
     return None
 
+
+BILLER_DISPLAY_NAMES: dict[str, str] = {
+    "ptcl.com.pk": "PTCL Internet",
+    "stormfiber.com": "StormFiber",
+    "nayatel.com": "Nayatel",
+    "transworld-home.com": "Transworld Internet",
+    "worldcall.net.pk": "WorldCall",
+    "optix.pk": "Optix Internet",
+    "fiberlink.net.pk": "Fiberlink Internet",
+    "k-electric.com": "K-Electric",
+    "ke.com.pk": "K-Electric",
+    "sngpl.com.pk": "SNGPL Gas",
+    "ssgc.com.pk": "SSGC Gas",
+    "spotify.com": "Spotify",
+    "netflix.com": "Netflix",
+    "youtube.com": "YouTube Premium",
+    "google.com": "Google Subscription",
+    "apple.com": "Apple Subscription",
+    "openai.com": "OpenAI Subscription",
+}
+
+
+def biller_display_name(from_header: str) -> str | None:
+    domain = sender_domain(from_header)
+    if not domain:
+        return None
+    for d, name in BILLER_DISPLAY_NAMES.items():
+        if domain == d or domain.endswith("." + d):
+            return name
+    return None
+
 # Subject/body keywords that indicate a transaction alert rather than a
 # statement, marketing mail, or OTP.
 TRANSACTION_HINTS: tuple[str, ...] = (
@@ -137,6 +193,19 @@ TRANSACTION_HINTS: tuple[str, ...] = (
 # Mail we must never treat as a transaction even from a bank sender. Declined /
 # reversed alerts are excluded here rather than in the parser so they never cost
 # an LLM call — no money moved, so there is nothing to import.
+BILL_HINTS: tuple[str, ...] = (
+    "bill",
+    "invoice",
+    "amount due",
+    "total due",
+    "payment due",
+    "due date",
+    "pay by",
+    "last date",
+    "subscription",
+    "renewal",
+    "receipt",
+)
 EXCLUDE_HINTS: tuple[str, ...] = (
     "one-time password",
     "otp",
@@ -171,6 +240,15 @@ def is_bank_sender(from_header: str) -> bool:
     )
 
 
+def is_finance_sender(from_header: str) -> bool:
+    domain = sender_domain(from_header)
+    if not domain:
+        return False
+    return any(
+        domain == d or domain.endswith("." + d) for d in FINANCE_SENDER_DOMAINS
+    )
+
+
 def looks_like_transaction(subject: str, body: str) -> bool:
     """Keyword gate applied after the sender check."""
     haystack = f"{subject} {body}".lower()
@@ -179,9 +257,19 @@ def looks_like_transaction(subject: str, body: str) -> bool:
     return any(hint in haystack for hint in TRANSACTION_HINTS)
 
 
+def looks_like_bill(subject: str, body: str) -> bool:
+    """Invoice/bill gate applied after the sender check."""
+    haystack = f"{subject} {body}".lower()
+    if any(bad in haystack for bad in EXCLUDE_HINTS):
+        return False
+    return any(hint in haystack for hint in BILL_HINTS)
+
+
 def is_candidate(from_header: str, subject: str, body: str) -> bool:
     """True if this message is worth parsing."""
-    return is_bank_sender(from_header) and looks_like_transaction(subject, body)
+    return is_finance_sender(from_header) and (
+        looks_like_transaction(subject, body) or looks_like_bill(subject, body)
+    )
 
 
 def gmail_query(after_internal_date_ms: int = 0, *, lookback_days: int = 7) -> str:
@@ -192,7 +280,7 @@ def gmail_query(after_internal_date_ms: int = 0, *, lookback_days: int = 7) -> s
     sync (watermark 0) we look back a bounded window rather than importing the
     user's entire mail history.
     """
-    senders = " OR ".join(f"from:{d}" for d in BANK_SENDER_DOMAINS)
+    senders = " OR ".join(f"from:{d}" for d in FINANCE_SENDER_DOMAINS)
     if after_internal_date_ms > 0:
         # Nudge back one day: `after:` is coarse and we'd rather re-see a
         # message (the DB unique index dedups) than miss one.

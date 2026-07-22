@@ -15,6 +15,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 
 from app.services.email_import import llm, rules
+from app.services.email_import.models import ParsedBill
 from app.services.email_import.sanitize import (
     clean_merchant,
     fallback_title,
@@ -260,3 +261,65 @@ def test_coerce_keeps_good_merchant_and_respects_is_transaction():
     assert parsed is not None
     assert parsed.merchant == "Daraz"
     assert llm._coerce(_payload(is_transaction=False), NOW) is None
+
+
+def test_coerce_accepts_bill_payload_from_biller_sender():
+    parsed = llm._coerce(
+        {
+            "is_transaction": False,
+            "is_bill": True,
+            "amount": 1100,
+            "merchant": "Spotify Premium",
+            "bill_name": "Spotify Premium",
+            "due_date": "2026-08-15",
+            "recurring": True,
+            "confidence": 0.88,
+        },
+        NOW,
+        sender="billing@spotify.com",
+        context_text="Spotify Premium invoice Total due PKR 1,100",
+    )
+    assert isinstance(parsed, ParsedBill)
+    assert parsed.name == "Spotify"
+    assert parsed.amount == 1100
+    assert parsed.due_date.isoformat() == "2026-08-15"
+    assert parsed.recurring is True
+
+# ── bill/invoice parsing ────────────────────────────────────────────────────
+PTCL_BILL = """Your PTCL bill for the month is ready.
+Amount Due: Rs. 5,499.00
+Due Date: 05-Aug-2026
+Please pay before the due date to avoid service interruption."""
+
+SPOTIFY_BILL = """Your Spotify Premium invoice
+Total due PKR 1,100
+Payment due date Aug 15, 2026
+Your subscription renews monthly."""
+
+
+def test_bill_email_parses_to_bill_not_transaction():
+    parsed = rules.parse_bill(
+        "PTCL Bill Ready",
+        PTCL_BILL,
+        NOW,
+        sender="billing@ptcl.com.pk",
+    )
+    assert parsed is not None
+    assert parsed.name == "PTCL Internet"
+    assert parsed.amount == 5499.0
+    assert parsed.due_date.isoformat() == "2026-08-05"
+    assert parsed.recurring is True
+    assert rules.parse("PTCL Bill Ready", PTCL_BILL, NOW, sender="billing@ptcl.com.pk") is None
+
+
+def test_subscription_invoice_parses_to_bill():
+    parsed = rules.parse_bill(
+        "Your Spotify receipt and next payment",
+        SPOTIFY_BILL,
+        NOW,
+        sender="no-reply@spotify.com",
+    )
+    assert parsed is not None
+    assert parsed.name == "Spotify"
+    assert parsed.amount == 1100.0
+    assert parsed.due_date.isoformat() == "2026-08-15"

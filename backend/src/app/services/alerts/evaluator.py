@@ -27,6 +27,7 @@ log = logging.getLogger(__name__)
 # automatic alert, without the user having created one. Deduped to once per
 # user per symbol per 24h.
 WATCHLIST_MOVE_PCT = 5.0
+DUE_BILL_DAYS_AHEAD = 3
 
 
 def _num(value: Any) -> Optional[float]:
@@ -226,6 +227,60 @@ async def evaluate_user_alerts() -> int:
     return triggered
 
 
+async def evaluate_due_bills() -> int:
+    """Auto-alert on bills due soon, including bills imported from email.
+
+    This is not tied to a user-created `user_alerts` row: once a bill exists in
+    user_bills, the user should get a reminder close to the due date. Deduped by
+    bill id + due date to one notification per 24h.
+    """
+    async with connect() as conn:
+        bills = await repo.fetch_due_bills(conn, DUE_BILL_DAYS_AHEAD)
+
+    triggered = 0
+    for bill in bills:
+        try:
+            bill_id = str(bill["id"])
+            due_date = str(bill["due_date"])
+            async with connect() as conn:
+                if await repo.recent_event_exists(
+                    conn,
+                    bill["user_id"],
+                    "bill",
+                    "bill_id",
+                    bill_id,
+                    due_date,
+                    discriminator_field="due_date",
+                ):
+                    continue
+            days_left = calc.bill_due_in_days(bill["due_date"])
+            if days_left is None:
+                continue
+            when = "today" if days_left == 0 else (
+                f"in {days_left} day(s)" if days_left > 0 else f"{abs(days_left)} day(s) overdue"
+            )
+            title = f"{bill['name']} due {when}"
+            body = f"PKR {float(bill['amount']):,.2f} is due on {due_date}."
+            await record_event(
+                bill["user_id"],
+                alert_id=None,
+                alert_type="bill",
+                symbol=None,
+                title=title,
+                body=body,
+                payload={
+                    "bill_id": bill_id,
+                    "bill": bill["name"],
+                    "amount": float(bill["amount"]),
+                    "due_date": due_date,
+                    "source": "due_bill_auto",
+                },
+            )
+            triggered += 1
+        except Exception:
+            log.exception("due-bill evaluation failed for bill %s", bill.get("id"))
+    return triggered
+
 async def evaluate_watchlist_moves() -> int:
     """Auto-alert on big daily moves of watchlisted symbols — no user-created
     alert needed. Fires (once per user per symbol per 24h) when |change_pct| >=
@@ -272,4 +327,5 @@ async def evaluate_all() -> dict[str, int]:
         "user_alerts": await evaluate_user_alerts(),
         "price_alerts": await evaluate_price_alerts(),
         "watchlist_moves": await evaluate_watchlist_moves(),
+        "due_bills": await evaluate_due_bills(),
     }
