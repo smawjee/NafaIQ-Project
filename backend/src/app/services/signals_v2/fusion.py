@@ -24,7 +24,7 @@ def fuse_signal(
     volume = _bounded((float(features.get("volume_vs_20d") or 1) - 1) * 0.6)
     fundamentals = _fundamental_score(features)
 
-    if ml.signal is not None and ml.status == "VALIDATED":
+    if ml.signal is not None and ml.status == "VALIDATED" and ml.eligible_for_fusion:
         raw = (
             0.35 * signed_strength(ml.signal)
             + 0.25 * technical.score

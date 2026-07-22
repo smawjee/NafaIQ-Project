@@ -58,6 +58,8 @@ class MlPrediction(BaseModel):
     probabilities: Optional[dict[str, float]] = None
     model_version: Optional[str] = None
     status: Literal["UNAVAILABLE", "SHADOW", "VALIDATED"] = "UNAVAILABLE"
+    eligible_for_fusion: bool = False
+    source: str = "unknown"
 
 
 class SignalV2Response(BaseModel):
