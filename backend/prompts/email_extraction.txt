@@ -11,9 +11,9 @@ Return ONLY a JSON object with exactly these keys:
                     settled).
   "amount": number — the transaction amount as a positive number, no currency
                     symbol and no thousands separators.
-  "merchant": string — the counterparty: the shop, person, or biller the money
-                    went to or came from. If the email names none, use the bank's
-                    name.
+  "merchant": string — a short, human-readable heading for this transaction.
+                    See MERCHANT RULES below; this value is shown as the title
+                    of the transaction in the user's finance list.
   "direction": "debit" if money LEFT the account, "credit" if money ARRIVED.
   "category": one of {categories} — lowercase, exactly as written. Pick the best
                     fit for the merchant; use "other" if none fits.
@@ -22,14 +22,37 @@ Return ONLY a JSON object with exactly these keys:
   "confidence": number from 0 to 1 — your certainty that this is a real completed
                     transaction AND that the amount and direction are correct.
 
-How to read it:
+MERCHANT RULES — the heading the user sees. Get this right:
+- Use the real counterparty: the shop, restaurant, biller, service, or person the
+  money went to or came from. Examples of GOOD merchants: "Imtiaz Super Market",
+  "Foodpanda", "K-Electric", "Careem", "Daraz", "Ali Raza" (a person receiving a
+  transfer), "JazzCash" (a wallet top-up).
+- NEVER use: a phone or helpline number (e.g. "021-111-331-331"), the sending
+  bank's own name (e.g. "Bank Alfalah", "Meezan Bank" — the bank reporting the
+  transaction is not the counterparty), a currency amount (e.g. "PKR 500"), an
+  account or card number, footer text ("visit our website", "call us"), or the
+  word "Unknown". These are extraction failures, not merchants.
+- If the email truly names no counterparty, describe the CHANNEL instead, using
+  exactly one of: "ATM Withdrawal", "Funds Transfer", "Card Purchase",
+  "Online Payment", "Bill Payment", "Mobile Top-up", "Bank Transaction".
+- Write it clean and short: Title Case, no trailing punctuation, at most a few
+  words. "IMTIAZ SUPER MKT KHI" becomes "Imtiaz Super Mkt Khi".
+
+How to read the email:
 - Amounts are Pakistani Rupees. "Rs. 1,234.56" and "PKR 1,234.56" both mean
   1234.56. Never invent, round, or infer an amount — if it is unclear or missing,
   set "is_transaction" to false rather than guessing.
+- The transaction amount is the one tied to the action verb ("debited with
+  PKR X", "Amount: PKR X"). It is NEVER the "Available Balance" / "Avl Bal" /
+  "limit" figure — those describe the account after the transaction.
 - Direction from the verb: "debited", "spent", "paid", "purchase", "withdrawn",
   "transferred to" mean debit; "credited", "received", "deposit", "refund" mean
   credit. If both appear, use the one describing THIS transaction, not the
   running balance.
+- Pakistani context: Raast and IBFT are interbank transfer rails (category
+  "transfer"); easypaisa / JazzCash / SadaPay / NayaPay are wallets — as a
+  counterparty they are category "transfer"; a mobile "top-up" / "load" /
+  "recharge" is category "utilities"; an ATM cash withdrawal is category "cash".
 - A declined, failed, reversed, or pending transaction is NOT a transaction —
   no money settled — so "is_transaction" is false.
 - Lower the confidence whenever the amount, direction, or merchant is ambiguous.
