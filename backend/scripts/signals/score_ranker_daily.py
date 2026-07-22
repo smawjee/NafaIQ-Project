@@ -24,6 +24,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from train_signals_v2 import _client, _select_all, _select_ohlcv, _select_where
 
+from app.services.signals_v2.explain import top_contributions
 from app.services.signals_v2.feature_store import FEATURE_VERSION
 from app.services.signals_v2.features import build_feature_frame, compute_feature_snapshot
 from app.services.signals_v2.ranking import (
@@ -97,12 +98,15 @@ def score_cross_section(histories, profiles, kse_rows, ranker_art, absolute_art,
                                expected_absolute_net=cp.expected_absolute_net,
                                data_quality_ok=True, liquidity_ok=True, risk_ok=True,
                                calibration_support_ok=cp.calibration_support >= MIN_CAL_SUPPORT)
+        explanation = {"ranker": top_contributions(ranker, feats_by_sym[sym], feat_names),
+                       "absolute": top_contributions(reg, feats_by_sym[sym], feat_names)}
         rows_out.append({"symbol": sym, "horizon": horizon, "as_of": as_of.isoformat(),
                          "rank_score": round(score, 6), "percentile": round(float(pct), 4),
                          "p_beat_market": cp.p_beat_market, "p_positive_absolute": cp.p_positive_absolute,
                          "expected_excess_return": cp.expected_excess_net,
                          "expected_absolute_return": cp.expected_absolute_net,
-                         "signal": label.value, "sector": sector})
+                         "signal": label.value, "sector": sector,
+                         "explanation_factors": explanation})
     return rows_out
 
 
