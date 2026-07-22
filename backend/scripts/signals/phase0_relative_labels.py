@@ -19,6 +19,7 @@ import numpy as np
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "src"))
+sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from app.services.signals_v2.constants import ROUND_TRIP_COST
 from app.services.signals_v2.feature_store import load_verified_store
@@ -27,6 +28,8 @@ from app.services.signals_v2.training import HORIZON_DAYS, evaluate_walk_forward
 
 MIN_OOS_DATES = 40
 MIN_SAMPLES = 2000
+PHASE0B_TOP_LIQUID = 300
+PHASE0B_CONFIG = {"name": "baseline_lr05_d4", "learning_rate": 0.05, "max_depth": 4, "n_estimators": 300}
 
 
 def _model_factory():
@@ -83,11 +86,67 @@ def _verdict(a: dict) -> str:
     return "GREEN" if (excess > 0 and folds_pos > folds_total / 2) else "RED"
 
 
+def _phase0b() -> dict:
+    """Minimal aligned 20D cross-sectional ranker on the top liquid names (single fixed config)."""
+    if os.getenv("PHASE0_SKIP_0B"):
+        return {"status": "skipped"}
+    try:
+        import xgboost  # noqa: F401
+    except ImportError:
+        return {"status": "xgboost_unavailable"}
+    try:
+        from dotenv import load_dotenv
+
+        from app.services.signals_v2.ranking import build_ranking_dataset, train_ranker
+        from app.services.signals_v2.training import group_rows, map_rows
+        from train_signals_v2 import _client, _select_all, _select_ohlcv, _select_where
+
+        load_dotenv(ROOT / ".env")
+        client = _client()
+        ohlcv = _select_ohlcv(client, max_rows_per_symbol=1300)
+        profiles = map_rows(_select_all(client, "psx_profile", "*", order_by="symbol"))
+        kse_rows = _select_where(client, "psx_index_eod", "date,close", order_by="date",
+                                 filters=[("code", "eq", "KSE100")])
+    except Exception as exc:
+        return {"status": "no_data_access", "error": f"{exc.__class__.__name__}: {exc}"}
+
+    histories = group_rows(ohlcv)
+    # top ~N liquid names by median 20-bar turnover
+    turnover = {}
+    for sym, rows in histories.items():
+        recent = sorted(rows, key=lambda r: str(r.get("date")))[-20:]
+        if len(recent) < 20:
+            continue
+        turnover[sym] = float(np.median([float(r.get("close") or 0) * float(r.get("volume") or 0)
+                                         for r in recent]))
+    top = sorted(turnover, key=turnover.get, reverse=True)[:PHASE0B_TOP_LIQUID]
+    histories = {s: histories[s] for s in top}
+
+    audit_path = ROOT / "artifacts" / "signals" / "data_integrity_report.json"
+    events = {}
+    if audit_path.exists():
+        events = json.loads(audit_path.read_text(encoding="utf-8"))["corp_action_events"]["by_symbol"]
+
+    ds = build_ranking_dataset(histories=histories, fundamentals={}, profiles=profiles,
+                               kse_rows=kse_rows, horizon="20D", corp_action_events=events)
+    if len(ds.y) < MIN_SAMPLES:
+        return {"status": "insufficient_samples", "samples": int(len(ds.y))}
+    result = train_ranker(ds, horizon="20D", configs=[PHASE0B_CONFIG], folds=4)
+    m = result["metrics"]
+    return {"daily_rank_ic": m["daily_rank_ic"],
+            "top_decile_excess_after_cost": m["top_decile_excess_after_cost"],
+            "precision_at_10": m["precision_at_10"],
+            "folds_positive_frac": m["folds_positive_frac"],
+            "n_dates": m["n_dates"], "samples": m["samples"],
+            "universe": len(histories)}
+
+
 def main() -> int:
     store_dir = Path(os.getenv("SIGNALS_V2_FEATURE_STORE_DIR",
                                str(ROOT / "artifacts" / "signals" / "feature_store_full")))
     a = _phase0a(store_dir)
-    report = {"phase_0a": a, "phase_0b": {"status": "run_after_T8"}, "verdict": _verdict(a)}
+    b = _phase0b()
+    report = {"phase_0a": a, "phase_0b": b, "verdict": _verdict(a)}
     out = ROOT / "artifacts" / "signals" / "phase0_report.json"
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(json.dumps(report, indent=2, default=str) + "\n", encoding="utf-8")
