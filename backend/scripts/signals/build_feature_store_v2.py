@@ -1,10 +1,16 @@
 #!/usr/bin/env python
-"""Build reusable Signals V2 feature-store datasets."""
+"""Build V3.1 feature-store datasets with PIT-safe features and verifiable manifests.
+
+Stores exclude fundamentals entirely (psx_fundamentals has no publication date —
+using it historically leaks future information; see the T0 audit) and preserve
+missing values as NaN for GBDT-native handling.
+"""
 from __future__ import annotations
 
 import json
 import os
 import sys
+from datetime import datetime, timezone
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -14,8 +20,24 @@ SCRIPT_DIR = Path(__file__).resolve().parent
 sys.path.insert(0, str(ROOT / "src"))
 sys.path.insert(0, str(SCRIPT_DIR))
 
-from app.services.signals_v2.training import HORIZON_DAYS, build_dataset, group_rows, map_rows, save_dataset
+from app.services.signals_v2.constants import MIN_REQUIRED_BARS
+from app.services.signals_v2.feature_store import FEATURE_VERSION, write_manifest
+from app.services.signals_v2.training import (
+    HORIZON_DAYS,
+    SIGNAL_FEATURES_V3,
+    build_dataset,
+    group_rows,
+    map_rows,
+    save_dataset,
+)
 from train_signals_v2 import _client, _dataset_kwargs, _select_all, _select_ohlcv, _select_where
+
+
+def _corp_action_audit_version() -> str:
+    report = ROOT / "artifacts" / "signals" / "data_integrity_report.json"
+    if report.exists():
+        return datetime.fromtimestamp(report.stat().st_mtime, tz=timezone.utc).date().isoformat()
+    return "unaudited"
 
 
 def main() -> int:
@@ -27,7 +49,6 @@ def main() -> int:
 
     print("Loading Supabase data for feature store...", file=sys.stderr, flush=True)
     ohlcv = _select_ohlcv(client, max_rows_per_symbol=dataset_kwargs["max_rows_per_symbol"])
-    fundamentals = _select_all(client, "psx_fundamentals", "*", order_by="symbol")
     profiles = _select_all(client, "psx_profile", "*", order_by="symbol")
     kse_rows = _select_where(
         client,
@@ -38,33 +59,45 @@ def main() -> int:
     )
 
     histories = group_rows(ohlcv)
-    fundamentals_map = map_rows(fundamentals)
     profiles_map = map_rows(profiles)
-    manifest: dict[str, object] = {
-        "feature_store_version": "signals-v2.1",
+    audit_version = _corp_action_audit_version()
+    store_manifest: dict[str, object] = {
+        "feature_store_version": FEATURE_VERSION,
         "dataset_kwargs": dataset_kwargs,
         "horizons": {},
     }
     for horizon in HORIZON_DAYS:
-        print(f"Building {horizon} feature store...", file=sys.stderr, flush=True)
+        print(f"Building {horizon} V3 feature store...", file=sys.stderr, flush=True)
         dataset = build_dataset(
             histories=histories,
-            fundamentals=fundamentals_map,
+            fundamentals={},  # PIT-unsafe: excluded from V3 stores by construction
             profiles=profiles_map,
             kse_rows=kse_rows,
             horizon=horizon,
-            **dataset_kwargs,
+            min_history=MIN_REQUIRED_BARS,
+            feature_names=SIGNAL_FEATURES_V3,
+            preserve_nan=True,
+            max_rows_per_symbol=dataset_kwargs["max_rows_per_symbol"],
+            sample_stride=dataset_kwargs["sample_stride"],
         )
         path = out_dir / f"signals_v2_{horizon.lower()}.npz"
         save_dataset(dataset, str(path))
-        manifest["horizons"][horizon] = {  # type: ignore[index]
+        write_manifest(
+            str(path),
+            feature_names=dataset.feature_names,
+            X=dataset.X,
+            pit_safe=True,
+            min_history=MIN_REQUIRED_BARS,
+            corp_action_audit_version=audit_version,
+        )
+        store_manifest["horizons"][horizon] = {  # type: ignore[index]
             "path": str(path),
             "samples": int(len(dataset.y)),
             "features": int(dataset.X.shape[1]) if dataset.X.ndim == 2 else 0,
         }
 
     manifest_path = out_dir / "manifest.json"
-    manifest_path.write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
+    manifest_path.write_text(json.dumps(store_manifest, indent=2) + "\n", encoding="utf-8")
     print(json.dumps({"manifest_path": str(manifest_path)}, indent=2))
     return 0
 

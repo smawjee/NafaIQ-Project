@@ -145,8 +145,17 @@ def build_dataset(
     min_history: int = 80,
     max_rows_per_symbol: int = 420,
     sample_stride: int = 20,
+    feature_names: list[str] | None = None,
+    preserve_nan: bool = False,
 ) -> Dataset:
+    """Build a labeled dataset.
+
+    Legacy mode (default): 38 SIGNAL_FEATURES, rows with any non-finite value dropped.
+    V3 mode (feature_names=SIGNAL_FEATURES_V3, preserve_nan=True): missing values kept
+    as NaN (GBDT-native) and rows gated only on CORE_PRICE_FEATURES being finite.
+    """
     horizon_days = HORIZON_DAYS[horizon]
+    names = feature_names if feature_names is not None else SIGNAL_FEATURES
     xs: list[list[float]] = []
     ys: list[str] = []
     dates: list[date] = []
@@ -178,9 +187,14 @@ def build_dataset(
                 kse_rows=_kse_until(kse_sorted, kse_ordinals, rows[i].get("date")),
             )
             features = compute_feature_snapshot(frame)
-            vector = _vectorize(features, SIGNAL_FEATURES)
-            if not np.isfinite(vector).all():
-                continue
+            if preserve_nan:
+                if not has_core_features(features):
+                    continue
+                vector = vectorize_v3(features, names)
+            else:
+                vector = _vectorize(features, names)
+                if not np.isfinite(vector).all():
+                    continue
             technical = compute_technical_rating(features)
             xs.append(vector.tolist())
             ys.append(label.label.value)
@@ -192,14 +206,14 @@ def build_dataset(
 
     if not xs:
         return Dataset(
-            X=np.empty((0, len(SIGNAL_FEATURES))),
+            X=np.empty((0, len(names))),
             y=np.asarray([], dtype=object),
             dates=[],
             symbols=[],
             forward_returns=np.asarray([], dtype=np.float64),
             benchmark_forward_returns=np.asarray([], dtype=np.float64),
             technical_labels=np.asarray([], dtype=object),
-            feature_names=SIGNAL_FEATURES,
+            feature_names=list(names),
         )
     return Dataset(
         X=np.asarray(xs, dtype=np.float64),
@@ -209,7 +223,7 @@ def build_dataset(
         forward_returns=np.asarray(returns, dtype=np.float64),
         benchmark_forward_returns=np.asarray(benchmark_returns, dtype=np.float64),
         technical_labels=np.asarray(technical_labels, dtype=object),
-        feature_names=SIGNAL_FEATURES,
+        feature_names=list(names),
     )
 
 
