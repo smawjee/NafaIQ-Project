@@ -89,6 +89,9 @@ def compute_feature_snapshot(frame: FeatureFrame) -> dict[str, Any]:
         "ret_10d": _return(c, 10),
         "ret_20d": _return(c, 20),
         "ret_60d": _return(c, 60),
+        "ret_120d": _return(c, 120),
+        "ret_240d": _return(c, 240),
+        "ret_240d_ex20": _long_reversal(c, 240, 20),
         "volatility_20d": _volatility(c, 20),
         "atr14_pct": _atr_pct(h, l, c, 14),
         "volume_vs_20d": _volume_ratio(v, 20),
@@ -313,3 +316,10 @@ def _relative_strength(close: np.ndarray, benchmark: np.ndarray, period: int) ->
     if return_stock is None or return_benchmark is None:
         return None
     return float(return_stock - return_benchmark)
+
+
+def _long_reversal(series: np.ndarray, long_p: int, skip_p: int) -> Optional[float]:
+    """Long-horizon return excluding the most recent skip_p bars (PSX shows loser reversal)."""
+    if len(series) <= long_p or series[-long_p - 1] <= 0 or series[-skip_p - 1] <= 0:
+        return None
+    return float(series[-skip_p - 1] / series[-long_p - 1] - 1)
