@@ -1,127 +1,17 @@
 #!/usr/bin/env python
-"""Train Signals V2 ML artifacts with walk-forward validation."""
+"""Supabase data-access helpers shared by the Signals pipeline scripts.
+
+The V2 absolute-classifier training that used to live here was retired after its
+shadow evaluation was blocked (negative excess return, all promotion gates failed).
+Signals V3.1 (see docs/superpowers/plans/2026-07-22-signals-v3.1-ranker.md) trains
+via scripts/signals/train_ranker_v3.py and imports these helpers.
+"""
 from __future__ import annotations
 
-import json
 import os
 import sys
-from pathlib import Path
 
-import joblib
-from dotenv import load_dotenv
 from supabase import create_client
-
-ROOT = Path(__file__).resolve().parents[2]
-sys.path.insert(0, str(ROOT / "src"))
-
-from app.services.signals_v2.training import (
-    HORIZON_DAYS,
-    SIGNAL_FEATURES,
-    build_dataset,
-    group_rows,
-    load_dataset,
-    map_rows,
-    save_dataset,
-    train_and_select,
-)
-
-
-def main() -> int:
-    load_dotenv(ROOT / ".env")
-    client = _client()
-    dataset_kwargs = _dataset_kwargs()
-    print("Loading Supabase training data...", file=sys.stderr, flush=True)
-    ohlcv = _select_ohlcv(client, max_rows_per_symbol=dataset_kwargs["max_rows_per_symbol"])
-    print(f"Loaded psx_ohlcv rows: {len(ohlcv)}", file=sys.stderr, flush=True)
-    fundamentals = _select_all(client, "psx_fundamentals", "*", order_by="symbol")
-    print(f"Loaded fundamentals rows: {len(fundamentals)}", file=sys.stderr, flush=True)
-    profiles = _select_all(client, "psx_profile", "*", order_by="symbol")
-    print(f"Loaded profile rows: {len(profiles)}", file=sys.stderr, flush=True)
-    kse_rows = _select_where(
-        client,
-        "psx_index_eod",
-        "date,close",
-        order_by="date",
-        filters=[("code", "eq", "KSE100")],
-    )
-    print(f"Loaded KSE-100 benchmark rows: {len(kse_rows)}", file=sys.stderr, flush=True)
-
-    histories = group_rows(ohlcv)
-    fundamentals_map = map_rows(fundamentals)
-    profiles_map = map_rows(profiles)
-
-    ml_dir = ROOT / "src" / "app" / "ml" / "signals_v2"
-    ml_dir.mkdir(parents=True, exist_ok=True)
-    metrics: dict[str, object] = {}
-    trained: list[str] = []
-    feature_store_dir = _feature_store_dir()
-    for horizon in HORIZON_DAYS:
-        print(f"Building {horizon} dataset...", file=sys.stderr, flush=True)
-        dataset_path = feature_store_dir / f"signals_v2_{horizon.lower()}.npz" if feature_store_dir else None
-        if dataset_path and dataset_path.exists():
-            dataset = load_dataset(str(dataset_path))
-            print(f"Loaded cached {horizon} feature store: {dataset_path}", file=sys.stderr, flush=True)
-        else:
-            dataset = build_dataset(
-                histories=histories,
-                fundamentals=fundamentals_map,
-                profiles=profiles_map,
-                kse_rows=kse_rows,
-                horizon=horizon,
-                **dataset_kwargs,
-            )
-            if dataset_path:
-                dataset_path.parent.mkdir(parents=True, exist_ok=True)
-                save_dataset(dataset, str(dataset_path))
-                print(f"Saved {horizon} feature store: {dataset_path}", file=sys.stderr, flush=True)
-        print(f"{horizon} samples: {len(dataset.y)}", file=sys.stderr, flush=True)
-        if len(dataset.y) < 200:
-            metrics[horizon] = {"status": "skipped", "samples": int(len(dataset.y))}
-            continue
-        print(f"Training {horizon} candidates...", file=sys.stderr, flush=True)
-        result = train_and_select(dataset)
-        joblib.dump(
-            {
-                "model": result.model,
-                "scaler": result.scaler,
-                "calibrator": result.calibrator,
-                "horizon": horizon,
-                "model_name": result.name,
-                "feature_names": dataset.feature_names,
-            },
-            ml_dir / f"model_{horizon.lower()}.joblib",
-        )
-        metrics[horizon] = result.metrics
-        trained.append(horizon)
-        print(f"Selected {horizon}: {result.name}", file=sys.stderr, flush=True)
-
-    (ml_dir / "feature_list.json").write_text(json.dumps(SIGNAL_FEATURES, indent=2) + "\n", encoding="utf-8")
-    (ml_dir / "metrics.json").write_text(json.dumps(metrics, indent=2, default=str) + "\n", encoding="utf-8")
-    model_card = {
-        "status": "shadow_trained" if trained else "shadow_not_trained",
-        "models": [
-            "LogisticRegression",
-            "HistGradientBoostingClassifier",
-            "LightGBM optional",
-            "XGBoost optional",
-            "CatBoost optional",
-        ],
-        "trained_horizons": trained,
-        "horizons": list(HORIZON_DAYS),
-        "labeling": "triple_barrier_atr_scaled",
-        "validation": "walk_forward_with_gap",
-        "calibration": "walk_forward_empirical_confidence_bins",
-        "fusion": "disabled_until_thresholds_pass",
-        "feature_count": len(SIGNAL_FEATURES),
-        "acceptance_gate": {
-            "buy_precision_lift_over_technical": 0.05,
-            "false_buy_rate_no_worse_than_baseline": True,
-            "avg_20d_return_after_costs_gt_kse100": True,
-        },
-    }
-    (ml_dir / "model_card.json").write_text(json.dumps(model_card, indent=2) + "\n", encoding="utf-8")
-    print(json.dumps({"trained_horizons": trained, "metrics_path": str(ml_dir / "metrics.json")}, indent=2))
-    return 0
 
 
 def _client():
@@ -132,7 +22,7 @@ def _client():
         or os.getenv("SUPABASE_SECRET_KEY")
     )
     if not url or not key:
-        raise RuntimeError("Missing Supabase env for Signals V2 training")
+        raise RuntimeError("Missing Supabase env for Signals scripts")
     return create_client(url, key)
 
 
@@ -141,13 +31,6 @@ def _dataset_kwargs() -> dict[str, int]:
         "max_rows_per_symbol": int(os.getenv("SIGNALS_V2_MAX_ROWS_PER_SYMBOL", "420")),
         "sample_stride": int(os.getenv("SIGNALS_V2_SAMPLE_STRIDE", "20")),
     }
-
-
-def _feature_store_dir() -> Path | None:
-    value = os.getenv("SIGNALS_V2_FEATURE_STORE_DIR")
-    if not value:
-        return None
-    return Path(value)
 
 
 def _select_ohlcv(client, *, max_rows_per_symbol: int) -> list[dict]:
@@ -204,7 +87,3 @@ def _select_where(client, table: str, columns: str, *, order_by: str, filters: l
         if len(page) < page_size:
             return rows
         offset += page_size
-
-
-if __name__ == "__main__":
-    raise SystemExit(main())

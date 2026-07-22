@@ -4,12 +4,9 @@ from bisect import bisect_right
 from collections import Counter, defaultdict
 from dataclasses import dataclass
 from datetime import date
-from importlib import import_module
 from typing import Any, Iterable
 
 import numpy as np
-from sklearn.ensemble import HistGradientBoostingClassifier
-from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import accuracy_score, precision_score
 from sklearn.preprocessing import StandardScaler
 
@@ -80,15 +77,6 @@ class Dataset:
     benchmark_forward_returns: np.ndarray
     technical_labels: np.ndarray
     feature_names: list[str]
-
-
-@dataclass(frozen=True)
-class ModelResult:
-    name: str
-    model: Any
-    scaler: StandardScaler | None
-    calibrator: "ProbabilityCalibrator | None"
-    metrics: dict[str, Any]
 
 
 @dataclass(frozen=True)
@@ -225,29 +213,6 @@ def build_dataset(
     )
 
 
-def train_and_select(dataset: Dataset, *, random_state: int = 42) -> ModelResult:
-    if len(dataset.y) < 200:
-        raise ValueError(f"not enough samples for model training: {len(dataset.y)}")
-    candidates = [
-        _train_logistic(dataset, random_state=random_state),
-        _train_hist_gradient_boosting(dataset, random_state=random_state),
-    ]
-    for trainer in _optional_gbdt_trainers():
-        try:
-            candidates.append(trainer(dataset, random_state=random_state))
-        except Exception as exc:
-            candidates.append(
-                ModelResult(
-                    trainer.__name__.removeprefix("_train_"),
-                    None,
-                    None,
-                    None,
-                    {"status": "failed", "error": exc.__class__.__name__, "score": -999},
-                )
-            )
-    return max(candidates, key=lambda r: _selection_score(r.metrics))
-
-
 def evaluate_walk_forward(
     *,
     X: np.ndarray,
@@ -326,187 +291,6 @@ def sample_weights(y: np.ndarray) -> np.ndarray:
     total = len(y)
     classes = max(1, len(counts))
     return np.asarray([total / (classes * counts[label]) for label in y], dtype=np.float64)
-
-
-def _train_logistic(dataset: Dataset, *, random_state: int) -> ModelResult:
-    metrics, model, scaler, calibrator = evaluate_walk_forward(
-        X=dataset.X,
-        y=dataset.y,
-        dates=dataset.dates,
-        forward_returns=dataset.forward_returns,
-        benchmark_forward_returns=dataset.benchmark_forward_returns,
-        technical_labels=dataset.technical_labels,
-        model_factory=lambda: LogisticRegression(
-            max_iter=2000,
-            class_weight="balanced",
-            random_state=random_state,
-        ),
-        scaler=True,
-    )
-    metrics["model"] = "LogisticRegression"
-    return ModelResult("LogisticRegression", model, scaler, calibrator, metrics)
-
-
-def _train_hist_gradient_boosting(dataset: Dataset, *, random_state: int) -> ModelResult:
-    metrics, model, scaler, calibrator = evaluate_walk_forward(
-        X=dataset.X,
-        y=dataset.y,
-        dates=dataset.dates,
-        forward_returns=dataset.forward_returns,
-        benchmark_forward_returns=dataset.benchmark_forward_returns,
-        technical_labels=dataset.technical_labels,
-        model_factory=lambda: HistGradientBoostingClassifier(
-            max_iter=260,
-            learning_rate=0.045,
-            l2_regularization=0.02,
-            max_leaf_nodes=31,
-            random_state=random_state,
-        ),
-        scaler=False,
-    )
-    metrics["model"] = "HistGradientBoostingClassifier"
-    return ModelResult("HistGradientBoostingClassifier", model, scaler, calibrator, metrics)
-
-
-def _optional_gbdt_trainers():
-    trainers = []
-    if _can_import("lightgbm"):
-        trainers.append(_train_lightgbm)
-    if _can_import("xgboost"):
-        trainers.append(_train_xgboost)
-    if _can_import("catboost"):
-        trainers.append(_train_catboost)
-    return trainers
-
-
-def _train_lightgbm(dataset: Dataset, *, random_state: int) -> ModelResult:
-    lightgbm = import_module("lightgbm")
-    metrics, model, scaler, calibrator = evaluate_walk_forward(
-        X=dataset.X,
-        y=dataset.y,
-        dates=dataset.dates,
-        forward_returns=dataset.forward_returns,
-        benchmark_forward_returns=dataset.benchmark_forward_returns,
-        technical_labels=dataset.technical_labels,
-        model_factory=lambda: lightgbm.LGBMClassifier(
-            n_estimators=450,
-            learning_rate=0.035,
-            num_leaves=31,
-            subsample=0.85,
-            colsample_bytree=0.85,
-            reg_lambda=0.8,
-            objective="multiclass",
-            random_state=random_state,
-            verbose=-1,
-        ),
-        scaler=False,
-    )
-    metrics["model"] = "LightGBM"
-    return ModelResult("LightGBM", model, scaler, calibrator, metrics)
-
-
-def _train_xgboost(dataset: Dataset, *, random_state: int) -> ModelResult:
-    xgboost = import_module("xgboost")
-    label_encoder = _LabelEncodedClassifier(
-        xgboost.XGBClassifier(
-            n_estimators=420,
-            max_depth=5,
-            learning_rate=0.035,
-            subsample=0.85,
-            colsample_bytree=0.85,
-            reg_lambda=1.0,
-            objective="multi:softprob",
-            eval_metric="mlogloss",
-            random_state=random_state,
-        )
-    )
-    metrics, model, scaler, calibrator = evaluate_walk_forward(
-        X=dataset.X,
-        y=dataset.y,
-        dates=dataset.dates,
-        forward_returns=dataset.forward_returns,
-        benchmark_forward_returns=dataset.benchmark_forward_returns,
-        technical_labels=dataset.technical_labels,
-        model_factory=lambda: label_encoder.clone(),
-        scaler=False,
-    )
-    metrics["model"] = "XGBoost"
-    return ModelResult("XGBoost", model, scaler, calibrator, metrics)
-
-
-def _train_catboost(dataset: Dataset, *, random_state: int) -> ModelResult:
-    catboost = import_module("catboost")
-    metrics, model, scaler, calibrator = evaluate_walk_forward(
-        X=dataset.X,
-        y=dataset.y,
-        dates=dataset.dates,
-        forward_returns=dataset.forward_returns,
-        benchmark_forward_returns=dataset.benchmark_forward_returns,
-        technical_labels=dataset.technical_labels,
-        model_factory=lambda: _FlatteningClassifier(
-            catboost.CatBoostClassifier(
-                iterations=450,
-                depth=6,
-                learning_rate=0.035,
-                loss_function="MultiClass",
-                random_seed=random_state,
-                verbose=False,
-            )
-        ),
-        scaler=False,
-    )
-    metrics["model"] = "CatBoost"
-    return ModelResult("CatBoost", model, scaler, calibrator, metrics)
-
-
-class _FlatteningClassifier:
-    def __init__(self, model: Any):
-        self.model = model
-
-    def fit(self, X: np.ndarray, y: np.ndarray, sample_weight: np.ndarray | None = None):
-        self.model.fit(X, y, sample_weight=sample_weight)
-        self.classes_ = np.asarray(getattr(self.model, "classes_", np.unique(y)), dtype=object)
-        return self
-
-    def predict(self, X: np.ndarray) -> np.ndarray:
-        return np.asarray(self.model.predict(X)).reshape(-1).astype(object)
-
-    def predict_proba(self, X: np.ndarray) -> np.ndarray:
-        return self.model.predict_proba(X)
-
-
-class _LabelEncodedClassifier:
-    def __init__(self, model: Any):
-        from sklearn.preprocessing import LabelEncoder
-
-        self.model = model
-        self.encoder = LabelEncoder()
-
-    def clone(self):
-        import copy
-
-        return _LabelEncodedClassifier(copy.deepcopy(self.model))
-
-    def fit(self, X: np.ndarray, y: np.ndarray, sample_weight: np.ndarray | None = None):
-        y_encoded = self.encoder.fit_transform(y)
-        self.model.fit(X, y_encoded, sample_weight=sample_weight)
-        self.classes_ = self.encoder.classes_
-        return self
-
-    def predict(self, X: np.ndarray) -> np.ndarray:
-        pred = self.model.predict(X)
-        return self.encoder.inverse_transform(np.asarray(pred, dtype=int).reshape(-1)).astype(object)
-
-    def predict_proba(self, X: np.ndarray) -> np.ndarray:
-        return self.model.predict_proba(X)
-
-
-def _can_import(module_name: str) -> bool:
-    try:
-        import_module(module_name)
-        return True
-    except Exception:
-        return False
 
 
 def _metrics(
@@ -595,18 +379,6 @@ def _walk_forward_splits(n: int, *, folds: int, gap: int) -> list[tuple[np.ndarr
     if not splits:
         raise ValueError("not enough ordered samples for walk-forward validation")
     return splits
-
-
-def _selection_score(metrics: dict[str, Any]) -> float:
-    if metrics.get("status") == "failed":
-        return -999.0
-    return (
-        metrics.get("buy_precision", 0) * 3
-        + metrics.get("sell_precision", 0) * 1.5
-        + metrics.get("avg_buy_return", 0) * 8
-        - metrics.get("false_buy_rate", 0) * 2
-        + metrics.get("macro_precision", 0)
-    )
 
 
 def _vectorize(features: dict[str, Any], names: Iterable[str]) -> np.ndarray:
