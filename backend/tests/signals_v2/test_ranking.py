@@ -204,3 +204,26 @@ def test_join_oos_raises_on_mismatch():
     r = [RankerOOSPrediction(1, "A", "S", d, d, d, "20D", 0.5, 0.9, 0.0, 0.0, 0.0, "HOLD")]
     with pytest.raises(ValueError):
         join_oos(r, [])                                          # no matching absolute record
+
+
+def test_dual_calibrator_monotone_and_wraps():
+    from dataclasses import replace
+
+    from app.services.signals_v2.ranking import CombinedOOSPrediction, DualCalibrator
+    rng = np.random.default_rng(3)
+    d = date(2024, 1, 1)
+    combined = []
+    for i in range(3000):
+        pct = rng.uniform(0, 1)
+        cls = rng.uniform(0, 1)
+        exc = (pct - 0.5) * 0.1
+        absr = (cls - 0.5) * 0.08
+        combined.append(CombinedOOSPrediction(
+            i, f"S{i}", "SEC", d, d, d, "20D", pct, pct, exc + 0.0, 0.0, exc,
+            "HOLD", cls, absr))
+    cal = DualCalibrator.fit(combined)
+    hi = cal.apply(replace(combined[0], percentile=0.95, absolute_class_score=0.95))
+    lo = cal.apply(replace(combined[0], percentile=0.05, absolute_class_score=0.05))
+    assert hi.p_beat_market > lo.p_beat_market
+    assert hi.p_positive_absolute > lo.p_positive_absolute
+    assert hi.calibration_support > 0

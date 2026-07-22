@@ -449,3 +449,69 @@ def join_oos(ranker_oos: list[RankerOOSPrediction],
             r.rank_score, r.percentile, r.forward_return, r.benchmark_return, r.excess_return,
             r.technical_label, a.absolute_class_score, a.absolute_regression_score))
     return combined
+
+
+MIN_CAL_SUPPORT = 200
+
+
+@dataclass(frozen=True)
+class CalibratedPrediction:
+    raw: CombinedOOSPrediction
+    p_beat_market: float
+    p_positive_absolute: float
+    expected_excess_net: float
+    expected_absolute_net: float
+    calibration_support: int
+
+
+@dataclass
+class DualCalibrator:
+    beat_iso: Any
+    pos_iso: Any
+    support: int
+
+    @classmethod
+    def fit(cls, combined: list[CombinedOOSPrediction]) -> "DualCalibrator":
+        from sklearn.isotonic import IsotonicRegression
+
+        pct = np.asarray([c.percentile for c in combined])
+        beat = np.asarray([1 if c.excess_return > 0 else 0 for c in combined], dtype=np.float64)
+        cls_score = np.asarray([c.absolute_class_score for c in combined])
+        pos = np.asarray([1 if (c.forward_return - ROUND_TRIP_COST) > 0 else 0 for c in combined], dtype=np.float64)
+        beat_iso = pos_iso = None
+        if len(combined) >= MIN_CAL_SUPPORT:
+            beat_iso = IsotonicRegression(out_of_bounds="clip").fit(pct, beat)
+            pos_iso = IsotonicRegression(out_of_bounds="clip").fit(cls_score, pos)
+        return cls(beat_iso=beat_iso, pos_iso=pos_iso, support=len(combined))
+
+    def apply(self, pred: CombinedOOSPrediction) -> CalibratedPrediction:
+        p_beat = float(self.beat_iso.predict([pred.percentile])[0]) if self.beat_iso is not None else pred.percentile
+        p_pos = float(self.pos_iso.predict([pred.absolute_class_score])[0]) if self.pos_iso is not None else pred.absolute_class_score
+        return CalibratedPrediction(
+            raw=pred, p_beat_market=round(p_beat, 4), p_positive_absolute=round(p_pos, 4),
+            expected_excess_net=round(pred.excess_return - ROUND_TRIP_COST, 4),
+            expected_absolute_net=round(pred.absolute_regression_score, 4),
+            calibration_support=self.support)
+
+
+def calibration_report(combined: list[CombinedOOSPrediction], calibrator: DualCalibrator) -> dict:
+    def _brier_ece(prob: np.ndarray, actual: np.ndarray) -> tuple[float, float]:
+        brier = float(np.mean((prob - actual) ** 2)) if len(prob) else 0.0
+        edges = np.linspace(0, 1, 11)
+        ece = 0.0
+        for a, b in zip(edges[:-1], edges[1:]):
+            m = (prob >= a) & (prob < b if b < 1 else prob <= b)
+            if np.any(m):
+                ece += float(np.mean(m)) * abs(float(np.mean(prob[m])) - float(np.mean(actual[m])))
+        return round(brier, 4), round(ece, 4)
+
+    cals = [calibrator.apply(c) for c in combined]
+    beat_p = np.asarray([c.p_beat_market for c in cals])
+    beat_a = np.asarray([1 if c.raw.excess_return > 0 else 0 for c in cals], dtype=np.float64)
+    pos_p = np.asarray([c.p_positive_absolute for c in cals])
+    pos_a = np.asarray([1 if (c.raw.forward_return - ROUND_TRIP_COST) > 0 else 0 for c in cals], dtype=np.float64)
+    b_brier, b_ece = _brier_ece(beat_p, beat_a)
+    p_brier, p_ece = _brier_ece(pos_p, pos_a)
+    return {"beat_market": {"brier": b_brier, "ece": b_ece},
+            "positive_absolute": {"brier": p_brier, "ece": p_ece},
+            "support": calibrator.support}
