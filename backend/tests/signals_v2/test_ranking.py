@@ -44,3 +44,43 @@ def test_relative_deciles_excludes_thin_dates():
     dates = [date(2025, 1, 1)] * 10
     dec = relative_deciles(dates, np.arange(10, dtype=np.float64), min_names=30)
     assert (dec == -1).all()
+
+
+from app.services.signals_v2.ranking import purged_date_splits, three_layer_split
+
+
+def _grid(n_dates, names, start=date(2023, 1, 2), step=7, label_span=20):
+    fdates, ldates = [], []
+    for k in range(n_dates):
+        d = start + timedelta(days=k * step)
+        for _ in range(names):
+            fdates.append(d)
+            ldates.append(d + timedelta(days=label_span))
+    return fdates, ldates
+
+
+def test_purged_splits_no_label_overlap():
+    fdates, ldates = _grid(60, 5)
+    splits = purged_date_splits(fdates, ldates, folds=4, min_train_dates=5)
+    assert len(splits) >= 2
+    ford = np.asarray([d.toordinal() for d in fdates])
+    lord = np.asarray([d.toordinal() for d in ldates])
+    for train_idx, test_idx in splits:
+        test_start = ford[test_idx].min()
+        assert lord[train_idx].max() < test_start        # no label leaks into test
+        assert len(set(train_idx) & set(test_idx)) == 0
+
+
+def test_three_layer_split_disjoint_and_ordered():
+    fdates, _ = _grid(100, 3)
+    layers = three_layer_split(fdates)
+    dev, cal, hold = layers["dev"], layers["calibration"], layers["holdout"]
+    ford = np.asarray([d.toordinal() for d in fdates])
+    assert ford[dev].max() < ford[cal].min() < ford[hold].min()
+    assert len(set(dev) & set(cal)) == 0 and len(set(cal) & set(hold)) == 0
+
+
+def test_three_layer_split_inconclusive_when_tiny():
+    fdates, _ = _grid(5, 2)
+    layers = three_layer_split(fdates, min_support={"dev": 20, "calibration": 5, "holdout": 5})
+    assert layers.get("status") == "INCONCLUSIVE"
