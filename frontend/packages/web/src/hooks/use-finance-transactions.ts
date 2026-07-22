@@ -24,6 +24,26 @@ export interface FinanceTransactionInput {
   note?: string | null;
 }
 
+export interface FinanceVocabulary {
+  categories: string[];
+  payment_methods: string[];
+  transaction_types: Array<"expense" | "income" | string>;
+}
+
+export interface FinancePaymentMethod {
+  id: number;
+  label: string;
+  created_at: string;
+}
+
+export function useFinanceVocabulary(enabled: boolean = true) {
+  return useQuery<FinanceVocabulary>({
+    queryKey: ["finance", "vocabulary"],
+    queryFn: () => userGet<FinanceVocabulary>("/api/finance/vocabulary"),
+    enabled,
+    staleTime: 5 * 60_000,
+  });
+}
 export function useFinanceTransactions(enabled: boolean = true, limit: number = 100) {
   return useQuery<FinanceTransaction[]>({
     queryKey: ["finance", "transactions", limit],
@@ -33,6 +53,16 @@ export function useFinanceTransactions(enabled: boolean = true, limit: number = 
   });
 }
 
+export function useCreatePaymentMethod() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (label: string) =>
+      userPost<FinancePaymentMethod>("/api/finance/payment-methods", { label }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["finance", "vocabulary"] });
+    },
+  });
+}
 export function useCreateTransaction() {
   const qc = useQueryClient();
   return useMutation({

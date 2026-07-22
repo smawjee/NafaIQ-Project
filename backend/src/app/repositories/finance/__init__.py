@@ -30,6 +30,10 @@ from app.repositories.finance.goals import (  # noqa: F401
     insert_goal,
     list_goals,
 )
+from app.repositories.finance.payment_methods import (  # noqa: F401
+    list_payment_methods,
+    upsert_payment_method,
+)
 from app.repositories.finance.settings import (  # noqa: F401
     get_settings_row,
     upsert_settings,

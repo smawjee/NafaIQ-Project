@@ -23,6 +23,10 @@ class TransactionUpdate(BaseModel):
     note: str | None = None
 
 
+class PaymentMethodCreate(BaseModel):
+    label: str = Field(..., min_length=1, max_length=80)
+
+
 class GoalCreate(BaseModel):
     emoji: str = "\U0001F3AF"
     name: str = Field(..., min_length=1, max_length=120)

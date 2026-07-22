@@ -11,13 +11,13 @@ from app.schemas.finance import (
     BudgetCreate,
     BudgetUpdate,
     GoalCreate,
+    PaymentMethodCreate,
     SettingsUpdate,
     TransactionCreate,
     TransactionUpdate,
 )
 from app.services import finance as finance_service
 from app.services.finance.categories import CANONICAL_CATEGORIES
-from app.services.finance.payment_methods import PAYMENT_METHODS
 
 router = APIRouter(tags=["finance"])
 
@@ -34,10 +34,22 @@ async def finance_vocabulary(user: Annotated[dict, Depends(require_user)]):
     """
     return {
         "categories": list(CANONICAL_CATEGORIES),
-        "payment_methods": list(PAYMENT_METHODS),
+        "payment_methods": await finance_service.list_payment_method_labels(user["user_id"]),
         "transaction_types": ["expense", "income"],
     }
 
+
+@router.get("/finance/payment-methods")
+async def list_payment_methods(user: Annotated[dict, Depends(require_user)]):
+    return await finance_service.list_user_payment_methods(user["user_id"])
+
+
+@router.post("/finance/payment-methods")
+async def create_payment_method(
+    body: PaymentMethodCreate,
+    user: Annotated[dict, Depends(require_user)],
+):
+    return await finance_service.create_payment_method(user["user_id"], body)
 
 @router.get("/finance/transactions")
 async def list_transactions(user: Annotated[dict, Depends(require_user)], limit: int = 100):

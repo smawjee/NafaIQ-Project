@@ -27,6 +27,10 @@ const financeSlice = createSlice({
     removeTransaction(state, action: PayloadAction<number>) {
       state.transactions.splice(action.payload, 1);
     },
+    editTransaction(state, action: PayloadAction<{ index: number; updates: Partial<Txn> }>) {
+      const txn = state.transactions[action.payload.index];
+      if (txn) Object.assign(txn, action.payload.updates);
+    },
     addBill(state, action: PayloadAction<Bill>) {
       state.bills.push(action.payload);
     },
@@ -90,6 +94,7 @@ const financeSlice = createSlice({
 export const {
   addTransaction,
   removeTransaction,
+  editTransaction,
   addBill,
   removeBill,
   markBillPaid,

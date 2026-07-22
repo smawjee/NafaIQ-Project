@@ -1,6 +1,11 @@
 import type { ComponentProps } from "react";
+import {
+  DonutBreakdownCard,
+  PortfolioAreaChart,
+  DONUT_LIGHT_PALETTE,
+  type DonutBreakdownSlice,
+} from "@/components/charts/charts";
 import { Card } from "@/components/shared/Card";
-import { DonutChart, PortfolioAreaChart, DONUT_LIGHT_PALETTE } from "@/components/charts/charts";
 import { cn } from "@/lib/utils";
 import { useLang, localizeDigits } from "@/hooks/use-lang";
 import { RANGES } from "@/features/dashboard/dashboard.data";
@@ -13,7 +18,7 @@ interface SpendingByCat {
   total: number;
 }
 interface ShowcaseSpending {
-  categories: { name: string; value: number; color: string }[];
+  categories: DonutBreakdownSlice[];
   total: number;
 }
 
@@ -26,7 +31,6 @@ export function DashboardCharts({
   spendingByCatLoading,
   spendingByCat,
   showcaseSpending,
-  theme,
 }: {
   range: Range;
   onRangeChange: (range: Range) => void;
@@ -36,9 +40,22 @@ export function DashboardCharts({
   spendingByCatLoading: boolean;
   spendingByCat?: SpendingByCat;
   showcaseSpending: ShowcaseSpending;
-  theme: string;
 }) {
   const { t } = useLang();
+  const spendingData: DonutBreakdownSlice[] =
+    !useShowcaseDashboard && spendingByCat && spendingByCat.categories.length > 0
+      ? spendingByCat.categories.slice(0, 5).map((c, i) => ({
+          name: c.category,
+          value: c.pct,
+          amount: c.amount,
+          color: DONUT_LIGHT_PALETTE[i % DONUT_LIGHT_PALETTE.length],
+        }))
+      : useShowcaseDashboard
+        ? showcaseSpending.categories
+        : [];
+  const spendingTotal =
+    !useShowcaseDashboard && spendingByCat ? spendingByCat.total : showcaseSpending.total;
+
   return (
     <div className="grid gap-4 lg:grid-cols-5">
       <Card className="lg:col-span-3">
@@ -83,66 +100,17 @@ export function DashboardCharts({
           </span>
         </div>
       </Card>
-      <Card className="lg:col-span-2">
-        <h3 className="mb-3 text-sm font-semibold text-text-primary">{t("Spending Breakdown")}</h3>
-        {!useShowcaseDashboard && spendingByCatLoading ? (
-          <div className="flex h-[220px] items-center justify-center text-sm text-text-secondary">
-            {t("Loading spending breakdown...")}
-          </div>
-        ) : !useShowcaseDashboard && spendingByCat && spendingByCat.categories.length > 0 ? (
-          <>
-            <DonutChart
-              data={spendingByCat.categories.slice(0, 5).map((c, i) => ({
-                name: c.category,
-                value: c.pct,
-                amount: c.amount,
-                color: DONUT_LIGHT_PALETTE[i % DONUT_LIGHT_PALETTE.length],
-              }))}
-              centerValue={localizeDigits(Math.round(spendingByCat.total).toLocaleString())}
-              centerLabel="PKR total"
-            />
-            <div className="mt-2 grid grid-cols-2 gap-1.5 text-xs">
-              {spendingByCat.categories.slice(0, 5).map((c, i) => (
-                <span key={c.category} className="flex items-center gap-1.5 text-text-secondary">
-                  <span
-                    className="h-2 w-2 rounded-full"
-                    style={{ background: DONUT_LIGHT_PALETTE[i % DONUT_LIGHT_PALETTE.length] }}
-                  />
-                  {t(c.category)} {localizeDigits(`${c.pct}%`)}
-                </span>
-              ))}
-            </div>
-          </>
-        ) : !useShowcaseDashboard ? (
-          <div className="flex h-[220px] items-center justify-center rounded-[8px] border border-dashed border-border text-center text-sm text-text-secondary">
-            {t("No spending data yet. Add transactions to see your breakdown.")}
-          </div>
-        ) : (
-          <>
-            <DonutChart
-              data={showcaseSpending.categories}
-              centerValue={localizeDigits(Math.round(showcaseSpending.total).toLocaleString())}
-              centerLabel="PKR total"
-            />
-            <div className="mt-2 grid grid-cols-2 gap-1.5 text-xs">
-              {showcaseSpending.categories.map((s, i) => (
-                <span key={s.name} className="flex items-center gap-1.5 text-text-secondary">
-                  <span
-                    className="h-2 w-2 rounded-full"
-                    style={{
-                      background:
-                        theme === "light"
-                          ? DONUT_LIGHT_PALETTE[i % DONUT_LIGHT_PALETTE.length]
-                          : s.color,
-                    }}
-                  />
-                  {t(s.name)} {localizeDigits(`${s.value}%`)}
-                </span>
-              ))}
-            </div>
-          </>
-        )}
-      </Card>
+
+      <DonutBreakdownCard
+        className="lg:col-span-2"
+        title="Spending Breakdown"
+        loading={!useShowcaseDashboard && spendingByCatLoading}
+        loadingLabel="Loading spending breakdown..."
+        data={spendingData}
+        centerValue={localizeDigits(Math.round(spendingTotal).toLocaleString())}
+        centerLabel="PKR total"
+        empty="No spending data yet. Add transactions to see your breakdown."
+      />
     </div>
   );
 }
