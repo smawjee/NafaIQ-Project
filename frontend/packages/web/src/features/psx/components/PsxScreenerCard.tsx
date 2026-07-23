@@ -178,7 +178,7 @@ export function PsxScreenerCard({
               <th className="text-right">{t("Price")}</th>
               <th className="text-right">{t("Change")}</th>
               <th className="text-center">{t("Signal")}</th>
-              <th className="text-right">{t("Conf.")}</th>
+              <th className="text-right">{t("Strength")}</th>
               <th className="text-right">RSI</th>
               <th className="text-right">{t("Volume")}</th>
               <th className="pr-2 text-right">{t("Mkt Cap")}</th>

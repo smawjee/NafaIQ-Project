@@ -42,7 +42,64 @@ def email_html(title: str, body: str, link: str | None = None) -> str:
 
 
 async def send_email(to: str, subject: str, html: str) -> bool:
-    """Send email via Resend API. Returns True on success."""
+    """Send email through the configured provider. Returns True on success."""
+    provider = _email_delivery_provider()
+    if provider == "brevo":
+        return await _send_brevo_email(to, subject, html)
+    if provider == "resend":
+        return await _send_resend_email(to, subject, html)
+    log.warning("Email delivery is not configured; skipping email to %s", to)
+    return False
+
+
+def _email_delivery_provider() -> str:
+    configured = (settings.email_delivery_provider or "auto").strip().lower()
+    brevo_ready = bool(settings.brevo_api_key and settings.brevo_from_email)
+    resend_ready = bool(settings.resend_api_key)
+    if configured == "auto":
+        if brevo_ready:
+            return "brevo"
+        if resend_ready:
+            return "resend"
+        return "none"
+    return configured
+
+
+async def _send_brevo_email(to: str, subject: str, html: str) -> bool:
+    """Send email via Brevo's transactional email API."""
+    if not settings.brevo_api_key or not settings.brevo_from_email:
+        log.warning("Brevo not configured; skipping email to %s", to)
+        return False
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            resp = await client.post(
+                "https://api.brevo.com/v3/smtp/email",
+                headers={
+                    "accept": "application/json",
+                    "api-key": settings.brevo_api_key,
+                    "content-type": "application/json",
+                },
+                json={
+                    "sender": {
+                        "name": settings.brevo_from_name,
+                        "email": settings.brevo_from_email,
+                    },
+                    "to": [{"email": to}],
+                    "subject": subject,
+                    "htmlContent": html,
+                },
+            )
+            if resp.status_code >= 300:
+                log.error("Brevo error %s: %s", resp.status_code, resp.text)
+                return False
+            return True
+    except Exception as e:
+        log.error("Brevo email send failed: %s", e)
+        return False
+
+
+async def _send_resend_email(to: str, subject: str, html: str) -> bool:
+    """Send email via Resend API."""
     if not settings.resend_api_key:
         log.warning("RESEND_API_KEY not configured; skipping email to %s", to)
         return False

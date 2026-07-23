@@ -1,0 +1,39 @@
+{
+  "results": {
+    "flow_5d": {
+      "oos_rank_ic": -0.1482,
+      "blocks_positive_frac": 0.449,
+      "n_blocks": 49,
+      "tercile_high_mean_fwd20": 0.0251,
+      "tercile_low_mean_fwd20": 0.0445,
+      "tercile_spread": -0.0194,
+      "n_oos": 973
+    },
+    "flow_20d": {
+      "oos_rank_ic": -0.1593,
+      "blocks_positive_frac": 0.449,
+      "n_blocks": 49,
+      "tercile_high_mean_fwd20": 0.0259,
+      "tercile_low_mean_fwd20": 0.0386,
+      "tercile_spread": -0.0128,
+      "n_oos": 973
+    },
+    "flow_60d": {
+      "oos_rank_ic": -0.0988,
+      "blocks_positive_frac": 0.4286,
+      "n_blocks": 49,
+      "tercile_high_mean_fwd20": 0.0275,
+      "tercile_low_mean_fwd20": 0.0344,
+      "tercile_spread": -0.0069,
+      "n_oos": 973
+    }
+  },
+  "verdict": "RED",
+  "overlap_days": 1225,
+  "flow_days_total": 4527,
+  "kse_range": [
+    "2021-07-09",
+    "2026-07-21"
+  ],
+  "signal": "SCRA foreign equity flow (rolling sums) vs KSE-100 fwd 20d"
+}

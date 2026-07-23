@@ -122,6 +122,24 @@ def test_build_ranking_dataset_execution_aligned():
     assert min(Counter(ds.dates).values()) >= 30      # thin dates dropped
 
 
+def test_build_ranking_dataset_grid_stride_override_densifies_dates():
+    rng = np.random.default_rng(7)
+    histories = {}
+    for i in range(35):
+        closes = (100 * np.cumprod(1 + rng.normal(0.0005, 0.02, 420))).tolist()
+        histories[f"S{i:02d}"] = [dict(r, symbol=f"S{i:02d}") for r in _hist(closes)]
+    kse = _hist((1000 * np.cumprod(1 + rng.normal(0.0004, 0.01, 420))).tolist())
+    kse_rows = [{"date": r["date"], "close": r["close"]} for r in kse]
+
+    coarse = build_ranking_dataset(histories=histories, fundamentals={}, profiles={},
+                                   kse_rows=kse_rows, horizon="20D",
+                                   min_names_per_date=30, grid_stride=20)
+    dense = build_ranking_dataset(histories=histories, fundamentals={}, profiles={},
+                                  kse_rows=kse_rows, horizon="20D",
+                                  min_names_per_date=30, grid_stride=5)
+    assert len(set(dense.feature_dates)) > len(set(coarse.feature_dates))
+
+
 def test_forward_return_uses_entry_not_feature_close():
     # deterministic 1% up per bar: return over 20 sessions from entry must be (1.01^20 - 1),
     # NOT include the T->T+1 step twice.

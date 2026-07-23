@@ -151,9 +151,10 @@ def build_ranking_dataset(*, histories: dict[str, list[dict[str, Any]]],
                           fundamentals: dict[str, dict[str, Any]], profiles: dict[str, dict[str, Any]],
                           kse_rows: list[dict[str, Any]], horizon: str,
                           corp_action_events: dict[str, list[str]] | None = None,
-                          min_names_per_date: int = 30) -> RankingDataset:
+                          min_names_per_date: int = 30,
+                          grid_stride: int | None = None) -> RankingDataset:
     horizon_days = HORIZON_DAYS[horizon]
-    stride = TRAINING_GRID_STRIDE[horizon]
+    stride = grid_stride if grid_stride is not None else TRAINING_GRID_STRIDE[horizon]
     kse_sorted, kse_ordinals = _prepare_kse_lookup(kse_rows)
     kse_close = np.asarray([float(r.get("close") or 0) for r in kse_sorted], dtype=np.float64)
     kse_date_to_idx = {_parse_date(r.get("date")): i for i, r in enumerate(kse_sorted)}

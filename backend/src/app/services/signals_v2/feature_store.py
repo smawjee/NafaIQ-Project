@@ -10,7 +10,9 @@ import numpy as np
 
 from app.services.signals_v2.training import Dataset, load_dataset
 
-FEATURE_VERSION = "v3.1"
+# v3.2: features/labels computed on corporate-action-adjusted closes
+# (adjustments.py); v3.1 stores built on raw closes are refused by version gate.
+FEATURE_VERSION = "v3.2"
 
 
 def dataset_hash(X: np.ndarray, feature_names: list[str]) -> str:

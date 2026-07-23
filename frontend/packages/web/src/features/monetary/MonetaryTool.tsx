@@ -10,6 +10,7 @@ import {
   RefreshCw,
   ShieldCheck,
 } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import { useMonetarySnapshot } from "@/hooks/psx/use-extras";
 import { useLang } from "@/hooks/use-lang";
 import {
@@ -131,9 +132,10 @@ export function MonetaryTool() {
                 {t("Reference FX, dollar conversion, and Pakistan bullion prices with source checks.")}
               </p>
             </div>
-            <div className="grid gap-3 sm:grid-cols-3">
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
               <SourcePill icon={Clock3} label={t("Updated")} value={formatDateTime(data.refreshed_at)} />
-              <SourcePill icon={ShieldCheck} label={t("Source")} value={data.source.name} />
+              <SourcePill icon={ShieldCheck} label={t("FX source")} value={data.source.name} />
+              <SourcePill icon={Coins} label={t("Metal source")} value={data.metal_source?.name ?? t("Spot fallback")} />
               <SourcePill
                 icon={RefreshCw}
                 label={t("Quality")}
@@ -287,7 +289,7 @@ function SourcePill({
   label,
   value,
 }: {
-  icon: typeof Clock3;
+  icon: LucideIcon;
   label: string;
   value: string;
 }) {
@@ -335,6 +337,12 @@ function MetalCard({ metal }: { metal: ApiMonetaryMetal }) {
           </p>
           <h3 className="mt-2 text-xl font-bold text-text-primary">{t(metal.name)}</h3>
           <p className="mt-1 text-sm text-text-muted">{t(metal.basis)}</p>
+          {metal.source_name ? (
+            <p className="mt-1 text-xs text-text-muted">
+              {t("Source")}: {metal.source_name}
+              {metal.city ? ` - ${metal.city}` : ""}
+            </p>
+          ) : null}
         </div>
         <span className="inline-flex h-11 w-11 items-center justify-center rounded-[8px] bg-bull/10 text-bull">
           {metal.code === "XAU" ? <Coins className="h-5 w-5" /> : <Banknote className="h-5 w-5" />}

@@ -15,7 +15,7 @@ export const Route = createFileRoute("/watchlist")({
   head: () => ({
     meta: [
       { title: "Watchlist - NafaIQ" },
-      { name: "description", content: "Track your watched PSX stocks and live AI signals." },
+      { name: "description", content: "Track your watched PSX stocks and live technical setups." },
     ],
   }),
   component: WatchlistRoute,
@@ -39,7 +39,7 @@ function WatchlistRoute() {
           {t("Watchlist")}
         </h1>
         <p className="mt-1 text-sm text-text-secondary">
-          {t("Track live prices, AI signals, and the PSX names you care about.")}
+          {t("Track live prices, technical setups, and the PSX names you care about.")}
         </p>
       </div>
       <PsxWatchlistCard

@@ -862,4 +862,16 @@ export const UR: Record<string, string> = {
   "Confirm Sale": "فروخت کی تصدیق کریں",
   Back: "واپس",
   Cancel: "منسوخ کریں",
+  "FX source": "ایف ایکس ماخذ",
+  "Metal source": "دھاتوں کا ماخذ",
+  "Spot fallback": "اسپاٹ فال بیک",
+  "Reference FX is converted through USD/PKR. Gold and silver prefer Pakistan sarafa/APGJSA market rates when available; local premiums, taxes, spreads, and jeweller rates can differ.":
+    "FX ریٹ USD/PKR کے ذریعے تبدیل کیا جاتا ہے۔ سونا اور چاندی دستیاب ہونے پر پاکستان صرافہ/APGJSA مارکیٹ ریٹس استعمال کرتے ہیں؛ مقامی پریمیم، ٹیکس، اسپریڈز، اور جیولر ریٹس مختلف ہو سکتے ہیں۔",
+  "Gold or silver prices were not available from the live providers.":
+    "لائیو فراہم کنندگان سے سونے یا چاندی کی قیمتیں دستیاب نہیں تھیں۔",
+  "Pakistan bullion rates were unavailable for one or more metals; using international spot converted to PKR as an indicative fallback.":
+    "ایک یا زیادہ دھاتوں کے لیے پاکستان بلین ریٹس دستیاب نہیں تھے؛ اشارتی فال بیک کے طور پر بین الاقوامی اسپاٹ ریٹ کو PKR میں تبدیل کیا گیا ہے۔",
+  "Pakistan sarafa market": "پاکستان صرافہ مارکیٹ",
+  "Pakistan APGJSA market rate": "پاکستان APGJSA مارکیٹ ریٹ",
+  "Indicative international spot converted to PKR": "اشارتی بین الاقوامی اسپاٹ جو PKR میں تبدیل ہوا",
 };

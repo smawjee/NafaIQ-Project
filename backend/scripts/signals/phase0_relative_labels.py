@@ -29,6 +29,7 @@ from app.services.signals_v2.training import HORIZON_DAYS, evaluate_walk_forward
 MIN_OOS_DATES = 40
 MIN_SAMPLES = 2000
 PHASE0B_TOP_LIQUID = 300
+PHASE0B_GRID_STRIDE = 5   # denser than TRAINING_GRID_STRIDE["20D"]=10: gate needs ~150+ OOS dates
 PHASE0B_CONFIG = {"name": "baseline_lr05_d4", "learning_rate": 0.05, "max_depth": 4, "n_estimators": 300}
 
 
@@ -74,7 +75,7 @@ def _phase0a(store_dir: Path) -> dict:
     return out
 
 
-def _verdict(a: dict) -> str:
+def _verdict_0a(a: dict) -> str:
     primary = a.get("20D") or {}
     if primary.get("status") in {"missing_feature_store", "unverified_store", "insufficient_samples"}:
         return "INCONCLUSIVE"
@@ -84,6 +85,29 @@ def _verdict(a: dict) -> str:
     if excess is None or folds_total < 2:
         return "INCONCLUSIVE"
     return "GREEN" if (excess > 0 and folds_pos > folds_total / 2) else "RED"
+
+
+def _verdict_0b(b: dict) -> str:
+    if "daily_rank_ic" not in b:
+        return "INCONCLUSIVE"
+    if int(b.get("n_dates") or 0) < MIN_OOS_DATES:
+        return "INCONCLUSIVE"
+    green = (float(b["daily_rank_ic"]) > 0
+             and float(b["top_decile_excess_after_cost"]) > 0
+             and float(b["folds_positive_frac"]) >= 0.5)
+    return "GREEN" if green else "RED"
+
+
+def _verdict(a: dict, b: dict) -> str:
+    """0B is the shipped architecture (cross-sectional ranker) and is the primary
+    gate; 0A (absolute relabeled classifier) is supporting evidence. GREEN on
+    either unblocks Tier B — training itself re-validates on holdout + DSR/PBO."""
+    va, vb = _verdict_0a(a), _verdict_0b(b)
+    if "GREEN" in (va, vb):
+        return "GREEN"
+    if va == vb == "INCONCLUSIVE":
+        return "INCONCLUSIVE"
+    return "RED"
 
 
 def _phase0b() -> dict:
@@ -99,11 +123,11 @@ def _phase0b() -> dict:
 
         from app.services.signals_v2.ranking import build_ranking_dataset, train_ranker
         from app.services.signals_v2.training import group_rows, map_rows
-        from train_signals_v2 import _client, _select_all, _select_ohlcv, _select_where
+        from train_signals_v2 import _client, _select_all, _select_ohlcv_adjusted, _select_where
 
         load_dotenv(ROOT / ".env")
         client = _client()
-        ohlcv = _select_ohlcv(client, max_rows_per_symbol=1300)
+        ohlcv = _select_ohlcv_adjusted(client, max_rows_per_symbol=1300, mode="price")
         profiles = map_rows(_select_all(client, "psx_profile", "*", order_by="symbol"))
         kse_rows = _select_where(client, "psx_index_eod", "date,close", order_by="date",
                                  filters=[("code", "eq", "KSE100")])
@@ -125,10 +149,14 @@ def _phase0b() -> dict:
     audit_path = ROOT / "artifacts" / "signals" / "data_integrity_report.json"
     events = {}
     if audit_path.exists():
-        events = json.loads(audit_path.read_text(encoding="utf-8"))["corp_action_events"]["by_symbol"]
+        audit = json.loads(audit_path.read_text(encoding="utf-8"))
+        # residual events = still-broken after price adjustment (the true
+        # contamination set); the raw map over-excludes now-fixed bonus gaps
+        events = (audit.get("residual_corp_action_events") or audit["corp_action_events"])["by_symbol"]
 
     ds = build_ranking_dataset(histories=histories, fundamentals={}, profiles=profiles,
-                               kse_rows=kse_rows, horizon="20D", corp_action_events=events)
+                               kse_rows=kse_rows, horizon="20D", corp_action_events=events,
+                               grid_stride=PHASE0B_GRID_STRIDE)
     if len(ds.y) < MIN_SAMPLES:
         return {"status": "insufficient_samples", "samples": int(len(ds.y))}
     result = train_ranker(ds, horizon="20D", configs=[PHASE0B_CONFIG], folds=4)
@@ -146,7 +174,9 @@ def main() -> int:
                                str(ROOT / "artifacts" / "signals" / "feature_store_full")))
     a = _phase0a(store_dir)
     b = _phase0b()
-    report = {"phase_0a": a, "phase_0b": b, "verdict": _verdict(a)}
+    report = {"phase_0a": a, "phase_0b": b,
+              "verdict_0a": _verdict_0a(a), "verdict_0b": _verdict_0b(b),
+              "verdict": _verdict(a, b)}
     out = ROOT / "artifacts" / "signals" / "phase0_report.json"
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(json.dumps(report, indent=2, default=str) + "\n", encoding="utf-8")

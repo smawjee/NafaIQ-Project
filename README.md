@@ -302,6 +302,11 @@ Never commit real secrets — `.env` files are git-ignored. The checked-in
 | `SUPABASE_DATABASE_*` / `SUPABASE_POOLER_*` | Direct Postgres / pooler connection |
 | `PSX_SUPABASE_URL` / `PSX_SUPABASE_SERVICE_ROLE_KEY` | PSX market-data Supabase project |
 | `PSX_API_TOKEN` | Token for the PSX data source |
+| `EMAIL_DELIVERY_PROVIDER` | Outbound alert email provider (`auto`, `brevo`, `resend`) |
+| `BREVO_API_KEY` / `BREVO_FROM_EMAIL` | Preferred no-domain/testing provider for alert email delivery |
+| `RESEND_API_KEY` / `RESEND_FROM_EMAIL` | Optional Resend provider settings |
+| `SARAFA_API_KEY` | Backend-only Sarafa.pk key for Pakistan gold/silver rates |
+| `SARAFA_CITY_SLUG` / `SARAFA_CLIENT_PLATFORM` | Sarafa city/default platform metadata |
 | `CORS_ORIGINS` | Comma-separated allowed origins (`*` allows all) |
 
 ---

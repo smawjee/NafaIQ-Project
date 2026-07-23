@@ -1,0 +1,130 @@
+{
+  "phase_0a": {
+    "5D": {
+      "accuracy": 0.2814,
+      "macro_precision": 0.261,
+      "buy_precision": 0.3824,
+      "sell_precision": 0.5258,
+      "false_buy_rate": 0.6176,
+      "avg_buy_return": 0.0155,
+      "avg_buy_benchmark_return": 0.0093,
+      "avg_buy_excess_return": 0.0062,
+      "coverage": 0.8082,
+      "samples": 60164,
+      "class_distribution": {
+        "STRONG_BUY": 14507,
+        "STRONG_SELL": 19811,
+        "SELL": 9775,
+        "HOLD": 9628,
+        "BUY": 6443
+      },
+      "technical_baseline": {
+        "accuracy": 0.1747,
+        "macro_precision": 0.1948,
+        "buy_precision": 0.3437,
+        "sell_precision": 0.4603,
+        "false_buy_rate": 0.6563,
+        "avg_buy_return": 0.0056,
+        "avg_buy_benchmark_return": 0.0099,
+        "avg_buy_excess_return": -0.0043,
+        "coverage": 0.8239
+      },
+      "calibration": {
+        "raw_ece": 0.0501,
+        "calibrated_ece": 0.0216,
+        "global_accuracy": 0.2814
+      },
+      "avg_buy_excess_after_cost": 0.0012,
+      "folds_positive": 4,
+      "folds_total": 4
+    },
+    "20D": {
+      "accuracy": 0.2889,
+      "macro_precision": 0.2541,
+      "buy_precision": 0.3732,
+      "sell_precision": 0.5484,
+      "false_buy_rate": 0.6268,
+      "avg_buy_return": 0.0325,
+      "avg_buy_benchmark_return": 0.0362,
+      "avg_buy_excess_return": -0.0037,
+      "coverage": 0.8409,
+      "samples": 58862,
+      "class_distribution": {
+        "STRONG_BUY": 13164,
+        "STRONG_SELL": 21866,
+        "SELL": 9202,
+        "BUY": 6146,
+        "HOLD": 8484
+      },
+      "technical_baseline": {
+        "accuracy": 0.1626,
+        "macro_precision": 0.1856,
+        "buy_precision": 0.3136,
+        "sell_precision": 0.487,
+        "false_buy_rate": 0.6864,
+        "avg_buy_return": 0.0144,
+        "avg_buy_benchmark_return": 0.041,
+        "avg_buy_excess_return": -0.0265,
+        "coverage": 0.824
+      },
+      "calibration": {
+        "raw_ece": 0.0733,
+        "calibrated_ece": 0.0296,
+        "global_accuracy": 0.2889
+      },
+      "avg_buy_excess_after_cost": -0.0087,
+      "folds_positive": 1,
+      "folds_total": 4
+    },
+    "60D": {
+      "accuracy": 0.3037,
+      "macro_precision": 0.2422,
+      "buy_precision": 0.3044,
+      "sell_precision": 0.6516,
+      "false_buy_rate": 0.6956,
+      "avg_buy_return": 0.0676,
+      "avg_buy_benchmark_return": 0.1233,
+      "avg_buy_excess_return": -0.0557,
+      "coverage": 0.8877,
+      "samples": 55409,
+      "class_distribution": {
+        "STRONG_BUY": 6358,
+        "SELL": 11049,
+        "STRONG_SELL": 23648,
+        "BUY": 5578,
+        "HOLD": 8776
+      },
+      "technical_baseline": {
+        "accuracy": 0.1632,
+        "macro_precision": 0.1979,
+        "buy_precision": 0.213,
+        "sell_precision": 0.6177,
+        "false_buy_rate": 0.787,
+        "avg_buy_return": 0.0226,
+        "avg_buy_benchmark_return": 0.1119,
+        "avg_buy_excess_return": -0.0892,
+        "coverage": 0.8243
+      },
+      "calibration": {
+        "raw_ece": 0.1346,
+        "calibrated_ece": 0.0505,
+        "global_accuracy": 0.3037
+      },
+      "avg_buy_excess_after_cost": -0.0607,
+      "folds_positive": 1,
+      "folds_total": 4
+    }
+  },
+  "phase_0b": {
+    "daily_rank_ic": 0.0134,
+    "top_decile_excess_after_cost": -0.006,
+    "precision_at_10": 0.4147,
+    "folds_positive_frac": 0.25,
+    "n_dates": 147,
+    "samples": 34244,
+    "universe": 300
+  },
+  "verdict_0a": "RED",
+  "verdict_0b": "RED",
+  "verdict": "RED"
+}

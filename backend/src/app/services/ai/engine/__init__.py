@@ -30,6 +30,7 @@ from pydantic import BaseModel
 from app.config import settings
 from app.schemas.reports import VerificationResult
 from app.services.ai.guardrails import check_report
+from app.services.ai.observability import observe, propagate_attributes
 from app.services.ai.providers import (
     ProviderError,
     ReportClient,
@@ -69,7 +70,34 @@ class GeneratedReport:
 
 
 # the engine
+# capture_input=False/capture_output=False: the bundle and the verified report
+# are large and already visible on the nested Instructor generations.
+@observe(name="report_generate", capture_input=False, capture_output=False)
 async def generate_report(
+    spec: ReportSpec,
+    *,
+    user_id: Optional[str] = None,
+    subject: Optional[str] = None,
+    days: Optional[int] = None,
+    lang: str = "en",
+    transport: Optional[httpx.AsyncBaseTransport] = None,
+) -> GeneratedReport:
+    with propagate_attributes(
+        user_id=user_id,  # None for shared reports (market brief) — simply unset
+        tags=["reports"],
+        metadata={"report": spec.report_type},
+    ):
+        return await _generate_report(
+            spec,
+            user_id=user_id,
+            subject=subject,
+            days=days,
+            lang=lang,
+            transport=transport,
+        )
+
+
+async def _generate_report(
     spec: ReportSpec,
     *,
     user_id: Optional[str] = None,
@@ -158,6 +186,7 @@ async def _generate_once(
                 lang=lang,
             )
             report = _normalize_generated_report(report, bundle)
+            report = _stamp_requested_lang(report, lang)
 
             # Verify numbers + check guardrails.
             vr = verify_report(report, bundle)
@@ -179,6 +208,7 @@ async def _generate_once(
                     lang=lang,
                 )
                 report = _normalize_generated_report(report, bundle)
+                report = _stamp_requested_lang(report, lang)
                 vr = verify_report(report, bundle)
                 violations = check_report(report)
 
@@ -253,3 +283,12 @@ async def _generate_once(
         raise
     # The client's connection pool is closed by generate_report (which owns the
     # client's lifecycle, so a failover attempt can reuse this same pipeline).
+
+
+def _stamp_requested_lang(report: BaseModel, lang: str) -> BaseModel:
+    """Persist the requested UI language even when the model omits `lang`."""
+    data = report.model_dump()
+    if "lang" not in data:
+        return report
+    data["lang"] = lang
+    return type(report).model_validate(data)

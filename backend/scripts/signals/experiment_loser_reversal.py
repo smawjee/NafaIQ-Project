@@ -24,7 +24,7 @@ sys.path.insert(0, str(ROOT / "src"))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from experiment_long_momentum import momentum_quintile_report
-from train_signals_v2 import _client, _select_all, _select_ohlcv, _select_where
+from train_signals_v2 import _client, _select_all, _select_ohlcv_adjusted, _select_where
 
 from app.services.signals_v2.constants import PORTFOLIO_REBALANCE_DAYS
 from app.services.signals_v2.portfolio_sim import simulate_topk
@@ -73,7 +73,7 @@ def main() -> int:
         events = json.loads(audit.read_text(encoding="utf-8"))["corp_action_events"]["by_symbol"]
 
     client = _client()
-    ohlcv = _select_ohlcv(client, max_rows_per_symbol=1300)
+    ohlcv = _select_ohlcv_adjusted(client, max_rows_per_symbol=1300, mode="price")
     profiles = map_rows(_select_all(client, "psx_profile", "*", order_by="symbol"))
     kse_rows = _select_where(client, "psx_index_eod", "date,close", order_by="date",
                              filters=[("code", "eq", "KSE100")])

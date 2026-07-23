@@ -26,10 +26,11 @@ from app.services.signals_v2.training import HORIZON_DAYS, _parse_date
 
 log = structlog.get_logger()
 
-EVALUATION_VERSION = "v3.1-outcome-1"
+# v3.2-outcome-1: realized returns measured on corporate-action-adjusted closes
+EVALUATION_VERSION = "v3.2-outcome-1"
 LARGE_LOSS_NET = -0.02
 SNAPSHOT_MODEL_VERSION = "technical-v2.0"
-SNAPSHOT_FEATURE_VERSION = "v3.1"
+SNAPSHOT_FEATURE_VERSION = "v3.2"
 
 
 def mature_outcome(bars: list[dict], kse_by_date: dict[str, float], *,
@@ -172,12 +173,24 @@ async def evaluate_pending_outcomes(*, limit: int = 1000) -> dict[str, Any]:
     for row in pending:
         by_symbol[str(row["symbol"]).upper()].append(row)
 
+    from app.services.signals_v2.adjustments import adjust_with_detection, load_adjustment_events
+
     inserted, immature = 0, 0
     for sym, signal_rows in by_symbol.items():
         bars_res = await async_execute(lambda c, s=sym: c.table("psx_ohlcv")
                                        .select("date,close").eq("symbol", s)
                                        .order("date", desc=True).limit(400))
         bars = list(reversed(bars_res.data or []))
+        # corporate-action adjust: a bonus/rights ex-date inside the outcome
+        # window would otherwise book a fake loss against the track record
+        try:
+            div_res = await async_execute(lambda c, s=sym: c.table("psx_dividends")
+                                          .select("symbol,ex_date,payout_type,per_share,bonus_pct")
+                                          .eq("symbol", s).not_.is_("ex_date", "null"))
+            events = load_adjustment_events(div_res.data or []).get(sym)
+            bars = adjust_with_detection(bars, events, mode="price")
+        except Exception:
+            log.warning("outcome_adjustment_failed", symbol=sym, exc_info=True)
         for row in signal_rows:
             horizon_days = HORIZON_DAYS.get(str(row["horizon"]), 20)
             out = mature_outcome(bars, kse_by_date, as_of=_parse_date(row["as_of"]),

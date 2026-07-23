@@ -96,6 +96,8 @@ async def get_signal(symbol: str, horizon: str = DEFAULT_HORIZON) -> dict[str, A
         data_warnings=quality.warnings,
         regime=regime,
     )
+    if signal == SignalLabel.HOLD and technical.signal in {SignalLabel.BUY, SignalLabel.STRONG_BUY}:
+        warnings.append("Bullish technical setups are held to HOLD until BUY precision is validated")
     response = SignalV2Response.from_parts(
         symbol=sym,
         horizon=hz,
@@ -184,6 +186,7 @@ async def _load_inputs(symbol: str) -> tuple[list[dict[str, Any]], dict[str, Any
         .order("date", desc=True)
         .limit(365)
     )
+    rows = await _adjust_rows(symbol, rows)
     return (
         rows,
         (snapshot_res.data or [None])[0],
@@ -193,15 +196,40 @@ async def _load_inputs(symbol: str) -> tuple[list[dict[str, Any]], dict[str, Any
     )
 
 
+async def _adjust_rows(symbol: str, rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Corporate-action adjustment at serving time; the latest bar stays raw.
+
+    Must match the training convention (price mode) or served features drift
+    from what the model saw. Best-effort: raw rows on any failure.
+    """
+    from app.services.signals_v2.adjustments import adjust_with_detection, load_adjustment_events
+
+    if not rows:
+        return rows
+    try:
+        div_res = await async_execute(
+            lambda c: c.table("psx_dividends")
+            .select("symbol,ex_date,payout_type,per_share,bonus_pct")
+            .eq("symbol", symbol)
+            .not_.is_("ex_date", "null")
+        )
+        events = load_adjustment_events(div_res.data or []).get(symbol.upper())
+        return adjust_with_detection(rows, events, mode="price")
+    except Exception:
+        return rows
+
+
 _trend_stats_cache: dict | None = None
 _trend_stats_loaded = False
 
 
 async def _decorate(response: SignalV2Response, features: dict[str, Any], horizon: str) -> SignalV2Response:
-    """Attach display context (consensus, trend/risk, foreign flow) at read time.
+    """Attach supporting context at read time.
 
     Persisted rows carry only the base model output; every serving path passes
-    through here so cached and fresh responses look identical to clients.
+    through here so cached and fresh responses look identical to clients. The
+    primary signal remains NafaIQ's technical setup; external consensus is only
+    an alignment check for the UI, never a second user-facing recommendation.
     """
     response = await _attach_consensus(response, horizon)
     response = _attach_trend(response, features, _get_trend_stats())

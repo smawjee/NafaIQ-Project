@@ -25,8 +25,15 @@ import logging
 from typing import Any, AsyncIterator, Optional
 
 from app.config import settings
-from app.services.ai.prompts import load_prompt
+from app.services.ai.observability import observation_span, observe
+from app.services.ai.prompts import load_prompt, security_rules
 from app.services.ai.providers import complete_with_tools
+from app.services.ai.safety import (
+    assert_safe_output,
+    detect_leakage_request,
+    redact_sensitive,
+    safe_refusal,
+)
 from app.services.assistant import context as ctx
 from app.services.assistant.reads import READ_HANDLERS
 from app.services.assistant.tools import (
@@ -65,7 +72,8 @@ def build_system_prompt(bundle: dict[str, Any], lang: str) -> str:
         else "Reply in English."
     )
     return load_prompt("assistant").format(
-        context=ctx.render_bundle(bundle, lang), lang_rule=lang_rule
+        context=security_rules() + "\n\n" + ctx.render_bundle(bundle, lang),
+        lang_rule=lang_rule,
     )
 
 
@@ -93,9 +101,21 @@ def _parse_args(raw: str | None) -> dict[str, Any]:
     try:
         parsed = json.loads(raw)
     except (TypeError, ValueError):
-        log.warning("assistant_tool_args_unparseable", extra={"raw": raw[:200]})
+        log.warning(
+            "assistant_tool_args_unparseable",
+            extra={"arg_length": len(raw), "raw": "[REDACTED]"},
+        )
         return {}
     return parsed if isinstance(parsed, dict) else {}
+
+
+def _safe_token(text: str, lang: str) -> str:
+    try:
+        assert_safe_output(text)
+    except Exception:
+        log.warning("assistant_unsafe_model_output_blocked")
+        return safe_refusal(lang, "assistant")
+    return text
 
 
 def _assistant_turn(msg: Any) -> dict[str, Any]:
@@ -118,6 +138,11 @@ def _assistant_turn(msg: Any) -> dict[str, Any]:
     }
 
 
+# capture_input=False: the arg list starts with the user dict (JWT claims) and
+# the full message history — the prompts are already visible on the nested
+# generations, which is where they belong. capture_output=False: the wrapper
+# would otherwise accumulate every yielded SSE event dict for the span output.
+@observe(name="assistant_turn", as_type="agent", capture_input=False, capture_output=False)
 async def run_turn(
     user: dict[str, Any],
     messages: list[dict[str, str]],
@@ -126,6 +151,14 @@ async def run_turn(
     transport: Any = None,
 ) -> AsyncIterator[dict[str, Any]]:
     """Drive one user turn to completion, yielding events as they happen."""
+    latest_user = next(
+        (m.get("content", "") for m in reversed(messages) if m.get("role") == "user"),
+        "",
+    )
+    if detect_leakage_request(latest_user):
+        yield {"type": "token", "text": safe_refusal(lang, "assistant")}
+        return
+
     bundle = await ctx.build_bundle(user["user_id"])
     convo: list[dict[str, Any]] = [
         {"role": "system", "content": build_system_prompt(bundle, lang)}
@@ -149,7 +182,7 @@ async def run_turn(
         if not calls:
             # Plain answer — the turn is done.
             if content:
-                yield {"type": "token", "text": content}
+                yield {"type": "token", "text": _safe_token(content, lang)}
                 return
             # No tool calls AND no text. Seen live right after a read tool
             # returned: the model had the data and simply said nothing back, so
@@ -168,7 +201,7 @@ async def run_turn(
             # alongside the call is the "here's what I'm about to do" line, so
             # it goes out first.
             if content:
-                yield {"type": "token", "text": content}
+                yield {"type": "token", "text": _safe_token(content, lang)}
             elif reads_done:
                 # A read ran and the model chose to navigate instead of saying
                 # anything — seen live on "what bills do I have coming up?",
@@ -211,7 +244,15 @@ async def run_turn(
             name = call.function.name
             yield {"type": "tool", "name": name}
             reads_done.append(name)
-            result = await _run_read(user, name, _parse_args(call.function.arguments))
+            args = _parse_args(call.function.arguments)
+            # No yield inside the span: it opens and closes within one
+            # resumption of this generator, so streaming is unaffected.
+            with observation_span(
+                f"tool:{name}", as_type="tool", input=redact_sensitive(args)
+            ) as span:
+                result = await _run_read(user, name, args)
+                if span is not None:
+                    span.update(output=redact_sensitive(result[:2000]))
             # Tool output grounds a later write: a ticker that came back from
             # resolve_symbol is evidence, not invention.
             grounding += "\n" + result
@@ -224,7 +265,10 @@ async def run_turn(
     # user staring at a spinner that just stops.
     yield {
         "type": "token",
-        "text": _text(final) or _FALLBACK.get(lang, _FALLBACK["en"]),
+        "text": _safe_token(
+            _text(final) or _FALLBACK.get(lang, _FALLBACK["en"]),
+            lang,
+        ),
     }
 
 

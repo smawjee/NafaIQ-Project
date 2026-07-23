@@ -38,3 +38,8 @@ def load_prompt(name: str) -> str:
         raise FileNotFoundError(
             f"Prompt file not found: {path}. Expected a .txt in backend/prompts/."
         ) from e
+
+
+def security_rules() -> str:
+    """Shared anti-leakage rules included in every LLM system prompt."""
+    return load_prompt("security_rules")

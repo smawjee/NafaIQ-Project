@@ -351,12 +351,12 @@ export default function PsxScreen() {
           <Sparkles color={colors.ai} size={15} />
           {modelReady ? (
             <Text style={[styles.aiText, { color: colors.textSecondary }]}>
-              The AI recommends a <Text style={{ color: colors.ai }}>{t(aiSignal!.signal).toLowerCase()}</Text> with{" "}
-              <Text style={{ color: colors.ai }}>{Math.round(aiSignal!.confidence)}% confidence</Text>
+              NafaIQ setup is <Text style={{ color: colors.ai }}>{t(aiSignal!.signal).toLowerCase()}</Text> with{" "}
+              <Text style={{ color: colors.ai }}>{Math.round(aiSignal!.confidence)}% strength</Text>
             </Text>
           ) : (
             <Text style={[styles.aiText, { color: colors.textSecondary }]}>
-              {t("AI signal unavailable — model training in progress")}
+              {t("Technical setup unavailable - still warming up")}
             </Text>
           )}
         </View>

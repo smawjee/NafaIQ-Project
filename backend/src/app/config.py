@@ -78,9 +78,20 @@ class Settings(BaseSettings):
     # Get from Supabase Dashboard > Settings > API > JWT Secret
     supabase_jwt_secret: str = ""
 
-    # Resend (email delivery for alert notifications)
+    # Outbound email delivery for alerts/activity notifications. Brevo is the
+    # preferred no-domain/testing provider; Resend remains available for a
+    # domain-verified production sender later. Keep keys backend-only.
+    email_delivery_provider: str = "auto"  # auto | brevo | resend
+
+    # Resend (domain-verified transactional email)
     resend_api_key: str = ""
     resend_from_email: str = "alerts@nafaiq.app"
+
+    # Brevo transactional email API. This is a practical no-domain/testing
+    # option when using a verified sender, and can remain useful later.
+    brevo_api_key: str = ""
+    brevo_from_email: str = ""
+    brevo_from_name: str = "NafaIQ Alerts"
 
     # Langfuse LLM observability (optional). When both keys are set, every LLM
     # call is traced with model/tokens/latency/cost. Left blank => tracing is a
@@ -189,6 +200,13 @@ class Settings(BaseSettings):
     # user's own request allowance.
     email_import_max_llm_per_poll: int = 20
 
+    # Pakistan bullion pricing for Monetary Desk and Zakat. Sarafa.pk is the
+    # preferred structured source; without a key the monetary service falls back
+    # to public APGJSA-backed Pakistan-market pages before using spot metals.
+    sarafa_api_key: str = ""
+    sarafa_city_slug: str = "karachi"
+    sarafa_client_platform: str = "server"
+
     ahletrade_base_url: str = "http://feed.ahletrade.com/HTTPFeedServer/FeedFetcher"
     dps_base_url: str = "https://dps.psx.com.pk"
     log_level: str = "INFO"
@@ -243,4 +261,3 @@ class Settings(BaseSettings):
 
 
 settings = Settings()
-

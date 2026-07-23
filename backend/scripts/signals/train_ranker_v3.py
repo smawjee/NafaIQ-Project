@@ -27,7 +27,7 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "src"))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from train_signals_v2 import _client, _select_all, _select_ohlcv, _select_where  # sibling
+from train_signals_v2 import _client, _select_all, _select_ohlcv_adjusted, _select_where  # sibling
 
 from app.services.signals_v2.constants import PORTFOLIO_REBALANCE_DAYS
 from app.services.signals_v2.feature_store import FEATURE_VERSION, dataset_hash
@@ -156,11 +156,12 @@ def main() -> int:
     load_dotenv(ROOT / ".env")
     audit = ROOT / "artifacts" / "signals" / "data_integrity_report.json"
     audit_data = json.loads(audit.read_text(encoding="utf-8")) if audit.exists() else {}
-    events = (audit_data.get("corp_action_events") or {}).get("by_symbol", {})
+    events = ((audit_data.get("residual_corp_action_events")
+               or audit_data.get("corp_action_events") or {})).get("by_symbol", {})
     audit_passed = audit_data.get("status") == "pass"
 
     client = _client()
-    ohlcv = _select_ohlcv(client, max_rows_per_symbol=1300)
+    ohlcv = _select_ohlcv_adjusted(client, max_rows_per_symbol=1300, mode="price")
     profiles = map_rows(_select_all(client, "psx_profile", "*", order_by="symbol"))
     kse_rows = _select_where(client, "psx_index_eod", "date,close", order_by="date",
                              filters=[("code", "eq", "KSE100")])

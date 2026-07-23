@@ -15,7 +15,13 @@ from app.repositories import ai_repo
 from app.repositories.base import begin, connect
 from app.schemas.ai import TutorRequest
 from app.services.ai import providers
-from app.services.ai.prompts import load_prompt
+from app.services.ai.observability import observe
+from app.services.ai.prompts import load_prompt, security_rules
+from app.services.ai.safety import (
+    assert_safe_output,
+    detect_leakage_request,
+    safe_refusal,
+)
 
 log = logging.getLogger(__name__)
 
@@ -28,17 +34,47 @@ def build_system_prompt(lesson_title: str, lesson_context: Optional[str], lang: 
         if is_urdu
         else "Reply in English."
     )
-    return load_prompt("tutor").format(
+    return (security_rules() + "\n\n" + load_prompt("tutor")).format(
         lesson_title=lesson_title, context=context, lang_rule=lang_rule
     )
 
 
+async def _safe_stream(
+    stream: AsyncIterator[str], *, lang: str, surface: str = "tutor"
+) -> AsyncIterator[str]:
+    """Scan streamed text before release while preserving normal streaming."""
+    tail = ""
+    tail_size = 96
+    async for delta in stream:
+        if not delta:
+            continue
+        combined = tail + delta
+        try:
+            assert_safe_output(combined)
+        except Exception:
+            log.warning("tutor_unsafe_model_output_blocked")
+            yield safe_refusal(lang, surface)
+            return
+        yield delta
+        tail = combined[-tail_size:]
+
+
+@observe(name="tutor_turn", as_type="agent", capture_input=False, capture_output=False)
 async def stream_reply(
     body: TutorRequest, *, transport: Any = None
 ) -> AsyncIterator[dict[str, Any]]:
     """Yield {"type":"token","text":...} events, then a final
     {"type":"meta","provider":...,"model":...}. Raises ProviderError if all
     providers fail before the first token, or on mid-stream failure."""
+    latest_user = next(
+        (m.content for m in reversed(body.messages) if m.role == "user"),
+        "",
+    )
+    if detect_leakage_request(latest_user):
+        yield {"type": "token", "text": safe_refusal(body.lang, "tutor")}
+        yield {"type": "meta", "provider": "guardrail", "model": "deterministic"}
+        return
+
     system = build_system_prompt(body.lessonTitle, body.lessonContext, body.lang)
     oai_messages = [{"role": "system", "content": system}] + [
         {"role": m.role, "content": m.content} for m in body.messages
@@ -51,7 +87,9 @@ async def stream_reply(
     for name, model, fn in attempts:
         started = False
         try:
-            async for delta in fn(oai_messages, transport=transport):
+            async for delta in _safe_stream(
+                fn(oai_messages, transport=transport), lang=body.lang
+            ):
                 started = True
                 yield {"type": "token", "text": delta}
             yield {"type": "meta", "provider": name, "model": model}

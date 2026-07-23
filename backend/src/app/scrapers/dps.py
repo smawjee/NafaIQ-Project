@@ -446,8 +446,14 @@ class DPSScraper:
                         pass
 
                 per_share = pct * 10.0 / 100.0 if payout_type == "cash" else None
-                bonus_pct_val = pct if payout_type == "bonus" else None
-                announcement_id = f"{symbol.upper()}-{fiscal_end.year}-{period_code}"
+                # rights store their pct here too — adjustments.py needs the
+                # dilution ratio and no other column captures it
+                bonus_pct_val = pct if payout_type in ("bonus", "right") else None
+                # type letter must be part of the id: a cash + bonus payout for
+                # the same fiscal period would otherwise collide on the PK and
+                # the bonus row would silently vanish (observed: zero bonus
+                # rows in psx_dividends despite bonus-heavy PSX history)
+                announcement_id = f"{symbol.upper()}-{fiscal_end.year}-{period_code}-{type_letter}"
 
                 items.append(DividendEvent(
                     announcement_id=announcement_id,

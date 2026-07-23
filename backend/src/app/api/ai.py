@@ -15,6 +15,7 @@ from fastapi.responses import StreamingResponse
 from app.api.deps import require_user
 from app.schemas.ai import TutorRequest
 from app.services.ai import quota, tutor
+from app.services.ai.observability import propagate_attributes
 from app.services.ai.providers import ProviderError
 
 router = APIRouter(tags=["ai"])
@@ -45,12 +46,15 @@ async def tutor_stream(body: TutorRequest, user: Annotated[dict, Depends(require
         provider: str | None = None
         model: str | None = None
         try:
-            async for ev in tutor.stream_reply(body):
-                if ev["type"] == "token":
-                    parts.append(ev["text"])
-                    yield _sse(ev)
-                elif ev["type"] == "meta":
-                    provider, model = ev["provider"], ev["model"]
+            # Stamps the tutor turn's root span (stream_reply's @observe) and
+            # its child generations with the user and feature tag.
+            with propagate_attributes(user_id=user["user_id"], tags=["tutor"]):
+                async for ev in tutor.stream_reply(body):
+                    if ev["type"] == "token":
+                        parts.append(ev["text"])
+                        yield _sse(ev)
+                    elif ev["type"] == "meta":
+                        provider, model = ev["provider"], ev["model"]
         except ProviderError:
             yield _sse({"type": "error", "code": "provider", "message": _PROVIDER_MSG[body.lang]})
             return

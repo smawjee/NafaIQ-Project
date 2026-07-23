@@ -92,9 +92,9 @@ export function StockDetailHeader({
         )}
         <div className="mt-1 text-xs text-text-muted">
           {signalPending
-            ? t("Model training in progress")
+            ? t("Technical setup pending")
             : sig
-              ? `${t("Confidence")} ${confidence}%`
+              ? `${t("Setup strength")} ${confidence}%`
               : ""}
         </div>
       </div>

@@ -14,7 +14,7 @@ export function SignalConfidence({
   return (
     <div className={cn("min-w-[88px]", className)}>
       <div className="mb-1 flex items-center justify-between gap-2 text-[10px] text-text-muted">
-        <span>Confidence</span>
+        <span>Setup strength</span>
         <span className={cn("font-mono font-semibold tabular-nums", signalTone(signal))}>
           {pct.toFixed(0)}%
         </span>

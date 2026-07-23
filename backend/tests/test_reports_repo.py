@@ -182,6 +182,18 @@ async def test_get_latest_report_orders_by_created_desc():
     assert "ORDER BY created_at DESC" in sql
 
 
+async def test_get_latest_report_is_language_scoped():
+    conn = RecordingConn([_Result([])])
+    await reports_repo.get_latest_report(
+        conn, user_id="u1", report_type="dashboard_rec", lang="ur"
+    )
+
+    sql = conn.sql(0)
+    params = conn.params(0)
+    assert "AND lang = :lang" in sql
+    assert params["lang"] == "ur"
+
+
 # --------------------------------------------------------------------------- #
 # check_report_quota — period-aware                                           #
 # --------------------------------------------------------------------------- #

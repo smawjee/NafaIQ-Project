@@ -50,7 +50,7 @@ _TOKEN_SYNONYMS: dict[str, str] = {
     "atm": "debit",
     "debitcard": "debit",
     "saving": "savings",
-    "cheque": "current",
+    "check": "cheque",
     "checking": "current",
     "easy": "easypaisa",
     "paisa": "easypaisa",

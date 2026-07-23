@@ -94,7 +94,17 @@ async def _get_bills(user: dict, args: dict[str, Any]) -> Any:
 
 
 async def _get_portfolio_value(user: dict, args: dict[str, Any]) -> Any:
-    return await portfolio_networth.networth(user["user_id"])
+    data = await portfolio_networth.networth(user["user_id"])
+    return {
+        "total_market_value": data.get("total_market_value"),
+        "total_cost_basis": data.get("total_cost_basis"),
+        "total_unrealized_pnl": data.get("total_unrealized_pnl"),
+        "total_unrealized_pnl_pct": data.get("total_unrealized_pnl_pct"),
+        "today_pnl": data.get("today_pnl"),
+        "today_pnl_pct": data.get("today_pnl_pct"),
+        "portfolio_count": data.get("portfolio_count"),
+        "holding_count": data.get("holding_count"),
+    }
 
 
 async def _get_holdings(user: dict, args: dict[str, Any]) -> Any:

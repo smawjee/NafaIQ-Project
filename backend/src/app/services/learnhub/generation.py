@@ -25,7 +25,7 @@ import structlog
 from pydantic import BaseModel, ConfigDict
 
 from app.config import settings
-from app.services.ai.prompts import load_prompt
+from app.services.ai.prompts import load_prompt, security_rules
 from app.services.ai.providers import (
     aclose_report_client,
     generate_structured,
@@ -74,7 +74,7 @@ class LessonSummary(BaseModel):
 # educational/no-advice guardrail. It does not reuse that module — reports carry
 # citations, verification and a disclaimer field that make no sense for a
 # two-sentence quiz explanation. Formatted with .format(lang=...) at each call.
-_RULES = load_prompt("learnhub_rules")
+_RULES = security_rules() + "\n\n" + load_prompt("learnhub_rules")
 
 
 def _content_block(rows: list[dict]) -> str:

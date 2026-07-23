@@ -51,6 +51,7 @@ def fuse_signal(
         label = cap_signal(label, SignalLabel.HOLD)
     elif "MAX_BUY_EXTREME_VOLATILITY" in risk.caps:
         label = cap_signal(label, SignalLabel.BUY)
+    label = _actionability_gate(label=label, technical=technical, ml=ml, risk=risk, features=features)
 
     rank_score = (raw + 1) * 50
     confidence = min(TECHNICAL_CONFIDENCE_CAP, 38 + abs(raw) * 45 + agreement_bonus)
@@ -68,6 +69,51 @@ def fuse_signal(
 
 def _bounded(value: float) -> float:
     return max(-1.0, min(1.0, value))
+
+
+def _actionability_gate(
+    *,
+    label: SignalLabel,
+    technical: TechnicalRating,
+    ml: MlPrediction,
+    risk: RiskAssessment,
+    features: dict,
+) -> SignalLabel:
+    """Make directional calls harder to earn than HOLD.
+
+    Phase 0 showed price/technical BUY labels had too many false positives and
+    negative excess returns after costs. Until a validated, fusion-eligible ML
+    model exists, technical-v2 bullish calls are treated as HOLD/setup context.
+    SELL/avoidance calls remain available because the historical replay shows
+    materially better directional precision on the sell side.
+    """
+    if label in {SignalLabel.NO_SIGNAL, SignalLabel.HOLD}:
+        return label
+
+    if label in {SignalLabel.BUY, SignalLabel.STRONG_BUY}:
+        if not (ml.status == "VALIDATED" and ml.eligible_for_fusion):
+            return SignalLabel.HOLD
+        if risk.risk_level == "EXTREME":
+            return SignalLabel.HOLD
+        if risk.risk_level == "HIGH" and technical.score < 0.45:
+            return SignalLabel.HOLD
+        if _num(features.get("relative_strength_kse20")) < -0.02 and _num(features.get("volume_vs_20d"), 1.0) < 1.2:
+            return SignalLabel.HOLD if technical.score < 0.55 else SignalLabel.BUY
+        if label is SignalLabel.STRONG_BUY and technical.score < 0.55:
+            return SignalLabel.BUY
+        return label
+
+    if label in {SignalLabel.SELL, SignalLabel.STRONG_SELL}:
+        if label is SignalLabel.STRONG_SELL and technical.score > -0.55:
+            return SignalLabel.SELL
+    return label
+
+
+def _num(value: object, default: float = 0.0) -> float:
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return default
 
 
 def _fundamental_score(features: dict) -> float:

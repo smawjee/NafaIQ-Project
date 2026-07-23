@@ -25,7 +25,7 @@ from app.schemas.reports import (
     StockAnalysisReport,
 )
 from app.services.ai import context as ctx
-from app.services.ai.prompts import load_prompt
+from app.services.ai.prompts import load_prompt, security_rules
 
 ContextBuilder = Callable[..., Awaitable[dict]]
 
@@ -49,7 +49,7 @@ class ReportSpec:
 # generation time. Surface bodies must stay brace-free so that second .format
 # stays safe.
 def _prompt(role: str, surface_instructions: str) -> str:
-    return load_prompt("report_scaffold").format(
+    return (security_rules() + "\n\n" + load_prompt("report_scaffold")).format(
         role=role,
         surface_instructions=surface_instructions,
         DEFAULT_DISCLAIMER=DEFAULT_DISCLAIMER,

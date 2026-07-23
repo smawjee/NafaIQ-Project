@@ -21,6 +21,8 @@ from typing import Any, Union
 
 from pydantic import BaseModel
 
+from app.services.ai.safety import scan_llm_output
+
 # Auditable table of imperative-directive patterns. Each flags a specific
 # action verb aimed as an instruction (a directive), NOT educational prose.
 DIRECTIVE_PATTERNS: list[tuple[str, re.Pattern[str]]] = [
@@ -231,6 +233,8 @@ def check_report(report: _MODEL) -> list[str]:
     data = _as_dict(report)
     violations = assert_compliance_by_construction(data)
     for text in _narrative_strings(data):
+        for hit in scan_llm_output(text):
+            violations.append(f"leakage:{hit.category}")
         for phrase in find_directives(text):
             violations.append(f"directive:{phrase}")
     return violations

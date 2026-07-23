@@ -352,6 +352,51 @@ async def test_dashboard_rec_daily_cache_second_call(monkeypatch):
     assert usage["prune"] == 1  # retention prune applied on the one generation (F3)
 
 
+async def test_dashboard_rec_cache_generation_and_storage_are_language_scoped(monkeypatch):
+    from app.services.ai import report_service as reports_api
+    from app.schemas.reports import DashboardRecReport
+
+    dr = DashboardRecReport(
+        lang="ur",
+        headline="روزانہ خلاصہ",
+        observations=["یہ تعلیمی خلاصہ ہے۔"],
+        disclaimer="صرف تعلیمی معلومات۔ مالی مشورہ نہیں۔",
+        citations=[],
+    )
+    seen = {"latest": [], "engine": [], "insert": []}
+
+    async def _fake_generate(spec, **kw):
+        seen["engine"].append(kw)
+        return _gen_result(report=dr, provider="groq", model="llama")
+
+    async def _latest(conn, **kw):
+        seen["latest"].append(kw)
+        return None
+
+    async def _insert(conn, **kw):
+        seen["insert"].append(kw)
+        return {"id": 4, "created_at": "2026-07-14T00:00:00"}
+
+    async def _noop(*args, **kwargs):
+        return None
+
+    monkeypatch.setattr(reports_api.engine, "generate_report", _fake_generate)
+    monkeypatch.setattr(reports_api, "connect", _fake_cm)
+    monkeypatch.setattr(reports_api, "begin", _fake_cm)
+    monkeypatch.setattr(reports_api.reports_repo, "get_latest_report", _latest)
+    monkeypatch.setattr(reports_api.reports_repo, "insert_report", _insert)
+    monkeypatch.setattr(reports_api.reports_repo, "prune_reports", _noop)
+
+    async with _client() as c:
+        res = await c.get("/api/ai/report/dashboard-recommendation?lang=ur")
+
+    assert res.status_code == 200
+    assert res.json()["content"]["lang"] == "ur"
+    assert {call["lang"] for call in seen["latest"]} == {"ur"}
+    assert seen["engine"][0]["lang"] == "ur"
+    assert seen["insert"][0]["lang"] == "ur"
+
+
 # --------------------------------------------------------------------------- #
 # fail-closed -> 503                                                          #
 # --------------------------------------------------------------------------- #

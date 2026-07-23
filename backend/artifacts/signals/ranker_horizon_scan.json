@@ -1,0 +1,39 @@
+{
+  "results": {
+    "5D": {
+      "daily_rank_ic": -0.0302,
+      "ndcg_at_5": 0.1444,
+      "ndcg_at_10": 0.16,
+      "precision_at_5": 0.4367,
+      "precision_at_10": 0.4275,
+      "top_decile_excess_after_cost": -0.0034,
+      "folds_positive_frac": 0.25,
+      "n_dates": 150,
+      "samples": 35182
+    },
+    "20D": {
+      "daily_rank_ic": 0.0134,
+      "ndcg_at_5": 0.095,
+      "ndcg_at_10": 0.1082,
+      "precision_at_5": 0.4103,
+      "precision_at_10": 0.4147,
+      "top_decile_excess_after_cost": -0.006,
+      "folds_positive_frac": 0.25,
+      "n_dates": 147,
+      "samples": 34244
+    },
+    "60D": {
+      "daily_rank_ic": 0.0044,
+      "ndcg_at_5": 0.0953,
+      "ndcg_at_10": 0.1036,
+      "precision_at_5": 0.3741,
+      "precision_at_10": 0.3611,
+      "top_decile_excess_after_cost": 0.0032,
+      "folds_positive_frac": 0.25,
+      "n_dates": 139,
+      "samples": 31822
+    }
+  },
+  "universe": 300,
+  "protocol": "phase0b-identical, grid_stride=5"
+}

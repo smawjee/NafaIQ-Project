@@ -63,23 +63,30 @@ export function SignalContextTiles({ signal }: { signal: ApiSignalV2 }) {
   const flow = signal.flow_context ?? null;
   if (!consensus && !trend && !flow) return null;
 
-  const consensusBullish =
-    consensus?.label === "BUY" || consensus?.label === "STRONG_BUY";
-  const consensusBearish =
-    consensus?.label === "SELL" || consensus?.label === "STRONG_SELL";
+  const agreement = signal.consensus_agreement ?? null;
+  const agreementValue =
+    agreement === "AGREES"
+      ? "Aligned"
+      : agreement === "DISAGREES"
+        ? "Divergent"
+        : agreement === "MIXED"
+          ? "Mixed"
+          : "Available";
 
   return (
     <div className="grid gap-2 sm:grid-cols-3">
       {consensus ? (
         <Tile
-          label="Market consensus"
-          value={(consensus.label ?? "N/A").replace("_", " ")}
-          detail={
-            signal.consensus_agreement
-              ? `TradingView · ${signal.consensus_agreement.toLowerCase()} with our rating`
-              : "TradingView"
+          label="External check"
+          value={agreementValue}
+          detail="TradingView technicals"
+          tone={
+            agreement === "AGREES"
+              ? "bull"
+              : agreement === "DISAGREES"
+                ? "bear"
+                : "muted"
           }
-          tone={consensusBullish ? "bull" : consensusBearish ? "bear" : "muted"}
         />
       ) : null}
       {trend ? (
@@ -88,7 +95,7 @@ export function SignalContextTiles({ signal }: { signal: ApiSignalV2 }) {
           value={TREND_LABELS[trend] ?? trend}
           detail={
             risk
-              ? `Suggested stop ${(risk.suggested_stop_pct * 100).toFixed(1)}% · vol ${(risk.annualized_volatility * 100).toFixed(0)}%`
+              ? `Suggested stop ${(risk.suggested_stop_pct * 100).toFixed(1)}% / vol ${(risk.annualized_volatility * 100).toFixed(0)}%`
               : undefined
           }
           tone={
@@ -104,7 +111,7 @@ export function SignalContextTiles({ signal }: { signal: ApiSignalV2 }) {
         <Tile
           label="Foreign flow (FIPI)"
           value={FLOW_LABELS[flow.trend] ?? flow.trend}
-          detail={`5d ${formatPkr(flow.foreign_net_5d_pkr)} · 20d ${formatPkr(flow.foreign_net_20d_pkr)}`}
+          detail={`5d ${formatPkr(flow.foreign_net_5d_pkr)} / 20d ${formatPkr(flow.foreign_net_20d_pkr)}`}
           tone={
             flow.trend === "FOREIGN_BUYING"
               ? "bull"

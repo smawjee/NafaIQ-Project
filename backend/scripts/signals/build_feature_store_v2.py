@@ -30,7 +30,7 @@ from app.services.signals_v2.training import (
     map_rows,
     save_dataset,
 )
-from train_signals_v2 import _client, _dataset_kwargs, _select_all, _select_ohlcv, _select_where
+from train_signals_v2 import _client, _dataset_kwargs, _select_all, _select_ohlcv_adjusted, _select_where
 
 
 def _corp_action_audit_version() -> str:
@@ -48,7 +48,10 @@ def main() -> int:
     out_dir.mkdir(parents=True, exist_ok=True)
 
     print("Loading Supabase data for feature store...", file=sys.stderr, flush=True)
-    ohlcv = _select_ohlcv(client, max_rows_per_symbol=dataset_kwargs["max_rows_per_symbol"])
+    adjustment_mode = os.getenv("SIGNALS_V2_ADJUSTMENT_MODE", "price")
+    ohlcv = _select_ohlcv_adjusted(
+        client, max_rows_per_symbol=dataset_kwargs["max_rows_per_symbol"], mode=adjustment_mode
+    )
     profiles = _select_all(client, "psx_profile", "*", order_by="symbol")
     kse_rows = _select_where(
         client,
@@ -64,6 +67,7 @@ def main() -> int:
     store_manifest: dict[str, object] = {
         "feature_store_version": FEATURE_VERSION,
         "dataset_kwargs": dataset_kwargs,
+        "price_adjustment_mode": adjustment_mode,
         "horizons": {},
     }
     for horizon in HORIZON_DAYS:

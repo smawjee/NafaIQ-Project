@@ -429,6 +429,11 @@ export interface ApiMonetaryMetal {
   pkr_per_gram: number;
   pkr_per_10g: number;
   pkr_per_tola: number;
+  source_name?: string | null;
+  source_url?: string | null;
+  cadence?: string | null;
+  as_of?: string | null;
+  city?: string | null;
 }
 
 export interface ApiMonetarySnapshot {
@@ -442,6 +447,13 @@ export interface ApiMonetarySnapshot {
     url: string;
     cadence: string;
   };
+  metal_source: {
+    name: string;
+    url: string;
+    cadence: string;
+    as_of?: string | null;
+    city?: string | null;
+  } | null;
   usd_pkr: number;
   rates: Record<string, number>;
   currencies: ApiMonetaryCurrency[];

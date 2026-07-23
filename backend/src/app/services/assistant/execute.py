@@ -28,6 +28,7 @@ from fastapi import HTTPException
 
 from app.schemas.alerts import PriceAlertCreate
 from app.schemas.finance import BillCreate, GoalCreate, TransactionCreate
+from app.services.ai.observability import observe
 from app.schemas.portfolio import HoldingCreate, StockTransactionCreate, WatchlistCreate
 from app.services.assistant.tools import (
     BY_NAME,
@@ -205,6 +206,10 @@ def _strip_none(args: dict[str, Any]) -> dict[str, Any]:
     return {k: v for k, v in args.items() if v is not None}
 
 
+# capture_input=False: the first positional arg is the user dict (JWT-derived
+# claims), which must not land in a trace. The action's content is already
+# visible in the chat turn's draft event.
+@observe(name="assistant_execute", capture_input=False, capture_output=False)
 async def execute_draft(user: dict, tool_name: str, args: dict[str, Any]) -> dict[str, Any]:
     """Run one confirmed draft. Raises HTTPException on anything invalid.
 

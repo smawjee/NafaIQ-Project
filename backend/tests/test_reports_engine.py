@@ -154,6 +154,17 @@ async def test_clean_report_verifies_and_returns(monkeypatch):
     assert made["confidential"] is False
 
 
+async def test_requested_language_reaches_provider_prompt_and_report_metadata(monkeypatch):
+    gen = _FakeGen([_clean_report()])
+    _patch(monkeypatch, gen)
+
+    result = await engine.generate_report(_spec(), lang="ur")
+
+    assert gen.calls[0]["lang"] == "ur"
+    assert "lang=ur" in gen.calls[0]["messages"][0]["content"]
+    assert result.report.lang == "ur"
+
+
 # --------------------------------------------------------------------------- #
 # (b) one bad draft -> exactly one regeneration -> success                     #
 # --------------------------------------------------------------------------- #

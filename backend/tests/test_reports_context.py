@@ -99,6 +99,10 @@ async def test_stock_analysis_bundle_shape(monkeypatch):
              "volume": 1000, "day_high": 152.0, "day_low": 148.0}
     fundamentals = {"symbol": "OGDC", "eps": 25.0, "pe": 6.0, "pb": 1.2,
                     "div_yield": 8.0, "payout": 40.0, "roe": 20.0}
+    profile = {
+        "symbol": "OGDC", "name": "Oil & Gas Development Company",
+        "sector": "Oil & Gas", "listed_shares": 1000.0, "free_float": 500.0,
+    }
     hist = _ohlcv_series(30)
     ann = [{"id": "1", "symbol": "OGDC", "title": "Dividend declared", "posted_at": "2026-07-10"}]
     divs = [{"announcement_id": "1", "symbol": "OGDC", "ex_date": "2026-07-20",
@@ -106,6 +110,7 @@ async def test_stock_analysis_bundle_shape(monkeypatch):
 
     monkeypatch.setattr(ctx.market_quotes, "quote", _async(quote))
     monkeypatch.setattr(ctx.market_quotes, "fundamentals", _async(fundamentals))
+    monkeypatch.setattr(ctx.market_quotes, "profile", _async(profile))
     monkeypatch.setattr(ctx.market_history, "history", _async(hist))
     monkeypatch.setattr(ctx.market_quotes, "announcements", _async(ann))
     monkeypatch.setattr(ctx.market_quotes, "dividends", _async(divs))
@@ -114,6 +119,8 @@ async def test_stock_analysis_bundle_shape(monkeypatch):
 
     _assert_json_serializable(bundle)
     assert bundle["symbol"] == "OGDC"
+    assert bundle["profile"]["name"] == "Oil & Gas Development Company"
+    assert bundle["profile"]["market_cap"] == 150000.0
     assert bundle["quote"]["price"] == 150.0
     assert bundle["fundamentals"]["pe"] == 6.0
     # indicators computed deterministically from the OHLCV history
@@ -133,6 +140,7 @@ async def test_stock_analysis_omits_non_finite_fundamentals(monkeypatch):
     monkeypatch.setattr(ctx.market_quotes, "quote",
                         _async({"symbol": "OGDC", "price": 150.0}))
     monkeypatch.setattr(ctx.market_quotes, "fundamentals", _async(fundamentals))
+    monkeypatch.setattr(ctx.market_quotes, "profile", _async({"symbol": "OGDC"}))
     monkeypatch.setattr(ctx.market_history, "history", _async(_ohlcv_series(20)))
     monkeypatch.setattr(ctx.market_quotes, "announcements", _async([]))
     monkeypatch.setattr(ctx.market_quotes, "dividends", _async([]))

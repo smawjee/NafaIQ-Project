@@ -21,6 +21,5 @@ openai>=2.45
 instructor>=1.15
 PyJWT>=2.8
 cryptography>=44
-resend>=0.1
 python-multipart>=0.0.9
 langfuse>=4.0

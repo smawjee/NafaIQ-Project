@@ -22,7 +22,7 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "src"))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from train_signals_v2 import _client, _select_all, _select_ohlcv, _select_where
+from train_signals_v2 import _client, _select_all, _select_ohlcv_adjusted, _select_where
 
 from app.services.signals_v2.explain import top_contributions
 from app.services.signals_v2.feature_store import FEATURE_VERSION
@@ -115,7 +115,7 @@ def main() -> int:
 
     load_dotenv(ROOT / ".env")
     client = _client()
-    ohlcv = _select_ohlcv(client, max_rows_per_symbol=400)
+    ohlcv = _select_ohlcv_adjusted(client, max_rows_per_symbol=400, mode="price")
     profiles = map_rows(_select_all(client, "psx_profile", "*", order_by="symbol"))
     kse_rows = _select_where(client, "psx_index_eod", "date,close", order_by="date",
                              filters=[("code", "eq", "KSE100")])[-365:]

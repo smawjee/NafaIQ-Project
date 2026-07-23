@@ -3,8 +3,8 @@
  *
  * Renders the verified `POST /api/ai/report/stock/{symbol}` output as
  * educational prose. Per spec §2 the new pipeline emits narrative only — no
- * directional signal label, no confidence badge. The ML signal engine is
- * a separate, deferred surface and is intentionally NOT rendered here.
+ * directional signal label, no setup-strength badge. The technical setup is
+ * a separate surface and is intentionally NOT rendered here.
  *
  * 503 (model pending / unavailable) is recoverable: we render the same
  * "Coming soon" empty state as the rest of the verified surfaces so the

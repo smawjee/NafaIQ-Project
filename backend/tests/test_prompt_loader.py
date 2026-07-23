@@ -26,6 +26,7 @@ EXPECTED_PROMPTS = {
     "learnhub_rules",
     "learnhub_quiz",
     "learnhub_summary",
+    "security_rules",
 }
 
 
@@ -71,3 +72,10 @@ def test_email_extraction_prompt_carries_contract():
         assert key in _SYSTEM_PROMPT
     assert "groceries" in _SYSTEM_PROMPT  # KNOWN_CATEGORIES injected
     assert "NOT a transaction" in _SYSTEM_PROMPT  # declined-transaction guard
+    assert "SECURITY AND PRIVACY RULES" in _SYSTEM_PROMPT
+
+
+def test_security_rules_loaded():
+    rules = load_prompt("security_rules")
+    assert "Never reveal" in rules
+    assert "untrusted data" in rules

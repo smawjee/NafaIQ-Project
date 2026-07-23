@@ -128,9 +128,40 @@ def main() -> int:
             y = str(r.get("date"))[:4]
             per_year[y].add(sym)
 
+    # Validation harness: after price-mode adjustment the detector should stop
+    # firing on bonus/rights gaps; whatever remains is genuine contamination
+    # (bad prints, unrecorded actions) and becomes the training exclusion set.
+    from app.services.signals_v2.adjustments import adjust_with_detection, load_adjustment_events
+
+    adj_events = load_adjustment_events(dividends)
+    residual_map: dict[str, list[str]] = {}
+    residual_total = 0
+    for sym, rows in by_symbol.items():
+        series = adjust_with_detection(rows, adj_events.get(sym), mode="price")
+        evs = detect_corp_action_events(series, div_by.get(sym, []), ann_by.get(sym, []))
+        if evs:
+            residual_map[sym] = sorted({e["date"] for e in evs})
+            residual_total += len(evs)
+
+    div_with_ex = sum(1 for x in dividends if x.get("ex_date"))
+    by_type: dict[str, int] = defaultdict(int)
+    for x in dividends:
+        by_type[str(x.get("payout_type") or "unknown")] += 1
+
     report = {
         "pit": pit,
         "corp_action_events": {"count": total_events, "by_symbol": events_map},
+        "residual_corp_action_events": {"count": residual_total, "by_symbol": residual_map},
+        "adjustment_validation": {
+            "detector_events_raw": total_events,
+            "detector_events_after_price_adjustment": residual_total,
+        },
+        "dividend_coverage": {
+            "rows": len(dividends),
+            "rows_with_ex_date": div_with_ex,
+            "symbols_with_events": len(adj_events),
+            "by_type": dict(by_type),
+        },
         "coverage": {"symbols": len(by_symbol),
                      "per_year": {y: len(s) for y, s in sorted(per_year.items())}},
         "benchmark": {"kse_rows": len(kse),

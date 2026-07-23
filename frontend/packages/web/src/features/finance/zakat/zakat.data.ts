@@ -1,5 +1,6 @@
-export const NISAB = 135000; // PKR — silver-based nisab threshold
 export const ZAKAT_RATE = 0.025;
+export const GOLD_NISAB_TOLA = 7.5;
+export const SILVER_NISAB_TOLA = 52.5;
 
 export interface ZakatLine {
   key: string;
@@ -8,11 +9,13 @@ export interface ZakatLine {
 }
 
 export const ASSET_LINES: ZakatLine[] = [
-  { key: "cash", label: "Cash & Bank Balance", sub: "Linked bank accounts" },
-  { key: "gold", label: "Gold & Jewelry", sub: "Self-reported" },
-  { key: "stocks", label: "Stocks (PSX)", sub: "Portfolio" },
-  { key: "funds", label: "Mutual Funds", sub: "Portfolio" },
+  { key: "cash", label: "Cash & Bank Balance", sub: "Enter your current cash and bank balance" },
+  { key: "gold", label: "Gold & Jewelry", sub: "Enter gold weight in tola" },
+  { key: "silver", label: "Silver", sub: "Enter silver weight in tola" },
+  { key: "stocks", label: "Stocks (PSX)", sub: "Live portfolio value, editable" },
+  { key: "funds", label: "Mutual Funds", sub: "Enter current redeemable value" },
   { key: "business", label: "Business Inventory", sub: "Self-reported" },
+  { key: "receivables", label: "Receivables", sub: "Money owed to you" },
   { key: "property", label: "Property (non-primary)", sub: "Self-reported" },
 ];
 
@@ -22,12 +25,14 @@ export const LIABILITY_LINES: ZakatLine[] = [
 ];
 
 export const ZAKAT_DEFAULTS: Record<string, number> = {
-  cash: 850000,
-  gold: 420000,
-  stocks: 4250000,
-  funds: 500000,
+  cash: 0,
+  gold: 0,
+  silver: 0,
+  stocks: 0,
+  funds: 0,
   business: 0,
+  receivables: 0,
   property: 0,
-  loans: 200000,
-  credit: 45000,
+  loans: 0,
+  credit: 0,
 };

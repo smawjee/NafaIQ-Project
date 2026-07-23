@@ -22,6 +22,12 @@ class AssistantChatRequest(BaseModel):
     # every request, and the resolver bundle already occupies part of the
     # window. 16 turns is far more context than a task-oriented exchange needs.
     messages: list[AssistantMessage] = Field(min_length=1, max_length=16)
+    # Client-generated per chat session; becomes the Langfuse session_id so a
+    # whole conversation groups as one session in tracing. Optional (old
+    # clients omit it) and never trusted for anything but observability.
+    conversation_id: str | None = Field(
+        default=None, min_length=8, max_length=64, pattern=r"^[A-Za-z0-9-]+$"
+    )
 
 
 class AssistantExecuteRequest(BaseModel):
@@ -35,3 +41,8 @@ class AssistantExecuteRequest(BaseModel):
 
     action: str = Field(..., min_length=1, max_length=64)
     args: dict[str, Any] = Field(default_factory=dict)
+    # Same id the chat turn carried, so the execute trace lands in the same
+    # Langfuse session as the turn that produced the draft.
+    conversation_id: str | None = Field(
+        default=None, min_length=8, max_length=64, pattern=r"^[A-Za-z0-9-]+$"
+    )

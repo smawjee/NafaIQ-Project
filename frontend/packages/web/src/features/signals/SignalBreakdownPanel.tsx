@@ -20,9 +20,9 @@ export function SignalBreakdownPanel({
     <Card>
       <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h3 className="text-sm font-semibold text-text-primary">Signal Analysis</h3>
+          <h3 className="text-sm font-semibold text-text-primary">Technical Setup</h3>
           <p className="text-xs text-text-muted">
-            Explainable technical baseline with risk controls
+            NafaIQ rating with risk controls
           </p>
         </div>
         <div className="flex rounded-[7px] border border-border bg-surface-alt p-0.5">
@@ -51,14 +51,10 @@ export function SignalBreakdownPanel({
             <SignalRiskChips signal={signal} />
             <div className="rounded-[7px] border border-border bg-surface-alt p-3 text-xs">
               <div className="flex justify-between text-text-muted">
-                <span>Technical</span>
+                <span>Setup score</span>
                 <span className="font-mono text-text-primary">
                   {signal.technical_score.toFixed(2)}
                 </span>
-              </div>
-              <div className="mt-1 flex justify-between text-text-muted">
-                <span>ML</span>
-                <span>{signal.ml_signal ? "Shadow" : "Unavailable"}</span>
               </div>
             </div>
           </div>

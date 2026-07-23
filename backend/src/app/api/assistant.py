@@ -20,6 +20,7 @@ from app.api.deps import require_user
 from app.config import settings
 from app.repositories import assistant_usage
 from app.schemas.assistant import AssistantExecuteRequest, AssistantChatRequest
+from app.services.ai.observability import observation_span, propagate_attributes
 from app.services.ai.providers import ProviderError, ProviderRateLimited, transcribe_audio
 from app.services.assistant import agent
 from app.services.assistant.execute import execute_draft
@@ -127,25 +128,34 @@ async def transcribe(
 
     await _consume_allowance(user)
 
-    try:
-        text = await transcribe_audio(
-            audio,
-            filename=file.filename or "audio.webm",
-            content_type=content_type,
-            language=lang,
-        )
-    except ProviderRateLimited as e:
-        # 503 + Retry-After is the honest status for throttling, and lets the
-        # client say how long rather than "unavailable".
-        raise HTTPException(
-            503,
-            _busy_message(lang, e.retry_after_s),
-            headers={"Retry-After": str(int(e.retry_after_s or 30))},
-        ) from e
-    except ProviderError as e:
-        # 502, not 500: the failure is upstream, and the client distinguishes
-        # "try again" from "this request was wrong".
-        raise HTTPException(502, f"Speech recognition unavailable: {e}") from e
+    # The langfuse openai wrapper does not auto-trace audio.transcriptions, so
+    # this manual span is what makes voice commands visible at all. Input is
+    # metadata only — never the raw audio bytes.
+    with propagate_attributes(user_id=user["user_id"], tags=["assistant", "transcribe"]):
+        with observation_span(
+            "assistant_transcribe", input={"lang": lang, "bytes": len(audio)}
+        ) as span:
+            try:
+                text = await transcribe_audio(
+                    audio,
+                    filename=file.filename or "audio.webm",
+                    content_type=content_type,
+                    language=lang,
+                )
+            except ProviderRateLimited as e:
+                # 503 + Retry-After is the honest status for throttling, and
+                # lets the client say how long rather than "unavailable".
+                raise HTTPException(
+                    503,
+                    _busy_message(lang, e.retry_after_s),
+                    headers={"Retry-After": str(int(e.retry_after_s or 30))},
+                ) from e
+            except ProviderError as e:
+                # 502, not 500: the failure is upstream, and the client
+                # distinguishes "try again" from "this request was wrong".
+                raise HTTPException(502, f"Speech recognition unavailable: {e}") from e
+            if span is not None:
+                span.update(output={"chars": len(text)})
 
     return {"text": text, "lang": lang}
 
@@ -165,28 +175,36 @@ async def chat(body: AssistantChatRequest, user: Annotated[dict, Depends(require
         if not allowed:
             yield _sse({"type": "error", "code": "quota", "message": _QUOTA_MSG[body.lang]})
             return
-        try:
-            async for event in agent.run_turn(
-                user,
-                [{"role": m.role, "content": m.content} for m in body.messages],
-                body.lang,
-            ):
-                yield _sse(event)
-        except ProviderRateLimited as e:
-            yield _sse(
-                {
-                    "type": "error",
-                    "code": "busy",
-                    "message": _busy_message(body.lang, e.retry_after_s),
-                    "retryAfter": e.retry_after_s,
-                }
-            )
-            return
-        except ProviderError:
-            yield _sse(
-                {"type": "error", "code": "provider", "message": _PROVIDER_MSG[body.lang]}
-            )
-            return
+        # Wraps the creation of the turn's root span (run_turn's @observe), so
+        # the trace and every child generation/tool span carry the user and
+        # conversation. session_id=None is accepted and simply left unset.
+        with propagate_attributes(
+            user_id=user["user_id"],
+            session_id=body.conversation_id,
+            tags=["assistant"],
+        ):
+            try:
+                async for event in agent.run_turn(
+                    user,
+                    [{"role": m.role, "content": m.content} for m in body.messages],
+                    body.lang,
+                ):
+                    yield _sse(event)
+            except ProviderRateLimited as e:
+                yield _sse(
+                    {
+                        "type": "error",
+                        "code": "busy",
+                        "message": _busy_message(body.lang, e.retry_after_s),
+                        "retryAfter": e.retry_after_s,
+                    }
+                )
+                return
+            except ProviderError:
+                yield _sse(
+                    {"type": "error", "code": "provider", "message": _PROVIDER_MSG[body.lang]}
+                )
+                return
         yield _sse({"type": "done", "usage": {"used": used, "limit": limit}})
 
     return StreamingResponse(
@@ -208,7 +226,12 @@ async def execute(
     again would penalise the user for confirming. Every guard the REST API
     applies still applies, because this dispatches to the same services.
     """
-    return await execute_draft(user, body.action, body.args)
+    with propagate_attributes(
+        user_id=user["user_id"],
+        session_id=body.conversation_id,
+        tags=["assistant", "execute"],
+    ):
+        return await execute_draft(user, body.action, body.args)
 
 
 @router.get("/assistant/usage")

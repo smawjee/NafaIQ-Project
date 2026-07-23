@@ -27,6 +27,12 @@ export interface AssistantMsg {
   content: string;
 }
 
+export function draftStatusText(draft: ActionDraft, t: (value: string) => string): string {
+  if (draft.missing.length > 0) return t("Please fill the highlighted details.");
+  if (draft.tier === "confirm") return t("Please review this before I save it.");
+  return t("Working on that now.");
+}
+
 export function useAssistantChat(greeting: string) {
   const { lang, t } = useLang();
   const qc = useQueryClient();
@@ -134,6 +140,16 @@ export function useAssistantChat(greeting: string) {
           return next;
         });
 
+      const replaceLastIfEmpty = (content: string) =>
+        setMessages((current) => {
+          const next = [...current];
+          const last = next[next.length - 1];
+          if (last?.role === "assistant" && !last.content.trim()) {
+            next[next.length - 1] = { role: "assistant", content };
+          }
+          return next;
+        });
+
       void streamAssistant(
         {
           lang,
@@ -147,6 +163,7 @@ export function useAssistantChat(greeting: string) {
             /* progress only; the narration that follows is the real answer */
           },
           onDraft: (draft) => {
+            replaceLastIfEmpty(draftStatusText(draft, t));
             if (draft.tier === "immediate" && draft.missing.length === 0) {
               void runDraft(draft, draft.args);
             } else {

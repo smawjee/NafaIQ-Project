@@ -44,6 +44,9 @@ import structlog
 from pydantic import BaseModel
 
 from app.config import settings
+from app.services.ai.safety import redact_sensitive
+
+from openai import AsyncOpenAI as _PlainAsyncOpenAI
 
 # Langfuse ships a drop-in AsyncOpenAI subclass that auto-traces every
 # chat.completions / embeddings call — including streaming and the client that
@@ -59,19 +62,25 @@ from app.config import settings
 # tracing. Optional observability must never be able to do that.
 if settings.langfuse_enabled:
     try:
-        from langfuse.openai import AsyncOpenAI  # noqa: F401  (instrumented)
+        from langfuse.openai import AsyncOpenAI as _TracedAsyncOpenAI  # noqa: F401
     except ImportError:  # pragma: no cover - depends on the build
-        from openai import AsyncOpenAI
+        _TracedAsyncOpenAI = _PlainAsyncOpenAI
 
         _LANGFUSE_IMPORT_FAILED = True
     else:
         _LANGFUSE_IMPORT_FAILED = False
 else:
-    from openai import AsyncOpenAI
+    _TracedAsyncOpenAI = _PlainAsyncOpenAI
 
     _LANGFUSE_IMPORT_FAILED = False
 
+AsyncOpenAI = _TracedAsyncOpenAI
+
 log = structlog.get_logger(__name__)
+
+
+def _err_text(exc: BaseException) -> str:
+    return str(redact_sensitive(str(exc)))
 
 if _LANGFUSE_IMPORT_FAILED:
     # Loud, because the operator asked for tracing and is not getting it — but
@@ -228,7 +237,7 @@ def _retry_after(exc: BaseException | None) -> Optional[float]:
 def _exhausted(provider: str, count: int, last: BaseException | None) -> ProviderError:
     """Pool exhausted. Rate-limit exhaustion is its own type — see
     ProviderRateLimited for why the two need different messages."""
-    message = f"all {count} {provider} keys exhausted: {last}"
+    message = f"all {count} {provider} keys exhausted: {_err_text(last) if last else last}"
     if last is not None and _condemns_key(last) and _is_rate_limit(last):
         return ProviderRateLimited(message, _retry_after(last))
     return ProviderError(message)
@@ -262,19 +271,22 @@ def _is_rate_limit(exc: BaseException) -> bool:
 # Safe to share: httpx.AsyncClient is documented as safe for concurrent
 # requests, and one entry per key means rotation just selects a different
 # cached client rather than invalidating anything.
-_CLIENTS: dict[tuple[str, str], AsyncOpenAI] = {}
+_CLIENTS: dict[tuple[str, str, bool], AsyncOpenAI] = {}
 
 
 def _client(
     base_url: str,
     api_key: str,
     transport: Optional[httpx.AsyncBaseTransport] = None,
+    *,
+    trace: bool = True,
 ) -> AsyncOpenAI:
     """A pooled client. Callers must NOT close it — see close_llm_clients."""
+    client_cls = _TracedAsyncOpenAI if trace else _PlainAsyncOpenAI
     if transport is not None:
         # Test injection: each case passes its own MockTransport, so caching
         # would serve one test's mock to the next.
-        return AsyncOpenAI(
+        return client_cls(
             base_url=base_url,
             api_key=api_key,
             max_retries=0,
@@ -282,9 +294,9 @@ def _client(
                 timeout=settings.ai_tutor_request_timeout_s, transport=transport
             ),
         )
-    cached = _CLIENTS.get((base_url, api_key))
+    cached = _CLIENTS.get((base_url, api_key, trace))
     if cached is None:
-        cached = AsyncOpenAI(
+        cached = client_cls(
             base_url=base_url,
             api_key=api_key,
             max_retries=0,
@@ -292,7 +304,7 @@ def _client(
                 timeout=settings.ai_tutor_request_timeout_s
             ),
         )
-        _CLIENTS[(base_url, api_key)] = cached
+        _CLIENTS[(base_url, api_key, trace)] = cached
     return cached
 
 
@@ -311,6 +323,8 @@ async def _stream_chat(
     model: str,
     messages: list[dict[str, str]],
     transport: Optional[httpx.AsyncBaseTransport] = None,
+    *,
+    trace: bool = True,
 ) -> AsyncIterator[str]:
     """Stream text deltas, rotating keys on quota/auth failures.
 
@@ -336,7 +350,7 @@ async def _stream_chat(
     for index, api_key in enumerate(keys):
         emitted = False
         try:
-            client = _client(base_url, api_key, transport)
+            client = _client(base_url, api_key, transport, trace=trace)
             stream = await client.chat.completions.create(
                 model=model,
                 messages=messages,  # type: ignore[arg-type]
@@ -353,7 +367,7 @@ async def _stream_chat(
         except (openai.OpenAIError, httpx.HTTPError) as e:
             last = e
             if emitted or not _should_rotate(e):
-                raise ProviderError(f"{base_url}: {e}") from e
+                raise ProviderError(f"{base_url}: {_err_text(e)}") from e
             log.warning(
                 "llm_key_rotated",
                 provider=provider,
@@ -430,6 +444,8 @@ async def _complete_json(
     model: str,
     messages: list[dict[str, str]],
     transport: Optional[httpx.AsyncBaseTransport] = None,
+    *,
+    trace: bool = True,
 ) -> str:
     """One-shot completion constrained to a JSON object. Returns raw JSON text.
 
@@ -443,7 +459,7 @@ async def _complete_json(
     last: Optional[BaseException] = None
     for index, api_key in enumerate(keys):
         try:
-            client = _client(base_url, api_key, transport)
+            client = _client(base_url, api_key, transport, trace=trace)
             res = await client.chat.completions.create(
                 model=model,
                 messages=messages,  # type: ignore[arg-type]
@@ -454,7 +470,7 @@ async def _complete_json(
         except (openai.OpenAIError, httpx.HTTPError) as e:
             last = e
             if not _should_rotate(e):
-                raise ProviderError(f"{base_url}: {e}") from e
+                raise ProviderError(f"{base_url}: {_err_text(e)}") from e
             log.warning(
                 "llm_key_rotated",
                 provider=provider,
@@ -470,7 +486,7 @@ async def _complete_json(
             # so any other exception (e.g. the SDK failing to decode a 200
             # whose body is not JSON) skips the fallback entirely and fails the
             # whole parse instead of trying the next provider.
-            raise ProviderError(f"{base_url}: {type(e).__name__}: {e}") from e
+            raise ProviderError(f"{base_url}: {type(e).__name__}: {_err_text(e)}") from e
 
         # A well-formed but empty answer is the model's fault, not the key's:
         # another key would return the same thing, so fail instead of rotating.
@@ -487,12 +503,14 @@ async def complete_gemini_json(
     messages: list[dict[str, str]],
     *,
     transport: Optional[httpx.AsyncBaseTransport] = None,
+    trace: bool = True,
 ) -> str:
     return await _complete_json(
         PROVIDER_GEMINI,
         settings.ai_tutor_model_primary,
         messages,
         transport,
+        trace=trace,
     )
 
 
@@ -500,12 +518,14 @@ async def complete_groq_json(
     messages: list[dict[str, str]],
     *,
     transport: Optional[httpx.AsyncBaseTransport] = None,
+    trace: bool = True,
 ) -> str:
     return await _complete_json(
         PROVIDER_GROQ,
         settings.ai_tutor_model_fallback,
         messages,
         transport,
+        trace=trace,
     )
 
 
@@ -566,7 +586,7 @@ async def embed_gemini(
         except (openai.OpenAIError, httpx.HTTPError) as e:
             last = e
             if not _should_rotate(e):
-                raise ProviderError(f"{GEMINI_BASE_URL}: {e}") from e
+                raise ProviderError(f"{GEMINI_BASE_URL}: {_err_text(e)}") from e
             log.warning(
                 "llm_key_rotated",
                 provider=PROVIDER_GEMINI,
@@ -579,7 +599,7 @@ async def embed_gemini(
         except Exception as e:
             # Everything leaving this function must be a ProviderError, same
             # rule as _complete_json: callers key their handling on that type.
-            raise ProviderError(f"{GEMINI_BASE_URL}: {type(e).__name__}: {e}") from e
+            raise ProviderError(f"{GEMINI_BASE_URL}: {type(e).__name__}: {_err_text(e)}") from e
 
         # A short answer is the model's fault, not the key's: another key would
         # return the same thing, so fail instead of rotating.
@@ -648,7 +668,7 @@ async def transcribe_audio(
     last: Optional[BaseException] = None
     for index, api_key in enumerate(keys):
         try:
-            client = _client(base_url, api_key, transport)
+            client = _client(base_url, api_key, transport, trace=False)
             res = await client.audio.transcriptions.create(
                 model=settings.ai_stt_model,
                 file=(filename, audio, content_type),
@@ -660,7 +680,7 @@ async def transcribe_audio(
         except (openai.OpenAIError, httpx.HTTPError) as e:
             last = e
             if not _should_rotate(e):
-                raise ProviderError(f"{base_url}: {e}") from e
+                raise ProviderError(f"{base_url}: {_err_text(e)}") from e
             log.warning(
                 "llm_key_rotated",
                 provider=provider,
@@ -673,7 +693,7 @@ async def transcribe_audio(
         except Exception as e:
             # Same rule as the other non-streaming calls: everything leaving
             # this function is a ProviderError, so callers key on that type.
-            raise ProviderError(f"{base_url}: {type(e).__name__}: {e}") from e
+            raise ProviderError(f"{base_url}: {type(e).__name__}: {_err_text(e)}") from e
 
         return (getattr(res, "text", "") or "").strip()
 
@@ -734,6 +754,7 @@ class ReportClient(NamedTuple):
     # this handle every build leaked its connection pool. Optional so
     # hand-built ReportClients (tests) keep working.
     http_client: Optional[httpx.AsyncClient] = None
+    trace: bool = True
 
 
 def _report_provider(*, confidential: bool) -> str:
@@ -784,7 +805,9 @@ def make_report_client(
             "ZDR tier)."
         )
 
-    return _build_report_client(provider, key_index=0, transport=transport)
+    return _rebuild_report_client(
+        provider, key_index=0, transport=transport, trace=not confidential
+    )
 
 
 def make_report_failover_client(
@@ -818,13 +841,15 @@ def _build_report_client(
     *,
     key_index: int,
     transport: Optional[httpx.AsyncBaseTransport] = None,
+    trace: bool = True,
 ) -> ReportClient:
     """Instructor client for one provider pinned to one key of its pool."""
     api_key = _report_api_key(provider, key_index) or _MISSING_KEY
     http = httpx.AsyncClient(
         timeout=settings.ai_tutor_request_timeout_s, transport=transport
     )
-    raw = AsyncOpenAI(
+    client_cls = _TracedAsyncOpenAI if trace else _PlainAsyncOpenAI
+    raw = client_cls(
         base_url=_PROVIDER_BASE_URL[provider],
         api_key=api_key,
         max_retries=0,
@@ -838,7 +863,25 @@ def _build_report_client(
         key_index=key_index,
         transport=transport,
         http_client=http,
+        trace=trace,
     )
+
+
+def _rebuild_report_client(
+    provider: str,
+    *,
+    key_index: int,
+    transport: Optional[httpx.AsyncBaseTransport],
+    trace: bool,
+) -> ReportClient:
+    try:
+        return _build_report_client(
+            provider, key_index=key_index, transport=transport, trace=trace
+        )
+    except TypeError:
+        # Some tests monkeypatch _build_report_client with the old three-arg
+        # signature; keep those stand-ins usable.
+        return _build_report_client(provider, key_index=key_index, transport=transport)
 
 
 async def aclose_report_client(report_client: ReportClient) -> None:
@@ -946,7 +989,12 @@ async def _create_rotating(
                 # stranding its pool for the life of the process.
                 if rc is not report_client:
                     await aclose_report_client(rc)
-                rc = _build_report_client(provider, key_index=index, transport=report_client.transport)
+                rc = _rebuild_report_client(
+                    provider,
+                    key_index=index,
+                    transport=report_client.transport,
+                    trace=getattr(report_client, "trace", True),
+                )
             try:
                 return await rc.client.chat.completions.create(  # type: ignore[no-any-return]
                     model=rc.model,
@@ -959,7 +1007,7 @@ async def _create_rotating(
                 last = e
                 if not _should_rotate(e):
                     if isinstance(e, openai.OpenAIError):
-                        raise ProviderError(f"{provider}: {e}") from e
+                        raise ProviderError(f"{provider}: {_err_text(e)}") from e
                     raise
                 log.warning(
                     "llm_key_rotated",
@@ -1061,7 +1109,7 @@ async def complete_with_tools(
 
     last: Optional[BaseException] = None
     for index, api_key in enumerate(keys):
-        client = _client(base_url, api_key, transport)
+        client = _client(base_url, api_key, transport, trace=False)
         # `attempt` exists only for the malformed-tool-call retry below, which is
         # why the second pass raises the temperature instead of repeating an
         # identical request.
@@ -1094,7 +1142,7 @@ async def complete_with_tools(
                     )
                     continue
                 if not _should_rotate(e):
-                    raise ProviderError(f"{base_url}: {e}") from e
+                    raise ProviderError(f"{base_url}: {_err_text(e)}") from e
                 log.warning(
                     "llm_key_rotated",
                     provider=provider,
@@ -1105,7 +1153,7 @@ async def complete_with_tools(
                 )
                 break  # next key
             except Exception as e:
-                raise ProviderError(f"{base_url}: {type(e).__name__}: {e}") from e
+                raise ProviderError(f"{base_url}: {type(e).__name__}: {_err_text(e)}") from e
 
             if not res.choices:
                 raise ProviderError(f"{base_url}: empty choices in assistant response")
@@ -1113,7 +1161,7 @@ async def complete_with_tools(
         else:
             # Both attempts on this key were malformed generations. Another key
             # runs the same model and would produce the same thing, so stop.
-            raise ProviderError(f"{base_url}: {last}") from last
+            raise ProviderError(f"{base_url}: {_err_text(last) if last else last}") from last
 
     raise _exhausted(provider, len(keys), last) from last
 
@@ -1136,4 +1184,5 @@ def stream_assistant_reply(
         assistant_model(provider),
         messages,  # type: ignore[arg-type]
         transport,
+        trace=False,
     )

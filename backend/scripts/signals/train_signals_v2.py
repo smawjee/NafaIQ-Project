@@ -51,6 +51,32 @@ def _select_ohlcv(client, *, max_rows_per_symbol: int) -> list[dict]:
     return rows
 
 
+def _select_dividends(client) -> list[dict]:
+    return _select_all(client, "psx_dividends",
+                       "symbol,ex_date,payout_type,per_share,bonus_pct", order_by="symbol")
+
+
+def _select_ohlcv_adjusted(client, *, max_rows_per_symbol: int, mode: str = "price") -> list[dict]:
+    """OHLCV with corporate-action adjustment applied per symbol (flat row list).
+
+    Raw psx_ohlcv closes carry bonus/rights/dividend discontinuities that
+    fabricate negative returns; all research must consume this loader, never
+    _select_ohlcv directly.
+    """
+    from app.services.signals_v2.adjustments import (
+        adjust_histories, load_adjustment_events,
+    )
+    from app.services.signals_v2.training import group_rows
+
+    raw = _select_ohlcv(client, max_rows_per_symbol=max_rows_per_symbol)
+    events = load_adjustment_events(_select_dividends(client))
+    histories = adjust_histories(group_rows(raw), events, mode=mode)
+    adjusted_symbols = sum(1 for s in histories if events.get(s))
+    print(f"Adjusted OHLCV for {adjusted_symbols}/{len(histories)} symbols "
+          f"(mode={mode})", file=sys.stderr, flush=True)
+    return [row for sym in sorted(histories) for row in histories[sym]]
+
+
 def _select_symbols(client) -> list[str]:
     rows = _select_all(client, "psx_market_snapshot", "symbol", order_by="symbol")
     symbols = sorted({str(row.get("symbol")).upper() for row in rows if row.get("symbol")})

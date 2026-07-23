@@ -1,5 +1,5 @@
 // Stock detail (`/stock/[ticker]`). Mirrors web `src/features/stock/StockDetail.tsx`:
-// header, candlestick chart, stats grid (live fundamentals), ML signal verdict,
+// header, candlestick chart, stats grid (live fundamentals), technical setup,
 // recent announcements, actions. Live data via src/hooks/queries/use-market.ts.
 import { useLocalSearchParams } from "expo-router";
 import { useState } from "react";
@@ -250,8 +250,8 @@ export default function StockDetailScreen() {
           )}
           <Text variant="muted">
             {modelReady
-              ? `${t("Confidence")} ${Math.round(confidence)}%`
-              : t("Model training in progress")}
+              ? `${t("Setup strength")} ${Math.round(confidence)}%`
+              : t("Technical setup pending")}
           </Text>
         </View>
         {candlesPending ? (
@@ -284,36 +284,36 @@ export default function StockDetailScreen() {
       </Card>
 
       <Card style={{ gap: 8 }}>
-        <Text variant="title">{t("AI Technical Analysis")}</Text>
+        <Text variant="title">{t("NafaIQ Technical Setup")}</Text>
         {modelReady ? (
           <>
             <View style={[styles.verdict, { borderColor: colors.ai + "44" }]}>
               <Text style={{ color: colors.ai, fontWeight: "700" }}>
-                {t("Overall")}: {t(signal!.signal)} · {t("Confidence")} {Math.round(confidence)}%
+                {t("Overall")}: {t(signal!.signal)} · {t("Setup strength")} {Math.round(confidence)}%
               </Text>
               <Text variant="secondary">
-                {`${upper} — ${t("ML signal engine rates this stock")} ${t(signal!.signal)}. ${t("Key drivers")}: ${
+                {`${upper} — ${t("NafaIQ rates this technical setup")} ${t(signal!.signal)}. ${t("Key drivers")}: ${
                   signal!.features_used?.slice(0, 3).join(", ") || t("technical indicators")
                 }.`}
               </Text>
             </View>
             <Text variant="muted" style={{ fontStyle: "italic" }}>
-              {t("This is AI-generated technical analysis only. Not financial advice.")}
+              {t("Technical analysis only. Not financial advice.")}
             </Text>
           </>
         ) : (
           <View style={[styles.pending, { borderColor: colors.border }]}>
             <Text variant="secondary" style={{ fontWeight: "600" }}>
-              {t("Signal unavailable — model pending")}
+              {t("Signal unavailable — setup pending")}
             </Text>
             <Text variant="muted">
-              {t("The ML signal model has not produced a call for this stock yet.")}
+              {t("NafaIQ has not produced a technical setup for this stock yet.")}
             </Text>
           </View>
         )}
       </Card>
 
-      {/* LLM deep-dive report — verified & cited, separate from the ML signal above */}
+      {/* LLM deep-dive report — verified & cited, separate from the technical setup above */}
       <AiReportSheet
         title={t("AI Stock Analysis")}
         subtitle={stockReport.data?.content?.headline}
