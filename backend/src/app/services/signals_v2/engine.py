@@ -14,7 +14,6 @@ from app.services.signals_v2.features import build_feature_frame, compute_featur
 from app.services.market import flow_context, tv_ratings
 from app.services.signals_v2.fusion import fuse_signal
 from app.services.signals_v2.labels import SignalLabel
-from app.services.signals_v2.model_loader import model_loader
 from app.services.signals_v2.regime import assess_regime
 from app.services.signals_v2.risk import assess_risk, liquidity_score
 from app.services.signals_v2.trend_state import (
@@ -23,7 +22,7 @@ from app.services.signals_v2.trend_state import (
     render_trend_warnings,
     risk_metrics,
 )
-from app.services.signals_v2.schemas import Horizon, SignalV2Response
+from app.services.signals_v2.schemas import Horizon, MlPrediction, SignalV2Response
 from app.services.signals_v2.technical_rating import compute_technical_rating
 
 _SIGNAL_TTL_SECONDS = 900
@@ -63,7 +62,7 @@ async def get_signal(symbol: str, horizon: str = DEFAULT_HORIZON) -> dict[str, A
             confidence=0,
             rank_score=0,
             technical=compute_technical_rating(features),
-            ml=model_loader.predict(hz, features),
+            ml=MlPrediction(),
             risk=assess_risk(features, freshness=quality.freshness, liquidity=liq),
             regime=assess_regime(frame.kse_close),
             freshness=quality.freshness,
@@ -80,7 +79,7 @@ async def get_signal(symbol: str, horizon: str = DEFAULT_HORIZON) -> dict[str, A
     technical = compute_technical_rating(features)
     regime = assess_regime(frame.kse_close)
     risk = assess_risk(features, freshness=quality.freshness, liquidity=liq)
-    ml = model_loader.predict(hz, features)
+    ml = MlPrediction()
     signal, confidence, rank_score, model_version = fuse_signal(
         technical=technical,
         ml=ml,
@@ -96,8 +95,6 @@ async def get_signal(symbol: str, horizon: str = DEFAULT_HORIZON) -> dict[str, A
         data_warnings=quality.warnings,
         regime=regime,
     )
-    if signal == SignalLabel.HOLD and technical.signal in {SignalLabel.BUY, SignalLabel.STRONG_BUY}:
-        warnings.append("Bullish technical setups are held to HOLD until BUY precision is validated")
     response = SignalV2Response.from_parts(
         symbol=sym,
         horizon=hz,
@@ -199,10 +196,11 @@ async def _load_inputs(symbol: str) -> tuple[list[dict[str, Any]], dict[str, Any
 async def _adjust_rows(symbol: str, rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """Corporate-action adjustment at serving time; the latest bar stays raw.
 
-    Must match the training convention (price mode) or served features drift
-    from what the model saw. Best-effort: raw rows on any failure.
+    Uses RECORDED psx_dividends events only — no price-gap inference, which
+    could erase a real crash and fabricate optimistic history. Best-effort:
+    raw rows on any failure.
     """
-    from app.services.signals_v2.adjustments import adjust_with_detection, load_adjustment_events
+    from app.services.signals_v2.adjustments import adjust_ohlcv, load_adjustment_events
 
     if not rows:
         return rows
@@ -213,8 +211,8 @@ async def _adjust_rows(symbol: str, rows: list[dict[str, Any]]) -> list[dict[str
             .eq("symbol", symbol)
             .not_.is_("ex_date", "null")
         )
-        events = load_adjustment_events(div_res.data or []).get(symbol.upper())
-        return adjust_with_detection(rows, events, mode="price")
+        events = load_adjustment_events(div_res.data or []).get(symbol.upper()) or []
+        return adjust_ohlcv(rows, events, mode="price")
     except Exception:
         return rows
 

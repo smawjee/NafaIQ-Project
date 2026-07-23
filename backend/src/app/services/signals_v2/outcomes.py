@@ -173,7 +173,7 @@ async def evaluate_pending_outcomes(*, limit: int = 1000) -> dict[str, Any]:
     for row in pending:
         by_symbol[str(row["symbol"]).upper()].append(row)
 
-    from app.services.signals_v2.adjustments import adjust_with_detection, load_adjustment_events
+    from app.services.signals_v2.adjustments import adjust_ohlcv, load_adjustment_events
 
     inserted, immature = 0, 0
     for sym, signal_rows in by_symbol.items():
@@ -181,14 +181,15 @@ async def evaluate_pending_outcomes(*, limit: int = 1000) -> dict[str, Any]:
                                        .select("date,close").eq("symbol", s)
                                        .order("date", desc=True).limit(400))
         bars = list(reversed(bars_res.data or []))
-        # corporate-action adjust: a bonus/rights ex-date inside the outcome
-        # window would otherwise book a fake loss against the track record
+        # corporate-action adjust with RECORDED events only: a bonus/rights
+        # ex-date inside the outcome window would otherwise book a fake loss
+        # against the track record. No price-gap inference (never guess).
         try:
             div_res = await async_execute(lambda c, s=sym: c.table("psx_dividends")
                                           .select("symbol,ex_date,payout_type,per_share,bonus_pct")
                                           .eq("symbol", s).not_.is_("ex_date", "null"))
-            events = load_adjustment_events(div_res.data or []).get(sym)
-            bars = adjust_with_detection(bars, events, mode="price")
+            events = load_adjustment_events(div_res.data or []).get(sym) or []
+            bars = adjust_ohlcv(bars, events, mode="price")
         except Exception:
             log.warning("outcome_adjustment_failed", symbol=sym, exc_info=True)
         for row in signal_rows:

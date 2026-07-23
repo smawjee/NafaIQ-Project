@@ -1,3 +1,15 @@
+"""TradingView-style technical rating.
+
+Two transparent sub-consensuses, each a mean of -1/0/+1 indicator votes:
+  * moving-average consensus  — 12 MAs (SMA+EMA at 10/20/30/50/100/200)
+  * oscillator consensus      — RSI, MACD, Stochastic, CCI, Williams %R, MFI,
+                                ROC/momentum, Bollinger position
+score = 0.5 * ma_score + 0.5 * osc_score  ->  STRONG BUY … STRONG SELL.
+
+No forward-return claim: the rating describes current technical posture, so it
+is faithful by construction. Relative strength, volume, regime and fundamentals
+are blended in later by fusion, not here (avoids double counting).
+"""
 from __future__ import annotations
 
 from typing import Any
@@ -6,104 +18,136 @@ from app.services.signals_v2.indicators import num
 from app.services.signals_v2.labels import score_to_signal
 from app.services.signals_v2.schemas import IndicatorVote, TechnicalRating
 
+MA_PERIODS = (10, 20, 30, 50, 100, 200)
+MA_DEADBAND = 0.005  # |price/MA - 1| below this counts as "on" the average
+
 
 def compute_technical_rating(features: dict[str, Any]) -> TechnicalRating:
-    votes: list[IndicatorVote] = []
-    price = num(features, "last_close")
+    ma_votes = _moving_average_votes(features)
+    osc_votes = _oscillator_votes(features)
+    votes = ma_votes + osc_votes
 
-    def add(name: str, vote: int, weight: float, value: float | None, reason: str) -> None:
-        votes.append(IndicatorVote(name=name, vote=vote, weight=weight, value=value, reason=reason))
-
-    for period, weight in ((20, 1.2), (50, 1.2), (200, 1.4)):
-        ratio = num(features, f"price_sma{period}_ratio")
-        vote = 1 if ratio is not None and ratio > 0.01 else -1 if ratio is not None and ratio < -0.01 else 0
-        if vote > 0:
-            reason = f"Price is above SMA{period}"
-        elif vote < 0:
-            reason = f"Price is below SMA{period}"
-        else:
-            reason = f"Price is near SMA{period}"
-        add(f"SMA{period}", vote, weight, ratio, reason)
-
-    rsi = num(features, "rsi14")
-    if rsi is None:
-        add("RSI14", 0, 1.0, rsi, "RSI is unavailable")
-    elif rsi >= 75:
-        add("RSI14", -1, 1.0, rsi, "RSI is overbought")
-    elif rsi >= 50:
-        add("RSI14", 1, 1.0, rsi, "RSI is bullish but not overbought")
-    elif rsi <= 25:
-        add("RSI14", 1, 0.8, rsi, "RSI is deeply oversold")
-    elif rsi < 45:
-        add("RSI14", -1, 1.0, rsi, "RSI momentum is weak")
+    ma_score = _mean_vote(ma_votes)
+    osc_score = _mean_vote(osc_votes)
+    if ma_votes and osc_votes:
+        score = 0.5 * ma_score + 0.5 * osc_score
     else:
-        add("RSI14", 0, 1.0, rsi, "RSI is neutral")
+        score = ma_score or osc_score
+    signal = score_to_signal(score)
 
-    macd = num(features, "macd_hist")
-    add(
-        "MACD",
-        1 if macd is not None and macd > 0 else -1 if macd is not None and macd < 0 else 0,
-        1.2,
-        macd,
-        "MACD momentum is positive" if macd and macd > 0 else "MACD momentum is negative" if macd and macd < 0 else "MACD is neutral",
+    reasons = _summary_reasons(ma_votes, osc_votes)
+    # Support the actual direction: lead a bearish rating with what's negative.
+    if score >= 0:
+        reasons += [v.reason for v in votes if v.vote > 0][:2]
+    else:
+        reasons += [v.reason for v in votes if v.vote < 0][:2]
+    warnings = [v.reason for v in votes if v.vote < 0][:2] if score >= 0 else []
+    if num(features, "last_close") is None:
+        warnings.append("Latest price is unavailable")
+    if not reasons:
+        reasons = ["Technical indicators are mixed"]
+
+    return TechnicalRating(
+        signal=signal, score=score, votes=votes,
+        reasons=reasons, warnings=warnings,
+        ma_score=round(ma_score, 4), osc_score=round(osc_score, 4),
     )
 
-    bb = num(features, "bb_position")
-    if bb is None:
-        add("BOLLINGER", 0, 0.8, bb, "Bollinger position is unavailable")
-    elif bb > 1.05:
-        add("BOLLINGER", -1, 0.8, bb, "Price is extended above the Bollinger band")
-    elif bb < -0.05:
-        add("BOLLINGER", 1, 0.8, bb, "Price is stretched below the Bollinger band")
-    elif 0.45 <= bb <= 0.8:
-        add("BOLLINGER", 1, 0.8, bb, "Price is in a constructive Bollinger range")
-    else:
-        add("BOLLINGER", 0, 0.8, bb, "Bollinger position is neutral")
+
+def _moving_average_votes(features: dict[str, Any]) -> list[IndicatorVote]:
+    votes: list[IndicatorVote] = []
+    for kind in ("sma", "ema"):
+        for period in MA_PERIODS:
+            ratio = num(features, f"price_{kind}{period}_ratio")
+            if ratio is None:
+                continue
+            vote = 1 if ratio > MA_DEADBAND else -1 if ratio < -MA_DEADBAND else 0
+            where = "above" if vote > 0 else "below" if vote < 0 else "near"
+            name = f"{kind.upper()}{period}"
+            votes.append(IndicatorVote(name=name, vote=vote, weight=1.0, value=ratio,
+                                       reason=f"Price is {where} {name}"))
+    return votes
+
+
+def _oscillator_votes(features: dict[str, Any]) -> list[IndicatorVote]:
+    votes: list[IndicatorVote] = []
+
+    def add(name: str, vote: int, value: float | None, reason: str) -> None:
+        votes.append(IndicatorVote(name=name, vote=vote, weight=1.0, value=value, reason=reason))
+
+    rsi = num(features, "rsi14")
+    if rsi is not None:
+        if rsi >= 75:
+            add("RSI14", -1, rsi, "RSI is overbought")
+        elif rsi >= 55:
+            add("RSI14", 1, rsi, "RSI momentum is bullish")
+        elif rsi <= 25:
+            add("RSI14", 1, rsi, "RSI is deeply oversold (rebound)")
+        elif rsi < 45:
+            add("RSI14", -1, rsi, "RSI momentum is weak")
+        else:
+            add("RSI14", 0, rsi, "RSI is neutral")
+
+    macd = num(features, "macd_hist")
+    if macd is not None:
+        add("MACD", 1 if macd > 0 else -1 if macd < 0 else 0, macd,
+            "MACD momentum is positive" if macd > 0 else "MACD momentum is negative" if macd < 0 else "MACD is neutral")
 
     stoch = num(features, "stochastic_k")
     if stoch is not None:
         vote = -1 if stoch > 85 else 1 if stoch < 20 else 1 if stoch > 55 else -1 if stoch < 40 else 0
-        reason = "Stochastic momentum supports upside" if vote > 0 else "Stochastic momentum is weak" if vote < 0 else "Stochastic is neutral"
-        add("STOCHASTIC", vote, 0.7, stoch, reason)
+        add("STOCHASTIC", vote, stoch,
+            "Stochastic supports upside" if vote > 0 else "Stochastic is weak" if vote < 0 else "Stochastic is neutral")
+
+    cci = num(features, "cci20")
+    if cci is not None:
+        vote = 1 if cci > 100 else -1 if cci < -100 else 0
+        add("CCI20", vote, cci,
+            "CCI shows strong up-momentum" if vote > 0 else "CCI shows strong down-momentum" if vote < 0 else "CCI is neutral")
 
     wr = num(features, "williams_r14")
     if wr is not None:
         vote = -1 if wr > -15 else 1 if wr < -80 else 1 if wr > -45 else -1 if wr < -65 else 0
-        reason = "Williams %R supports momentum" if vote > 0 else "Williams %R is weak" if vote < 0 else "Williams %R is neutral"
-        add("WILLIAMS_R14", vote, 0.6, wr, reason)
+        add("WILLIAMS_R14", vote, wr,
+            "Williams %R supports momentum" if vote > 0 else "Williams %R is weak" if vote < 0 else "Williams %R is neutral")
 
     mfi = num(features, "mfi14")
     if mfi is not None:
         vote = -1 if mfi > 80 else 1 if mfi < 25 else 1 if mfi > 50 else -1 if mfi < 40 else 0
-        reason = "Money flow confirms buying" if vote > 0 else "Money flow is defensive" if vote < 0 else "Money flow is neutral"
-        add("MFI14", vote, 0.8, mfi, reason)
+        add("MFI14", vote, mfi,
+            "Money flow confirms buying" if vote > 0 else "Money flow is defensive" if vote < 0 else "Money flow is neutral")
 
-    vol_ratio = num(features, "volume_vs_20d")
-    ret_5d = num(features, "ret_5d")
-    if vol_ratio is not None and ret_5d is not None:
-        vote = 1 if vol_ratio >= 1.2 and ret_5d > 0 else -1 if vol_ratio >= 1.2 and ret_5d < 0 else 0
-        reason = "Volume confirms the price move" if vote > 0 else "High volume confirms selling pressure" if vote < 0 else "Volume confirmation is neutral"
-        add("VOLUME_CONFIRMATION", vote, 1.0, vol_ratio, reason)
+    roc = num(features, "roc10")
+    if roc is not None:
+        add("ROC10", 1 if roc > 0 else -1 if roc < 0 else 0, roc,
+            "10-day momentum is positive" if roc > 0 else "10-day momentum is negative" if roc < 0 else "Momentum is flat")
 
-    rel = num(features, "relative_strength_kse20")
-    if rel is not None:
-        vote = 1 if rel > 0.015 else -1 if rel < -0.015 else 0
-        reason = "Stock is outperforming KSE-100 over 20 days" if vote > 0 else "Stock is underperforming KSE-100 over 20 days" if vote < 0 else "Relative strength versus KSE-100 is neutral"
-        add("RELATIVE_STRENGTH", vote, 1.1, rel, reason)
+    bb = num(features, "bb_position")
+    if bb is not None:
+        if bb > 1.05:
+            add("BOLLINGER", -1, bb, "Price is extended above the Bollinger band")
+        elif bb < -0.05:
+            add("BOLLINGER", 1, bb, "Price is stretched below the Bollinger band")
+        elif 0.45 <= bb <= 0.8:
+            add("BOLLINGER", 1, bb, "Price is in a constructive Bollinger range")
+        else:
+            add("BOLLINGER", 0, bb, "Bollinger position is neutral")
 
-    pe = num(features, "pe")
-    if pe is not None and pe > 0:
-        vote = 1 if pe < 8 else -1 if pe > 25 else 0
-        reason = "Valuation is supportive on P/E" if vote > 0 else "Valuation is expensive on P/E" if vote < 0 else "Valuation is neutral on P/E"
-        add("PE_VALUATION", vote, 0.5, pe, reason)
+    return votes
 
-    total_weight = sum(v.weight for v in votes if v.weight > 0) or 1.0
-    score = sum(v.vote * v.weight for v in votes) / total_weight
-    signal = score_to_signal(score)
-    positives = [v.reason for v in votes if v.vote > 0][:3]
-    negatives = [v.reason for v in votes if v.vote < 0][:2]
-    warnings = negatives
-    reasons = positives or ["Technical indicators are mixed"]
-    if price is None:
-        warnings.append("Latest price is unavailable")
-    return TechnicalRating(signal=signal, score=score, votes=votes, reasons=reasons, warnings=warnings)
+
+def _mean_vote(votes: list[IndicatorVote]) -> float:
+    if not votes:
+        return 0.0
+    return sum(v.vote for v in votes) / len(votes)
+
+
+def _summary_reasons(ma_votes: list[IndicatorVote], osc_votes: list[IndicatorVote]) -> list[str]:
+    reasons: list[str] = []
+    if ma_votes:
+        bull = sum(1 for v in ma_votes if v.vote > 0)
+        reasons.append(f"Moving averages: {bull}/{len(ma_votes)} bullish")
+    if osc_votes:
+        bull = sum(1 for v in osc_votes if v.vote > 0)
+        reasons.append(f"Oscillators: {bull}/{len(osc_votes)} bullish")
+    return reasons

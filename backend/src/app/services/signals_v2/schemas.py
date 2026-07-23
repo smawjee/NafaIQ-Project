@@ -36,6 +36,8 @@ class TechnicalRating(BaseModel):
     votes: list[IndicatorVote]
     reasons: list[str]
     warnings: list[str]
+    ma_score: float = 0.0      # moving-average consensus in [-1, 1]
+    osc_score: float = 0.0     # oscillator consensus in [-1, 1]
 
 
 class RiskAssessment(BaseModel):

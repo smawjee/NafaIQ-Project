@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import Final
 
 ENGINE_VERSION: Final = "signals-v2"
-TECHNICAL_MODEL_VERSION: Final = "technical-v2.0"
+TECHNICAL_MODEL_VERSION: Final = "technical-v3.0"
 
 DEFAULT_HORIZON: Final = "20D"
 HORIZONS: Final = ("5D", "20D", "60D")
