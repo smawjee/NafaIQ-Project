@@ -51,7 +51,7 @@ function streamFrom(chunks: string[]) {
 
 beforeEach(() => {
   jest.clearAllMocks();
-  global.fetch = jest.fn();
+  globalThis.fetch = jest.fn();
 });
 
 describe("newConversationId", () => {
@@ -119,7 +119,7 @@ describe("streamAssistant", () => {
 describe("executeDraft", () => {
   it("surfaces the server's detail message verbatim on failure", async () => {
     signIn();
-    (global.fetch as jest.Mock).mockResolvedValueOnce({
+    (globalThis.fetch as jest.Mock).mockResolvedValueOnce({
       ok: false,
       status: 400,
       json: () => Promise.resolve({ detail: "Insufficient shares to sell" }),
@@ -131,14 +131,14 @@ describe("executeDraft", () => {
 
   it("returns the execute result and sends the conversation id", async () => {
     signIn();
-    (global.fetch as jest.Mock).mockResolvedValueOnce({
+    (globalThis.fetch as jest.Mock).mockResolvedValueOnce({
       ok: true,
       json: () =>
         Promise.resolve({ ok: true, action: "add_to_watchlist", entity: {}, invalidate: ["watchlist"] }),
     });
     const result = await executeDraft("add_to_watchlist", { symbol: "MEBL" }, "conv-12345");
     expect(result.invalidate).toEqual(["watchlist"]);
-    const [, init] = (global.fetch as jest.Mock).mock.calls[0];
+    const [, init] = (globalThis.fetch as jest.Mock).mock.calls[0];
     expect(JSON.parse(init.body)).toEqual({
       action: "add_to_watchlist",
       args: { symbol: "MEBL" },
@@ -158,10 +158,10 @@ describe("transcribeAudio", () => {
         this.parts.push([key, value]);
       }
     }
-    const realFormData = global.FormData;
-    global.FormData = RecordingFormData as unknown as typeof FormData;
+    const realFormData = globalThis.FormData;
+    globalThis.FormData = RecordingFormData as unknown as typeof FormData;
     try {
-      (global.fetch as jest.Mock).mockResolvedValueOnce({
+      (globalThis.fetch as jest.Mock).mockResolvedValueOnce({
         ok: true,
         json: () => Promise.resolve({ text: " add 500 for fuel " }),
       });
@@ -169,7 +169,7 @@ describe("transcribeAudio", () => {
       const text = await transcribeAudio("file:///tmp/rec.m4a", "ur");
       expect(text).toBe(" add 500 for fuel ");
 
-      const [url, init] = (global.fetch as jest.Mock).mock.calls[0];
+      const [url, init] = (globalThis.fetch as jest.Mock).mock.calls[0];
       expect(url).toContain("/api/assistant/transcribe");
       // The boundary must come from fetch itself — a manual Content-Type breaks it.
       expect(init.headers["Content-Type"]).toBeUndefined();
@@ -180,7 +180,7 @@ describe("transcribeAudio", () => {
         ["lang", "ur"],
       ]);
     } finally {
-      global.FormData = realFormData;
+      globalThis.FormData = realFormData;
     }
   });
 });
