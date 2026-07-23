@@ -1,10 +1,10 @@
-"""Gmail API reader for bank-alert emails.
+"""Gmail API reader for finance emails.
 
 Hand-rolled REST over httpx (no google-api-python-client) — we only need
 messages.list and messages.get, and this matches how services/ai/providers.py
 calls its APIs.
 
-The bank-sender allowlist is pushed into Gmail's `q` so the filtering happens
+The finance-sender allowlist is pushed into Gmail's `q` so the filtering happens
 **server-side**: we never download ordinary mail, which is both cheaper and a
 much better privacy story than scanning the whole mailbox locally.
 """
@@ -114,7 +114,7 @@ async def _get(client: httpx.AsyncClient, path: str, params: dict | None = None)
 async def fetch_new_messages(
     access_token: str, last_internal_date: int
 ) -> list[RawMessage]:
-    """Bank-alert messages newer than the watermark, oldest first.
+    """Finance messages newer than the watermark, oldest first.
 
     `last_internal_date` is ms since epoch. Gmail's `after:` takes seconds and
     is day-granular in practice, so we over-fetch slightly and filter exactly on

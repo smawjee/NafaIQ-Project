@@ -11,6 +11,8 @@ and subscription billers. Add entries here as new finance email formats appear.
 from __future__ import annotations
 
 import re
+from datetime import datetime, timezone
+from zoneinfo import ZoneInfo
 
 # Matched against the From header's domain (case-insensitive, suffix match so
 # alerts.hbl.com matches hbl.com).
@@ -223,6 +225,7 @@ EXCLUDE_HINTS: tuple[str, ...] = (
 )
 
 _EMAIL_RE = re.compile(r"[\w.+-]+@([\w-]+\.[\w.-]+)")
+_APP_TZ = ZoneInfo("Asia/Karachi")
 
 
 def sender_domain(from_header: str) -> str | None:
@@ -272,20 +275,38 @@ def is_candidate(from_header: str, subject: str, body: str) -> bool:
     )
 
 
-def gmail_query(after_internal_date_ms: int = 0, *, lookback_days: int = 7) -> str:
-    """Gmail `q` restricting the fetch to bank senders since the watermark.
+def _start_of_month_epoch(now: datetime | None = None) -> int:
+    """Unix seconds for the current month start in the app's Pakistan timezone."""
+    if now is None:
+        current = datetime.now(_APP_TZ)
+    elif now.tzinfo is None:
+        current = now.replace(tzinfo=_APP_TZ)
+    else:
+        current = now.astimezone(_APP_TZ)
+    month_start = current.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    return int(month_start.astimezone(timezone.utc).timestamp())
+
+
+def gmail_query(
+    after_internal_date_ms: int = 0,
+    *,
+    now: datetime | None = None,
+    lookback_days: int | None = None,
+) -> str:
+    """Gmail `q` restricting the fetch to finance senders since the watermark.
 
     Gmail's `after:` takes epoch *seconds* and is coarse (day-granular in
     practice), so callers must still filter exactly on internalDate. On first
-    sync (watermark 0) we look back a bounded window rather than importing the
-    user's entire mail history.
+    sync (watermark 0) we start at the first day of the current month rather
+    than importing the user's entire mail history. `lookback_days` is accepted
+    for backward compatibility but no longer controls first-sync behavior.
     """
     senders = " OR ".join(f"from:{d}" for d in FINANCE_SENDER_DOMAINS)
     if after_internal_date_ms > 0:
         # Nudge back one day: `after:` is coarse and we'd rather re-see a
         # message (the DB unique index dedups) than miss one.
         after = max(0, after_internal_date_ms // 1000 - 86_400)
-        window = f"after:{after}"
     else:
-        window = f"newer_than:{lookback_days}d"
+        after = _start_of_month_epoch(now)
+    window = f"after:{after}"
     return f"({senders}) {window}"
