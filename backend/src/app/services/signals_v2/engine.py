@@ -34,7 +34,9 @@ async def get_signal(symbol: str, horizon: str = DEFAULT_HORIZON) -> dict[str, A
     hz = _normalize_horizon(horizon)
     cached = await _cached(sym, hz)
     if cached:
-        return _row_to_response(cached).model_dump(mode="json")
+        response = _row_to_response(cached)
+        response = await _decorate(response, cached.get("features_snapshot") or {}, hz)
+        return response.model_dump(mode="json")
 
     rows, snapshot, fundamentals, profile, kse_rows = await _load_inputs(sym)
     if not rows:
@@ -112,10 +114,8 @@ async def get_signal(symbol: str, horizon: str = DEFAULT_HORIZON) -> dict[str, A
         engine_version=ENGINE_VERSION,
         predicted_at=datetime.now(timezone.utc),
     )
-    response = await _attach_consensus(response, hz)
-    response = _attach_trend(response, features, _get_trend_stats())
-    response = await _attach_flow_context(response)
     await _persist(response)
+    response = await _decorate(response, features, hz)
     return response.model_dump(mode="json")
 
 
@@ -137,7 +137,11 @@ async def leaderboard(horizon: str = DEFAULT_HORIZON, limit: int = 50) -> dict[s
     if len(rows) < min(limit, 10):
         await batch_signals(limit=limit, horizon=hz)
         rows = await signals_repo.leaderboard_v2(hz, limit)
-    return {"signals": [_row_to_response(row).model_dump(mode="json") for row in rows], "count": len(rows)}
+    decorated = []
+    for row in rows:
+        response = await _decorate(_row_to_response(row), row.get("features_snapshot") or {}, hz)
+        decorated.append(response.model_dump(mode="json"))
+    return {"signals": decorated, "count": len(decorated)}
 
 
 async def _cached(symbol: str, horizon: Horizon) -> dict[str, Any] | None:
@@ -191,6 +195,17 @@ async def _load_inputs(symbol: str) -> tuple[list[dict[str, Any]], dict[str, Any
 
 _trend_stats_cache: dict | None = None
 _trend_stats_loaded = False
+
+
+async def _decorate(response: SignalV2Response, features: dict[str, Any], horizon: str) -> SignalV2Response:
+    """Attach display context (consensus, trend/risk, foreign flow) at read time.
+
+    Persisted rows carry only the base model output; every serving path passes
+    through here so cached and fresh responses look identical to clients.
+    """
+    response = await _attach_consensus(response, horizon)
+    response = _attach_trend(response, features, _get_trend_stats())
+    return await _attach_flow_context(response)
 
 
 def _get_trend_stats() -> dict | None:
@@ -291,6 +306,12 @@ def _compact_features(features: dict[str, Any]) -> dict[str, Any]:
         "relative_strength_kse20",
         "atr14_pct",
         "volatility_20d",
+        "price_sma50_ratio",
+        "price_sma200_ratio",
+        "sma50",
+        "sma200",
+        "dist_52w_high",
+        "dist_52w_low",
         "pe",
         "pb",
         "roe",
