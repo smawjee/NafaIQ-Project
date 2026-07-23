@@ -54,3 +54,54 @@ def test_ratio_only_classification_matches():
     for feats, expected in ((up, "UPTREND"), (down, "DOWNTREND")):
         stripped = {k: v for k, v in feats.items() if k not in ("sma50", "sma200", "last_close")}
         assert classify_trend(stripped).state == expected
+
+
+import importlib.util
+import sys
+from pathlib import Path
+
+from app.services.signals_v2.trend_state import render_trend_warnings, risk_metrics
+
+_SCRIPT = Path(__file__).resolve().parents[2] / "scripts" / "signals" / "calibrate_trend_stats.py"
+_spec = importlib.util.spec_from_file_location("calibrate_trend_stats", _SCRIPT)
+_cal = importlib.util.module_from_spec(_spec)
+sys.modules["calibrate_trend_stats"] = _cal
+_spec.loader.exec_module(_cal)
+
+
+def test_risk_metrics_from_snapshot():
+    m = risk_metrics(_feats(volatility_20d=0.40, atr14_pct=0.025), classify_trend(_feats()))
+    assert abs(m["annualized_volatility"] - 0.40) < 1e-9
+    assert abs(m["expected_20d_move_pct"] - 0.40 * (20 / 252) ** 0.5) < 1e-4
+    assert abs(m["suggested_stop_pct"] - 0.05) < 1e-9          # 2 x 2.5% ATR
+    assert m["position_risk"] == "MODERATE"
+    assert m["continuation"] is None                            # no stats passed
+
+
+def test_risk_metrics_stop_floor_and_extreme_vol():
+    m = risk_metrics(_feats(volatility_20d=0.90, atr14_pct=0.005), classify_trend(_feats()))
+    assert m["suggested_stop_pct"] == 0.03                      # 3% floor
+    assert m["position_risk"] == "EXTREME"
+
+
+def test_measure_continuation_counts_and_rates():
+    pairs = [("DOWNTREND", -0.05), ("DOWNTREND", -0.02), ("DOWNTREND", 0.03),
+             ("UPTREND", 0.04), ("UPTREND", -0.01)]
+    stats = _cal.measure_continuation(pairs)
+    assert stats["DOWNTREND"]["n"] == 3
+    assert abs(stats["DOWNTREND"]["p_negative_20d"] - 2 / 3) < 1e-4
+    assert stats["UPTREND"]["n"] == 2
+
+
+def test_warnings_show_numbers_only_with_stats():
+    trend = classify_trend(_feats(last_close=80.0, sma50=88.0, sma200=95.0,
+                                  price_sma50_ratio=80 / 88 - 1, price_sma200_ratio=80 / 95 - 1,
+                                  ret_20d=-0.06, ret_60d=-0.15,
+                                  dist_52w_high=-0.30, dist_52w_low=0.05))
+    no_stats = render_trend_warnings(trend, risk_metrics(_feats(), trend))
+    assert any("downtrend" in w.lower() for w in no_stats)
+    assert not any("historically" in w.lower() for w in no_stats)
+
+    stats = {"states": {"DOWNTREND": {"n": 500, "p_negative_20d": 0.62, "median_20d_return": -0.031}}}
+    with_stats = render_trend_warnings(trend, risk_metrics(_feats(), trend, stats=stats))
+    assert any("62%" in w for w in with_stats)                  # measured, not invented

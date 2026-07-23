@@ -1,0 +1,31 @@
+{
+  "generated_at": "2026-07-23T07:01:44.115819+00:00",
+  "source_samples": 58849,
+  "states": {
+    "RANGE": {
+      "n": 19975,
+      "p_negative_20d": 0.4753,
+      "median_20d_return": 0.0081
+    },
+    "UPTREND": {
+      "n": 19748,
+      "p_negative_20d": 0.5223,
+      "median_20d_return": -0.01
+    },
+    "WEAKENING": {
+      "n": 8961,
+      "p_negative_20d": 0.5191,
+      "median_20d_return": -0.0058
+    },
+    "DOWNTREND": {
+      "n": 9441,
+      "p_negative_20d": 0.4412,
+      "median_20d_return": 0.0231
+    },
+    "BASING": {
+      "n": 724,
+      "p_negative_20d": 0.4157,
+      "median_20d_return": 0.0301
+    }
+  }
+}

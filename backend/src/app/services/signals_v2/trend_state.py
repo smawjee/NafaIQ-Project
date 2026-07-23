@@ -71,3 +71,65 @@ def classify_trend(features: dict[str, Any]) -> TrendAssessment:
             f"20-day return {ret20:+.1%}",
         ])
     return TrendAssessment("RANGE", 0.0, ["no dominant trend structure"])
+
+
+import json
+from pathlib import Path
+
+_ML_DIR = Path(__file__).resolve().parents[2] / "ml" / "signals_v2"
+_STOP_FLOOR = 0.03
+_VOL_BANDS = ((0.25, "LOW"), (0.45, "MODERATE"), (0.70, "HIGH"))
+
+
+def load_trend_stats() -> dict | None:
+    path = _ML_DIR / "trend_stats.json"
+    if not path.exists():
+        return None
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except Exception:
+        return None
+
+
+def risk_metrics(features: dict[str, Any], trend: TrendAssessment,
+                 stats: dict | None = None) -> dict:
+    vol = _num(features, "volatility_20d") or 0.0
+    atr = _num(features, "atr14_pct") or 0.0
+    position_risk = "EXTREME"
+    for ceiling, label in _VOL_BANDS:
+        if vol <= ceiling:
+            position_risk = label
+            break
+    continuation = None
+    if stats:
+        continuation = (stats.get("states") or {}).get(trend.state)
+    return {
+        "annualized_volatility": round(vol, 4),
+        "expected_20d_move_pct": round(vol * (20 / 252) ** 0.5, 4),
+        "suggested_stop_pct": round(max(_STOP_FLOOR, 2 * atr), 4),
+        "position_risk": position_risk,
+        "continuation": continuation,
+    }
+
+
+def render_trend_warnings(trend: TrendAssessment, metrics: dict) -> list[str]:
+    out: list[str] = []
+    cont = metrics.get("continuation")
+    if trend.state == "DOWNTREND":
+        msg = "Downtrend intact: price below its 50- and 200-day averages."
+        if cont and cont.get("n", 0) >= 100:
+            msg += (f" Historically on PSX, {cont['p_negative_20d']:.0%} of such downtrends"
+                    f" kept falling over the next 20 sessions"
+                    f" (median move {cont['median_20d_return']:+.1%}, n={cont['n']}).")
+        out.append(msg)
+        out.append(f"Suggested protective stop: {metrics['suggested_stop_pct']:.1%} below current price (2x ATR).")
+    elif trend.state == "WEAKENING":
+        msg = "Uptrend weakening: price has slipped below its 50-day average."
+        if cont and cont.get("n", 0) >= 100:
+            msg += (f" Historically, {cont['p_negative_20d']:.0%} of these turned negative"
+                    f" over the next 20 sessions (n={cont['n']}).")
+        out.append(msg)
+    if metrics.get("position_risk") in ("HIGH", "EXTREME"):
+        out.append(f"Volatility is {metrics['position_risk']}"
+                   f" ({metrics['annualized_volatility']:.0%} annualized) — size positions accordingly.")
+    return out
