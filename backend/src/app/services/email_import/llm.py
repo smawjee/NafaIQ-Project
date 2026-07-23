@@ -13,6 +13,7 @@ from typing import Any, Optional
 
 from app.config import settings
 from app.services.ai import providers
+from app.services.macro.monetary import get_monetary_snapshot
 from app.services.ai.observability import observe, propagate_attributes
 from app.services.ai.prompts import load_prompt, security_rules
 from app.services.email_import.models import (
@@ -56,6 +57,32 @@ def _build_messages(subject: str, body: str, sender: str) -> list[dict[str, str]
             ),
         },
     ]
+
+
+async def _to_pkr(amount: float, currency: str) -> Optional[float]:
+    """Convert a foreign-currency receipt amount to PKR via the live FX snapshot.
+
+    Returns None when the currency is unknown/unavailable so the caller SKIPS the
+    receipt rather than guessing a rupee figure into someone's finances. PKR (and
+    a missing currency, which the prompt defaults to PKR) passes through as-is."""
+    ccy = (currency or "PKR").strip().upper()
+    if ccy in ("", "PKR"):
+        return amount
+    try:
+        snap = await get_monetary_snapshot()
+    except Exception:
+        log.warning("FX snapshot unavailable; skipping %s receipt", ccy, exc_info=True)
+        return None
+    usd_pkr = snap.get("usd_pkr")
+    if not usd_pkr:
+        return None
+    if ccy == "USD":
+        return amount * usd_pkr
+    # rates[C] = units of C per USD -> amount(C) -> USD -> PKR.
+    per_usd = (snap.get("rates") or {}).get(ccy)
+    if not per_usd:
+        return None
+    return amount * usd_pkr / per_usd
 
 
 def _parse_due_date(value: Any) -> Optional[date]:
@@ -163,6 +190,19 @@ async def parse(
                 log.warning("email-parse provider %s returned non-JSON", name)
                 last_err = ValueError("non-JSON response")
                 continue
+            # Foreign-currency receipt (e.g. Anomaly's US$5.00) -> convert to PKR
+            # before coercion, since ParsedTransaction stores a bare PKR figure.
+            if payload.get("is_transaction") and payload.get("amount") is not None:
+                ccy = str(payload.get("currency") or "PKR").strip().upper()
+                if ccy not in ("", "PKR"):
+                    try:
+                        pkr = await _to_pkr(float(payload["amount"]), ccy)
+                    except (TypeError, ValueError):
+                        pkr = None
+                    if pkr is None:
+                        log.info("skipping receipt in unconvertible currency %s", ccy)
+                        return None
+                    payload["amount"] = pkr
             return _coerce(
                 payload, received_at, sender=sender, context_text=f"{subject}\n{body}"
             )

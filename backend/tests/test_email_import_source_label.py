@@ -29,8 +29,9 @@ def test_source_label_known_bank_is_named_and_auto_tagged():
     assert _source_label("alerts@meezanbank.com") == "Meezan Bank · auto"
 
 
-def test_source_label_unknown_bank_falls_back_to_bank_email():
-    assert _source_label("noreply@some-unlisted-bank.example") == "Bank email · auto"
+def test_source_label_unknown_sender_falls_back_to_email_receipt():
+    # A store receipt from a non-bank/non-biller sender must not read "Bank email".
+    assert _source_label("no-reply@mail.foodpanda.pk") == "Email receipt · auto"
 
 
 def test_biller_sender_is_candidate_for_invoice():

@@ -21,6 +21,9 @@ Return ONLY a JSON object with exactly these keys:
                     paid receipt with no future due date.
   "amount": number or null — transaction amount or bill amount due as a positive
                     number, no currency symbol and no thousands separators.
+  "currency": string — ISO 4217 code of the amount, e.g. "PKR", "USD", "EUR".
+                    Default "PKR" when the amount is in Pakistani rupees (Rs/PKR)
+                    or the currency is unclear. Use "USD" for US$/$ amounts.
   "merchant": string or null — for transactions, the short heading/counterparty.
                     For bills, use the biller/service if bill_name is unavailable.
   "direction": "debit", "credit", or null — required for transactions, null for bills.
@@ -58,7 +61,9 @@ BILL RULES — unpaid bill/invoice/subscription:
   charges, classify them as transactions instead.
 
 Pakistani context:
-- Amounts are Pakistani Rupees. "Rs. 1,234.56" and "PKR 1,234.56" both mean 1234.56.
+- Most amounts are Pakistani Rupees. "Rs. 1,234.56" and "PKR 1,234.56" both mean
+  1234.56 (currency "PKR"). Store/subscription receipts may be in USD ("US$5.00",
+  currency "USD") or another currency — report the amount and its ISO currency code.
 - Raast and IBFT are transfer rails (category "transfer").
 - Mobile load/top-up/recharge is category "utilities".
 - Internet, electricity, gas and water bills are category "utilities".

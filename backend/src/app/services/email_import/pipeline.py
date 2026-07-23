@@ -41,13 +41,20 @@ MIN_CONFIDENCE = 0.6
 # What the transaction shows as its "way of transaction". The finance UI renders
 # `source` verbatim, so it must be a human label — the bank/biller name tagged as
 # auto-imported. Unknown senders fall back to a generic label.
-SOURCE_FALLBACK = "Bank email · auto"
+SOURCE_FALLBACK = "Email receipt · auto"
 BILL_SOURCE_FALLBACK = "Email bill · auto"
 
 
 def _source_label(sender: str) -> str:
+    # Bank first, then biller (a subscription receipt), then a generic receipt
+    # label — never "Bank email" for a store receipt from foodpanda/Anomaly.
     bank = senders.bank_display_name(sender)
-    return f"{bank} · auto" if bank else SOURCE_FALLBACK
+    if bank:
+        return f"{bank} · auto"
+    biller = senders.biller_display_name(sender)
+    if biller:
+        return f"{biller} · auto"
+    return SOURCE_FALLBACK
 
 
 def _bill_source_label(sender: str) -> str:
@@ -118,7 +125,7 @@ async def _import_transaction(
         notifier.notify_activity(
             user_id,
             "transaction",
-            f"Auto-added from your bank email: {parsed.merchant}",
+            f"Auto-added from your email: {parsed.merchant}",
             f"{sign}PKR {parsed.amount:,.0f} · {parsed.category}{account}. "
             f"Added automatically — open Finance to edit or remove it.",
         )

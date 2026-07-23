@@ -177,6 +177,32 @@ def biller_display_name(from_header: str) -> str | None:
             return name
     return None
 
+# Merchant purchase-receipt keywords. Unlike TRANSACTION_HINTS (bank-alert
+# phrasing) these are the words a store's order/receipt email uses — the gate
+# that lets a foodpanda/Anomaly/store receipt in from a NON-bank sender.
+PURCHASE_HINTS: tuple[str, ...] = (
+    "receipt",
+    "order confirmation",
+    "your order",
+    "thanks for your order",
+    "order number",
+    "order id",
+    "order date",
+    "invoice",
+    "purchase",
+    "payment received",
+)
+
+# Any currency amount anywhere in the mail (PKR/Rs/USD/$/€/£/…). Required by
+# looks_like_purchase so a "50% off your order!" promo — which has the keyword
+# but no price — is dropped locally before it can cost an LLM call. Broader than
+# rules._AMOUNT (which is PKR-only for parsing) on purpose: a USD receipt must
+# still pass this gate.
+_CURRENCY_AMOUNT_RE = re.compile(
+    r"(?:PKR|Rs\.?|RS|USD|US\$|\$|EUR|€|GBP|£|AED|SAR|INR)\s*\d",
+    re.IGNORECASE,
+)
+
 # Subject/body keywords that indicate a transaction alert rather than a
 # statement, marketing mail, or OTP.
 TRANSACTION_HINTS: tuple[str, ...] = (
@@ -268,11 +294,29 @@ def looks_like_bill(subject: str, body: str) -> bool:
     return any(hint in haystack for hint in BILL_HINTS)
 
 
+def looks_like_purchase(subject: str, body: str) -> bool:
+    """Merchant purchase-receipt gate for NON-finance senders.
+
+    Requires both a receipt keyword AND a currency amount: the amount is the
+    cost guard that stops marketing mail (keyword but no price) from reaching
+    the LLM. Excludes OTPs/promos/declined via the shared EXCLUDE_HINTS."""
+    haystack = f"{subject} {body}".lower()
+    if any(bad in haystack for bad in EXCLUDE_HINTS):
+        return False
+    if not any(hint in haystack for hint in PURCHASE_HINTS):
+        return False
+    return bool(_CURRENCY_AMOUNT_RE.search(f"{subject} {body}"))
+
+
 def is_candidate(from_header: str, subject: str, body: str) -> bool:
-    """True if this message is worth parsing."""
-    return is_finance_sender(from_header) and (
-        looks_like_transaction(subject, body) or looks_like_bill(subject, body)
-    )
+    """True if this message is worth parsing.
+
+    Finance senders (banks/billers) keep their existing transaction/bill gates
+    and precise template parsing. Any other sender qualifies only as a purchase
+    receipt — that's how store receipts (foodpanda, Anomaly, …) get in."""
+    if is_finance_sender(from_header):
+        return looks_like_transaction(subject, body) or looks_like_bill(subject, body)
+    return looks_like_purchase(subject, body)
 
 
 def _start_of_month_epoch(now: datetime | None = None) -> int:
@@ -302,6 +346,15 @@ def gmail_query(
     for backward compatibility but no longer controls first-sync behavior.
     """
     senders = " OR ".join(f"from:{d}" for d in FINANCE_SENDER_DOMAINS)
+    # Receipt-shaped mail from ANY sender, so store receipts (foodpanda, Anomaly,
+    # …) are downloaded too — not only the finance allowlist. Receipt-specific
+    # phrases, not bare "order", to keep marketing volume down; the local
+    # looks_like_purchase amount-gate does the rest.
+    receipts = (
+        'subject:(receipt OR invoice OR "order confirmation" OR "your order" '
+        'OR "payment received") OR "order receipt" OR "thanks for your order" '
+        'OR "your receipt"'
+    )
     if after_internal_date_ms > 0:
         # Nudge back one day: `after:` is coarse and we'd rather re-see a
         # message (the DB unique index dedups) than miss one.
@@ -309,4 +362,4 @@ def gmail_query(
     else:
         after = _start_of_month_epoch(now)
     window = f"after:{after}"
-    return f"({senders}) {window}"
+    return f"(({senders}) OR ({receipts})) {window}"
