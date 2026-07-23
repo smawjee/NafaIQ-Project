@@ -562,6 +562,28 @@ async def job_refresh_tv_data():
         await _record_health("tradingview", success=False, error=str(e))
 
 
+async def job_refresh_fipi():
+    """Daily FIPI/LIPI investor-flow ingestion (NCCPL data via finhisaab mirror)."""
+    from datetime import date, timedelta
+
+    from app.repositories.market import fipi_repo
+    from app.scrapers.fipi import fetch_day
+
+    try:
+        total = 0
+        today = date.today()
+        for d in (today - timedelta(days=1), today):
+            if d.weekday() >= 5:
+                continue
+            rows = await fetch_day(d.isoformat())
+            if rows:
+                total += await fipi_repo.upsert_fipi_rows(rows)
+        await _record_health("fipi_daily", success=True, rows_updated=total)
+    except Exception as e:
+        log.warning("job_refresh_fipi_failed", exc_info=True)
+        await _record_health("fipi_daily", success=False, error=str(e))
+
+
 async def job_refresh_shariah():
     """Refresh psx_profile.is_shariah from the live KMI All-Share constituents.
 
@@ -1055,6 +1077,14 @@ def init_scheduler():
     # membership is reviewed periodically, and this is the only writer of
     # psx_profile.is_shariah.
     scheduler.add_job(job_refresh_shariah, CronTrigger(hour=3, minute=30, timezone="Asia/Karachi"), id="refresh_shariah", replace_existing=True)
+    # FIPI/LIPI flows publish after settlement — 18:30 PKT weekdays covers it,
+    # and the job re-fetches yesterday too so late corrections are captured.
+    scheduler.add_job(
+        job_refresh_fipi,
+        CronTrigger(day_of_week="mon-fri", hour=18, minute=30, timezone="Asia/Karachi"),
+        id="refresh_fipi",
+        replace_existing=True,
+    )
     # Shared, once-per-trading-day Market Brief — weekdays ~09:45 PKT, after the
     # morning market data refresh (§11). Runs in Asia/Karachi (PSX) time.
     scheduler.add_job(
