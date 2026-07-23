@@ -3,7 +3,6 @@ import { useState } from "react";
 import { PsxWatchlistCard } from "@/features/psx/components/PsxWatchlistCard";
 import {
   usePsxBatchSignals,
-  usePsxBatchSignalsV2,
   usePsxLiveMarket,
   usePsxRealtime,
   usePsxSymbols,
@@ -28,7 +27,6 @@ function WatchlistRoute() {
   const { data: snapshot } = usePsxLiveMarket();
   const { data: symbolsData } = usePsxSymbols();
   const { data: batchSignals } = usePsxBatchSignals(50);
-  const { data: batchSignalsV2 } = usePsxBatchSignalsV2(50, "20D");
 
   usePsxRealtime(watchlist.symbols);
 
@@ -50,7 +48,7 @@ function WatchlistRoute() {
         onAddOpenChange={setAddOpen}
         snapshot={snapshot}
         symbolsData={symbolsData}
-        batchSignals={batchSignalsV2 ?? batchSignals}
+        batchSignals={batchSignals}
       />
     </div>
   );

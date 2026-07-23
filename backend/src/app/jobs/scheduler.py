@@ -204,6 +204,40 @@ async def job_refresh_announcements():
         await _record_health("psx_announcements", success=False, error=str(e))
 
 
+async def job_precompute_cross_section():
+    """Daily cross-sectional factor ranks for the liquid universe (V4 analytics)."""
+    from app.services.signals_v4.cross_section_job import precompute_cross_section
+
+    try:
+        log.info("job:cross_section:start")
+        result = await precompute_cross_section()
+        log.info("job:cross_section:done", **result)
+        await _record_health("psx_signal_cross_section", success=result.get("written", 0) > 0,
+                             rows_updated=result.get("written", 0))
+    except Exception as e:
+        log.exception("job:cross_section:failed")
+        await _record_health("psx_signal_cross_section", success=False, error=str(e))
+
+
+async def job_ingest_signal_events():
+    """Fold psx_announcements + psx_dividends into canonical psx_signal_events.
+
+    Reads the DB only (no external scraping) and upserts on a deterministic
+    event id, so it is idempotent and never touches the technical/context
+    serving path. Foundation for the (still dormant) event-forecast track.
+    """
+    from app.services.signals_v4.ingest import ingest_events
+
+    try:
+        log.info("job:ingest_signal_events:start")
+        result = await ingest_events()
+        log.info("job:ingest_signal_events:done", **result)
+        await _record_health("psx_signal_events", success=True, rows_updated=result.get("events_written", 0))
+    except Exception as e:
+        log.exception("job:ingest_signal_events:failed")
+        await _record_health("psx_signal_events", success=False, error=str(e))
+
+
 async def job_poll_ahletrade():
     """Polls AhleTrade for real-time trades and writes to psx_market_snapshot."""
     if not await _is_market_open():
@@ -337,24 +371,6 @@ async def job_backfill_history():
                     bars = [b for b in bars if b.date > known]
                 if bars:
                     payload = [b.to_dict() for b in bars]
-                    # Preserve upstream observations before the legacy cache is updated.
-                    import hashlib
-                    import json
-                    raw_payload = [
-                        {
-                            **row,
-                            "source": "dps_historical",
-                            "source_record_hash": hashlib.sha256(
-                                json.dumps(row, sort_keys=True, separators=(",", ":")).encode("utf-8")
-                            ).hexdigest(),
-                            "fetched_at": datetime.now(timezone.utc).isoformat(),
-                            "source_payload": row,
-                        }
-                        for row in payload
-                    ]
-                    await async_execute(
-                        lambda c, _p=raw_payload: c.table("psx_ohlcv_raw").insert(_p)
-                    )
                     await async_execute(
                         lambda c, _p=payload: c.table("psx_ohlcv").upsert(
                             _p, on_conflict="symbol,date"
@@ -971,7 +987,8 @@ async def job_refresh_financials_5y():
 
         async def _per_symbol(sym: str) -> None:
             try:
-                annual = await financials_psx.fetch_annual(sym)
+                # One page fetch yields both statements (halves the request load).
+                annual, quarterly = await financials_psx.fetch_financials(sym)
                 if annual:
                     payload = [{**r, "refreshed_at": now_iso} for r in annual]
                     await async_execute(
@@ -980,7 +997,6 @@ async def job_refresh_financials_5y():
                         )
                     )
                     written["rows"] += len(annual)
-                quarterly = await financials_psx.fetch_quarterly(sym)
                 if quarterly:
                     payload = [{**r, "refreshed_at": now_iso} for r in quarterly]
                     await async_execute(
@@ -1129,19 +1145,23 @@ def init_scheduler():
         id="refresh_fipi",
         replace_existing=True,
     )
-    # Track record: snapshot what users saw after close, mature elapsed signals nightly.
-    scheduler.add_job(
-        job_snapshot_signals,
-        CronTrigger(day_of_week="mon-fri", hour=17, minute=45, timezone="Asia/Karachi"),
-        id="snapshot_signals",
-        replace_existing=True,
-    )
-    scheduler.add_job(
-        job_signal_outcomes,
-        CronTrigger(day_of_week="mon-fri", hour=19, minute=30, timezone="Asia/Karachi"),
-        id="signal_outcomes",
-        replace_existing=True,
-    )
+    # DISABLED 2026-07-24: legacy V2 track-record jobs. Serving moved to Signals
+    # V4 (/api/signal -> signals_v4), so the psx_signals_v2 cache these snapshot is
+    # no longer populated and the old track-record card is unmounted in the UI.
+    # Kept as code (not deleted) pending the deliberate v2->v4 backend migration;
+    # re-enable by uncommenting if the legacy track record is ever needed again.
+    # scheduler.add_job(
+    #     job_snapshot_signals,
+    #     CronTrigger(day_of_week="mon-fri", hour=17, minute=45, timezone="Asia/Karachi"),
+    #     id="snapshot_signals",
+    #     replace_existing=True,
+    # )
+    # scheduler.add_job(
+    #     job_signal_outcomes,
+    #     CronTrigger(day_of_week="mon-fri", hour=19, minute=30, timezone="Asia/Karachi"),
+    #     id="signal_outcomes",
+    #     replace_existing=True,
+    # )
     # Shared, once-per-trading-day Market Brief — weekdays ~09:45 PKT, after the
     # morning market data refresh (§11). Runs in Asia/Karachi (PSX) time.
     scheduler.add_job(
@@ -1217,6 +1237,24 @@ def init_scheduler():
         job_refresh_dividends,
         CronTrigger(hour=5, minute=30, timezone="Asia/Karachi"),
         id="refresh_dividends",
+        replace_existing=True,
+        misfire_grace_time=3600,
+    )
+    # Canonical corporate-event ingestion from the DB (announcements + dividends).
+    # Runs after the 5:30 dividends refresh and hourly through the trading day so
+    # new disclosures become point-in-time events promptly. DB-only, idempotent.
+    scheduler.add_job(
+        job_ingest_signal_events,
+        CronTrigger(minute=20, timezone="Asia/Karachi"),
+        id="ingest_signal_events",
+        replace_existing=True,
+        misfire_grace_time=1800,
+    )
+    # Cross-sectional factor ranks: after EOD prices settle (evening PKT).
+    scheduler.add_job(
+        job_precompute_cross_section,
+        CronTrigger(hour=20, minute=0, timezone="Asia/Karachi"),
+        id="precompute_cross_section",
         replace_existing=True,
         misfire_grace_time=3600,
     )

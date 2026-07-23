@@ -99,6 +99,29 @@ def test_unavailable_contract_never_fabricates_hold():
     assert "HOLD" not in str(payload)
 
 
+def test_response_is_honest_analysis_not_a_forecast():
+    """No promoted model → forecast abstains with a plain headline; the response
+    carries a market-context block and a 'not a forecast' disclosure, and never
+    exposes a fabricated confidence number."""
+    payload = _unavailable("TEST", "DATA_QUALITY_FAILURE")
+    assert "context" in payload and isinstance(payload["context"], dict)
+    assert payload["forecast"]["headline"] == "No validated forecast yet"
+    assert "not a forecast" in payload["disclosure"].lower()
+    # The honest contract does not surface a prediction confidence.
+    assert "confidence" not in str(payload).lower()
+
+
+def test_market_context_never_raises_on_empty_bars():
+    import asyncio
+
+    from app.services.signals_v4.service import _market_context
+
+    context = asyncio.run(_market_context("TEST", []))
+    # Empty bars must yield an empty, non-raising context — the setup still ships.
+    assert context.trend_state is None
+    assert context.flow is None
+
+
 
 def test_cci_requires_directional_confirmation(monkeypatch):
     monkeypatch.setattr(technical, "_cci", lambda *_args: (-120.0, -130.0))

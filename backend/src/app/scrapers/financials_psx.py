@@ -1,19 +1,27 @@
-"""financials.psx.com.pk scraper.
+"""PSX company-financials scraper (dps.psx.com.pk).
 
-Pulls the 5-year annual and quarterly income-statement / balance-sheet
-summary for a single PSX-listed company. The site is JS-rendered in places;
-if we cannot reach it or cannot parse it, we return an empty list and log a
-warning rather than raise. The shape of the returned rows matches the
-``psx_financials_annual`` / ``psx_financials_quarterly`` schema.
+The dedicated financials.psx.com.pk/company/{symbol} path is dead (HTTP 404),
+which is why psx_financials_annual / _quarterly were empty since the feature
+shipped. The same figures are served in static HTML on the DPS company page —
+the domain this backend already scrapes for quotes and announcements — so we
+read them from there.
+
+The DPS company page carries three period-keyed tables:
+  * annual income   — header = years (2025 2024 …), rows = Sales/Mark-up Earned,
+                      Profit after Taxation, EPS
+  * quarterly income — header = 'Q1 2026' style periods, same rows
+  * ratios          — header = years, rows = Net/Gross Profit Margin (%), …
+
+Labels are sector-specific: banks report 'Mark-up Earned' where industrials
+report 'Sales'. Both report 'Profit after Taxation' and 'EPS' identically, which
+are the fields the earnings features actually need. Unreachable / unparseable
+pages return an empty list and log a warning rather than raise.
 """
 from __future__ import annotations
 
-import asyncio
 import re
-from datetime import date
 from typing import Optional
 
-import httpx
 import structlog
 from bs4 import BeautifulSoup
 
@@ -28,63 +36,60 @@ GET_HEADERS = {
     "Accept": "text/html, application/xhtml+xml;q=0.9, */*;q=0.5",
 }
 
-ANNUAL_URL_TMPL = "https://financials.psx.com.pk/company/{symbol}"
-QUARTERLY_URL_TMPL = "https://financials.psx.com.pk/company/{symbol}/quarterly"
-SEARCH_URL = "https://financials.psx.com.pk/"
+COMPANY_URL_TMPL = "https://dps.psx.com.pk/company/{symbol}"
+
+# Sector-aware synonyms. Order matters: the first present label wins.
+_SALES_KEYS = ("sales", "revenue", "net sales", "turnover", "total income",
+               "mark-up earned", "markup earned", "interest earned", "gross premium")
+_NET_INCOME_KEYS = ("profit after tax", "profit for the year", "profit for the period",
+                    "net income", "net profit", "pat", "profit / (loss) after")
+_YEAR_RE = re.compile(r"^(19|20)\d{2}$")
+_QUARTER_RE = re.compile(r"Q\s*([1-4])\s*[-/ ]?\s*((?:19|20)\d{2})", re.IGNORECASE)
 
 
 class FinancialsPSXScraper:
-    """Scrapes financials.psx.com.pk for one company's 5y annual + quarterly."""
+    """Scrapes the DPS company page for one company's annual + quarterly income."""
 
     def __init__(self) -> None:
-        # Shared resilient client: retries the full TransportError family with
-        # backoff. This scraper previously had NO retry at all, so a single
-        # dropped connection lost the symbol — part of why
-        # psx_financials_annual / _quarterly are still empty (audit §7).
-        self._http = ResilientHTTP(
-            headers=GET_HEADERS, concurrency=2, name="financials_psx",
-        )
+        self._http = ResilientHTTP(headers=GET_HEADERS, concurrency=2, name="financials_psx")
 
     async def close(self) -> None:
         await self._http.aclose()
 
-    async def _try_fetch(self, url: str) -> str:
+    async def _page(self, symbol: str) -> str:
         try:
-            return await self._http.get_text(url)
+            return await self._http.get_text(COMPANY_URL_TMPL.format(symbol=symbol.upper()))
         except Exception as e:  # noqa: BLE001
-            log.warning("financials_psx_unreachable", url=url, err=str(e))
+            log.warning("financials_psx_unreachable", symbol=symbol.upper(), err=str(e))
             return ""
 
-    async def fetch_annual(self, symbol: str) -> list[dict]:
+    async def fetch_financials(self, symbol: str) -> tuple[list[dict], list[dict]]:
+        """Fetch the company page once; parse annual + quarterly income together."""
         sym = symbol.upper()
+        html = await self._page(sym)
+        if not html:
+            return [], []
         try:
-            html = await self._try_fetch(ANNUAL_URL_TMPL.format(symbol=sym))
-            if not html:
-                return []
-            result = _parse_annual(html, symbol=sym)
-            if not result:
-                log.warning("financials:empty_result_possible_js_rendering", symbol=sym)
-            return result
+            soup = BeautifulSoup(html, "lxml")
+            annual = _parse_annual(soup, sym)
+            quarterly = _parse_quarterly(soup, sym)
+            if not annual and not quarterly:
+                log.warning("financials:empty_result", symbol=sym)
+            return annual, quarterly
         except Exception:
-            log.warning("financials_annual_failed", symbol=sym, exc_info=True)
-            return []
+            log.warning("financials_parse_failed", symbol=sym, exc_info=True)
+            return [], []
+
+    async def fetch_annual(self, symbol: str) -> list[dict]:
+        annual, _ = await self.fetch_financials(symbol)
+        return annual
 
     async def fetch_quarterly(self, symbol: str) -> list[dict]:
-        sym = symbol.upper()
-        try:
-            html = await self._try_fetch(QUARTERLY_URL_TMPL.format(symbol=sym))
-            if not html:
-                return []
-            result = _parse_quarterly(html, symbol=sym)
-            if not result:
-                log.warning("financials:empty_result_possible_js_rendering", symbol=sym)
-            return result
-        except Exception:
-            log.warning("financials_quarterly_failed", symbol=sym, exc_info=True)
-            return []
+        _, quarterly = await self.fetch_financials(symbol)
+        return quarterly
 
 
-# ---------- parsers ----------
+# ---------- parsing ----------
 
 
 def _f(x) -> Optional[float]:
@@ -99,150 +104,140 @@ def _f(x) -> Optional[float]:
         return None
 
 
-_LABEL_NUMERIC = re.compile(r"-?\d[\d,.]*")
+def _table_matrix(table) -> tuple[list[str], dict[str, list[Optional[float]]]]:
+    """Return (period headers excluding the leading label column, {label: values})."""
+    rows = table.find_all("tr")
+    if len(rows) < 2:
+        return [], {}
+    head_cells = [c.get_text(" ", strip=True) for c in rows[0].find_all(["th", "td"])]
+    periods = head_cells[1:]  # first column is the metric-label column
+    body: dict[str, list[Optional[float]]] = {}
+    for tr in rows[1:]:
+        cells = [c.get_text(" ", strip=True) for c in tr.find_all(["td", "th"])]
+        if len(cells) < 2 or not cells[0].strip():
+            continue
+        body[cells[0].strip()] = [_f(c) for c in cells[1:]]
+    return periods, body
 
 
-def _parse_annual(html: str, symbol: str) -> list[dict]:
-    """Best-effort: pull the first table whose header row contains a 4-digit
-    year. Each row's first cell is a metric label, and the cells to the right
-    are yearly values (newest first in the typical PSX layout)."""
-    soup = BeautifulSoup(html, "lxml")
-    out: list[dict] = []
+def _find(body: dict[str, list[Optional[float]]], *needles: str) -> list[Optional[float]]:
+    for label, values in body.items():
+        ll = label.lower()
+        if any(n in ll for n in needles):
+            return values
+    return []
+
+
+def _find_eps(body: dict[str, list[Optional[float]]]) -> list[Optional[float]]:
+    # Exact-ish match so 'EPS Growth (%)' in the ratios table is never picked up.
+    for label, values in body.items():
+        ll = label.lower().strip()
+        if ll == "eps" or "earnings per share" in ll:
+            return values
+    return []
+
+
+def _income_table(soup, period_pred) -> tuple[list[str], dict[str, list[Optional[float]]]]:
+    """First period-keyed table that reports absolute income (has a net-income row)."""
     for table in soup.find_all("table"):
-        rows = table.find_all("tr")
-        if len(rows) < 2:
+        periods, body = _table_matrix(table)
+        if not periods or not any(period_pred(p) for p in periods):
             continue
-        head = [c.get_text(" ", strip=True) for c in rows[0].find_all(["th", "td"])]
-        years = [int(y) for y in head if re.fullmatch(r"(19|20)\d{2}", y)]
-        if len(years) < 2:
+        if _find(body, *_NET_INCOME_KEYS) or _find_eps(body):
+            # Skip pure-ratio tables (every metric label carries a '%').
+            if body and all("%" in lbl for lbl in body):
+                continue
+            return periods, body
+    return [], {}
+
+
+def _ratios_table(soup, period_pred) -> tuple[list[str], dict[str, list[Optional[float]]]]:
+    for table in soup.find_all("table"):
+        periods, body = _table_matrix(table)
+        if not periods or not any(period_pred(p) for p in periods):
             continue
-
-        def find_row(*needles: str) -> list[Optional[float]]:
-            for tr in rows[1:]:
-                cells = [c.get_text(" ", strip=True) for c in tr.find_all(["td", "th"])]
-                if not cells:
-                    continue
-                if any(n.lower() in cells[0].lower() for n in needles):
-                    return [_f(c) for c in cells[1:]]
-            return []
-
-        sales = find_row("Sales", "Revenue", "Net sales")
-        cogs = find_row("Cost of sales", "COGS", "Cost of goods")
-        gp = find_row("Gross profit", "Gross Profit")
-        op = find_row("Operating profit", "Operating Profit", "Operating income")
-        ni = find_row("Profit after tax", "Net income", "Net profit", "PAT")
-        eps = find_row("EPS", "Earnings per share")
-        ta = find_row("Total assets", "Total Assets")
-        te = find_row("Total equity", "Shareholders' equity", "Total Equity")
-        td = find_row("Total debt", "Long term debt", "Total Debt")
-        ca = find_row("Current assets", "Current Assets")
-        cl = find_row("Current liabilities", "Current Liabilities")
-
-        for i, year in enumerate(years[:5]):
-            si = i if i < len(sales) else None
-            ni_i = i if i < len(ni) else None
-            s_val = sales[si] if si is not None and si < len(sales) else None
-            ni_val = ni[ni_i] if ni_i is not None and ni_i < len(ni) else None
-            eps_val = eps[i] if i < len(eps) else None
-            gpm_val = (
-                round(gp[i] / sales[i] * 100, 2)
-                if i < len(gp) and i < len(sales) and gp[i] is not None and sales[i] not in (None, 0)
-                else None
-            )
-            npm_val = (
-                round(ni[i] / sales[i] * 100, 2)
-                if i < len(ni) and i < len(sales) and ni[i] is not None and sales[i] not in (None, 0)
-                else None
-            )
-            roe_val = (
-                round(ni[i] / te[i] * 100, 2)
-                if i < len(ni) and i < len(te) and ni[i] is not None and te[i] not in (None, 0)
-                else None
-            )
-            roa_val = (
-                round(ni[i] / ta[i] * 100, 2)
-                if i < len(ni) and i < len(ta) and ni[i] is not None and ta[i] not in (None, 0)
-                else None
-            )
-            out.append({
-                "symbol": symbol,
-                "year": year,
-                "sales": s_val,
-                "cogs": cogs[i] if i < len(cogs) else None,
-                "gp": gp[i] if i < len(gp) else None,
-                "op_income": op[i] if i < len(op) else None,
-                "net_income": ni_val,
-                "eps": eps_val,
-                "total_assets": ta[i] if i < len(ta) else None,
-                "total_equity": te[i] if i < len(te) else None,
-                "total_debt": td[i] if i < len(td) else None,
-                "current_assets": ca[i] if i < len(ca) else None,
-                "current_liabilities": cl[i] if i < len(cl) else None,
-                "gpm": gpm_val,
-                "npm": npm_val,
-                "roe": roe_val,
-                "roa": roa_val,
-            })
-        if out:
-            return out
-    return out
+        if any("%" in lbl for lbl in body):
+            return periods, body
+    return [], {}
 
 
-def _parse_quarterly(html: str, symbol: str) -> list[dict]:
-    """Parse the quarterly summary. The columns are period codes (e.g. 1Q2025,
-    2Q2024) and the rows are metric labels. We synthesise a stable
-    ``period`` string of the form ``"Q{n}{YYYY}"``.
+def _at(values: list[Optional[float]], i: int) -> Optional[float]:
+    return values[i] if i < len(values) else None
+
+
+def _parse_annual(soup, symbol: str) -> list[dict]:
+    is_year = lambda p: bool(_YEAR_RE.match(p.strip()))
+    periods, body = _income_table(soup, is_year)
+    if not periods:
+        return []
+    _, ratios = _ratios_table(soup, is_year)
+
+    sales = _find(body, *_SALES_KEYS)
+    ni = _find(body, *_NET_INCOME_KEYS)
+    eps = _find_eps(body)
+    gpm = _find(ratios, "gross profit margin")
+    npm = _find(ratios, "net profit margin")
+    roe = _find(ratios, "return on equity", "roe")
+    roa = _find(ratios, "return on asset", "roa")
+
+    out: list[dict] = []
+    for i, p in enumerate(periods):
+        if not is_year(p.strip()):
+            continue
+        year = int(p.strip())
+        row = {
+            "symbol": symbol, "year": year,
+            "sales": _at(sales, i), "cogs": None, "gp": None, "op_income": None,
+            "net_income": _at(ni, i), "eps": _at(eps, i),
+            "total_assets": None, "total_equity": None, "total_debt": None,
+            "current_assets": None, "current_liabilities": None,
+            "gpm": _at(gpm, i), "npm": _at(npm, i), "roe": _at(roe, i), "roa": _at(roa, i),
+        }
+        if row["net_income"] is not None or row["eps"] is not None or row["sales"] is not None:
+            out.append(row)
+    return _dedup(out, "year")[:6]
+
+
+def _parse_quarterly(soup, symbol: str) -> list[dict]:
+    has_quarter = lambda p: bool(_QUARTER_RE.search(p))
+    periods, body = _income_table(soup, has_quarter)
+    if not periods:
+        return []
+
+    sales = _find(body, *_SALES_KEYS)
+    ni = _find(body, *_NET_INCOME_KEYS)
+    eps = _find_eps(body)
+
+    out: list[dict] = []
+    for i, p in enumerate(periods):
+        m = _QUARTER_RE.search(p)
+        if not m:
+            continue
+        q, y = int(m.group(1)), int(m.group(2))
+        row = {
+            "symbol": symbol,
+            # Sortable, stable per-symbol key, e.g. '2026Q3'.
+            "period": f"{y}Q{q}",
+            "end_date": None,
+            "sales": _at(sales, i), "net_income": _at(ni, i), "eps": _at(eps, i),
+        }
+        if row["net_income"] is not None or row["eps"] is not None or row["sales"] is not None:
+            out.append(row)
+    return _dedup(out, "period")[:12]
+
+
+def _dedup(rows: list[dict], key: str) -> list[dict]:
+    """Keep the first row per key so an upsert batch never has a duplicate PK.
+
+    DPS occasionally repeats a period/year column (e.g. restated quarters); the
+    leftmost column is the most recent authoritative figure.
     """
-    soup = BeautifulSoup(html, "lxml")
+    seen: set = set()
     out: list[dict] = []
-    for table in soup.find_all("table"):
-        rows = table.find_all("tr")
-        if len(rows) < 2:
+    for row in rows:
+        k = row.get(key)
+        if k in seen:
             continue
-        head = [c.get_text(" ", strip=True) for c in rows[0].find_all(["th", "td"])]
-        periods: list[tuple[int, int]] = []
-        for h in head[1:]:
-            m = re.search(r"(\d)Q\s*(\d{4})", h, re.I)
-            if m:
-                periods.append((int(m.group(1)), int(m.group(2))))
-        if not periods:
-            # Fallback: periods as "Sep-2024" / "Mar-2025" / etc.
-            month_q = {
-                "mar": 1, "jun": 2, "sep": 3, "dec": 4,
-                "jan": 1, "feb": 1, "apr": 2, "may": 2, "jul": 3, "aug": 3,
-                "oct": 4, "nov": 4, "dec": 4,
-            }
-            for h in head[1:]:
-                m = re.search(r"([A-Za-z]{3})-?(\d{4})", h)
-                if m:
-                    mon = m.group(1).lower()[:3]
-                    if mon in month_q:
-                        periods.append((month_q[mon], int(m.group(2))))
-        if not periods:
-            continue
-
-        def find_row(*needles: str) -> list[Optional[float]]:
-            for tr in rows[1:]:
-                cells = [c.get_text(" ", strip=True) for c in tr.find_all(["td", "th"])]
-                if not cells:
-                    continue
-                if any(n.lower() in cells[0].lower() for n in needles):
-                    return [_f(c) for c in cells[1:]]
-            return []
-
-        sales = find_row("Sales", "Revenue", "Net sales")
-        ni = find_row("Profit after tax", "Net income", "Net profit", "PAT")
-        eps = find_row("EPS", "Earnings per share")
-
-        for i, (q, y) in enumerate(periods[:20]):
-            out.append({
-                "symbol": symbol,
-                "period": f"Q{q}{y}",
-                "end_date": None,
-                "sales": sales[i] if i < len(sales) else None,
-                "net_income": ni[i] if i < len(ni) else None,
-                "eps": eps[i] if i < len(eps) else None,
-            })
-        if out:
-            return out
+        seen.add(k)
+        out.append(row)
     return out

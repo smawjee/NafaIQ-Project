@@ -24,7 +24,6 @@ import {
   usePsxSymbols,
   usePsxIndexData,
   usePsxBatchSignals,
-  usePsxBatchSignalsV2,
   usePsxScreenerMetrics,
   usePsxTreemap,
   useMarketMovers,
@@ -93,7 +92,6 @@ export function PSX() {
   const { data: selectedIndexData } = usePsxIndexData(selectedIndexCode);
   const { data: kse100Data } = usePsxIndexData("KSE100");
   const { data: batchSignals } = usePsxBatchSignals(50);
-  const { data: batchSignalsV2 } = usePsxBatchSignalsV2(50, "20D");
   const { data: screenerMetrics } = usePsxScreenerMetrics();
   const { data: treemapData, isLoading: isLoadingTreemap } = usePsxTreemap();
   const marketMovers = useMarketMovers(
@@ -256,17 +254,10 @@ export function PSX() {
       }
     }
     if (snapshot && snapshot.length > 0) {
+      // Signals V4 only: the badge shows the setup label; the legacy v2 detail
+      // popover (confidence %, reasons) is retired.
       const signalMap = new Map<string, Signal>();
-      const signalDetailsMap = new Map<
-        string,
-        NonNullable<typeof batchSignalsV2>["signals"][number]
-      >();
-      if (batchSignalsV2?.signals) {
-        for (const s of batchSignalsV2.signals) {
-          if (s.signal) signalMap.set(s.symbol, s.signal as Signal);
-          signalDetailsMap.set(s.symbol, s);
-        }
-      } else if (batchSignals?.signals) {
+      if (batchSignals?.signals) {
         for (const s of batchSignals.signals) {
           if (s.signal) signalMap.set(s.symbol, s.signal as Signal);
         }
@@ -280,7 +271,7 @@ export function PSX() {
           changePct: s.change_pct ?? 0,
           // No fabricated HOLD: only show a signal the model actually produced.
           signal: signalMap.get(s.symbol) ?? null,
-          signalDetails: signalDetailsMap.get(s.symbol) ?? null,
+          signalDetails: null,
           rsi: m?.rsi ?? null,
           volume: formatNumber(s.volume ?? 0, 0),
           marketCap: m?.market_cap != null ? formatCompactPKR(m.market_cap) : "—",
@@ -308,7 +299,6 @@ export function PSX() {
     sectorFilter,
     searchFilter,
     batchSignals,
-    batchSignalsV2,
     metricsMap,
     isDemo,
   ]);
@@ -316,16 +306,7 @@ export function PSX() {
   const movers = useMemo(() => {
     if (marketMovers.length > 0) {
       const signalMap = new Map<string, Signal>();
-      const signalDetailsMap = new Map<
-        string,
-        NonNullable<typeof batchSignalsV2>["signals"][number]
-      >();
-      if (batchSignalsV2?.signals) {
-        for (const s of batchSignalsV2.signals) {
-          if (s.signal) signalMap.set(s.symbol, s.signal as Signal);
-          signalDetailsMap.set(s.symbol, s);
-        }
-      } else if (batchSignals?.signals) {
+      if (batchSignals?.signals) {
         for (const s of batchSignals.signals) {
           if (s.signal) signalMap.set(s.symbol, s.signal as Signal);
         }
@@ -336,7 +317,7 @@ export function PSX() {
         price: m.price,
         changePct: m.changePct,
         signal: signalMap.get(m.symbol) ?? null,
-        signalDetails: signalDetailsMap.get(m.symbol) ?? null,
+        signalDetails: null,
         rsi: metricsMap.get(m.symbol)?.rsi ?? null,
         volume: formatCompact(m.volume ?? 0),
         marketCap:
@@ -355,7 +336,7 @@ export function PSX() {
         .slice(0, 6);
     if (moverTab === "Losers") return arr.sort((a, b) => a.changePct - b.changePct).slice(0, 6);
     return arr.sort((a, b) => parseFloat(b.volume) - parseFloat(a.volume)).slice(0, 6);
-  }, [moverTab, marketMovers, batchSignals, batchSignalsV2, metricsMap, isDemo]);
+  }, [moverTab, marketMovers, batchSignals, metricsMap, isDemo]);
 
   const screened = screenRows.filter((s) => signalFilter === "All" || s.signal === signalFilter);
   const screenerPageSize = 8;
@@ -567,7 +548,7 @@ export function PSX() {
             onAddOpenChange={setAddOpen}
             snapshot={snapshot}
             symbolsData={symbolsData}
-            batchSignals={batchSignalsV2 ?? batchSignals}
+            batchSignals={batchSignals}
           />
 
           <PsxMoversCard moverTab={moverTab} onMoverTabChange={setMoverTab} movers={movers} />

@@ -33,10 +33,10 @@ async def main() -> None:
               AND table_name = ANY($1::text[])
             ORDER BY table_name
             """,
-            ["psx_ohlcv", "psx_ohlcv_raw", "psx_ohlcv_verified", "psx_signal_events", "psx_signal_forecasts", "psx_signal_model_registry"],
+            ["psx_ohlcv", "psx_signal_events", "psx_signal_forecasts", "psx_signal_model_registry"],
         )
         counts = {}
-        for table in ("psx_ohlcv", "psx_ohlcv_raw", "psx_ohlcv_verified", "psx_signal_events", "psx_signal_forecasts"):
+        for table in ("psx_ohlcv", "psx_signal_events", "psx_signal_forecasts"):
             counts[table] = await conn.fetchval(f"SELECT COUNT(*) FROM public.{table}")
         print({"tables": [row["table_name"] for row in tables], "counts": counts})
     finally:
