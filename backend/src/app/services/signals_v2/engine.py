@@ -11,7 +11,7 @@ from app.services.signals_v2.constants import DEFAULT_HORIZON, ENGINE_VERSION, H
 from app.services.signals_v2.data_quality import assess_data_quality
 from app.services.signals_v2.explain import build_reasons, build_warnings
 from app.services.signals_v2.features import build_feature_frame, compute_feature_snapshot
-from app.services.market import tv_ratings
+from app.services.market import flow_context, tv_ratings
 from app.services.signals_v2.fusion import fuse_signal
 from app.services.signals_v2.labels import SignalLabel
 from app.services.signals_v2.model_loader import model_loader
@@ -114,6 +114,7 @@ async def get_signal(symbol: str, horizon: str = DEFAULT_HORIZON) -> dict[str, A
     )
     response = await _attach_consensus(response, hz)
     response = _attach_trend(response, features, _get_trend_stats())
+    response = await _attach_flow_context(response)
     await _persist(response)
     return response.model_dump(mode="json")
 
@@ -210,6 +211,17 @@ def _attach_trend(response: SignalV2Response, features: dict, stats: dict | None
         "risk_metrics": metrics,
         "warnings": [*response.warnings, *extra_warnings],
     })
+
+
+async def _attach_flow_context(response: SignalV2Response) -> SignalV2Response:
+    """Best-effort market-wide FIPI flow context; never blocks a signal."""
+    try:
+        ctx = await flow_context.get_flow_context()
+        if ctx is None:
+            return response
+        return response.model_copy(update={"flow_context": ctx})
+    except Exception:
+        return response
 
 
 async def _attach_consensus(response: SignalV2Response, horizon: str) -> SignalV2Response:

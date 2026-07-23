@@ -63,3 +63,25 @@ def test_attach_trend_unknown_keeps_response_clean():
     assert out.trend_state == "UNKNOWN"
     assert out.risk_metrics is not None
     assert out.warnings == []                                   # no noise for UNKNOWN/RANGE
+
+
+def test_attach_flow_context_populates_block(monkeypatch):
+    async def fake_ctx():
+        return {"foreign_net_5d_pkr": 1.5e9, "foreign_net_20d_pkr": 4.0e9,
+                "foreign_net_5d_usd": 5.4e6, "trend": "FOREIGN_BUYING",
+                "last_date": "2026-07-22", "days_covered": 38,
+                "source": "nccpl-via-finhisaab"}
+
+    monkeypatch.setattr(engine.flow_context, "get_flow_context", fake_ctx)
+    out = asyncio.run(engine._attach_flow_context(_response()))
+    assert out.flow_context["trend"] == "FOREIGN_BUYING"
+    assert out.flow_context["source"] == "nccpl-via-finhisaab"
+
+
+def test_attach_flow_context_tolerates_failure(monkeypatch):
+    async def boom():
+        raise RuntimeError("down")
+
+    monkeypatch.setattr(engine.flow_context, "get_flow_context", boom)
+    out = asyncio.run(engine._attach_flow_context(_response()))
+    assert out.flow_context is None

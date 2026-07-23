@@ -84,6 +84,7 @@ class SignalV2Response(BaseModel):
     trend_state: Optional[str] = None                   # UPTREND | WEAKENING | DOWNTREND | BASING | RANGE | UNKNOWN
     trend_score: Optional[float] = None
     risk_metrics: Optional[dict[str, Any]] = None
+    flow_context: Optional[dict[str, Any]] = None       # market-wide FIPI foreign-flow summary
     features_snapshot: dict[str, Any] = Field(default_factory=dict)
     model_version: str
     engine_version: str
