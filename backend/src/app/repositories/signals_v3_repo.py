@@ -64,3 +64,37 @@ async def signals_missing_outcomes(*, limit: int = 500) -> list[dict[str, Any]]:
                                    .select("signal_id").in_("signal_id", ids))
     have = {o["signal_id"] for o in (outcomes.data or [])}
     return [r for r in rows if r["id"] not in have]
+
+
+async def complete_run_exists(*, as_of: str, model_version: str) -> bool:
+    res = await async_execute(lambda c: c.table("psx_signal_scoring_runs")
+                              .select("scoring_run_id").eq("as_of", as_of)
+                              .eq("model_version", model_version)
+                              .eq("status", "COMPLETE").limit(1))
+    return bool(res.data)
+
+
+async def matured_outcomes_joined(*, limit: int = 5000) -> list[dict[str, Any]]:
+    """Outcome rows joined with their signal rows (signal label, horizon, symbol, as_of)."""
+    outcomes = await async_execute(
+        lambda c: c.table("psx_signal_outcomes")
+        .select("signal_id,realized_return,benchmark_return,excess_return,large_loss,evaluated_at")
+        .limit(limit))
+    orows = outcomes.data or []
+    if not orows:
+        return []
+    ids = [o["signal_id"] for o in orows]
+    sig_map: dict[int, dict] = {}
+    for i in range(0, len(ids), 200):
+        chunk = ids[i:i + 200]
+        res = await async_execute(lambda c, ch=chunk: c.table("psx_signals_v3_daily")
+                                  .select("id,symbol,horizon,as_of,signal,model_version")
+                                  .in_("id", ch))
+        for s in res.data or []:
+            sig_map[s["id"]] = s
+    joined = []
+    for o in orows:
+        s = sig_map.get(o["signal_id"])
+        if s:
+            joined.append({**s, **o})
+    return joined

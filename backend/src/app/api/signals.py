@@ -35,6 +35,22 @@ async def batch_signals(request: Request, body: BatchSignalsRequest | None = Non
     return await signals_service.batch_signals((body or BatchSignalsRequest()).limit)
 
 
+@router.get("/signals/v2/track-record")
+async def signal_track_record():
+    """Live, measured track record of published signals (matured outcomes only)."""
+    from app.repositories import signals_v3_repo
+    from app.services.signals_v2.outcomes import aggregate_track_record
+
+    joined = await signals_v3_repo.matured_outcomes_joined()
+    pending = await signals_v3_repo.signals_missing_outcomes(limit=1000)
+    return {
+        **aggregate_track_record(joined),
+        "pending_maturity": len(pending),
+        "note": "Outcomes are measured against real prices after signals were published; "
+                "insert-only history, never edited.",
+    }
+
+
 @router.get("/signals/v2/leaderboard")
 @limiter.limit("20/minute")
 async def signals_v2_leaderboard(

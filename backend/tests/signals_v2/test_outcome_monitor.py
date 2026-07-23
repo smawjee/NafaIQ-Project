@@ -49,3 +49,54 @@ def test_mature_outcome_flags_large_loss():
     assert out is not None
     assert out["realized_return"] < -0.05
     assert out["large_loss"] is True
+
+
+def test_v2_row_to_snapshot_maps_fields():
+    from app.services.signals_v2.outcomes import v2_row_to_snapshot
+
+    row = {"symbol": "hbl", "horizon": "20D", "signal": "BUY", "confidence": 61.0,
+           "technical_score": 0.42, "freshness": "LIVE", "trend_state": "UPTREND",
+           "consensus_agreement": "AGREES", "features_snapshot": {"ret_20d": 0.05}}
+    snap = v2_row_to_snapshot(row, as_of="2026-07-23", sector_map={"HBL": "BANKING"})
+    assert snap["symbol"] == "HBL"
+    assert snap["as_of"] == "2026-07-23"
+    assert snap["horizon"] == "20D"
+    assert snap["signal"] == "BUY"
+    assert snap["sector"] == "BANKING"
+    assert snap["rank_score"] == 0.42                       # technical score preserved
+    assert snap["data_quality_status"] == "LIVE"
+    assert snap["explanation_factors"]["confidence"] == 61.0
+    assert snap["explanation_factors"]["trend_state"] == "UPTREND"
+
+
+def test_v2_row_to_snapshot_skips_no_signal():
+    from app.services.signals_v2.outcomes import v2_row_to_snapshot
+
+    row = {"symbol": "X", "horizon": "20D", "signal": "NO_SIGNAL", "freshness": "STALE"}
+    assert v2_row_to_snapshot(row, as_of="2026-07-23", sector_map={}) is None
+
+
+def test_track_record_aggregation():
+    from app.services.signals_v2.outcomes import aggregate_track_record
+
+    joined = [
+        {"signal": "BUY", "realized_return": 0.05, "excess_return": 0.02, "large_loss": False},
+        {"signal": "BUY", "realized_return": -0.04, "excess_return": -0.05, "large_loss": True},
+        {"signal": "SELL", "realized_return": -0.03, "excess_return": -0.04, "large_loss": False},
+        {"signal": "HOLD", "realized_return": 0.01, "excess_return": 0.0, "large_loss": False},
+    ]
+    agg = aggregate_track_record(joined)
+    assert agg["matured_total"] == 4
+    assert agg["by_signal"]["BUY"]["n"] == 2
+    assert abs(agg["by_signal"]["BUY"]["hit_rate"] - 0.5) < 1e-9        # 1 of 2 positive
+    assert abs(agg["by_signal"]["BUY"]["avg_excess"] - (-0.015)) < 1e-9
+    assert abs(agg["by_signal"]["BUY"]["large_loss_rate"] - 0.5) < 1e-9
+    assert abs(agg["by_signal"]["SELL"]["avoided_loss_rate"] - 1.0) < 1e-9  # SELL followed by fall
+
+
+def test_track_record_empty():
+    from app.services.signals_v2.outcomes import aggregate_track_record
+
+    agg = aggregate_track_record([])
+    assert agg["matured_total"] == 0
+    assert agg["by_signal"] == {}

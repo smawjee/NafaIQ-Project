@@ -562,6 +562,32 @@ async def job_refresh_tv_data():
         await _record_health("tradingview", success=False, error=str(e))
 
 
+async def job_snapshot_signals():
+    """Immutable daily snapshot of current technical signals (track-record input)."""
+    from app.services.signals_v2.outcomes import snapshot_current_signals
+
+    try:
+        result = await snapshot_current_signals()
+        await _record_health("signal_snapshot", success=True,
+                             rows_updated=int(result.get("rows") or 0))
+    except Exception as e:
+        log.warning("job_snapshot_signals_failed", exc_info=True)
+        await _record_health("signal_snapshot", success=False, error=str(e))
+
+
+async def job_signal_outcomes():
+    """Mature snapshotted signals whose horizon elapsed; insert-only outcomes."""
+    from app.services.signals_v2.outcomes import evaluate_pending_outcomes
+
+    try:
+        result = await evaluate_pending_outcomes()
+        await _record_health("signal_outcomes", success=True,
+                             rows_updated=int(result.get("outcomes_inserted") or 0))
+    except Exception as e:
+        log.warning("job_signal_outcomes_failed", exc_info=True)
+        await _record_health("signal_outcomes", success=False, error=str(e))
+
+
 async def job_refresh_fipi():
     """Daily FIPI/LIPI investor-flow ingestion (NCCPL data via finhisaab mirror)."""
     from datetime import date, timedelta
@@ -1083,6 +1109,19 @@ def init_scheduler():
         job_refresh_fipi,
         CronTrigger(day_of_week="mon-fri", hour=18, minute=30, timezone="Asia/Karachi"),
         id="refresh_fipi",
+        replace_existing=True,
+    )
+    # Track record: snapshot what users saw after close, mature elapsed signals nightly.
+    scheduler.add_job(
+        job_snapshot_signals,
+        CronTrigger(day_of_week="mon-fri", hour=17, minute=45, timezone="Asia/Karachi"),
+        id="snapshot_signals",
+        replace_existing=True,
+    )
+    scheduler.add_job(
+        job_signal_outcomes,
+        CronTrigger(day_of_week="mon-fri", hour=19, minute=30, timezone="Asia/Karachi"),
+        id="signal_outcomes",
         replace_existing=True,
     )
     # Shared, once-per-trading-day Market Brief — weekdays ~09:45 PKT, after the
