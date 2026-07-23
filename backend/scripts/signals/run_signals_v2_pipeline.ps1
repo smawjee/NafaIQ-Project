@@ -47,6 +47,9 @@ if ($LASTEXITCODE -eq 2) { Write-Error "Data audit blocked"; exit 2 }
 # V3 feature stores + manifests.
 python scripts\signals\build_feature_store_v2.py
 
+# Trend-state continuation stats (feeds the risk engine's warnings).
+python scripts\signals\calibrate_trend_stats.py
+
 # Phase 0 decision gate: GREEN(0) proceeds; RED(2)/INCONCLUSIVE(3) stop unless overridden.
 python scripts\signals\phase0_relative_labels.py
 if ($LASTEXITCODE -ne 0 -and -not $Phase0Override) {
