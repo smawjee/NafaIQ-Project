@@ -1,0 +1,71 @@
+"""Rule-based trend-state classification + volatility-derived risk metrics.
+
+The trend state answers "which phase is this stock in?" — the part of market
+behavior that is actually persistent (trend/volatility clustering), unlike
+short-horizon returns (Phase 0 RED, 2026-07-22). Continuation probabilities
+attached to warnings come ONLY from calibrate_trend_stats.py output measured
+on real PSX history; nothing is invented.
+"""
+from __future__ import annotations
+
+from dataclasses import dataclass
+from typing import Any
+
+
+@dataclass(frozen=True)
+class TrendAssessment:
+    state: str            # UPTREND | WEAKENING | DOWNTREND | BASING | RANGE | UNKNOWN
+    score: float          # [-1, 1]
+    evidence: list[str]
+
+
+def _num(features: dict[str, Any], key: str) -> float | None:
+    v = features.get(key)
+    try:
+        return float(v) if v is not None else None
+    except (TypeError, ValueError):
+        return None
+
+
+def classify_trend(features: dict[str, Any]) -> TrendAssessment:
+    r50 = _num(features, "price_sma50_ratio")
+    r200 = _num(features, "price_sma200_ratio")
+    sma50 = _num(features, "sma50")
+    sma200 = _num(features, "sma200")
+    ret20 = _num(features, "ret_20d") or 0.0
+    ret60 = _num(features, "ret_60d") or 0.0
+    dist_low = _num(features, "dist_52w_low")
+
+    if r50 is None or r200 is None:
+        return TrendAssessment("UNKNOWN", 0.0, ["insufficient history for 50/200-day structure"])
+
+    above50, above200 = r50 > 0, r200 > 0
+    # sma50 > sma200  <=>  price/sma50 < price/sma200  <=>  r50 < r200 — so the
+    # ratio inequality classifies identically when raw MAs are absent (store vectors).
+    golden = (sma50 > sma200) if (sma50 is not None and sma200 is not None) else (r200 > r50)
+
+    if above50 and above200 and golden and ret60 > 0:
+        score = min(1.0, (min(r50, 0.15) + min(r200, 0.25) + min(ret60, 0.30)) / 0.7 + 0.2)
+        return TrendAssessment("UPTREND", round(score, 3), [
+            "price above both 50-day and 200-day averages",
+            "50-day average above 200-day (bullish structure)",
+            f"60-day return {ret60:+.1%}",
+        ])
+    if not above50 and not above200 and not golden and ret60 < 0:
+        score = -min(1.0, (min(-r50, 0.15) + min(-r200, 0.25) + min(-ret60, 0.30)) / 0.7 + 0.2)
+        return TrendAssessment("DOWNTREND", round(score, 3), [
+            "price below both 50-day and 200-day averages",
+            "50-day average below 200-day (bearish structure)",
+            f"60-day return {ret60:+.1%}",
+        ])
+    if above200 and not above50 and ret20 < 0:
+        return TrendAssessment("WEAKENING", round(-min(0.5, -ret20 * 5), 3), [
+            "price slipped below the 50-day average while still above the 200-day",
+            f"20-day return {ret20:+.1%}",
+        ])
+    if not above200 and ret20 > 0 and dist_low is not None and dist_low <= 0.15:
+        return TrendAssessment("BASING", round(min(0.4, ret20 * 4), 3), [
+            f"within {dist_low:.0%} of the 52-week low with a recent bounce",
+            f"20-day return {ret20:+.1%}",
+        ])
+    return TrendAssessment("RANGE", 0.0, ["no dominant trend structure"])
