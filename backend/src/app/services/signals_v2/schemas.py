@@ -81,6 +81,9 @@ class SignalV2Response(BaseModel):
     probabilities: Optional[dict[str, float]] = None
     consensus: Optional[dict[str, Any]] = None          # TradingView technical-rating block
     consensus_agreement: Optional[str] = None           # AGREES | MIXED | DISAGREES
+    trend_state: Optional[str] = None                   # UPTREND | WEAKENING | DOWNTREND | BASING | RANGE | UNKNOWN
+    trend_score: Optional[float] = None
+    risk_metrics: Optional[dict[str, Any]] = None
     features_snapshot: dict[str, Any] = Field(default_factory=dict)
     model_version: str
     engine_version: str

@@ -17,6 +17,12 @@ from app.services.signals_v2.labels import SignalLabel
 from app.services.signals_v2.model_loader import model_loader
 from app.services.signals_v2.regime import assess_regime
 from app.services.signals_v2.risk import assess_risk, liquidity_score
+from app.services.signals_v2.trend_state import (
+    classify_trend,
+    load_trend_stats,
+    render_trend_warnings,
+    risk_metrics,
+)
 from app.services.signals_v2.schemas import Horizon, SignalV2Response
 from app.services.signals_v2.technical_rating import compute_technical_rating
 
@@ -107,6 +113,7 @@ async def get_signal(symbol: str, horizon: str = DEFAULT_HORIZON) -> dict[str, A
         predicted_at=datetime.now(timezone.utc),
     )
     response = await _attach_consensus(response, hz)
+    response = _attach_trend(response, features, _get_trend_stats())
     await _persist(response)
     return response.model_dump(mode="json")
 
@@ -179,6 +186,30 @@ async def _load_inputs(symbol: str) -> tuple[list[dict[str, Any]], dict[str, Any
         (profile_res.data or [{}])[0],
         list(reversed(kse_res.data or [])),
     )
+
+
+_trend_stats_cache: dict | None = None
+_trend_stats_loaded = False
+
+
+def _get_trend_stats() -> dict | None:
+    global _trend_stats_cache, _trend_stats_loaded
+    if not _trend_stats_loaded:
+        _trend_stats_cache = load_trend_stats()
+        _trend_stats_loaded = True
+    return _trend_stats_cache
+
+
+def _attach_trend(response: SignalV2Response, features: dict, stats: dict | None) -> SignalV2Response:
+    trend = classify_trend(features)
+    metrics = risk_metrics(features, trend, stats=stats)
+    extra_warnings = render_trend_warnings(trend, metrics)
+    return response.model_copy(update={
+        "trend_state": trend.state,
+        "trend_score": trend.score,
+        "risk_metrics": metrics,
+        "warnings": [*response.warnings, *extra_warnings],
+    })
 
 
 async def _attach_consensus(response: SignalV2Response, horizon: str) -> SignalV2Response:

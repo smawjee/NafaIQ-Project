@@ -44,3 +44,22 @@ def test_attach_consensus_tolerates_failure(monkeypatch):
     monkeypatch.setattr(engine.tv_ratings, "fetch_consensus", boom)
     out = asyncio.run(engine._attach_consensus(_response(), "20D"))
     assert out.consensus is None and out.consensus_agreement is None
+
+
+def test_attach_trend_populates_state_and_warnings():
+    feats = {"last_close": 80.0, "sma50": 88.0, "sma200": 95.0,
+             "price_sma50_ratio": 80 / 88 - 1, "price_sma200_ratio": 80 / 95 - 1,
+             "ret_20d": -0.06, "ret_60d": -0.15, "dist_52w_high": -0.30,
+             "dist_52w_low": 0.05, "volatility_20d": 0.30, "atr14_pct": 0.02}
+    out = engine._attach_trend(_response(), feats, stats=None)
+    assert out.trend_state == "DOWNTREND"
+    assert out.trend_score < 0
+    assert out.risk_metrics["suggested_stop_pct"] >= 0.03
+    assert any("downtrend" in w.lower() for w in out.warnings)
+
+
+def test_attach_trend_unknown_keeps_response_clean():
+    out = engine._attach_trend(_response(), {}, stats=None)
+    assert out.trend_state == "UNKNOWN"
+    assert out.risk_metrics is not None
+    assert out.warnings == []                                   # no noise for UNKNOWN/RANGE
