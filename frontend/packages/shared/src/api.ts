@@ -179,3 +179,99 @@ export interface BatchSignalsResponse {
   signals: ApiSignal[];
   count: number;
 }
+
+/* ── Signals v2 (backend api/signals.py /signals/v2/*) ──────────────────── */
+
+export type SignalHorizon = "5D" | "20D" | "60D";
+
+/** v2 can decline to call a setup; the 5-value `Signal` stays badge-safe. */
+export type SignalV2Label = Signal | "NO SIGNAL";
+
+export interface ApiIndicatorVote {
+  name: string;
+  vote: -1 | 0 | 1;
+  weight: number;
+  value: number | null;
+  reason: string;
+}
+
+/** TradingView technical-rating consensus used as an external cross-check. */
+export interface ApiSignalConsensus {
+  rating: number;
+  ma_rating: number | null;
+  oscillator_rating: number | null;
+  label: string | null;
+  source: string;
+  as_of: string;
+}
+
+export interface ApiSignalRiskMetrics {
+  annualized_volatility: number;
+  expected_20d_move_pct: number;
+  suggested_stop_pct: number;
+  position_risk: "LOW" | "MODERATE" | "HIGH" | "EXTREME";
+  continuation: {
+    n: number;
+    p_negative_20d: number;
+    median_20d_return: number;
+  } | null;
+}
+
+/** Market-wide FIPI foreign-flow summary attached to every v2 signal. */
+export interface ApiFlowContext {
+  foreign_net_5d_pkr: number;
+  foreign_net_20d_pkr: number;
+  foreign_net_5d_usd: number;
+  trend: "FOREIGN_BUYING" | "FOREIGN_SELLING" | "MIXED" | "NEUTRAL";
+  last_date: string;
+  days_covered: number;
+  source: string;
+}
+
+export interface ApiSignalV2 {
+  symbol: string;
+  horizon: SignalHorizon;
+  signal: SignalV2Label;
+  confidence: number;
+  rank_score: number;
+  technical_signal: SignalV2Label;
+  technical_score: number;
+  ml_signal: Signal | null;
+  ml_confidence: number | null;
+  risk_level: "LOW" | "MODERATE" | "HIGH" | "EXTREME";
+  regime: "BULLISH" | "NEUTRAL" | "BEARISH" | "HIGH_VOLATILITY";
+  freshness: "LIVE" | "DELAYED" | "STALE" | "UNKNOWN";
+  reasons: string[];
+  warnings: string[];
+  indicator_votes: ApiIndicatorVote[];
+  probabilities: Record<string, number> | null;
+  consensus?: ApiSignalConsensus | null;
+  consensus_agreement?: "AGREES" | "MIXED" | "DISAGREES" | null;
+  trend_state?: "UPTREND" | "WEAKENING" | "DOWNTREND" | "BASING" | "RANGE" | "UNKNOWN" | null;
+  trend_score?: number | null;
+  risk_metrics?: ApiSignalRiskMetrics | null;
+  flow_context?: ApiFlowContext | null;
+  features_snapshot: Record<string, unknown>;
+  model_version: string;
+  engine_version: string;
+  predicted_at: string;
+}
+
+/* ── Signal track record (/signals/v2/track-record) ─────────────────────── */
+
+export interface ApiTrackRecordEntry {
+  n: number;
+  hit_rate: number;
+  avg_return: number;
+  avg_excess: number;
+  large_loss_rate: number;
+  avoided_loss_rate?: number;
+}
+
+export interface ApiTrackRecord {
+  matured_total: number;
+  /** Keys are underscore signal labels ("STRONG_BUY"), per the outcomes store. */
+  by_signal: Record<string, ApiTrackRecordEntry>;
+  pending_maturity: number;
+  note: string;
+}

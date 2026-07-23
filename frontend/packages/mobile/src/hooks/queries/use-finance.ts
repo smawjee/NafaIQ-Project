@@ -32,6 +32,40 @@ export interface FinanceTransactionInput {
   note?: string | null;
 }
 
+/** Server vocabulary for the add/edit form: canonical categories plus the
+ * user's own payment methods (seeded defaults + anything they added). */
+export interface FinanceVocabulary {
+  categories: string[];
+  payment_methods: string[];
+  transaction_types: ("expense" | "income" | string)[];
+}
+
+export interface FinancePaymentMethod {
+  id: number;
+  label: string;
+  created_at: string;
+}
+
+export function useFinanceVocabulary(enabled: boolean = true) {
+  return useQuery<FinanceVocabulary>({
+    queryKey: ["finance", "vocabulary"],
+    queryFn: () => userGet<FinanceVocabulary>("/api/finance/vocabulary"),
+    enabled,
+    staleTime: 5 * 60_000,
+  });
+}
+
+export function useCreatePaymentMethod() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (label: string) =>
+      userPost<FinancePaymentMethod>("/api/finance/payment-methods", { label }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["finance", "vocabulary"] });
+    },
+  });
+}
+
 export function useFinanceTransactions(enabled: boolean = true, limit: number = 100) {
   return useQuery<FinanceTransaction[]>({
     queryKey: ["finance", "transactions", limit],

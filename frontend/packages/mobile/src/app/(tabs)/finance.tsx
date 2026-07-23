@@ -25,6 +25,7 @@ import { GlassScreen } from "@/components/glass/GlassScreen";
 import { GlassSheet } from "@/components/glass/GlassSheet";
 import { Field } from "@/components/Modal";
 import { AiReportSheet } from "@/components/ai/AiReportSheet";
+import { PaymentMethodPicker } from "@/components/finance/PaymentMethodPicker";
 import { Button, Text } from "@/components/ui";
 import { ChipRow, Segmented } from "@/components/ui/controls";
 import { ProgressBar } from "@/components/ui/ProgressBar";
@@ -39,6 +40,7 @@ import {
   useCreateBill,
   useCreateBudget,
   useCreateGoal,
+  useCreatePaymentMethod,
   useCreateTransaction,
   useDeleteBill,
   useDeleteBudget,
@@ -49,6 +51,7 @@ import {
   useFinanceGoals,
   useFinanceSummary,
   useFinanceTransactions,
+  useFinanceVocabulary,
   useMarkBillPaid,
   useUpdateBill,
   useUpdateBudget,
@@ -94,8 +97,25 @@ const CAT_COLOR: Record<string, string> = {
   Savings: "#6b7280",
 };
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+// Offline fallbacks only — the live lists come from GET /finance/vocabulary
+// (canonical categories + the user's own payment methods).
 const CATEGORIES = ["Food & Dining", "Utilities", "Transport", "Groceries", "Shopping", "Subscriptions", "Savings"];
 const ACCOUNTS = ["HBL Current", "Meezan Debit", "Easypaisa", "Meezan Savings"];
+
+/** Case-insensitive dedupe preserving first spelling (mirrors web uniqueLabels). */
+function uniqueLabels(labels: (string | null | undefined)[]): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const label of labels) {
+    const clean = label?.trim();
+    if (!clean) continue;
+    const key = clean.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(clean);
+  }
+  return out;
+}
 
 /** "+PKR 2,500" / "-PKR 1,200" — matches web formatSignedPKR intent. */
 function signedPKR(n: number) {
@@ -438,9 +458,11 @@ function Transactions() {
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const { data: transactions = [], isPending, isError, refetch } = useFinanceTransactions();
+  const { data: vocabulary } = useFinanceVocabulary();
   const createTransaction = useCreateTransaction();
   const updateTransaction = useUpdateTransaction();
   const deleteTransaction = useDeleteTransaction();
+  const createPaymentMethod = useCreatePaymentMethod();
   const [q, setQ] = useState("");
   const [open, setOpen] = useState(false);
   const [editTxn, setEditTxn] = useState<FinanceTransaction | null>(null);
@@ -450,15 +472,35 @@ function Transactions() {
   const [kind, setKind] = useState<"expense" | "income">("expense");
   const [category, setCategory] = useState(CATEGORIES[0]);
   const [account, setAccount] = useState(ACCOUNTS[0]);
+  const [localMethods, setLocalMethods] = useState<string[]>([]);
   const [err, setErr] = useState("");
   const sheetOpen = open || editTxn != null;
+
+  // Live vocabulary with offline fallbacks; the current selection is always a
+  // chip so an edited transaction's unlisted source stays selectable.
+  const categories = useMemo(
+    () => uniqueLabels([...(vocabulary?.categories ?? CATEGORIES)]).filter((c) => c !== "Income"),
+    [vocabulary?.categories],
+  );
+  const paymentMethods = useMemo(
+    () => uniqueLabels([...(vocabulary?.payment_methods ?? ACCOUNTS), ...localMethods, account]),
+    [account, localMethods, vocabulary?.payment_methods],
+  );
+
+  function addPaymentMethod(label: string) {
+    setLocalMethods((methods) => uniqueLabels([...methods, label]));
+    setAccount(label);
+    // Persist so it appears in the vocabulary on every device; the local list
+    // keeps the sheet responsive if the request is slow or fails.
+    createPaymentMethod.mutate(label);
+  }
 
   function resetForm() {
     setMerchant("");
     setAmount("");
     setKind("expense");
-    setCategory(CATEGORIES[0]);
-    setAccount(ACCOUNTS[0]);
+    setCategory(categories[0] ?? CATEGORIES[0]);
+    setAccount(paymentMethods[0] ?? ACCOUNTS[0]);
     setErr("");
   }
 
@@ -497,12 +539,13 @@ function Transactions() {
     const num = Number(amount);
     if (!merchant.trim()) return setErr("Please enter a merchant name.");
     if (!amount || Number.isNaN(num) || num <= 0) return setErr("Please enter a valid amount.");
+    if (!account.trim()) return setErr("Please select or add a payment method.");
     const payload = {
       merchant: merchant.trim(),
       amount: num,
       transaction_type: kind,
       category: kind === "income" ? "Income" : category,
-      source: account,
+      source: account.trim(),
     };
     if (editTxn) {
       updateTransaction.mutate(
@@ -523,16 +566,21 @@ function Transactions() {
     );
   }
 
-  const openEdit = useCallback((tx: FinanceTransaction) => {
-    setOpen(false);
-    setEditTxn(tx);
-    setMerchant(tx.merchant ?? "");
-    setAmount(String(Math.abs(Number(tx.amount) || 0)));
-    setKind(tx.transaction_type === "income" ? "income" : "expense");
-    setCategory(CATEGORIES.includes(tx.category) ? tx.category : CATEGORIES[0]);
-    setAccount(tx.source && ACCOUNTS.includes(tx.source) ? tx.source : ACCOUNTS[0]);
-    setErr("");
-  }, []);
+  const openEdit = useCallback(
+    (tx: FinanceTransaction) => {
+      setOpen(false);
+      setEditTxn(tx);
+      setMerchant(tx.merchant ?? "");
+      setAmount(String(Math.abs(Number(tx.amount) || 0)));
+      setKind(tx.transaction_type === "income" ? "income" : "expense");
+      setCategory(categories.includes(tx.category) ? tx.category : categories[0] ?? CATEGORIES[0]);
+      // Keep the transaction's own source (e.g. an email-imported
+      // "Bank Alfalah · auto") — paymentMethods always includes the selection.
+      setAccount(tx.source?.trim() || paymentMethods[0] || ACCOUNTS[0]);
+      setErr("");
+    },
+    [categories, paymentMethods],
+  );
 
   const handleDelete = useCallback(
     (tx: FinanceTransaction) => {
@@ -602,8 +650,14 @@ function Transactions() {
         <ChipRow options={["expense", "income"]} value={kind} onChange={(v) => setKind(v as "expense" | "income")} />
         <Field label="Merchant" value={merchant} onChangeText={setMerchant} placeholder="e.g. Imtiaz Super Market" />
         <Field label="Amount (PKR)" value={amount} onChangeText={setAmount} keyboardType="numeric" placeholder="0" />
-        {kind === "expense" ? <ChipRow options={CATEGORIES} value={category} onChange={setCategory} /> : null}
-        <ChipRow options={ACCOUNTS} value={account} onChange={setAccount} />
+        {kind === "expense" ? <ChipRow options={categories} value={category} onChange={setCategory} /> : null}
+        <PaymentMethodPicker
+          options={paymentMethods}
+          value={account}
+          onChange={setAccount}
+          onCreate={addPaymentMethod}
+          creating={createPaymentMethod.isPending}
+        />
         {err ? <Text style={{ color: colors.bear, fontSize: 12 }}>{err}</Text> : null}
         <Button
           title={editTxn ? "Save Changes" : "Add Transaction"}

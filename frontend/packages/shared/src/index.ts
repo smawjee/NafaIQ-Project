@@ -1,5 +1,16 @@
 export type { ApiMarketSnapshotItem } from "./api";
 export type { ApiOHLCVBar, ApiSignal, BatchSignalsResponse } from "./api";
+export type {
+  ApiFlowContext,
+  ApiIndicatorVote,
+  ApiSignalConsensus,
+  ApiSignalRiskMetrics,
+  ApiSignalV2,
+  ApiTrackRecord,
+  ApiTrackRecordEntry,
+  SignalHorizon,
+  SignalV2Label,
+} from "./api";
 export type { ApiSymbolInfo, ApiCompanyProfile, ApiFundamentalsData } from "./api";
 export type { ApiAnnouncementItem, ApiDividendEvent, ApiIndexBar, ApiIndexCard } from "./api";
 export type { ApiSectorDataItem, ApiScreenerMetric, ApiIndicatorPayload } from "./api";

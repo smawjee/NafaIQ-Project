@@ -22,7 +22,10 @@ import type {
   ApiHeatmapResponse,
   ApiIndicatorPayload,
   ApiSignal,
+  ApiSignalV2,
+  ApiTrackRecord,
   BatchSignalsResponse,
+  SignalHorizon,
   ScreenerRequest,
   ScreenerResponse,
   BacktestRequest,
@@ -213,4 +216,12 @@ export function fetchSignal(symbol: string): Promise<ApiSignal> {
 
 export function fetchBatchSignals(limit = 50): Promise<BatchSignalsResponse> {
   return post<{ signals: ApiSignalV4[]; count: number }>("/api/signals/batch", { limit }).then((response) => ({ signals: response.signals.map(toLegacySignal), count: response.count }));
+}
+
+export function fetchSignalV2(symbol: string, horizon: SignalHorizon = "20D"): Promise<ApiSignalV2> {
+  return get<ApiSignalV2>(`/api/signals/v2/${symbol}?horizon=${horizon}`);
+}
+
+export function fetchSignalTrackRecord(): Promise<ApiTrackRecord> {
+  return get<ApiTrackRecord>("/api/signals/v2/track-record");
 }

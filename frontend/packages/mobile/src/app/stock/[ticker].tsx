@@ -10,6 +10,8 @@ import { CandlestickChart } from "@/components/charts/CandlestickChart";
 import { AiReportSheet } from "@/components/ai/AiReportSheet";
 import { GlassSheet } from "@/components/glass/GlassSheet";
 import { Field } from "@/components/Modal";
+import { SignalContextTiles } from "@/components/psx/SignalContextTiles";
+import { SignalTrackRecordCard } from "@/components/psx/SignalTrackRecordCard";
 import { Button, Card, Change, SignalBadge, Text } from "@/components/ui";
 import { Segmented } from "@/components/ui/controls";
 import {
@@ -18,7 +20,7 @@ import {
   usePsxFundamentals,
   usePsxHistory,
   usePsxQuote,
-  usePsxSignal,
+  usePsxSignalV2,
   usePsxSymbols,
 } from "@/hooks/queries/use-market";
 import { useWatchlist } from "@/hooks/queries/use-watchlist";
@@ -35,7 +37,7 @@ import { useStockAnalysisReport } from "@/hooks/ai/use-stock-analysis-report";
 import { useLang } from "@/hooks/use-lang";
 import { useTheme } from "@/hooks/use-theme";
 import { ExternalLink, FileText } from "@/lib/icons";
-import { fmtNum } from "@nafaiq/shared";
+import { fmtNum, type Signal } from "@nafaiq/shared";
 
 /** Compact PKR (mirrors web formatCompactPKR), e.g. 2.15e11 -> "PKR 215B". */
 function compactPKR(value: number): string {
@@ -79,7 +81,7 @@ export default function StockDetailScreen() {
   const { data: profile } = usePsxCompanyProfile(upper);
   const { data: fundamentals } = usePsxFundamentals(upper);
   const { data: announcements, isPending: newsPending } = usePsxAnnouncements(upper, 5);
-  const { data: signal } = usePsxSignal(upper);
+  const { data: signal } = usePsxSignalV2(upper);
   const { data: symbolsData } = usePsxSymbols();
   const wl = useWatchlist();
   const [wlBusy, setWlBusy] = useState(false);
@@ -98,10 +100,15 @@ export default function StockDetailScreen() {
   const price = quote?.price ?? null;
   const changePct = quote?.change_pct ?? null;
 
-  // Signal: only trust the model when it is trained — a pending model shows
-  // no fake call (same rule as web).
+  // Signal (v2 engine): the engine declines with "NO SIGNAL" rather than
+  // guessing — show no fake call in that case (same rule as web).
   const modelReady = !!signal && signal.signal !== "NO SIGNAL";
   const confidence = signal?.confidence ?? 0;
+  const keyDrivers =
+    signal?.indicator_votes
+      ?.slice(0, 3)
+      .map((v) => v.name)
+      .join(", ") ?? "";
 
   const marketCap =
     profile?.listed_shares && price != null ? compactPKR(profile.listed_shares * price) : "—";
@@ -244,7 +251,7 @@ export default function StockDetailScreen() {
         </View>
         <View style={styles.between}>
           {modelReady ? (
-            <SignalBadge signal={signal!.signal} />
+            <SignalBadge signal={signal!.signal as Signal} />
           ) : (
             <Text variant="muted">{t("Signal unavailable")}</Text>
           )}
@@ -293,10 +300,19 @@ export default function StockDetailScreen() {
               </Text>
               <Text variant="secondary">
                 {`${upper} — ${t("NafaIQ rates this technical setup")} ${t(signal!.signal)}. ${t("Key drivers")}: ${
-                  signal!.features_used?.slice(0, 3).join(", ") || t("technical indicators")
+                  keyDrivers || t("technical indicators")
                 }.`}
               </Text>
             </View>
+            {signal!.reasons?.length ? (
+              <View style={{ gap: 4 }}>
+                {signal!.reasons.slice(0, 3).map((reason) => (
+                  <Text key={reason} variant="muted" numberOfLines={2}>
+                    · {reason}
+                  </Text>
+                ))}
+              </View>
+            ) : null}
             <Text variant="muted" style={{ fontStyle: "italic" }}>
               {t("Technical analysis only. Not financial advice.")}
             </Text>
@@ -311,7 +327,11 @@ export default function StockDetailScreen() {
             </Text>
           </View>
         )}
+        {signal ? <SignalContextTiles signal={signal} /> : null}
       </Card>
+
+      {/* Audited hit rates of published signals — new v2 outcomes store */}
+      <SignalTrackRecordCard />
 
       {/* LLM deep-dive report — verified & cited, separate from the technical setup above */}
       <AiReportSheet
