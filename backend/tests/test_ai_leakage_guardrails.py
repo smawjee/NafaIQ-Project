@@ -24,6 +24,15 @@ def test_detects_common_leakage_prompts(prompt):
     assert safety.detect_leakage_request(prompt)
 
 
+def test_assistant_scope_guard_blocks_obvious_general_knowledge():
+    assert safety.detect_assistant_out_of_scope("who is Elon Musk?")
+    assert safety.detect_assistant_out_of_scope("tell me about Elon Musk")
+    assert safety.detect_assistant_out_of_scope("what is the capital of France?")
+    assert not safety.detect_assistant_out_of_scope("what is a P/E ratio?")
+    assert not safety.detect_assistant_out_of_scope("show my finance summary")
+    assert not safety.detect_assistant_out_of_scope("tell me about ENGRO stock")
+
+
 def test_redacts_secret_patterns_recursively():
     payload = {
         "authorization": "Bearer abcdefghijklmnopqrstuvwxyz",
@@ -56,6 +65,27 @@ def test_report_guardrails_flag_leakage_text():
 
     assert "leakage:hidden_context_pattern" in violations
     assert "leakage:secret_pattern" in violations
+
+
+async def test_tutor_out_of_scope_prompt_never_calls_provider(monkeypatch):
+    called = {"provider": False}
+
+    async def stream(_messages, transport=None):  # pragma: no cover
+        called["provider"] = True
+        yield "should not happen"
+
+    monkeypatch.setattr(providers, "stream_gemini", stream)
+    req = tutor.TutorRequest(
+        lessonTitle="P/E Ratio",
+        lang="en",
+        messages=[{"role": "user", "content": "tell me about Elon Musk"}],
+    )
+
+    events = [e async for e in tutor.stream_reply(req)]
+
+    assert called["provider"] is False
+    assert events[0] == {"type": "token", "text": safety.scope_refusal("en", "tutor")}
+    assert events[-1]["provider"] == "guardrail"
 
 
 async def test_tutor_leakage_prompt_never_calls_provider(monkeypatch):

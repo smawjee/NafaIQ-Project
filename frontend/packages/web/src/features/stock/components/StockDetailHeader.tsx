@@ -29,7 +29,7 @@ export function StockDetailHeader({
   isLive: boolean;
   sig: Signal | null;
   signalPending: boolean;
-  confidence: number;
+  confidence?: number | null;
 }) {
   const { t } = useLang();
   return (
@@ -94,7 +94,7 @@ export function StockDetailHeader({
           {signalPending
             ? t("Technical setup pending")
             : sig
-              ? `${t("Setup strength")} ${confidence}%`
+              ? (confidence != null ? `${t("Setup strength")} ${confidence}%` : t("Technical setup"))
               : ""}
         </div>
       </div>

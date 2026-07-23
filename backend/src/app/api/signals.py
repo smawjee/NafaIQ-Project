@@ -7,6 +7,7 @@ from pydantic import BaseModel, Field
 from app.middleware.rate_limit import limiter
 from app.services.market import signals as signals_service
 from app.services.signals_v2 import engine as signals_v2
+from app.services.signals_v4 import service as signals_v4_service
 
 router = APIRouter(tags=["signals"])
 
@@ -26,28 +27,25 @@ class BatchSignalsRequest(BaseModel):
 @router.get("/signal/{symbol}")
 @limiter.limit("30/minute")
 async def get_signal(request: Request, symbol: str):
-    return await signals_service.get_signal(symbol)
+    return await signals_v4_service.get_signal(symbol)
 
 
 @router.post("/signals/batch")
 @limiter.limit("10/minute")
 async def batch_signals(request: Request, body: BatchSignalsRequest | None = None):
-    return await signals_service.batch_signals((body or BatchSignalsRequest()).limit)
+    return await signals_v4_service.batch_signals((body or BatchSignalsRequest()).limit)
 
 
 @router.get("/signals/v2/track-record")
 async def signal_track_record():
-    """Live, measured track record of published signals (matured outcomes only)."""
-    from app.repositories import signals_v3_repo
-    from app.services.signals_v2.outcomes import aggregate_track_record
-
-    joined = await signals_v3_repo.matured_outcomes_joined()
-    pending = await signals_v3_repo.signals_missing_outcomes(limit=1000)
+    """Legacy track-record path; technical setups are not scored as forecasts."""
     return {
-        **aggregate_track_record(joined),
-        "pending_maturity": len(pending),
-        "note": "Outcomes are measured against real prices after signals were published; "
-                "insert-only history, never edited.",
+        "status": "unavailable",
+        "reason_code": "TECHNICAL_SETUP_NOT_FORECAST",
+        "matured_total": 0,
+        "by_signal": {},
+        "pending_maturity": 0,
+        "note": "Only promoted V4 event forecasts receive predictive outcomes.",
     }
 
 

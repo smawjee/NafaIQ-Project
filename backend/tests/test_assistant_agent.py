@@ -561,6 +561,48 @@ async def test_null_tool_arguments_are_tolerated(monkeypatch):
     assert events[-1]["type"] == "token"
 
 
+async def test_off_topic_identity_question_short_circuits_before_provider(monkeypatch):
+    called = {"provider": False, "bundle": False}
+
+    async def provider(*_a, **_kw):  # pragma: no cover
+        called["provider"] = True
+        raise AssertionError("off-topic prompt must not reach the LLM")
+
+    async def bundle(_user_id):  # pragma: no cover
+        called["bundle"] = True
+        raise AssertionError("off-topic prompt should not build the finance bundle")
+
+    monkeypatch.setattr(agent, "complete_with_tools", provider)
+    monkeypatch.setattr(agent.ctx, "build_bundle", bundle)
+
+    events = [
+        e
+        async for e in agent.run_turn(
+            USER,
+            [{"role": "user", "content": "tell me about Elon Musk"}],
+        )
+    ]
+
+    assert called == {"provider": False, "bundle": False}
+    assert events == [{"type": "token", "text": agent.scope_refusal("en", "assistant")}]
+
+
+async def test_finance_education_question_still_reaches_provider(monkeypatch):
+    provider = FakeProvider(_msg("A P/E ratio compares price with earnings."))
+    monkeypatch.setattr(agent, "complete_with_tools", provider)
+
+    events = [
+        e
+        async for e in agent.run_turn(
+            USER,
+            [{"role": "user", "content": "what is a P/E ratio?"}],
+        )
+    ]
+
+    assert events == [{"type": "token", "text": "A P/E ratio compares price with earnings."}]
+    assert len(provider.seen) == 1
+
+
 async def test_leakage_request_short_circuits_before_provider(monkeypatch):
     called = {"provider": False}
 

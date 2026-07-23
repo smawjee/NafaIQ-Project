@@ -172,7 +172,7 @@ export default function PsxScreen() {
     return signal === "All" ? all : all.filter((r) => r.signal === signal);
   }, [snapshot, symbolsData, batchSignals, screenerMetrics, signal]);
 
-  const modelReady = !!aiSignal && aiSignal.model_version !== "fallback";
+  const modelReady = !!aiSignal && aiSignal.signal !== "NO SIGNAL";
 
   const renderRow = useCallback(
     ({ item }: { item: ScreenerRow }) => {
@@ -352,7 +352,7 @@ export default function PsxScreen() {
           {modelReady ? (
             <Text style={[styles.aiText, { color: colors.textSecondary }]}>
               NafaIQ setup is <Text style={{ color: colors.ai }}>{t(aiSignal!.signal).toLowerCase()}</Text> with{" "}
-              <Text style={{ color: colors.ai }}>{Math.round(aiSignal!.confidence)}% strength</Text>
+              <Text style={{ color: colors.ai }}>{t("Technical setup")}</Text>
             </Text>
           ) : (
             <Text style={[styles.aiText, { color: colors.textSecondary }]}>

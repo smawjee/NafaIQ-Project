@@ -30,9 +30,11 @@ from app.services.ai.prompts import load_prompt, security_rules
 from app.services.ai.providers import complete_with_tools
 from app.services.ai.safety import (
     assert_safe_output,
+    detect_assistant_out_of_scope,
     detect_leakage_request,
     redact_sensitive,
     safe_refusal,
+    scope_refusal,
 )
 from app.services.assistant import context as ctx
 from app.services.assistant.reads import READ_HANDLERS
@@ -157,6 +159,9 @@ async def run_turn(
     )
     if detect_leakage_request(latest_user):
         yield {"type": "token", "text": safe_refusal(lang, "assistant")}
+        return
+    if detect_assistant_out_of_scope(latest_user):
+        yield {"type": "token", "text": scope_refusal(lang, "assistant")}
         return
 
     bundle = await ctx.build_bundle(user["user_id"])

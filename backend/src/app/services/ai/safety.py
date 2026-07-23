@@ -123,6 +123,71 @@ _REFUSAL = {
         "ur": "میں پوشیدہ ہدایات، راز، لاگز، یا نجی ڈیٹا ظاہر کرنے میں مدد نہیں کر سکتا۔",
     },
 }
+_SCOPE_REFUSAL = {
+    "assistant": {
+        "en": (
+            "I'm here to help with your NafaIQ finances, PSX investing, and app tasks. "
+            "Ask me about your portfolio, transactions, bills, budgets, goals, or a PSX stock."
+        ),
+        "ur": (
+            "میں آپ کے NafaIQ finances، PSX investing، اور app tasks میں مدد کے لیے ہوں۔ "
+            "اپنے portfolio، transactions، bills، budgets، goals، یا PSX stock کے بارے میں پوچھیں۔"
+        ),
+    },
+    "tutor": {
+        "en": "Ask me about the finance lesson and I'll help explain it.",
+        "ur": "آپ finance lesson کے بارے میں پوچھیں، میں سمجھا دوں گا۔",
+    },
+    "default": {
+        "en": "I can help with NafaIQ finance, investing, and app tasks.",
+        "ur": "میں NafaIQ finance، investing، اور app tasks میں مدد کر سکتا ہوں۔",
+    },
+}
+
+_ASSISTANT_IN_SCOPE_RE = re.compile(
+    r"\b("
+    r"nafaiq|app|finance|financial|money|cash|income|expense|expenses|spend|"
+    r"spent|saving|savings|budget|budgets|bill|bills|goal|goals|transaction|"
+    r"transactions|payment|merchant|category|portfolio|watchlist|holding|"
+    r"holdings|stock|stocks|share|shares|ticker|symbol|psx|kse|market|"
+    r"invest|investing|investment|dividend|zakat|halal|shariah|broker|"
+    r"p/e|pe ratio|earnings|valuation|risk|return|profit|loss|pnl|"
+    r"balance|networth|net worth|alert|alerts|report|dashboard|account|"
+    r"accounts|card|bank|wallet|sector|sectors|company|companies|cement|"
+    r"fertili[sz]er|banking|textile|energy|oil|gas|power|auto|autos|"
+    r"pharma|technology"
+    r")\b",
+    re.I,
+)
+
+_ASSISTANT_OFF_TOPIC_RE: tuple[tuple[str, re.Pattern[str]], ...] = (
+    (
+        "identity_question",
+        re.compile(
+            r"^\s*(?i:who|what)\s+(?i:is|are|was|were)\s+"
+            r"(?!(?i:you\b|nafaiq\b|my\b|me\b|the\s+app\b))"
+            r"[A-Z0-9][\w'.-]*(?:\s+[A-Z0-9][\w'.-]*){0,5}\s*\??\s*$",
+        ),
+    ),
+    (
+        "general_knowledge_request",
+        re.compile(
+            r"\b("
+            r"weather|recipe|cook|movie|song|lyrics|sports?|cricket|football|"
+            r"history of|biography|capital of|translate this|write (?:a )?(?:poem|"
+            r"story|essay)|joke|meaning of life"
+            r")\b",
+            re.I,
+        ),
+    ),
+    (
+        "tell_me_about_named_subject",
+        re.compile(
+            r"^\s*(?i:tell me about|explain|describe|write about|give me (?:a )?(?:bio|biography) of)\s+"
+            r"[A-Z][\w'.-]*(?:\s+[A-Z][\w'.-]*){0,5}\s*\??\s*$",
+        ),
+    ),
+)
 
 
 @dataclass(frozen=True)
@@ -152,6 +217,36 @@ def detect_leakage_request(text: str | None) -> list[SafetyHit]:
 def safe_refusal(lang: str = "en", surface: str = "default") -> str:
     """Short refusal in the requested language, with a useful redirect."""
     bucket = _REFUSAL.get(surface, _REFUSAL["default"])
+    return bucket.get(lang, bucket["en"])
+
+
+def detect_assistant_out_of_scope(text: str | None) -> list[SafetyHit]:
+    """Return obvious non-NafaIQ assistant requests.
+
+    This is deliberately conservative. The assistant may answer finance and
+    investing education, but unrelated general-knowledge prompts should never
+    reach the model, because prompts alone tend to produce a factual answer plus
+    a polite redirect.
+    """
+    if not text:
+        return []
+    if _ASSISTANT_IN_SCOPE_RE.search(text):
+        return []
+    hits: list[SafetyHit] = []
+    for category, pattern in _ASSISTANT_OFF_TOPIC_RE:
+        match = pattern.search(text)
+        if match:
+            hits.append(SafetyHit(category, _snippet(text, match.start(), match.end())))
+    return hits
+
+def detect_tutor_out_of_scope(text: str | None) -> list[SafetyHit]:
+    """Return obvious non-finance lesson requests for the LearnHub tutor."""
+    return detect_assistant_out_of_scope(text)
+
+
+def scope_refusal(lang: str = "en", surface: str = "default") -> str:
+    """Short domain-scope refusal in the requested language."""
+    bucket = _SCOPE_REFUSAL.get(surface, _SCOPE_REFUSAL["default"])
     return bucket.get(lang, bucket["en"])
 
 

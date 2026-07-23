@@ -337,6 +337,24 @@ async def job_backfill_history():
                     bars = [b for b in bars if b.date > known]
                 if bars:
                     payload = [b.to_dict() for b in bars]
+                    # Preserve upstream observations before the legacy cache is updated.
+                    import hashlib
+                    import json
+                    raw_payload = [
+                        {
+                            **row,
+                            "source": "dps_historical",
+                            "source_record_hash": hashlib.sha256(
+                                json.dumps(row, sort_keys=True, separators=(",", ":")).encode("utf-8")
+                            ).hexdigest(),
+                            "fetched_at": datetime.now(timezone.utc).isoformat(),
+                            "source_payload": row,
+                        }
+                        for row in payload
+                    ]
+                    await async_execute(
+                        lambda c, _p=raw_payload: c.table("psx_ohlcv_raw").insert(_p)
+                    )
                     await async_execute(
                         lambda c, _p=payload: c.table("psx_ohlcv").upsert(
                             _p, on_conflict="symbol,date"

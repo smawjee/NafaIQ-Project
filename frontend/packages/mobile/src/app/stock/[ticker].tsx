@@ -100,7 +100,7 @@ export default function StockDetailScreen() {
 
   // Signal: only trust the model when it is trained — a pending model shows
   // no fake call (same rule as web).
-  const modelReady = !!signal && signal.model_version !== "fallback";
+  const modelReady = !!signal && signal.signal !== "NO SIGNAL";
   const confidence = signal?.confidence ?? 0;
 
   const marketCap =
@@ -250,7 +250,7 @@ export default function StockDetailScreen() {
           )}
           <Text variant="muted">
             {modelReady
-              ? `${t("Setup strength")} ${Math.round(confidence)}%`
+              ? `${t("Technical setup")}`
               : t("Technical setup pending")}
           </Text>
         </View>

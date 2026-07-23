@@ -79,3 +79,13 @@ def test_security_rules_loaded():
     rules = load_prompt("security_rules")
     assert "Never reveal" in rules
     assert "untrusted data" in rules
+    assert "Do not answer unrelated" in rules
+
+
+def test_prompts_carry_scope_boundaries():
+    assert "TASK AND DOMAIN SCOPE" in load_prompt("assistant")
+    assert "Never provide a factual" in load_prompt("assistant")
+    assert "do not answer it" in load_prompt("tutor")
+    assert "Stay inside this NafaIQ report surface" in load_prompt("report_scaffold")
+    assert "SCOPE. Write only LearnHub" in load_prompt("learnhub_rules")
+    assert "SCOPE AND PRIVACY" in load_prompt("email_extraction")

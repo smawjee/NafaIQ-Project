@@ -13,14 +13,11 @@ import {
   usePsxProfile,
   usePsxFundamentals,
   usePsxAnnouncements,
-  usePsxSignal,
-  usePsxSignalV2,
+  usePsxSignalV4,
   usePsxSymbols,
   usePsxRealtime,
 } from "@/hooks/psx/use-psx";
-import { SignalBreakdownPanel } from "@/features/signals/SignalBreakdownPanel";
-import { SignalTrackRecordCard } from "@/features/signals/SignalTrackRecordCard";
-import type { SignalHorizon } from "@/lib/psx/types";
+import { SignalV4Panel } from "@/features/signals/SignalV4Panel";
 import { usePersistedTfMap } from "@/hooks/psx/use-persisted-tf-map";
 import { useWatchlist } from "@/hooks/psx/use-watchlist";
 import { useDemo } from "@/hooks/use-demo";
@@ -51,9 +48,17 @@ export function StockDetail() {
   const { data: profile } = usePsxProfile(ticker);
   const { data: fundamentals } = usePsxFundamentals(ticker);
   const { data: announcements } = usePsxAnnouncements(ticker, 5);
-  const { data: signal } = usePsxSignal(ticker);
-  const [signalHorizon, setSignalHorizon] = useState<SignalHorizon>("20D");
-  const { data: signalV2 } = usePsxSignalV2(ticker, signalHorizon);
+  const { data: signal } = usePsxSignalV4(ticker);
+  const setupRating = signal?.technical_setup?.rating ?? null;
+  const setupSignal =
+    setupRating === "Strong Bullish" ? "STRONG BUY" :
+    setupRating === "Bullish" ? "BUY" :
+    setupRating === "Bearish" ? "SELL" :
+    setupRating === "Strong Bearish" ? "STRONG SELL" :
+    setupRating === "Neutral" ? "HOLD" : null;
+  const modelReady = signal?.technical_setup?.status === "available";
+  const sig = modelReady ? setupSignal : isDemo ? (s?.signal ?? null) : null;
+  const signalPending = !modelReady && !isDemo;
   const { data: symbolsData } = usePsxSymbols();
   const wl = useWatchlist();
 
@@ -86,14 +91,6 @@ export function StockDetail() {
     (price != null && changePct != null ? +(price * (changePct / 100)).toFixed(2) : null);
   const sector = profile?.sector ?? s?.sector ?? null;
 
-  // Signal: only trust the model when it is trained. Demo mode shows the
-  // curated showcase signal; otherwise a pending model shows no fake call.
-  const modelReady = !!signalV2 || (!!signal && signal.model_version !== "fallback");
-  const sig =
-    signalV2?.signal ??
-    (modelReady ? (signal?.signal ?? null) : isDemo ? (s?.signal ?? null) : null);
-  const confidence = signalV2?.confidence ?? signal?.confidence ?? 0;
-  const signalPending = !modelReady && !isDemo;
 
   // Phase 0 / B4: derive a chart-ready series from the per-stock history
   // and merge the live tick into the latest candle so the chart and headline
@@ -219,7 +216,7 @@ export function StockDetail() {
         isLive={isLive}
         sig={sig}
         signalPending={signalPending}
-        confidence={confidence}
+        confidence={null}
       />
 
       <StockChartCard
@@ -250,13 +247,7 @@ export function StockDetail() {
 
       <StockAnalysisReportCard symbol={upper} />
 
-      <SignalBreakdownPanel
-        signal={signalV2}
-        horizon={signalHorizon}
-        onHorizonChange={setSignalHorizon}
-      />
-
-      <SignalTrackRecordCard />
+      <SignalV4Panel signal={signal} />
 
       <StockTabs tab={tab} onTabChange={setTab} announcements={announcements} symbol={upper} />
 

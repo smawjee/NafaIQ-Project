@@ -16,6 +16,7 @@ from app.api import (
     health,
     market,
     signals,
+    signals_v4,
     portfolio,
     notifications,
     finance,
@@ -183,6 +184,7 @@ app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 app.include_router(health.router, prefix="/api")
 app.include_router(market.router, prefix="/api")
 app.include_router(signals.router, prefix="/api")
+app.include_router(signals_v4.router, prefix="/api")
 app.include_router(portfolio.router, prefix="/api")
 app.include_router(notifications.router, prefix="/api")
 app.include_router(finance.router, prefix="/api")

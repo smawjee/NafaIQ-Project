@@ -27,6 +27,8 @@ import type {
   ApiMutualFund,
   ApiFundNavHistory,
 } from "./types";
+import type { ApiSignalV4, BatchSignalsV4Response } from "./signals-v4";
+import { toLegacyBatch, toLegacySignal } from "./signals-v4-adapter";
 
 // Re-export mutual fund types for use in hooks
 export type { ApiMutualFund, ApiFundNavHistory, ApiDividendEvent };
@@ -196,11 +198,19 @@ export function runBacktest(params: BacktestRequest): Promise<ApiBacktestResult>
 }
 
 export function fetchSignal(symbol: string): Promise<ApiSignal> {
-  return get<ApiSignal>(`/api/signal/${symbol}`);
+  return get<ApiSignalV4>(`/api/signal/${symbol}`).then(toLegacySignal);
+}
+
+export function fetchSignalV4(symbol: string): Promise<ApiSignalV4> {
+  return get<ApiSignalV4>(`/api/signals/v3/${symbol}`);
+}
+
+export function fetchBatchSignalsV4(limit = 50): Promise<BatchSignalsV4Response> {
+  return post<BatchSignalsV4Response>("/api/signals/v3/batch", { limit });
 }
 
 export function fetchBatchSignals(limit = 50): Promise<BatchSignalsResponse> {
-  return post<BatchSignalsResponse>("/api/signals/batch", { limit });
+  return post<BatchSignalsV4Response>("/api/signals/batch", { limit }).then(toLegacyBatch);
 }
 
 export function fetchSignalV2(

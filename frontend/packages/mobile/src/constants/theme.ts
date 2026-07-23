@@ -70,7 +70,7 @@ export const lightColors: typeof darkColors = {
   warning: "#b45309",
   neutral: "#64748b",
   info: "#0d9488",
-  ai: "#7c3aed",
+  ai: "#00a892",
   aiTint: "#f5f3ff",
 
   gold: "#a97c12",

@@ -31,6 +31,7 @@ def build_feature_frame(
     fundamentals: dict[str, Any] | None = None,
     profile: dict[str, Any] | None = None,
     kse_rows: list[dict[str, Any]] | None = None,
+    include_live_preview: bool = False,
 ) -> FeatureFrame:
     rows = sorted(ohlcv_rows, key=lambda r: str(r.get("date")))
     dates = [_parse_date(r.get("date")) for r in rows]
@@ -41,7 +42,8 @@ def build_feature_frame(
     volume = _series(rows, "volume")
 
     snap = snapshot or {}
-    live_price = _num(snap.get("price"))
+    # Confirmed EOD features must never be mutated by an intraday quote.
+    live_price = _num(snap.get("price")) if include_live_preview else None
     if live_price and len(close):
         close[-1] = live_price
         high[-1] = max(high[-1], live_price)

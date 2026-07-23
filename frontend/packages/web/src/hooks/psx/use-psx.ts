@@ -22,6 +22,7 @@ import {
   fetchScreenerMetrics,
   fetchTreemap,
   fetchSignal,
+  fetchSignalV4,
   fetchBatchSignals,
   fetchSignalV2,
   fetchBatchSignalsV2,
@@ -353,6 +354,16 @@ export function usePsxSignal(symbol: string | undefined) {
   return useQuery({
     queryKey: ["psx", "signal", sym],
     queryFn: () => fetchSignal(sym!),
+    enabled: !!symbol,
+    staleTime: 300_000,
+  });
+}
+
+export function usePsxSignalV4(symbol: string | undefined) {
+  const sym = symbol?.toUpperCase();
+  return useQuery({
+    queryKey: ["psx", "signal", "v4", sym],
+    queryFn: () => fetchSignalV4(sym!),
     enabled: !!symbol,
     staleTime: 300_000,
   });

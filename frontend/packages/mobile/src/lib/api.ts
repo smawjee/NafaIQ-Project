@@ -30,6 +30,8 @@ import type {
 } from "@nafaiq/shared";
 
 import { supabase } from "./supabase";
+import type { ApiSignalV4 } from "./signals-v4";
+import { toLegacySignal } from "./signals-v4";
 
 const EXPLICIT_URL = process.env.EXPO_PUBLIC_API_URL;
 const PSX_TOKEN = process.env.EXPO_PUBLIC_PSX_API_TOKEN || "";
@@ -206,9 +208,9 @@ export function runBacktest(params: BacktestRequest): Promise<ApiBacktestResult>
 }
 
 export function fetchSignal(symbol: string): Promise<ApiSignal> {
-  return get<ApiSignal>(`/api/signal/${symbol}`);
+  return get<ApiSignalV4>(`/api/signal/${symbol}`).then(toLegacySignal);
 }
 
 export function fetchBatchSignals(limit = 50): Promise<BatchSignalsResponse> {
-  return post<BatchSignalsResponse>("/api/signals/batch", { limit });
+  return post<{ signals: ApiSignalV4[]; count: number }>("/api/signals/batch", { limit }).then((response) => ({ signals: response.signals.map(toLegacySignal), count: response.count }));
 }

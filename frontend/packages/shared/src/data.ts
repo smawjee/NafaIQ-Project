@@ -2,7 +2,7 @@
 // Ported VERBATIM from the web app (../nafa-iq-zenith/src/lib/data.ts) so that
 // charts and numbers match exactly. Pure TS — no DOM dependencies.
 
-export type Signal = "STRONG BUY" | "BUY" | "HOLD" | "SELL" | "STRONG SELL";
+export type Signal = "STRONG BUY" | "BUY" | "HOLD" | "SELL" | "STRONG SELL" | "NO SIGNAL";
 
 export interface Candle {
   date: string;

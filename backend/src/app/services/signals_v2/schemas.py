@@ -149,7 +149,7 @@ class SignalV1Compat(BaseModel):
 def to_v1(response: SignalV2Response) -> SignalV1Compat:
     return SignalV1Compat(
         symbol=response.symbol,
-        signal="HOLD" if response.signal == "NO SIGNAL" else response.signal,
+        signal=response.signal,
         confidence=response.confidence,
         probabilities=response.probabilities or {},
         features_used=["technical_rating", "relative_strength", "volume_confirmation"],

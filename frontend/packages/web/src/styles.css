@@ -694,9 +694,9 @@ html {
   --color-primary-foreground: #ffffff;
   --color-info: #0d9488;
 
-  /* AI + Learn keep a distinct violet accent in light mode */
-  --color-ai: #7c3aed;
-  --color-ai-tint: #f5f3ff;
+  /* AI and Learn use the same green/teal brand accent */
+  --color-ai: #0d9488;
+  --color-ai-tint: #e8f7f4;
 
   /* Market signals â€” deepened for contrast on white */
   --color-bull: #0d9488;
@@ -1126,7 +1126,7 @@ html {
    ============================================================ */
 
 /* Primary CTA accent system â€” teal is the single primary action color.
-   Orange stays reserved for warning/attention, purple (--color-ai) for AI.
+   Orange stays reserved for warning/attention; AI follows the teal brand accent.
    .cta-primary normalizes any non-teal primary CTA to teal in light mode. */
 .theme-light .cta-primary {
   background: var(--color-primary);
@@ -1259,9 +1259,9 @@ html {
   --color-primary-foreground: #ffffff;
   --color-info: #0a7c6e;
 
-  /* AI violet — refined, less saturated */
-  --color-ai: #6d3fc4;
-  --color-ai-tint: #f5f0fc;
+  /* AI uses the same refined green/teal brand accent */
+  --color-ai: #0a7c6e;
+  --color-ai-tint: #e8f4ef;
 
   /* Market signals — deepened for cream backgrounds */
   --color-bull: #0a7c6e;

@@ -20,7 +20,9 @@ from app.services.ai.prompts import load_prompt, security_rules
 from app.services.ai.safety import (
     assert_safe_output,
     detect_leakage_request,
+    detect_tutor_out_of_scope,
     safe_refusal,
+    scope_refusal,
 )
 
 log = logging.getLogger(__name__)
@@ -72,6 +74,10 @@ async def stream_reply(
     )
     if detect_leakage_request(latest_user):
         yield {"type": "token", "text": safe_refusal(body.lang, "tutor")}
+        yield {"type": "meta", "provider": "guardrail", "model": "deterministic"}
+        return
+    if detect_tutor_out_of_scope(latest_user):
+        yield {"type": "token", "text": scope_refusal(body.lang, "tutor")}
         yield {"type": "meta", "provider": "guardrail", "model": "deterministic"}
         return
 
