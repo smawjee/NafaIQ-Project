@@ -11,9 +11,11 @@ import { Text } from "@/components/ui";
 import { fonts, radii, type ThemeColors } from "@/constants/theme";
 import { matchStocks, useStockUniverse } from "@/hooks/queries/use-market";
 import { useMarkNotificationRead, useNotifications } from "@/hooks/queries/use-notifications";
+import { usePlan } from "@/hooks/queries/use-plan";
+import { useLang } from "@/hooks/use-lang";
 import { useTheme } from "@/hooks/use-theme";
 import { useAuth } from "@/hooks/use-auth";
-import { Bell, ChevronRight, Crown, LogOut, Search, Settings, TrendingUp, X } from "@/lib/icons";
+import { Bell, Bot, ChevronRight, Crown, LogOut, Search, Settings, TrendingUp, X } from "@/lib/icons";
 import { fmtNum } from "@nafaiq/shared";
 
 function formatWhen(iso: string): string {
@@ -26,7 +28,9 @@ export function TopRibbon() {
   const { colors, mode } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const router = useRouter();
+  const { t } = useLang();
   const { profile, user, signOut } = useAuth();
+  const { planIndex } = usePlan();
   // Live in-app notifications (web NotificationBell parity — /api/notifications).
   const { data: notifData } = useNotifications(!!user);
   const markRead = useMarkNotificationRead();
@@ -177,7 +181,15 @@ export function TopRibbon() {
       {/* Account menu */}
       <GlassSheet open={acctOpen} onClose={() => setAcctOpen(false)} title={profile?.display_name || user?.email?.split("@")[0] || "Account"}>
         <Text variant="muted" style={{ marginTop: -4 }}>{profile?.plan ?? "Free"} plan · {user?.email ?? "—"}</Text>
-        <MenuItem icon={Crown} label="Upgrade to Pro" tint={colors.gold} onPress={() => { setAcctOpen(false); router.push("/plans"); }} />
+        <MenuItem icon={Bot} label={t("NafaIQ Assistant")} tint={colors.ai} onPress={() => { setAcctOpen(false); router.push("/assistant"); }} />
+        <MenuItem
+          icon={Crown}
+          // Paid users don't need an upsell — give them the path to review or
+          // change their tier instead.
+          label={planIndex > 0 ? t("Manage Plan") : t("Upgrade to Pro")}
+          tint={colors.gold}
+          onPress={() => { setAcctOpen(false); router.push("/plans"); }}
+        />
         <MenuItem icon={Bell} label="Alerts" onPress={() => { setAcctOpen(false); router.push("/alerts"); }} />
         <MenuItem icon={Settings} label="Settings" onPress={() => { setAcctOpen(false); router.push("/settings"); }} />
         <MenuItem

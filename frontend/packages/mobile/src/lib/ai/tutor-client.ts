@@ -29,16 +29,17 @@ export interface TutorHandlers {
 }
 
 /** Pure SSE parser: extracts complete `data: {json}` blocks, returns the
- * unterminated tail as `rest` for the next chunk. */
-export function parseSseBuffer(buffer: string): { events: TutorEvent[]; rest: string } {
-  const events: TutorEvent[] = [];
+ * unterminated tail as `rest` for the next chunk. Generic so richer event
+ * sets (the assistant client) reuse the ONE parser for the one wire format. */
+export function parseSseBuffer<T = TutorEvent>(buffer: string): { events: T[]; rest: string } {
+  const events: T[] = [];
   const blocks = buffer.split("\n\n");
   const rest = blocks.pop() ?? "";
   for (const block of blocks) {
     for (const line of block.split("\n")) {
       if (!line.startsWith("data:")) continue;
       try {
-        events.push(JSON.parse(line.slice(5).trim()) as TutorEvent);
+        events.push(JSON.parse(line.slice(5).trim()) as T);
       } catch {
         // tolerate keep-alives / malformed lines
       }

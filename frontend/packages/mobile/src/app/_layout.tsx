@@ -73,6 +73,7 @@ function RootNavigator() {
         <Stack.Screen name="settings" />
 
         <Stack.Screen name="alerts" />
+        <Stack.Screen name="assistant" />
         <Stack.Screen name="stock/[ticker]" />
       </Stack>
     </NavThemeProvider>
