@@ -1,6 +1,7 @@
 import { Card } from "@/components/shared/Card";
 import { SignalBadge } from "@/components/market/SignalBadge";
 import { SignalConfidence } from "@/features/signals/SignalConfidence";
+import { SignalContextTiles } from "@/features/signals/SignalContextTiles";
 import { SignalReasonList } from "@/features/signals/SignalReasonList";
 import { SignalRiskChips } from "@/features/signals/SignalRiskChips";
 import { cn } from "@/lib/utils";
@@ -62,6 +63,7 @@ export function SignalBreakdownPanel({
             </div>
           </div>
           <div className="space-y-4">
+            <SignalContextTiles signal={signal} />
             <SignalReasonList signal={signal} />
             <div className="grid gap-2 sm:grid-cols-2">
               {signal.indicator_votes.slice(0, 8).map((vote) => (

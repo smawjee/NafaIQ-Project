@@ -263,6 +263,50 @@ export interface ApiSignalV2 {
   model_version: string;
   engine_version: string;
   predicted_at: string;
+  consensus?: ApiSignalConsensus | null;
+  consensus_agreement?: "AGREES" | "MIXED" | "DISAGREES" | null;
+  trend_state?: "UPTREND" | "WEAKENING" | "DOWNTREND" | "BASING" | "RANGE" | "UNKNOWN" | null;
+  trend_score?: number | null;
+  risk_metrics?: ApiSignalRiskMetrics | null;
+  flow_context?: ApiFlowContext | null;
+}
+
+export type ConsensusLabel =
+  | "STRONG_BUY"
+  | "BUY"
+  | "HOLD"
+  | "SELL"
+  | "STRONG_SELL";
+
+export interface ApiSignalConsensus {
+  rating: number;
+  ma_rating: number | null;
+  oscillator_rating: number | null;
+  label: ConsensusLabel | null;
+  source: string;
+  as_of: string;
+}
+
+export interface ApiSignalRiskMetrics {
+  annualized_volatility: number;
+  expected_20d_move_pct: number;
+  suggested_stop_pct: number;
+  position_risk: "LOW" | "MODERATE" | "HIGH" | "EXTREME";
+  continuation: {
+    n: number;
+    p_negative_20d: number;
+    median_20d_return: number;
+  } | null;
+}
+
+export interface ApiFlowContext {
+  foreign_net_5d_pkr: number;
+  foreign_net_20d_pkr: number;
+  foreign_net_5d_usd: number;
+  trend: "FOREIGN_BUYING" | "FOREIGN_SELLING" | "MIXED" | "NEUTRAL";
+  last_date: string;
+  days_covered: number;
+  source: string;
 }
 
 export interface BatchSignalsV2Response {
