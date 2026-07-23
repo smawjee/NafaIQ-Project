@@ -51,6 +51,13 @@ def classify_trend(features: dict[str, Any]) -> TrendAssessment:
             "50-day average above 200-day (bullish structure)",
             f"60-day return {ret60:+.1%}",
         ])
+    # BASING before DOWNTREND: near the 52-week low with a positive 20-day bounce
+    # is a bottoming attempt, not an active downtrend.
+    if not above200 and ret20 > 0 and dist_low is not None and dist_low <= 0.15:
+        return TrendAssessment("BASING", round(min(0.4, ret20 * 4), 3), [
+            f"within {dist_low:.0%} of the 52-week low with a recent bounce",
+            f"20-day return {ret20:+.1%}",
+        ])
     if not above50 and not above200 and not golden and ret60 < 0:
         score = -min(1.0, (min(-r50, 0.15) + min(-r200, 0.25) + min(-ret60, 0.30)) / 0.7 + 0.2)
         return TrendAssessment("DOWNTREND", round(score, 3), [
@@ -61,11 +68,6 @@ def classify_trend(features: dict[str, Any]) -> TrendAssessment:
     if above200 and not above50 and ret20 < 0:
         return TrendAssessment("WEAKENING", round(-min(0.5, -ret20 * 5), 3), [
             "price slipped below the 50-day average while still above the 200-day",
-            f"20-day return {ret20:+.1%}",
-        ])
-    if not above200 and ret20 > 0 and dist_low is not None and dist_low <= 0.15:
-        return TrendAssessment("BASING", round(min(0.4, ret20 * 4), 3), [
-            f"within {dist_low:.0%} of the 52-week low with a recent bounce",
             f"20-day return {ret20:+.1%}",
         ])
     return TrendAssessment("RANGE", 0.0, ["no dominant trend structure"])
