@@ -11,6 +11,7 @@ from app.services.signals_v2.constants import DEFAULT_HORIZON, ENGINE_VERSION, H
 from app.services.signals_v2.data_quality import assess_data_quality
 from app.services.signals_v2.explain import build_reasons, build_warnings
 from app.services.signals_v2.features import build_feature_frame, compute_feature_snapshot
+from app.services.market import tv_ratings
 from app.services.signals_v2.fusion import fuse_signal
 from app.services.signals_v2.labels import SignalLabel
 from app.services.signals_v2.model_loader import model_loader
@@ -105,6 +106,7 @@ async def get_signal(symbol: str, horizon: str = DEFAULT_HORIZON) -> dict[str, A
         engine_version=ENGINE_VERSION,
         predicted_at=datetime.now(timezone.utc),
     )
+    response = await _attach_consensus(response, hz)
     await _persist(response)
     return response.model_dump(mode="json")
 
@@ -177,6 +179,21 @@ async def _load_inputs(symbol: str) -> tuple[list[dict[str, Any]], dict[str, Any
         (profile_res.data or [{}])[0],
         list(reversed(kse_res.data or [])),
     )
+
+
+async def _attach_consensus(response: SignalV2Response, horizon: str) -> SignalV2Response:
+    """Best-effort TradingView consensus join; never blocks or fails a signal."""
+    try:
+        consensus_map = await tv_ratings.fetch_consensus(horizon)
+        block = consensus_map.get(response.symbol.upper())
+        if block is None:
+            return response
+        return response.model_copy(update={
+            "consensus": block,
+            "consensus_agreement": tv_ratings.consensus_agreement(response.signal, block.get("label")),
+        })
+    except Exception:
+        return response
 
 
 def _row_to_response(row: dict[str, Any]) -> SignalV2Response:

@@ -79,6 +79,8 @@ class SignalV2Response(BaseModel):
     warnings: list[str]
     indicator_votes: list[dict[str, Any]]
     probabilities: Optional[dict[str, float]] = None
+    consensus: Optional[dict[str, Any]] = None          # TradingView technical-rating block
+    consensus_agreement: Optional[str] = None           # AGREES | MIXED | DISAGREES
     features_snapshot: dict[str, Any] = Field(default_factory=dict)
     model_version: str
     engine_version: str
