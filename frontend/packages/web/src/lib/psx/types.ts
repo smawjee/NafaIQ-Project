@@ -313,6 +313,22 @@ export interface BatchSignalsV2Response {
   signals: ApiSignalV2[];
   count: number;
 }
+
+export interface ApiTrackRecordEntry {
+  n: number;
+  hit_rate: number;
+  avg_return: number;
+  avg_excess: number;
+  large_loss_rate: number;
+  avoided_loss_rate?: number;
+}
+
+export interface ApiTrackRecord {
+  matured_total: number;
+  by_signal: Record<string, ApiTrackRecordEntry>;
+  pending_maturity: number;
+  note: string;
+}
 export interface ApiMutualFund {
   fund_code: string;
   name: string;

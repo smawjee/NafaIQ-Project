@@ -41,6 +41,11 @@ export function useAssistantChat(greeting: string) {
   const [pending, setPending] = useState<ActionDraft | null>(null);
   const [busyAction, setBusyAction] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
+  // One id per hook mount = one Langfuse session per conversation. The chat's
+  // message state lives entirely in this hook, so the id's lifetime already
+  // matches the conversation's; if a clear-chat action is ever added,
+  // regenerate the id there too.
+  const conversationIdRef = useRef<string>(crypto.randomUUID());
 
   useEffect(() => {
     setMessages((current) =>
@@ -75,7 +80,7 @@ export function useAssistantChat(greeting: string) {
     async (draft: ActionDraft, args: Record<string, unknown>) => {
       setBusyAction(true);
       try {
-        const result = await executeDraft(draft.action, args);
+        const result = await executeDraft(draft.action, args, conversationIdRef.current);
         invalidate(result.invalidate);
         toast.success(t("Done"));
         setPending(null);
@@ -134,6 +139,7 @@ export function useAssistantChat(greeting: string) {
           lang,
           // Drop the leading UI greeting; send the last 12 real turns.
           messages: history.filter((m, i) => !(i === 0 && m.role === "assistant")).slice(-12),
+          conversation_id: conversationIdRef.current,
         },
         {
           onToken: appendToLast,

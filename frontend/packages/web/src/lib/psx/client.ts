@@ -1,6 +1,7 @@
 import { API_BASE_URL } from "@/lib/api";
 
 import type {
+  ApiTrackRecord,
   ApiMarketSnapshotItem,
   ApiOHLCVBar,
   ApiSymbolInfo,
@@ -214,6 +215,10 @@ export function fetchBatchSignalsV2(
   horizon: SignalHorizon = "20D",
 ): Promise<BatchSignalsV2Response> {
   return post<BatchSignalsV2Response>("/api/signals/v2/batch", { limit, horizon });
+}
+
+export function fetchSignalTrackRecord(): Promise<ApiTrackRecord> {
+  return get<ApiTrackRecord>("/api/signals/v2/track-record");
 }
 
 export function fetchSignalLeaderboardV2(

@@ -50,6 +50,9 @@ export interface AssistantHandlers {
 export interface AssistantPayload {
   lang: "en" | "ur";
   messages: { role: "user" | "assistant"; content: string }[];
+  /** Client-generated per chat session; groups the conversation's traces in
+   *  Langfuse. Optional — observability only, never used for logic. */
+  conversation_id?: string;
 }
 
 async function getAccessToken(): Promise<string | null> {
@@ -143,13 +146,14 @@ export interface ExecuteResult {
 export async function executeDraft(
   action: string,
   args: Record<string, unknown>,
+  conversationId?: string,
 ): Promise<ExecuteResult> {
   const token = await getAccessToken();
   if (!token) throw new Error("Not authenticated");
   const res = await fetch(apiUrl("/api/assistant/execute"), {
     method: "POST",
     headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-    body: JSON.stringify({ action, args }),
+    body: JSON.stringify({ action, args, conversation_id: conversationId }),
   });
   if (!res.ok) {
     // The domain services return actionable messages ("Insufficient shares to

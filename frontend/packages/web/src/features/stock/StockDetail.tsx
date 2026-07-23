@@ -19,6 +19,7 @@ import {
   usePsxRealtime,
 } from "@/hooks/psx/use-psx";
 import { SignalBreakdownPanel } from "@/features/signals/SignalBreakdownPanel";
+import { SignalTrackRecordCard } from "@/features/signals/SignalTrackRecordCard";
 import type { SignalHorizon } from "@/lib/psx/types";
 import { usePersistedTfMap } from "@/hooks/psx/use-persisted-tf-map";
 import { useWatchlist } from "@/hooks/psx/use-watchlist";
@@ -254,6 +255,8 @@ export function StockDetail() {
         horizon={signalHorizon}
         onHorizonChange={setSignalHorizon}
       />
+
+      <SignalTrackRecordCard />
 
       <StockTabs tab={tab} onTabChange={setTab} announcements={announcements} symbol={upper} />
 
