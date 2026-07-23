@@ -13,6 +13,7 @@ import { ActivityIndicator, View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
+import { WallpaperWarmup } from "@/components/glass/GlassScreen";
 import { AuthProvider, useAuth } from "@/hooks/use-auth";
 import { LearnProvider } from "@/hooks/use-learn";
 import { ThemeProvider as AppThemeProvider, useTheme } from "@/hooks/use-theme";
@@ -83,6 +84,9 @@ function RootNavigator() {
 export default function RootLayout() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
+      {/* Decode the contour wallpapers into expo-image's cache during startup
+          so no screen ever shows the background popping in. */}
+      <WallpaperWarmup />
       <SafeAreaProvider>
         <QueryClientProvider client={queryClient}>
           <AuthProvider>
