@@ -215,6 +215,25 @@ class Settings(BaseSettings):
     cors_origins: str = "*"
     port: int = 8000
 
+    # Which duties THIS process performs. Lets the same image run as one box
+    # (default) or split into a web service + a scheduler worker on Railway,
+    # without a second Dockerfile/CMD — only this env differs per service.
+    #   "all"    → serve the API AND run the scheduler (today's single-process box)
+    #   "web"    → serve the API only; do NOT run scheduled jobs
+    #   "worker" → run the scheduler (still serves HTTP so Railway's healthcheck
+    #              is unchanged), but only when it wins the advisory lock
+    # Unset defaults to "all", so merging the split changes nothing until a
+    # service is explicitly set to "web"/"worker". Anything unrecognised is
+    # treated as "all" (fail-safe: never silently stop running the jobs).
+    process_role: str = "all"
+
+    @property
+    def runs_scheduler(self) -> bool:
+        # Fail-safe: ONLY an explicit "web" opts out. "all"/"worker"/unset/typo
+        # all run the scheduler (lock-gated), so a misconfigured value can never
+        # leave the market data with no writer.
+        return self.process_role.strip().lower() != "web"
+
     @property
     def supabase_service_key(self) -> str:
         """Return the active server-side service key (bypasses RLS).

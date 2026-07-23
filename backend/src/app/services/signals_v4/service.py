@@ -41,9 +41,31 @@ _trend_stats_loaded = False
 
 # In-process TTL cache: repeated views of the same symbol are common and each
 # fresh build costs several DB round-trips. Matches the deployed engine's cache
-# intent without a second table. Cleared naturally by expiry.
+# intent without a second table.
+#
+# The TTL is only checked on READ, so expired entries used to linger in the dict
+# forever — over a trading day every requested symbol pinned a full
+# SignalV4Response payload in RSS (a real, monotonic memory chunk on the
+# single-process Railway instance). _cache_put now bounds the dict: it sweeps
+# expired entries and evicts the oldest past a cap. Behaviour-preserving — a
+# miss simply recomputes the identical payload, so V4 output is unchanged.
 _CACHE_TTL_SECONDS = 900
+_CACHE_MAX_ENTRIES = 256  # « the ~1076-symbol universe must never all reside at once
 _cache: dict[str, tuple[float, dict[str, Any]]] = {}
+
+
+def _cache_put(sym: str, payload: dict[str, Any]) -> None:
+    now = time.monotonic()
+    _cache[sym] = (now, payload)
+    if len(_cache) <= _CACHE_MAX_ENTRIES:
+        return
+    # Over cap: drop everything past its TTL first (free, correct), then evict
+    # oldest-by-timestamp until back under the cap.
+    for key in [k for k, (ts, _) in _cache.items() if now - ts >= _CACHE_TTL_SECONDS]:
+        _cache.pop(key, None)
+    while len(_cache) > _CACHE_MAX_ENTRIES:
+        oldest = min(_cache, key=lambda k: _cache[k][0])
+        _cache.pop(oldest, None)
 
 
 async def get_signal(symbol: str) -> dict[str, Any]:
@@ -91,7 +113,7 @@ async def get_signal(symbol: str) -> dict[str, Any]:
             "reason_code": technical.reason_code,
         },
     ).model_dump(mode="json")
-    _cache[sym] = (time.monotonic(), payload)
+    _cache_put(sym, payload)
     return payload
 
 

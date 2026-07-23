@@ -924,7 +924,11 @@ async def job_fetch_announcement_pdfs():
         items = ann.data or []
         if not items:
             return
-        rows: list[dict] = []
+        # Stream: upsert each filing's text as it's extracted, rather than
+        # accumulating up to 20 full multi-page texts in one list before a batch
+        # write. On the single-process box that batch was a real memory spike;
+        # one text resident at a time is the same result for a fraction of peak.
+        written = 0
         import tempfile
         for item in items:
             url = item.get("url")
@@ -936,7 +940,7 @@ async def job_fetch_announcement_pdfs():
                 try:
                     ok, text, pg_count = await pdf_fetcher.process_url(url, dest)
                     if ok and text:
-                        rows.append({
+                        row = {
                             "announcement_id": item["id"],
                             "symbol": item.get("symbol"),
                             "type": item.get("category"),
@@ -945,18 +949,20 @@ async def job_fetch_announcement_pdfs():
                             "text_content": text,
                             "page_count": pg_count,
                             "refreshed_at": datetime.now(timezone.utc).isoformat(),
-                        })
+                        }
+                        await async_execute(
+                            lambda c, r=row: c.table("filings").upsert(
+                                r, on_conflict="announcement_id"
+                            )
+                        )
+                        written += 1
                 finally:
                     if os.path.exists(dest):
                         os.unlink(dest)
             except Exception:
                 log.debug("pdf_processing_failed", url=url, exc_info=True)
-        if rows:
-            await async_execute(
-                lambda c: c.table("filings").upsert(rows, on_conflict="announcement_id")
-            )
-        log.info("job:fetch_announcement_pdfs:done", count=len(rows))
-        await _record_health("announcement_pdfs", success=True, rows_updated=len(rows))
+        log.info("job:fetch_announcement_pdfs:done", count=written)
+        await _record_health("announcement_pdfs", success=True, rows_updated=written)
     except Exception as e:
         log.exception("job:fetch_announcement_pdfs:failed")
         await _record_health("announcement_pdfs", success=False, error=str(e))
@@ -1272,6 +1278,11 @@ def init_scheduler():
 
 
 def shutdown_scheduler():
+    # No-op when this process never started the scheduler (process_role="web",
+    # or it lost the advisory lock) — shutting down a non-running scheduler
+    # raises SchedulerNotRunningError.
+    if not scheduler.running:
+        return
     scheduler.shutdown(wait=False)
     log.info("scheduler:shutdown")
 
