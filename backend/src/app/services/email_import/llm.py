@@ -1,32 +1,33 @@
-"""LLM fallback for bank-alert emails the rules parser can't handle.
+"""LLM fallback for finance emails the rules parser can't handle.
 
 Only reached for messages that already passed the sender allowlist and that no
-deterministic template matched, so cost stays bounded. Mirrors the tutor's
-Gemini -> Groq fallback (services/ai/tutor.py).
-
-Deliberately does NOT use services/ai/quota.py: that is the user's own AI-tutor
-allowance, and a background scraper must not spend it. The poller caps calls via
-settings.email_import_max_llm_per_poll instead.
+deterministic template matched, so cost stays bounded. It can return either a
+completed transaction or an unpaid bill/invoice.
 """
 from __future__ import annotations
 
 import json
 import logging
-from datetime import datetime
+from datetime import date, datetime
 from typing import Any, Optional
 
 from app.config import settings
 from app.services.ai import providers
 from app.services.ai.observability import observe, propagate_attributes
 from app.services.ai.prompts import load_prompt, security_rules
-from app.services.email_import.models import KNOWN_CATEGORIES, ParsedTransaction
+from app.services.email_import.models import (
+    KNOWN_CATEGORIES,
+    ParsedBill,
+    ParsedEmailItem,
+    ParsedTransaction,
+)
 from app.services.email_import.rules import strip_boilerplate
 from app.services.email_import.sanitize import (
     clean_merchant,
     fallback_title,
     is_valid_merchant,
 )
-from app.services.email_import.senders import sender_domain
+from app.services.email_import.senders import biller_display_name, sender_domain
 
 log = logging.getLogger(__name__)
 
@@ -39,9 +40,8 @@ _SYSTEM_PROMPT = (security_rules() + "\n\n" + load_prompt("email_extraction")).f
 
 def _build_messages(subject: str, body: str, sender: str) -> list[dict[str, str]]:
     # Footer stripped (same preprocessing as the rules): the helpline numbers
-    # and bank signatures that live there only mislead the model, and dropping
-    # them cuts tokens. Truncated too — alerts are short, and this bounds token
-    # cost on stray mail.
+    # and signatures that live there only mislead the model, and dropping them
+    # cuts tokens. Truncated too, to bound token cost on stray mail.
     clean = strip_boilerplate(body)
     return [
         {"role": "system", "content": _SYSTEM_PROMPT},
@@ -58,19 +58,25 @@ def _build_messages(subject: str, body: str, sender: str) -> list[dict[str, str]
     ]
 
 
-def _coerce(
+def _parse_due_date(value: Any) -> Optional[date]:
+    if not value:
+        return None
+    try:
+        return date.fromisoformat(str(value)[:10])
+    except ValueError:
+        return None
+
+
+def _coerce_transaction(
     payload: dict[str, Any],
     received_at: datetime,
     *,
-    sender: str = "",
-    context_text: str = "",
+    sender: str,
+    context_text: str,
 ) -> Optional[ParsedTransaction]:
-    if not payload.get("is_transaction"):
-        return None
     # The sanitizer is the same choke point the rules path uses: even if the
     # model ignores the prompt and answers with the bank's name / a phone
-    # number / "Unknown", that value never becomes a heading — it is replaced
-    # by a channel-derived title ("ATM Withdrawal", "Funds Transfer", ...).
+    # number / "Unknown", that value never becomes a heading.
     raw_merchant = str(payload.get("merchant") or "").strip()
     if raw_merchant.lower() in ("", "unknown", "n/a", "none") or not is_valid_merchant(
         raw_merchant, sender_domain(sender)
@@ -89,10 +95,43 @@ def _coerce(
             confidence=float(payload.get("confidence", 0.0)),
         )
     except Exception:
-        # A malformed/hallucinated shape is a miss, not a crash — better to skip
-        # the email than write bad financial data.
         log.warning("LLM returned an unusable transaction payload", exc_info=True)
         return None
+
+
+def _coerce_bill(
+    payload: dict[str, Any], *, sender: str, context_text: str = ""
+) -> Optional[ParsedBill]:
+    due = _parse_due_date(payload.get("due_date"))
+    if due is None:
+        return None
+    raw_name = str(payload.get("bill_name") or payload.get("merchant") or "").strip()
+    name = biller_display_name(sender) or clean_merchant(raw_name or fallback_title(context_text))
+    try:
+        return ParsedBill(
+            amount=float(payload["amount"]),
+            name=name,
+            due_date=due,
+            recurring=bool(payload.get("recurring", True)),
+            confidence=float(payload.get("confidence", 0.0)),
+        )
+    except Exception:
+        log.warning("LLM returned an unusable bill payload", exc_info=True)
+        return None
+
+
+def _coerce(
+    payload: dict[str, Any],
+    received_at: datetime,
+    *,
+    sender: str = "",
+    context_text: str = "",
+) -> Optional[ParsedEmailItem]:
+    if payload.get("is_transaction"):
+        return _coerce_transaction(payload, received_at, sender=sender, context_text=context_text)
+    if payload.get("is_bill"):
+        return _coerce_bill(payload, sender=sender, context_text=context_text)
+    return None
 
 
 # capture_input=False: the raw email body is already visible on the nested
@@ -100,8 +139,8 @@ def _coerce(
 @observe(name="email_parse", capture_input=False, capture_output=False)
 async def parse(
     subject: str, body: str, sender: str, received_at: datetime, *, transport: Any = None
-) -> Optional[ParsedTransaction]:
-    """Extract a transaction via LLM, or None if it isn't one / all providers fail."""
+) -> Optional[ParsedEmailItem]:
+    """Extract a transaction or bill via LLM, or None if all providers fail."""
     messages = _build_messages(subject, body, sender)
     attempts = (
         ("gemini", providers.complete_gemini_json),

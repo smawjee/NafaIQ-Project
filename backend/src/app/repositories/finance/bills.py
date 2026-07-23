@@ -4,10 +4,21 @@ from __future__ import annotations
 from typing import Any, Optional
 
 from sqlalchemy import delete, insert, select, text, update
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 
 from app.repositories.finance._common import count_owned, table
 
 Executor = Any
+
+
+def _optional(row: Any, key: str, default: Any = None) -> Any:
+    try:
+        return row.get(key, default)
+    except AttributeError:
+        try:
+            return row[key]
+        except KeyError:
+            return default
 
 
 def _bill(row: Any) -> dict[str, Any]:
@@ -21,6 +32,9 @@ def _bill(row: Any) -> dict[str, Any]:
         "status": row["status"],
         "recurring": row["recurring"],
         "paid_at": str(row["paid_at"]) if row["paid_at"] else None,
+        "source": _optional(row, "source", "manual"),
+        "note": _optional(row, "note"),
+        "email_message_id": _optional(row, "email_message_id"),
         "created_at": str(row["created_at"]),
     }
 
@@ -43,6 +57,28 @@ async def insert_bill(conn: Executor, values: dict[str, Any]) -> dict[str, Any]:
     bills = await table("user_bills")
     result = await conn.execute(insert(bills).values(**values).returning(bills))
     return _bill(result.mappings().first())
+
+
+async def insert_bill_dedup(
+    conn: Executor, values: dict[str, Any]
+) -> Optional[dict[str, Any]]:
+    """Insert an email-sourced bill, ignoring one already imported.
+
+    Targets the partial unique index on (user_id, email_message_id), matching the
+    transaction importer, so repeated Gmail polls cannot duplicate the same bill.
+    """
+    bills = await table("user_bills")
+    result = await conn.execute(
+        pg_insert(bills)
+        .values(**values)
+        .on_conflict_do_nothing(
+            index_elements=["user_id", "email_message_id"],
+            index_where=bills.c.email_message_id.isnot(None),
+        )
+        .returning(bills)
+    )
+    row = result.mappings().first()
+    return _bill(row) if row else None
 
 
 async def update_bill(
