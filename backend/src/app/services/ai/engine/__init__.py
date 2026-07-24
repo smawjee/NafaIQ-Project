@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import logging
 import time
 from dataclasses import dataclass
 from typing import Any, Optional
@@ -33,6 +34,7 @@ from app.services.ai.guardrails import check_report
 from app.services.ai.observability import observe, propagate_attributes
 from app.services.ai.providers import (
     ProviderError,
+    ProviderRateLimited,
     ReportClient,
     generate_structured,
     log_report_generation,
@@ -42,6 +44,8 @@ from app.services.ai.providers import (
 )
 from app.services.ai.specs import ReportSpec
 from app.services.ai.verify import verify_report
+
+log = logging.getLogger(__name__)
 
 # Pipeline stages, in this package. `_replace_orphan_in_text` and
 # `_dashboard_view_target` are imported here (not just used) so tests that do
@@ -132,11 +136,25 @@ async def _generate_report(
     # provider refusing (auth/quota/exhausted); a ReportUnavailable is our own
     # verification failing, which the other provider would hit too, so only the
     # former triggers failover.
-    primary = make_report_client(confidential=spec.confidential, transport=transport)
-    try:
+    # Automatic rate-limit recovery: when every key is throttled (Groq's TPM cap
+    # is per-org, and confidential reports have no cross-provider failover), wait
+    # out the window and retry rather than surfacing "report unavailable". Bounded
+    # so a genuine outage still fails fast.
+    attempts = max(0, settings.ai_report_rate_retry_attempts)
+    for outer in range(attempts + 1):
+        primary = make_report_client(confidential=spec.confidential, transport=transport)
         try:
             return await _generate_once(spec, primary, messages, bundle, lang)
+        except ProviderRateLimited as e:
+            if outer >= attempts:
+                raise
+            delay = min(e.retry_after_s or 8.0, settings.ai_report_rate_retry_cap_s)
+            log.warning("report_rate_limited_auto_retry", extra={
+                "report_type": spec.report_type, "attempt": outer + 1, "delay_s": round(delay, 1),
+            })
+            await asyncio.sleep(delay)
         except ProviderError:
+            # A non-rate-limit provider failure: try the failover provider once.
             fallback = make_report_failover_client(
                 confidential=spec.confidential,
                 primary_provider=primary.provider,
@@ -154,8 +172,9 @@ async def _generate_report(
                 return await _generate_once(spec, fallback, messages, bundle, lang)
             finally:
                 await aclose_report_client(fallback)
-    finally:
-        await aclose_report_client(primary)
+        finally:
+            await aclose_report_client(primary)
+    raise ProviderError("report rate-limit retries exhausted")  # unreachable
 
 
 async def _generate_once(

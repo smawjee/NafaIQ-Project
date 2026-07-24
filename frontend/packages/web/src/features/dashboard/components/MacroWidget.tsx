@@ -9,8 +9,8 @@ import { useLang, localizeDigits } from "@/hooks/use-lang";
 function StatRow({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex items-center justify-between gap-2">
-      <span className="text-[11px] text-text-muted">{label}</span>
-      <span dir="ltr" className="font-mono text-sm font-semibold tabular-nums text-text-primary">
+      <span className="text-sm text-text-secondary">{label}</span>
+      <span dir="ltr" className="font-mono text-base font-semibold tabular-nums text-text-primary">
         {value}
       </span>
     </div>
@@ -19,8 +19,8 @@ function StatRow({ label, value }: { label: string; value: string }) {
 
 function GroupHeader({ icon: Icon, title }: { icon: LucideIcon; title: string }) {
   return (
-    <div className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wide text-text-muted">
-      <Icon className="h-3 w-3" />
+    <div className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-text-muted">
+      <Icon className="h-3.5 w-3.5" />
       {title}
     </div>
   );
@@ -72,7 +72,7 @@ export function MacroWidget() {
     <Card hover={false} className="bg-surface-alt">
       <div className="mb-3 flex items-center gap-2">
         <TrendingUp className="h-4 w-4 text-text-secondary" />
-        <h3 className="text-sm font-semibold text-text-primary">{t("Macro Snapshot")}</h3>
+        <h3 className="text-base font-semibold text-text-primary">{t("Macro Snapshot")}</h3>
       </div>
 
       <div className="space-y-3.5">

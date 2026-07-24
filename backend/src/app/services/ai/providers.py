@@ -31,6 +31,7 @@ Key pools (multi-key fallback):
 """
 from __future__ import annotations
 
+import asyncio
 import math
 import os
 import re
@@ -1088,6 +1089,40 @@ async def complete_with_tools(
     tool_choice: str = "auto",
     transport: Optional[httpx.AsyncBaseTransport] = None,
 ) -> Any:
+    """Automatic rate-limit recovery around the key-rotating attempt.
+
+    Groq's TPM ceiling is per-ORGANISATION, so once every key is throttled,
+    rotating them again is pointless — the only thing that helps is letting the
+    minute window drain. Rather than bubble a 429 up to the user (who would have
+    to retry by hand), we wait out the provider's stated retry-after and try
+    again ourselves, bounded so a real outage still fails fast.
+    """
+    attempts = max(0, settings.ai_assistant_rate_retry_attempts)
+    for outer in range(attempts + 1):
+        try:
+            return await _complete_with_tools_once(
+                messages, tools, tool_choice=tool_choice, transport=transport
+            )
+        except ProviderRateLimited as e:
+            if outer >= attempts:
+                raise
+            delay = min(e.retry_after_s or 8.0, settings.ai_assistant_rate_retry_cap_s)
+            log.warning(
+                "assistant_rate_limited_auto_retry",
+                attempt=outer + 1,
+                delay_s=round(delay, 1),
+            )
+            await asyncio.sleep(delay)
+    raise ProviderError("assistant rate-limit retries exhausted")  # unreachable
+
+
+async def _complete_with_tools_once(
+    messages: list[dict[str, Any]],
+    tools: list[dict[str, Any]],
+    *,
+    tool_choice: str = "auto",
+    transport: Optional[httpx.AsyncBaseTransport] = None,
+) -> Any:
     """One non-streaming tool-calling turn; returns the raw assistant message.
 
     Non-streaming on purpose. A turn that picks a tool has no prose to stream —
@@ -1120,6 +1155,11 @@ async def complete_with_tools(
                     messages=messages,  # type: ignore[arg-type]
                     tools=tools,  # type: ignore[arg-type]
                     tool_choice=tool_choice,  # type: ignore[arg-type]
+                    # Bound the completion: chat replies are 1-2 sentences and
+                    # tool-call args are tiny, so this caps the per-request token
+                    # count (prompt + reserved completion) that Groq meters for
+                    # its per-minute limit, without truncating real answers.
+                    max_tokens=settings.ai_assistant_max_output_tokens,
                     temperature=(
                         _EXTRACTION_TEMPERATURE if attempt == 0 else _TOOL_RETRY_TEMPERATURE
                     ),

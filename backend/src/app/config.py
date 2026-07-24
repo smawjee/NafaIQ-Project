@@ -120,6 +120,11 @@ class Settings(BaseSettings):
     # K-key pool that 429s slowly multiplies that by K. Callers get
     # ReportUnavailable at this deadline instead of holding a request open.
     ai_report_deadline_s: float = 90.0
+    # Confidential reports run on Groq with no cross-provider failover, so a
+    # per-org 429 would otherwise surface as a "report unavailable" error. Wait
+    # out the throttle and retry the generation automatically instead.
+    ai_report_rate_retry_attempts: int = 1
+    ai_report_rate_retry_cap_s: float = 12.0
 
     # NafaIQ Assistant (the agent behind "Ask NafaIQ AI"). Distinct from the AI
     # tutor: it calls tools that read and write the user's own finance data, so
@@ -134,6 +139,17 @@ class Settings(BaseSettings):
     # pool on an unbounded cycle.
     ai_assistant_max_tool_rounds: int = 4
     ai_assistant_daily_limit: int = 40
+    # Cap the assistant's completion so the request stays well under Groq's
+    # per-minute token limit. Replies are 1-2 sentences and tool calls are tiny;
+    # without a cap the provider reserves a large completion allowance on top of
+    # the prompt, inflating the per-request token count and tripping 429s.
+    ai_assistant_max_output_tokens: int = 700
+    # When every key is rate-limited (Groq's TPM cap is per-ORG, so rotating keys
+    # in the same org can't help), wait out the provider's retry-after and retry
+    # automatically instead of surfacing a 429 to the user. Bounded so a genuine
+    # outage still fails fast rather than hanging the request forever.
+    ai_assistant_rate_retry_attempts: int = 2
+    ai_assistant_rate_retry_cap_s: float = 15.0
 
     # Speech-to-text for the assistant's voice input. Groq hosts Whisper on the
     # same OpenAI-compatible base URL as its chat models, so the existing key

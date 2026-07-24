@@ -17,7 +17,7 @@ export function UnusualActivityWidget() {
     <Card>
       <div className="mb-3 flex items-center gap-2">
         <Activity className="h-4 w-4 text-text-secondary" />
-        <h3 className="text-sm font-semibold text-text-primary">{t("Unusual Volume")}</h3>
+        <h3 className="text-base font-semibold text-text-primary">{t("Unusual Volume")}</h3>
       </div>
       {isLoading ? (
         <div className="py-4 text-center text-sm text-text-muted">{t("Loading...")}</div>
@@ -37,10 +37,10 @@ export function UnusualActivityWidget() {
                   className="flex items-center justify-between gap-2 rounded-[6px] border border-transparent px-2 py-1.5 transition-colors hover:border-border hover:bg-hover"
                 >
                   <div className="min-w-0">
-                    <div className="font-mono text-sm font-semibold text-text-primary">
+                    <div className="font-mono text-base font-semibold text-text-primary">
                       {row.symbol}
                     </div>
-                    <div className="text-[10px] text-text-muted">
+                    <div className="text-xs text-text-muted">
                       {row.ts ? formatTimeAgo(row.ts) : ""}
                       {row.volume_ratio != null
                         ? ` · ${localizeDigits(row.volume_ratio.toFixed(1))}× avg`
@@ -49,7 +49,7 @@ export function UnusualActivityWidget() {
                   </div>
                   <div
                     className={cn(
-                      "text-right font-mono text-xs font-semibold tabular-nums",
+                      "text-right font-mono text-sm font-semibold tabular-nums",
                       positive ? "text-bull" : "text-bear",
                     )}
                   >
