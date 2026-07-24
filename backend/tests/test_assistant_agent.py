@@ -17,6 +17,7 @@ from typing import Any
 
 import pytest
 
+from app.config import settings
 from app.services.assistant import agent
 
 USER = {"user_id": "u-1", "plan": "Free", "features": {}}
@@ -68,6 +69,26 @@ async def _drain(**kw) -> list[dict]:
 
 
 # --- the core safety property ---------------------------------------------
+
+
+async def test_conversation_history_is_capped(monkeypatch):
+    """A long chat must not grow the prompt without bound — only the last N
+    messages reach the model, so the request can't balloon past the token
+    limit. Reports never get history at all; this is chat-only."""
+    provider = FakeProvider(_msg("Hi!"))
+    monkeypatch.setattr(agent, "complete_with_tools", provider)
+
+    long_history = [
+        {"role": "user" if i % 2 == 0 else "assistant", "content": f"msg-{i}"}
+        for i in range(20)
+    ]
+    [e async for e in agent.run_turn(USER, long_history)]
+
+    sent = provider.seen[0]["messages"]
+    history = [m for m in sent if m.get("role") != "system"]
+    assert len(history) == settings.ai_chat_history_max_messages
+    # It keeps the MOST RECENT ones (msg-19 is the last).
+    assert history[-1]["content"] == "msg-19"
 
 
 async def test_write_tools_are_never_executed_in_the_loop(monkeypatch):

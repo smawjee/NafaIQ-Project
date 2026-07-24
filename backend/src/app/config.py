@@ -150,6 +150,11 @@ class Settings(BaseSettings):
     # outage still fails fast rather than hanging the request forever.
     ai_assistant_rate_retry_attempts: int = 2
     ai_assistant_rate_retry_cap_s: float = 15.0
+    # Only the CHAT surfaces (Ask NafaIQ AI assistant + LearnHub lesson tutor)
+    # send conversation history to the model; reports build from the data bundle
+    # and never see it. Cap the history to the most recent N messages so a long
+    # chat can't grow the prompt without bound and blow the provider token limit.
+    ai_chat_history_max_messages: int = 6
 
     # Speech-to-text for the assistant's voice input. Groq hosts Whisper on the
     # same OpenAI-compatible base URL as its chat models, so the existing key

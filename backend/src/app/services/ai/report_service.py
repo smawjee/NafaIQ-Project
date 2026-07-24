@@ -13,12 +13,15 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import json
+import logging
 import time
 from contextlib import asynccontextmanager
 from datetime import date
 from typing import Any, AsyncIterator, Optional
 
 from fastapi import HTTPException
+
+log = logging.getLogger(__name__)
 
 from app.repositories import reports_repo
 from app.repositories.base import begin, connect
@@ -81,10 +84,23 @@ def _from_row(row: dict[str, Any], report_type: str) -> ReportResponse:
 
 
 async def _generate(spec, **kwargs) -> engine.GeneratedReport:
-    """Run the engine, turning fail-closed / provider errors into a clean 503."""
+    """Run the engine, turning ANY generation failure into a clean 503.
+
+    A report must never surface a 500 to the user. Beyond the expected
+    fail-closed / provider errors, a rate-limit exhaustion, a generation
+    timeout, or an unexpected model fault all degrade to the same graceful
+    "temporarily unavailable" — the full cause is logged for diagnosis.
+    """
     try:
         return await engine.generate_report(spec, **kwargs)
-    except (ReportUnavailable, ProviderError):
+    except HTTPException:
+        raise
+    except Exception:
+        log.warning(
+            "report_generation_failed",
+            extra={"report_type": getattr(spec, "report_type", None)},
+            exc_info=True,
+        )
         raise HTTPException(status_code=503, detail=_UNAVAILABLE)
 
 

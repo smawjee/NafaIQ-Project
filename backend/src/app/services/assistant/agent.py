@@ -187,17 +187,22 @@ async def run_turn(
         return
 
     bundle = await ctx.build_bundle(user["user_id"])
+    # Only the most recent turns go to the model. A long chat would otherwise
+    # grow the prompt every message and eventually trip the provider's per-minute
+    # token limit; the leakage/scope checks above already ran on the latest user
+    # message, so trimming older turns is safe.
+    history = messages[-settings.ai_chat_history_max_messages:]
     convo: list[dict[str, Any]] = [
         {"role": "system", "content": build_system_prompt(bundle, lang)}
     ]
-    convo += [{"role": m["role"], "content": m["content"]} for m in messages]
+    convo += [{"role": m["role"], "content": m["content"]} for m in history]
 
     tools = tool_schemas()
 
     # Everything the user actually said, plus (appended below) whatever the read
     # tools returned. A value in a write draft that appears nowhere in here was
     # invented by the model — see tools.ungrounded_fields.
-    grounding = "\n".join(m["content"] for m in messages)
+    grounding = "\n".join(m["content"] for m in history)
     # Read tools run this turn, for diagnosing an empty final response.
     reads_done: list[str] = []
 

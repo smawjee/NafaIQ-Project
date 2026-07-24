@@ -82,8 +82,13 @@ async def stream_reply(
         return
 
     system = build_system_prompt(body.lessonTitle, body.lessonContext, body.lang)
+    # Only the most recent turns go to the model: a long lesson chat would
+    # otherwise grow the prompt every message and eventually trip the provider's
+    # per-minute token limit. The leakage/scope checks above already ran on the
+    # latest user message, so trimming older turns is safe.
+    recent = body.messages[-settings.ai_chat_history_max_messages:]
     oai_messages = [{"role": "system", "content": system}] + [
-        {"role": m.role, "content": m.content} for m in body.messages
+        {"role": m.role, "content": m.content} for m in recent
     ]
     attempts = [
         ("gemini", settings.ai_tutor_model_primary, providers.stream_gemini),
