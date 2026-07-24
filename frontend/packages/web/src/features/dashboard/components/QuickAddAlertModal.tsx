@@ -6,7 +6,7 @@ import { useDemo } from "@/hooks/use-demo";
 import { useLang } from "@/hooks/use-lang";
 import { useAppDispatch } from "@/store/hooks";
 import { addAlert } from "@/store/alerts";
-import { useCreateUserAlert } from "@/hooks/use-alerts";
+import { useCreateAlert, useCreatePriceAlert } from "@/hooks/use-alert-events";
 import { useFinanceData } from "@/hooks/use-demo-data";
 import { Modal } from "@/components/shared/Modal";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -18,7 +18,8 @@ export function QuickAddAlertModal({ open, onClose }: { open: boolean; onClose: 
   const { isDemo } = useDemo();
   const dispatch = useAppDispatch();
   const isLoggedIn = !!user && !isDemo;
-  const createUserAlert = useCreateUserAlert();
+  const createUserAlert = useCreateAlert();
+  const createPriceAlert = useCreatePriceAlert();
   // Bill/budget/goal choices come from the local store so demo-created
   // items show up as alert targets.
   const { bills: localBills, budgets: localBudgets, goals: localGoals } = useFinanceData();
@@ -72,30 +73,41 @@ export function QuickAddAlertModal({ open, onClose }: { open: boolean; onClose: 
     }
 
     if (isLoggedIn) {
-      createUserAlert.mutate(
-        {
-          type:
-            type === "Stock Price"
-              ? "stock_price"
-              : type === "Bill Reminder"
+      const onSuccess = () => {
+        toast.success(t("Alert created"));
+        setPrice("");
+        setBudgetThreshold("80");
+        setGoalMilestone("50");
+        setErr("");
+        onClose();
+      };
+      if (type === "Stock Price") {
+        createPriceAlert.mutate(
+          {
+            symbol: stock,
+            condition: direction.toLowerCase() as "above" | "below",
+            price: Number(price),
+            one_time: true,
+            notify_push: push,
+            notify_email: email,
+          },
+          { onSuccess },
+        );
+      } else {
+        createUserAlert.mutate(
+          {
+            type:
+              type === "Bill Reminder"
                 ? "bill"
                 : type === "Budget"
                   ? "budget"
                   : "goal",
-          title,
-          meta: typeof meta === "object" ? meta : {},
-        },
-        {
-          onSuccess: () => {
-            toast.success(t("Alert created"));
-            setPrice("");
-            setBudgetThreshold("80");
-            setGoalMilestone("50");
-            setErr("");
-            onClose();
+            title,
+            meta: typeof meta === "object" ? meta : {},
           },
-        },
-      );
+          { onSuccess },
+        );
+      }
     } else {
       const channels = [push && "Push", email && "Email"].filter(Boolean).join(" + ") || "In-app";
       dispatch(

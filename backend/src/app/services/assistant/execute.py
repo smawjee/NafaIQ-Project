@@ -160,6 +160,28 @@ async def _add_price_alert(user: dict, args: dict[str, Any]) -> Any:
     )
 
 
+async def _add_bill_alert(user: dict, args: dict[str, Any]) -> Any:
+    bill_name = args.get("bill_name") or ""
+    timing = args.get("timing") or "3 days before"
+    return await app_alerts.create_user_alert(
+        user["user_id"],
+        "bill",
+        f"{bill_name} — {timing}",
+        {"bill": bill_name, "timing": timing},
+    )
+
+
+async def _add_budget_alert(user: dict, args: dict[str, Any]) -> Any:
+    category = args.get("category") or ""
+    threshold = args.get("threshold") or 80
+    return await app_alerts.create_user_alert(
+        user["user_id"],
+        "budget",
+        f"{category} at {threshold}% of budget",
+        {"category": category, "threshold": threshold},
+    )
+
+
 async def _add_holding(user: dict, args: dict[str, Any]) -> Any:
     portfolio_id = await _resolve_portfolio(user["user_id"], args.get("portfolio_id"))
     body = HoldingCreate(**_strip_none({k: v for k, v in args.items() if k != "portfolio_id"}))
@@ -189,6 +211,8 @@ HANDLERS: dict[str, Handler] = {
     "contribute_to_goal": _contribute_to_goal,
     "add_goal_alert": _add_goal_alert,
     "add_price_alert": _add_price_alert,
+    "add_bill_alert": _add_bill_alert,
+    "add_budget_alert": _add_budget_alert,
     "add_holding": _add_holding,
     "record_trade": _record_trade,
     "add_to_watchlist": _add_to_watchlist,

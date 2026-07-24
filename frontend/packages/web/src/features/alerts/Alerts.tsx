@@ -6,15 +6,18 @@ import { useDemo } from "@/hooks/use-demo";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { selectAlerts, selectNotifications } from "@/store/alerts";
 import { addAlert, toggleAlert, removeAlert } from "@/store/alerts";
-import {
-  useUserAlerts,
-  usePriceAlerts,
-  useCreateUserAlert,
-  useToggleUserAlert,
-  useRemoveUserAlert,
-} from "@/hooks/use-alerts";
 import { useNotifications } from "@/hooks/use-notifications";
-import { useAlertEvents, useMarkAlertEventRead, useEvaluateAlerts } from "@/hooks/use-alert-events";
+import {
+  useAlertEvents,
+  useMarkAlertEventRead,
+  useEvaluateAlerts,
+  useAllAlerts,
+  usePriceAlerts,
+  useCreateAlert,
+  useCreatePriceAlert,
+  useToggleAlert,
+  useDeleteAlert,
+} from "@/hooks/use-alert-events";
 import { useFinanceBudgets } from "@/hooks/use-finance-budgets";
 import { useFinanceGoals } from "@/hooks/use-finance-goals";
 import { useFinanceBills } from "@/hooks/use-finance-bills";
@@ -36,15 +39,16 @@ export function Alerts() {
   const realUserEnabled = !!user && !isDemo;
   const localAlerts = useAppSelector(selectAlerts);
   const localNotifications = useAppSelector(selectNotifications);
-  const { data: userAlerts } = useUserAlerts(realUserEnabled);
+  const { data: userAlerts } = useAllAlerts(realUserEnabled);
   const { data: priceAlerts } = usePriceAlerts(realUserEnabled);
   const { data: apiNotifications } = useNotifications(realUserEnabled);
   const { data: alertEvents } = useAlertEvents(50, realUserEnabled);
   const markAlertRead = useMarkAlertEventRead();
   const evaluateAlerts = useEvaluateAlerts();
-  const createUserAlert = useCreateUserAlert();
-  const toggleUserAlert = useToggleUserAlert();
-  const removeUserAlert = useRemoveUserAlert();
+  const createUserAlert = useCreateAlert();
+  const createPriceAlert = useCreatePriceAlert();
+  const toggleUserAlert = useToggleAlert();
+  const removeUserAlert = useDeleteAlert();
 
   // Real user data for budget/goal/bill dropdowns
   const { data: realBudgets } = useFinanceBudgets(isLoggedIn);
@@ -121,18 +125,27 @@ export function Alerts() {
     }
 
     if (isLoggedIn) {
-      createUserAlert.mutate({
-        type:
-          type === "Stock Price"
-            ? "stock_price"
-            : type === "Bill Reminder"
+      if (type === "Stock Price") {
+        createPriceAlert.mutate({
+          symbol: stock,
+          condition: direction.toLowerCase() as "above" | "below",
+          price: Number(price),
+          one_time: true,
+          notify_push: push,
+          notify_email: email,
+        });
+      } else {
+        createUserAlert.mutate({
+          type:
+            type === "Bill Reminder"
               ? "bill"
               : type === "Budget"
                 ? "budget"
                 : "goal",
-        title,
-        meta,
-      });
+          title,
+          meta,
+        });
+      }
     } else {
       const channels = [push && "Push", email && "Email"].filter(Boolean).join(" + ") || "In-app";
       dispatch(

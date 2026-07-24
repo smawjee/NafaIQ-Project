@@ -100,6 +100,20 @@ class AddPriceAlertArgs(BaseModel):
     price: Optional[float] = Field(None, description="Trigger price, PKR.")
 
 
+class AddBillAlertArgs(BaseModel):
+    bill_name: Optional[str] = Field(None, description="A tracked bill, named in context.")
+    timing: Optional[str] = Field(
+        None, description='How many days before due. One of "1 day before", "3 days before", "7 days before".'
+    )
+
+
+class AddBudgetAlertArgs(BaseModel):
+    category: Optional[str] = Field(None, description="Budget category.")
+    threshold: Optional[float] = Field(
+        None, description="Percent of budget that triggers the alert, e.g. 80."
+    )
+
+
 class AddHoldingArgs(BaseModel):
     symbol: Optional[str] = Field(None, description="PSX ticker.")
     shares: Optional[int] = None
@@ -294,6 +308,28 @@ TOOLS: tuple[Tool, ...] = (
         params=AddPriceAlertArgs,
         request=PriceAlertCreate,
         invalidate=("price-alerts",),
+    ),
+    Tool(
+        name="add_bill_alert",
+        kind="write",
+        tier="immediate",
+        description="Reminder before a bill is due.",
+        params=AddBillAlertArgs,
+        request=AppAlertCreate,
+        requires=("bill_name",),
+        derived=("type", "title", "meta"),
+        invalidate=("user-alerts",),
+    ),
+    Tool(
+        name="add_budget_alert",
+        kind="write",
+        tier="immediate",
+        description="Alert when spending in a category reaches a percent of the budget.",
+        params=AddBudgetAlertArgs,
+        request=AppAlertCreate,
+        requires=("category",),
+        derived=("type", "title", "meta"),
+        invalidate=("user-alerts",),
     ),
     # --- reads -------------------------------------------------------------
     Tool(
