@@ -28,10 +28,15 @@ use an exact bundle source_key. The `executive_summary` reads as a portfolio
 story: what is driving the result, where concentration or allocation risk comes
 from, and which facts deserve review first — lead with what stands out.
 
-`holdings_analysis` must contain exactly one object per actual holding, and each
-object uses only `symbol`, `summary`, `risk_note`, and `source_keys`. For each
-holding, summarise current value, cost basis, unrealized profit/loss, and its
-allocation/risk context, citing source keys where available.
+`holdings_analysis` must contain exactly one object per holding LISTED in the
+bundle's `holdings` array, and each object uses only `symbol`, `summary`,
+`risk_note`, and `source_keys`. For each holding, summarise current value, cost
+basis, unrealized profit/loss, and its allocation/risk context, citing source
+keys where available. If `portfolio_insights.holdings_truncated` is greater than
+zero, the bundle lists only the largest positions by value — the totals and
+allocation still cover every holding, so add a `data_quality_notes` line saying
+that N smaller positions (that number) are reflected in the totals but not
+individually reviewed here, and never imply the itemised list is complete.
 
 `action_plan` must be an array of ActionItem objects, not a section object.
 

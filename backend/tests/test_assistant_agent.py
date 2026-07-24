@@ -641,7 +641,7 @@ async def test_reference_names_are_delimited_as_untrusted(monkeypatch):
     system = provider.seen[0]["messages"][0]["content"]
     start = system.index("<<<UNTRUSTED_REFERENCE_DATA")
     end = system.index("UNTRUSTED_REFERENCE_DATA>>>")
-    assert "SECURITY AND PRIVACY RULES" in system
+    assert "SECURITY AND CONFIDENTIALITY RULES" in system
     assert hostile in system[start:end]
     assert hostile not in system[:start] + system[end:]
 

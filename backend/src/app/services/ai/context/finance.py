@@ -135,18 +135,28 @@ async def build_finance_context(
         if savings_rate >= _SAVINGS_BASELINE_PCT
         else "below_baseline"
     )
-    income = _finite(summ.get("income")) or 0.0
+    income = _finite(summ.get("income")) or 0.0  # earned via transactions only
+    # The salary-inclusive figure is what `savings` is derived from, so every
+    # cash-flow calc below must use it — otherwise income - expenses != savings
+    # in the same bundle and the model narrates numbers that don't reconcile.
+    total_income = _finite(summ.get("total_income")) or income
     expenses = _finite(summ.get("expenses")) or 0.0
     savings = _finite(summ.get("savings")) or 0.0
-    emergency_months = round(savings / expenses, 2) if expenses > 0 else None
+    # NOT months of emergency cover: savings/expenses is this month's surplus
+    # ratio, and the app tracks no accumulated cash-reserve balance to divide by
+    # monthly expenses. Feeding it as "months of cover" (per the prompt) is a
+    # lie, so we report None and let the prompt handle the untracked case.
+    # ponytail: no cash-balance source exists; add real months-of-cover when a
+    # tracked reserve/bank balance lands.
+    emergency_months = None
     category_amounts = [
         c.get("amount") for c in categories if isinstance(c, dict)
     ]
     top_categories = categories_sorted[:5]
     total_goal_remaining = _sum_finite([g.get("remaining") for g in goal_rows])
     savings_gap_to_baseline = (
-        round(max((income * (_SAVINGS_BASELINE_PCT / 100.0)) - savings, 0.0), 2)
-        if income > 0
+        round(max((total_income * (_SAVINGS_BASELINE_PCT / 100.0)) - savings, 0.0), 2)
+        if total_income > 0
         else None
     )
     action_candidates: list[dict[str, Any]] = []
@@ -184,6 +194,8 @@ async def build_finance_context(
         "summary": {
             "month": summ.get("month"),
             "income": _finite(summ.get("income")),
+            "fixed_income": _finite(summ.get("fixed_income")),
+            "total_income": total_income,
             "expenses": _finite(summ.get("expenses")),
             "savings": _finite(summ.get("savings")),
             "savings_rate": _finite(summ.get("savings_rate")),
@@ -243,7 +255,7 @@ async def build_finance_context(
         },
         "finance_insights": {
             "income_change_pct": _pct_change(
-                summ.get("income"), summ.get("last_month_income")
+                total_income, summ.get("last_month_income")
             ),
             "expense_change_pct": _pct_change(
                 summ.get("expenses"), summ.get("last_month_expense")

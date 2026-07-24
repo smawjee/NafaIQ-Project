@@ -36,7 +36,9 @@ async def build_stock_analysis_context(
     profile = await market_quotes.profile(symbol)
     hist = await market_history.history(symbol, bars_n)
     announcements = await market_quotes.announcements(symbol, 10)
-    dividends = await market_quotes.dividends(symbol)
+    # Cap the dividend history in the prompt (recent ~6 years). Real PSX history
+    # is small, but this keeps the one remaining uncapped list bounded.
+    dividends = (await market_quotes.dividends(symbol) or [])[:24]
     ev = await evidence.retrieve(f"{symbol} announcements", symbol)
 
     # Deterministic technical indicators from the OHLCV bars.

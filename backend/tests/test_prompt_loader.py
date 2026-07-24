@@ -72,7 +72,7 @@ def test_email_extraction_prompt_carries_contract():
         assert key in _SYSTEM_PROMPT
     assert "groceries" in _SYSTEM_PROMPT  # KNOWN_CATEGORIES injected
     assert "NOT a transaction" in _SYSTEM_PROMPT  # declined-transaction guard
-    assert "SECURITY AND PRIVACY RULES" in _SYSTEM_PROMPT
+    assert "SECURITY AND CONFIDENTIALITY RULES" in _SYSTEM_PROMPT
 
 
 def test_security_rules_loaded():

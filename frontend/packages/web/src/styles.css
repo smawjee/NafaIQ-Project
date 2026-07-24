@@ -51,7 +51,12 @@
 
   --color-text-primary: #ffffff;
   --color-text-secondary: #b0c4de;
-  --color-text-muted: #64748b;
+  /* Lightened from #64748b: on the #0a0a0f dark surface that slate was ~3.9:1,
+     below the WCAG AA 4.5:1 floor. #7e8ca0 clears AA (~5.1:1) for every muted
+     element (report disclaimers, data-quality notes, timestamps, subtitles)
+     while staying clearly below text-secondary. Light mode keeps #64748b, which
+     already passes on white. */
+  --color-text-muted: #7e8ca0;
 
   --color-input: rgba(255, 255, 255, 0.08);
   --color-ring: #00d4aa;

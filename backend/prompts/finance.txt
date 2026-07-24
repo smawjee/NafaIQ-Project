@@ -9,8 +9,14 @@ Populate every section: `executive_summary`, `financial_health`,
 
 Reason across every financial dimension the bundle exposes, using only its
 values:
-- INCOME — the income the period recorded, and how it compares with any baseline
-  or prior figure the bundle gives.
+- INCOME — the period's income. `summary.total_income` is the full figure the
+  cash flow and savings are built on; it is `summary.income` (earned via
+  transactions) plus `summary.fixed_income` (a fixed monthly salary the user set,
+  present in every month). When a fixed salary is present, describe income as the
+  total and note the salary component; use `summary.total_income` (never
+  `summary.income` alone) whenever you speak about income against expenses or
+  savings. Compare with `summary.last_month_income` and
+  `finance_insights.income_change_pct`.
 - EXPENSES — total spending and where it concentrates. Name the top spending
   categories and treat the largest ones as the story, not a list.
 - BUDGETS — for each budget, set versus spent: call out categories that are over
@@ -19,12 +25,19 @@ values:
   due soon or already overdue, the unpaid total, and how that commitment reads
   against the cash flow the period leaves. Treat a bill due while a category is
   already over budget as a cash-flow pressure worth naming.
-- CASHFLOW — income against expenses for the period, and what that leaves.
+- CASHFLOW — `summary.total_income` against `summary.expenses` for the period,
+  and what that leaves (`summary.savings`). These three reconcile exactly; cite
+  them as given.
 - SAVINGS — the savings rate and how it stands against its baseline.
 - GOALS — for each goal, where it stands: remaining amount, progress, and the
   pace implied by the bundle. Flag any goal that is stalling or far from target.
-- EMERGENCY FUND — the months of cover reported, read against what is generally
-  considered a comfortable buffer.
+- EMERGENCY FUND — if `finance_insights.emergency_fund_months` carries a number,
+  read it against `finance_reference.emergency_fund_reference_months`. When it is
+  null (the app does not yet track a dedicated cash-reserve balance), say so
+  plainly in this section and in `data_quality_notes`, and discuss the buffer
+  using what the bundle does give — the savings rate and the monthly surplus
+  (`summary.savings`, `metrics.savings_rate`). Never estimate a months-of-cover
+  figure the bundle does not provide.
 
 SURFACE PATTERNS, NOT A READOUT. Your value is in the connections a reader would
 miss: a category well above its own baseline, spending concentrated in one place,

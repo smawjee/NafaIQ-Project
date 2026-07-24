@@ -18,6 +18,17 @@ from ._shared import (
     sector_map_mod,
 )
 
+# Cap the itemised holdings/allocation lists sent to the LLM. Every metric below
+# (net-worth totals, allocation %, diversification, concentration, gainers /
+# losers, missing prices) is computed over the FULL holding set first, so the
+# numbers are unaffected — only the per-position detail the model narrates is
+# bounded. Without this, an account with hundreds of holdings (default plan caps
+# at 20, but grandfathered / higher tiers can exceed it) serialises ~2 objects
+# per holding and can push the prompt past 40k tokens, blowing the report
+# deadline or drawing a provider 400 that does not fail over.
+# ponytail: top-N by market value; raise only if a tier must narrate every lot.
+_MAX_HOLDINGS_IN_BUNDLE = 40
+
 
 async def build_portfolio_context(
     conn_or_session: Any = None,
@@ -101,14 +112,28 @@ async def build_portfolio_context(
         h.get("symbol") for h in guarded if h.get("symbol") and h.get("current_price") is None
     ]
 
+    # Bound only the itemised lists (the math above already used the full set):
+    # keep the largest positions by market value, drop the long tail from the
+    # prompt, and tell the model how many were omitted so it can flag it.
+    holdings_bundle = sorted(
+        guarded, key=lambda h: _finite(h.get("market_value")) or 0.0, reverse=True
+    )[:_MAX_HOLDINGS_IN_BUNDLE]
+    alloc_stock_bundle = sorted(
+        alloc_stock,
+        key=lambda a: (_finite(a.get("value")) or 0.0) if isinstance(a, dict) else 0.0,
+        reverse=True,
+    )[:_MAX_HOLDINGS_IN_BUNDLE]
+    holdings_truncated = max(len(guarded) - len(holdings_bundle), 0)
+
     return {
         "as_of": _today_str(),
         "period_days": window,
         "networth": networth,
-        "holdings": guarded,
-        "allocation": {"by_stock": alloc_stock, "by_sector": alloc_sector},
+        "holdings": holdings_bundle,
+        "allocation": {"by_stock": alloc_stock_bundle, "by_sector": alloc_sector},
         "portfolio_insights": {
             "holding_count": len(holdings_with_value),
+            "holdings_truncated": holdings_truncated,
             "largest_holding_pct": top_stock_alloc,
             "largest_sector_pct": top_sector_alloc,
             "concentration_risk": concentration_risk,

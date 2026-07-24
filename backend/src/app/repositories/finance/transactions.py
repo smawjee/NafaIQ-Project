@@ -3,12 +3,53 @@ from __future__ import annotations
 
 from typing import Any, Optional
 
-from sqlalchemy import delete, insert, select, update
+from sqlalchemy import delete, func, insert, select, update
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 
 from app.repositories.finance._common import table
 
 Executor = Any
+
+
+async def find_duplicate_transaction(
+    conn: Executor,
+    uid: str,
+    *,
+    merchant: str,
+    amount: float,
+    transaction_type: str,
+    window_lo: Any,
+    window_hi: Any,
+) -> bool:
+    """True if this user already has a transaction with the same amount, type and
+    (case/space-insensitively) the same merchant within [window_lo, window_hi].
+
+    This is the content-level guard the message_id dedup can't provide: a
+    multi-email merchant (foodpanda sends order-confirmed, receipt AND delivered
+    mails for ONE order — each a distinct Gmail message) would otherwise land as
+    several identical transactions. It matches the merchant EXACTLY (only case and
+    surrounding spaces normalized) and fails open — a merchant spelled
+    differently across those mails is simply not treated as a duplicate, so a
+    genuine new transaction is never silently dropped.
+    """
+    txns = await table("user_transactions")
+    result = await conn.execute(
+        select(txns.c.id)
+        .where(
+            txns.c.user_id == uid,
+            # Half-cent tolerance, not `==`: the amount is money stored as NUMERIC
+            # but bound here as a float, and float equality against NUMERIC can
+            # miss (879.80 has no exact float) — which would silently defeat the
+            # dedup and let the duplicate through.
+            func.abs(txns.c.amount - amount) < 0.005,
+            txns.c.transaction_type == transaction_type,
+            func.lower(func.btrim(txns.c.merchant)) == (merchant or "").strip().lower(),
+            txns.c.transaction_date >= window_lo,
+            txns.c.transaction_date <= window_hi,
+        )
+        .limit(1)
+    )
+    return result.first() is not None
 
 
 def _transaction(row: Any) -> dict[str, Any]:

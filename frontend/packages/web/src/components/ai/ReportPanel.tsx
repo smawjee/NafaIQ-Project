@@ -116,7 +116,7 @@ function ReportView({
 }) {
   const { t } = useLang();
   return (
-    <div className="rounded-[8px] border border-border border-l-4 border-l-ai bg-ai-tint p-4">
+    <div className="rounded-[8px] border border-border border-l-4 border-l-ai bg-surface p-4">
       <div className="mb-3 flex items-center justify-between">
         <h3 className="text-sm font-semibold text-text-primary">{title}</h3>
         <div className="flex items-center gap-2">

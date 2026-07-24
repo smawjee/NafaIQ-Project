@@ -208,6 +208,39 @@ async def test_portfolio_bundle_folds_risk_metrics(monkeypatch):
     assert bundle["allocation"]["by_sector"]  # non-empty
 
 
+async def test_portfolio_bundle_caps_itemised_holdings(monkeypatch):
+    # A heavy account (grandfathered / higher tier) with far more holdings than
+    # the default plan must not balloon the prompt: the itemised holdings and
+    # per-stock allocation lists are capped, while totals/counts still cover all.
+    from app.services.ai.context.portfolio import _MAX_HOLDINGS_IN_BUNDLE
+
+    n = _MAX_HOLDINGS_IN_BUNDLE + 5
+    holdings = [
+        {"symbol": f"S{i:03d}", "shares": 1.0, "avg_cost": 100.0, "current_price": 100.0 + i,
+         "market_value": 100.0 + i, "cost_basis": 100.0, "unrealized_pnl": float(i),
+         "pnl_pct": float(i)}
+        for i in range(n)
+    ]
+    monkeypatch.setattr(ctx.portfolio_svc, "networth", _async(_networth(holdings)))
+    monkeypatch.setattr(ctx.portfolio_svc, "portfolio_history", _async({"days": 30, "points": []}))
+    monkeypatch.setattr(ctx.portfolio_svc, "performance_vs_kse100", _async([]))
+    monkeypatch.setattr(ctx.portfolio_trades, "list_stock_transactions", _async([]))
+    monkeypatch.setattr(ctx.sector_map_mod, "get_sector_map",
+                        _async({f"S{i:03d}": "Banking" for i in range(n)}))
+
+    bundle = await ctx.build_portfolio_context(None, user_id="u1", days=30)
+    _assert_json_serializable(bundle)
+    # Itemised lists are bounded...
+    assert len(bundle["holdings"]) == _MAX_HOLDINGS_IN_BUNDLE
+    assert len(bundle["allocation"]["by_stock"]) == _MAX_HOLDINGS_IN_BUNDLE
+    assert bundle["portfolio_insights"]["holdings_truncated"] == 5
+    # ...but the totals/counts still reflect every holding.
+    assert bundle["portfolio_insights"]["holding_count"] == n
+    assert bundle["networth"]["total_market_value"] == 300.0
+    # The largest positions are the ones kept (top by market_value).
+    assert bundle["holdings"][0]["symbol"] == f"S{n - 1:03d}"
+
+
 async def test_portfolio_sanity_guard_omits_bad_avg_cost(monkeypatch):
     # §19.7: avg_cost wildly out of range vs last price is dropped, not narrated.
     holdings = [
@@ -307,6 +340,42 @@ async def test_finance_bundle_shape(monkeypatch):
     assert bundle["metrics"]["savings_rate"] == 30.0
     assert bundle["metrics"]["savings_assessment"] in {"below_baseline", "at_or_above_baseline"}
     assert bundle["finance_reference"]["emergency_fund_reference_months"] == 3
+    # No accumulated cash-reserve balance exists to divide by expenses, so the
+    # months-of-cover figure is omitted rather than faked from a monthly ratio.
+    assert bundle["finance_insights"]["emergency_fund_months"] is None
+
+
+async def test_finance_bundle_reconciles_with_fixed_salary(monkeypatch):
+    # A user with a settings salary: `savings` is derived from income + salary,
+    # so the bundle must feed `total_income` (not transactions-only `income`) or
+    # the model narrates figures where income - expenses != savings.
+    summ = FinanceSummaryResponse(
+        month="2026-07", income=20000.0, fixed_income=150000.0,
+        total_income=170000.0, expenses=70000.0, savings=100000.0,
+        savings_rate=58.8, last_month_income=165000.0, last_month_expense=72000.0,
+        last_month_savings=93000.0,
+    )
+    series = IncomeExpenseResponse(months=1, series=[
+        IncomeExpensePoint(month="2026-07", income=20000.0, expense=70000.0),
+    ])
+    spend = SpendingByCategoryResponse(days=30, total=70000.0, categories=[
+        SpendingCategory(category="food", amount=70000.0, pct=100.0),
+    ])
+    monkeypatch.setattr(ctx.finance_summary, "summary", _async(summ))
+    monkeypatch.setattr(ctx.finance_summary, "income_expense_series", _async(series))
+    monkeypatch.setattr(ctx.finance_summary, "spending_by_category", _async(spend))
+    monkeypatch.setattr(ctx.finance_budgets, "list_budgets", _async([]))
+    monkeypatch.setattr(ctx.finance_goals, "list_goals", _async([]))
+    monkeypatch.setattr(ctx.finance_bills, "list_bills", _async([]))
+
+    bundle = await ctx.build_finance_context(None, user_id="u1")
+    s = bundle["summary"]
+    # The three cash-flow figures the prompt tells the model to cite must reconcile.
+    assert s["total_income"] == 170000.0
+    assert s["fixed_income"] == 150000.0
+    assert abs(s["total_income"] - s["expenses"] - s["savings"]) < 1e-6
+    # MoM income delta compares like bases (both salary-inclusive): 170k vs 165k.
+    assert bundle["finance_insights"]["income_change_pct"] == round((170000 - 165000) / 165000 * 100, 2)
 
 
 # --------------------------------------------------------------------------- #

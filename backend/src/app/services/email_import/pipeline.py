@@ -38,6 +38,14 @@ log = logging.getLogger(__name__)
 # mostly gates the LLM path.
 MIN_CONFIDENCE = 0.6
 
+# One order from a multi-email merchant (foodpanda sends order-confirmed,
+# receipt and delivered mails for a SINGLE order) arrives as separate Gmail
+# messages within a short span, so the message_id dedup can't collapse them.
+# Treat a same-amount, same-merchant transaction inside this window as the same
+# charge. Kept tight on purpose: two genuine same-price orders are typically a
+# day apart (lunch today vs tomorrow ~24h), so this never merges real repeats.
+_DUP_WINDOW = timedelta(hours=12)
+
 # What the transaction shows as its "way of transaction". The finance UI renders
 # `source` verbatim, so it must be a human label — the bank/biller name tagged as
 # auto-imported. Unknown senders fall back to a generic label.
@@ -113,21 +121,36 @@ async def _import_transaction(
     user_id: str, msg: RawMessage, parsed: ParsedTransaction
 ) -> bool:
     """Insert the transaction unless it already exists. True if newly imported."""
+    amount = round(parsed.amount, 2)
+    txn_date = parsed.transaction_date or msg.received_at
     values = {
         "user_id": user_id,
         "merchant": parsed.merchant,
-        "amount": round(parsed.amount, 2),
+        "amount": amount,
         "transaction_type": parsed.transaction_type,
         # Canonicalised to the one display spelling shared by manual budgets and
         # transactions, so an imported "food & dining" lands in the same bucket
         # a "Food & Dining" budget joins against.
         "category": canonical_category(parsed.category),
-        "transaction_date": parsed.transaction_date or msg.received_at,
+        "transaction_date": txn_date,
         "source": _source_label(msg.sender),
         "note": f"Auto-imported from {msg.subject}"[:500],
         "email_message_id": msg.message_id,
     }
     async with begin() as conn:
+        # Content-level dedup FIRST (collapses a merchant's multi-email order),
+        # then the message_id dedup as the exact-same-message backstop. Both run
+        # in one transaction so the check and insert can't interleave.
+        if await finance_repo.find_duplicate_transaction(
+            conn,
+            user_id,
+            merchant=parsed.merchant,
+            amount=amount,
+            transaction_type=parsed.transaction_type,
+            window_lo=txn_date - _DUP_WINDOW,
+            window_hi=txn_date + _DUP_WINDOW,
+        ):
+            return False  # same charge already recorded (e.g. foodpanda receipt)
         row = await finance_repo.insert_transaction_dedup(conn, values)
     if row is None:
         return False  # already imported

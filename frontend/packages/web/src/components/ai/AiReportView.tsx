@@ -43,27 +43,21 @@ export function AiReportView({
         </p>
       )}
 
-      {report.observations?.length > 0 &&
-        (variant === "compact" ? (
-          <ul className="space-y-2">
-            {report.observations.map((o, i) => (
-              <li key={i} className="flex gap-2 text-sm leading-relaxed text-text-secondary">
-                <span className="mt-[7px] h-1.5 w-1.5 shrink-0 rounded-full bg-ai" />
-                <span>
-                  <AiText text={o} />
-                </span>
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <div>
-            {report.observations.map((o, i) => (
-              <p key={i} className="mb-2 text-sm leading-relaxed text-text-secondary last:mb-0">
+      {report.observations?.length > 0 && (
+        // Always bulleted: observations are discrete points, and a dotted list
+        // scans far better than a wall of short paragraphs — the difference the
+        // nudge and market-brief popups were losing under the narrative variant.
+        <ul className="space-y-2">
+          {report.observations.map((o, i) => (
+            <li key={i} className="flex gap-2 text-sm leading-relaxed text-text-secondary">
+              <span className="mt-[7px] h-1.5 w-1.5 shrink-0 rounded-full bg-ai" />
+              <span>
                 <AiText text={o} />
-              </p>
-            ))}
-          </div>
-        ))}
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
 
       {showDeep && report.executive_summary && (
         <section className="border-t border-border pt-4">
@@ -291,7 +285,14 @@ function MetricPill({ metric }: { metric: ReportMetric }) {
 }
 
 function formatMetricValue(value: unknown, t: (key: string) => string): string {
-  if (typeof value === "number" || typeof value === "string") return String(value);
+  // Group thousands so a rupee figure like 1234567.8 reads as "1,234,567.8"
+  // instead of a wall of digits. Numbers stay numerals in every language, so
+  // the grouping locale is fixed to en-US. Strings arrive pre-formatted from
+  // the backend — pass them through untouched.
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return value.toLocaleString("en-US");
+  }
+  if (typeof value === "string") return value;
   if (Array.isArray(value)) return `${value.length} ${t("items")}`;
   if (value && typeof value === "object") return t("Details available");
   return "--";
