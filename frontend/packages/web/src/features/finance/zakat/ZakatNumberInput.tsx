@@ -24,7 +24,7 @@ export function ZakatNumberInput({
         const parsed = Number(cleaned);
         onChange(cleaned === "" || cleaned === "." || !Number.isFinite(parsed) ? 0 : parsed);
       }}
-      className="w-[150px] rounded-[8px] border border-white/[0.08] bg-elevated/60 px-3 py-2 text-right font-mono text-sm font-semibold tabular-nums text-text-primary outline-none transition-colors focus:border-primary/50 focus:bg-elevated"
+      className="w-[150px] rounded-[8px] border border-border bg-elevated/60 px-3 py-2 text-right font-mono text-sm font-semibold tabular-nums text-text-primary outline-none transition-colors focus:border-primary/50 focus:bg-elevated"
     />
   );
 }

@@ -21,7 +21,7 @@ export function AlertsPriceList({ priceAlerts }: { priceAlerts?: PriceAlert[] })
       <div className="space-y-2">
         {priceAlerts.map((pa) => (
           <Card key={pa.id} className="flex items-center gap-3">
-            <span className="flex h-9 w-9 items-center justify-center rounded-[8px] border border-white/[0.06] bg-elevated">
+            <span className="flex h-9 w-9 items-center justify-center rounded-[8px] border border-border bg-elevated">
               <TrendingUp className="h-4 w-4 text-bull" />
             </span>
             <div className="flex-1">

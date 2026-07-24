@@ -28,7 +28,7 @@ export function Finance() {
           <span className="h-2 w-2 animate-pulse rounded-full bg-bull" />
         </div>
       </div>
-      <div className="scrollbar-none flex gap-1 overflow-x-auto rounded-[10px] border border-white/[0.06] bg-surface p-1">
+      <div className="scrollbar-none flex gap-1 overflow-x-auto rounded-[10px] border border-border bg-surface p-1">
         {TABS.map((tb) => (
           <button
             key={tb}

@@ -28,7 +28,11 @@ import {
   EMPTY_HOLDING_FORM,
   type HoldingForm,
 } from "@/features/portfolio/portfolio.utils";
-import { HaqeeqiDaulat } from "@/features/portfolio/components/HaqeeqiDaulat";
+// Hidden until built for real — HaqeeqiDaulat currently renders hardcoded
+// placeholder numbers (returns, devaluation, shield score), not the user's
+// actual portfolio. Restore this import + the render below once it's wired to
+// real data.
+// import { HaqeeqiDaulat } from "@/features/portfolio/components/HaqeeqiDaulat";
 import { PortfolioStatCards } from "@/features/portfolio/components/PortfolioStatCards";
 import { PortfolioPerformanceCard } from "@/features/portfolio/components/PortfolioPerformanceCard";
 import { PortfolioAllocationCards } from "@/features/portfolio/components/PortfolioAllocationCards";
@@ -337,7 +341,8 @@ export function Portfolio() {
         portfolioHistoryLoading={portfolioHistoryLoading}
       />
 
-      <HaqeeqiDaulat />
+      {/* Haqeeqi Daulat hidden — placeholder data only, not wired to the real
+          portfolio. Restore <HaqeeqiDaulat /> (and its import above) when built. */}
 
       <PortfolioAllocationCards
         useDemoPortfolio={useDemoPortfolio}

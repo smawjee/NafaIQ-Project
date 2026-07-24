@@ -84,7 +84,7 @@ export function NotificationBell() {
     <div ref={ref} className="relative flex h-9 w-9 shrink-0 items-center justify-center">
       <button
         onClick={() => setOpen((v) => !v)}
-        className="relative flex h-9 w-9 items-center justify-center rounded-[9px] text-text-secondary transition-colors hover:bg-white/[0.04] hover:text-text-primary"
+        className="relative flex h-9 w-9 items-center justify-center rounded-[9px] text-text-secondary transition-colors hover:bg-hover hover:text-text-primary"
         aria-label={t("Notifications")}
       >
         <Bell className="h-[18px] w-[18px]" strokeWidth={1.75} />
@@ -97,11 +97,11 @@ export function NotificationBell() {
       {open && (
         <div
           className={cn(
-            "glass-chrome absolute top-9 z-50 w-72 max-w-[calc(100vw-1.5rem)] overflow-hidden rounded-[12px] border border-white/[0.08] shadow-2xl",
+            "glass-chrome absolute top-9 z-50 w-72 max-w-[calc(100vw-1.5rem)] overflow-hidden rounded-[12px] border border-border shadow-2xl",
             "end-0",
           )}
         >
-          <div className="flex items-center justify-between border-b border-white/[0.06] px-4 py-2.5">
+          <div className="flex items-center justify-between border-b border-border px-4 py-2.5">
             <span className="text-[13px] font-semibold text-text-primary">
               {t("Notifications")}
             </span>
@@ -135,7 +135,7 @@ export function NotificationBell() {
                       if (n.link) window.location.href = n.link;
                     }
                   }}
-                  className="flex items-start gap-2.5 px-4 py-3 transition-colors hover:bg-white/[0.03] cursor-pointer"
+                  className="flex items-start gap-2.5 px-4 py-3 transition-colors hover:bg-hover cursor-pointer"
                 >
                   <span
                     className={cn(

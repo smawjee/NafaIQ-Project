@@ -198,7 +198,7 @@ class Settings(BaseSettings):
     # Cost guard: max LLM fallback parses per poll cycle. The scraper must NOT
     # use the per-user AI tutor quota (services/ai/quota.py) — that is the
     # user's own request allowance.
-    email_import_max_llm_per_poll: int = 20
+    email_import_max_llm_per_poll: int = 40
 
     # Pakistan bullion pricing for Monetary Desk and Zakat. Sarafa.pk is the
     # preferred structured source; without a key the monetary service falls back
@@ -226,6 +226,15 @@ class Settings(BaseSettings):
     # service is explicitly set to "web"/"worker". Anything unrecognised is
     # treated as "all" (fail-safe: never silently stop running the jobs).
     process_role: str = "all"
+
+    # Keep the public API warm so Railway can't let it go cold after idle (a
+    # cold start pays the numpy/pandas import + schema reflection = a slow first
+    # load). The always-running worker pings this URL every few minutes. Set it
+    # to the API service's public URL, e.g.
+    #   API_KEEPALIVE_URL=https://<your-api>.up.railway.app
+    # Leave blank to disable (no ping job is scheduled).
+    api_keepalive_url: str = ""
+    keepalive_interval_minutes: int = 4
 
     @property
     def runs_scheduler(self) -> bool:

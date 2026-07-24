@@ -92,7 +92,7 @@ export function AlertsEventsList({
               <div key={i} className="flex items-center gap-3 px-3 py-3">
                 <span
                   className={cn(
-                    "flex h-8 w-8 items-center justify-center rounded-[8px] border border-white/[0.06] bg-elevated text-text-secondary",
+                    "flex h-8 w-8 items-center justify-center rounded-[8px] border border-border bg-elevated text-text-secondary",
                     n.emoji === "🎯" || n.emoji === "📈"
                       ? "badge-positive"
                       : n.emoji === "📅" || n.emoji === "💸"

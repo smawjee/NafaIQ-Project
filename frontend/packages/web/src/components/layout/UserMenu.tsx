@@ -42,11 +42,11 @@ export function UserMenu() {
       {open && (
         <div
           className={cn(
-            "glass-chrome absolute top-9 z-50 w-56 max-w-[calc(100vw-1.5rem)] overflow-hidden rounded-[12px] border border-white/[0.08] shadow-2xl",
+            "glass-chrome absolute top-9 z-50 w-56 max-w-[calc(100vw-1.5rem)] overflow-hidden rounded-[12px] border border-border shadow-2xl",
             "end-0",
           )}
         >
-          <div className="border-b border-white/[0.06] px-4 py-3">
+          <div className="border-b border-border px-4 py-3">
             <div className="truncate text-[13px] font-semibold text-text-primary">{name}</div>
             <div className="text-[11px] text-text-muted">{profile?.plan ?? "Free"} plan</div>
           </div>
@@ -56,7 +56,7 @@ export function UserMenu() {
                 key={it.label}
                 to={it.to}
                 onClick={() => setOpen(false)}
-                className="flex items-center gap-2.5 rounded-[8px] px-3 py-2 text-[13px] text-text-secondary transition hover:bg-white/[0.04] hover:text-text-primary"
+                className="flex items-center gap-2.5 rounded-[8px] px-3 py-2 text-[13px] text-text-secondary transition hover:bg-hover hover:text-text-primary"
               >
                 <it.icon className="h-4 w-4" strokeWidth={1.75} />
                 {t(it.label)}

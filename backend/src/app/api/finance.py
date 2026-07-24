@@ -75,6 +75,15 @@ async def delete_transaction(txn_id: int, user: Annotated[dict, Depends(require_
     return await finance_service.delete_transaction(user["user_id"], txn_id)
 
 
+# Bulk "delete all" for a finance collection (transactions | bills | goals |
+# budgets). DELETE on the collection path — no id segment, so it never collides
+# with the per-item DELETE /finance/transactions/{txn_id} above. Scoped to the
+# caller's own rows in the service.
+@router.delete("/finance/{entity}")
+async def delete_all_finance(entity: str, user: Annotated[dict, Depends(require_user)]):
+    return await finance_service.delete_all(user["user_id"], entity)
+
+
 @router.get("/finance/goals")
 async def list_goals(user: Annotated[dict, Depends(require_user)]):
     return await finance_service.list_goals(user["user_id"])

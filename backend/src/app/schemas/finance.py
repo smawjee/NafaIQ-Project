@@ -75,7 +75,9 @@ class SettingsUpdate(BaseModel):
 
 class FinanceSummaryResponse(BaseModel):
     month: str
-    income: float
+    income: float               # earned this month, from transactions (variable)
+    fixed_income: float = 0.0    # recurring monthly income (e.g. salary) from settings
+    total_income: float = 0.0    # income + fixed_income — the real monthly income
     expenses: float
     savings: float
     savings_rate: float

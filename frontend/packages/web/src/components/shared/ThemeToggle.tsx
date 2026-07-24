@@ -18,7 +18,7 @@ export function ThemeToggle({
     <button
       onClick={onToggle}
       aria-label={label}
-      className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-[9px] text-text-secondary transition-colors hover:bg-white/[0.04] hover:text-text-primary ${className}`}
+      className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-[9px] text-text-secondary transition-colors hover:bg-hover hover:text-text-primary ${className}`}
     >
       {isDark ? (
         <Sun className="h-[18px] w-[18px]" strokeWidth={1.75} />

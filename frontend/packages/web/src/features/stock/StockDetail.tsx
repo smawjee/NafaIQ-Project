@@ -200,7 +200,7 @@ export function StockDetail() {
     <div className="mx-auto max-w-5xl space-y-6 pb-24 lg:pb-6">
       <Link
         to="/psx"
-        className="inline-flex items-center gap-1.5 rounded-[8px] border border-white/[0.08] bg-surface px-3 py-1.5 text-sm font-medium text-text-secondary transition-colors hover:border-white/[0.16] hover:text-text-primary"
+        className="inline-flex items-center gap-1.5 rounded-[8px] border border-border bg-surface px-3 py-1.5 text-sm font-medium text-text-secondary transition-colors hover:border-border-hover hover:text-text-primary"
       >
         <ArrowLeft className="h-4 w-4" /> {t("Back to Market")}
       </Link>
@@ -267,7 +267,7 @@ export function StockDetail() {
       </Card>
 
       {/* Mobile sticky action bar */}
-      <div className="fixed inset-x-0 bottom-0 z-30 border-t border-white/[0.08] bg-surface/95 p-3 backdrop-blur lg:hidden">
+      <div className="fixed inset-x-0 bottom-0 z-30 border-t border-border bg-surface/95 p-3 backdrop-blur lg:hidden">
         <div className="mx-auto flex max-w-5xl items-center gap-2">
           <ActionButtons
             isInWatchlist={isInWatchlist}

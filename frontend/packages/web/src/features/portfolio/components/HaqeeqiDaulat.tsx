@@ -38,7 +38,7 @@ export function HaqeeqiDaulat() {
         </div>
 
         <div className="mt-4 grid gap-3 sm:grid-cols-3">
-          <div className="rounded-[10px] border border-white/[0.06] bg-surface-alt p-4">
+          <div className="rounded-[10px] border border-border bg-surface-alt p-4">
             <div className="font-mono text-xl font-bold tabular-nums text-bull">
               <CountUpNumber value={12.73} decimals={2} prefix="+" suffix="%" />
             </div>
@@ -47,7 +47,7 @@ export function HaqeeqiDaulat() {
               +PKR 96,864
             </div>
           </div>
-          <div className="rounded-[10px] border border-white/[0.06] bg-surface-alt p-4">
+          <div className="rounded-[10px] border border-border bg-surface-alt p-4">
             <div className="font-mono text-xl font-bold tabular-nums text-bear">
               <CountUpNumber value={-16.2} decimals={1} suffix="%" />
             </div>
@@ -56,7 +56,7 @@ export function HaqeeqiDaulat() {
               -PKR 102,722 eroded
             </div>
           </div>
-          <div className="rounded-[10px] border border-white/[0.06] bg-surface-alt p-4">
+          <div className="rounded-[10px] border border-border bg-surface-alt p-4">
             <div className="font-mono text-xl font-bold tabular-nums text-bear">
               <CountUpNumber value={-3.2} decimals={1} suffix="%" />
             </div>
@@ -70,7 +70,7 @@ export function HaqeeqiDaulat() {
           </div>
         </div>
 
-        <div className="mt-3 rounded-[10px] border border-white/[0.06] bg-surface-alt p-4">
+        <div className="mt-3 rounded-[10px] border border-border bg-surface-alt p-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
               <div className="text-[11px] font-semibold uppercase tracking-wide text-text-muted">
@@ -125,7 +125,7 @@ export function HaqeeqiDaulat() {
                     "flex w-full items-start gap-3 rounded-[8px] border p-3 text-left transition",
                     active
                       ? "border-gold/50 bg-gold/[0.1]"
-                      : "border-white/[0.08] bg-surface-alt hover:border-white/20",
+                      : "border-border bg-surface-alt hover:border-white/20",
                   )}
                 >
                   <div

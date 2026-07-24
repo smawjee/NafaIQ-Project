@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 from typing import Any, AsyncIterator, Optional
 
 from app.config import settings
@@ -79,6 +80,25 @@ def build_system_prompt(bundle: dict[str, Any], lang: str) -> str:
     )
 
 
+# Some models (notably Groq/Llama) sometimes emit a tool call as LITERAL TEXT
+# in the content — "<function=navigate_to{\"destination\": \"dashboard\"}</function>"
+# or "<tool_call>...</tool_call>" — instead of a native tool_call. The agent only
+# acts on native tool_calls, so that text used to stream straight to the user as
+# a raw tag in the chat bubble. Strip any such syntax from user-facing prose;
+# what remains (the model's actual sentence) is what the user should see.
+_TOOL_SYNTAX_RE = re.compile(
+    r"<function[=\s].*?</function>"   # complete <function=name{...}</function>
+    r"|<tool_call>.*?</tool_call>"    # <tool_call>...</tool_call>
+    r"|<function[=\s].*"              # unterminated tag → strip to end
+    r"|<tool_call>.*",
+    re.DOTALL | re.IGNORECASE,
+)
+
+
+def _strip_tool_syntax(text: str) -> str:
+    return _TOOL_SYNTAX_RE.sub("", text).strip()
+
+
 def _text(msg: Any) -> str:
     """The message's prose, with whitespace-only treated as nothing at all.
 
@@ -86,9 +106,11 @@ def _text(msg: Any) -> str:
     truthy, so a plain `if msg.content` check passes it through and the user
     gets an empty chat bubble — indistinguishable from a hung request, and it
     slips past any "did we say anything?" fallback. Strip once, here, so every
-    caller agrees on what counts as an answer.
+    caller agrees on what counts as an answer. Also strips any text-embedded
+    tool-call syntax the model leaked (see _TOOL_SYNTAX_RE) so it never reaches
+    the user as a raw tag.
     """
-    return (getattr(msg, "content", None) or "").strip()
+    return _strip_tool_syntax(getattr(msg, "content", None) or "")
 
 
 def _parse_args(raw: str | None) -> dict[str, Any]:

@@ -89,6 +89,7 @@ async def fetch_networth_holdings(conn: Executor, user_id: str) -> list[dict[str
                 h.id, h.symbol, h.shares, h.avg_cost,
                 COALESCE(s.price, lc.eod_close) AS current_price,
                 pc.previous_close AS previous_close,
+                s.change AS day_change,
                 tb.today_qty,
                 tb.today_avg_price
             FROM psx_holdings h
@@ -110,6 +111,7 @@ async def fetch_networth_holdings(conn: Executor, user_id: str) -> list[dict[str
             "avg_cost": float(r["avg_cost"]),
             "current_price": float(r["current_price"]) if r["current_price"] is not None else None,
             "previous_close": float(r["previous_close"]) if r["previous_close"] is not None else None,
+            "day_change": float(r["day_change"]) if r["day_change"] is not None else None,
             "today_qty": int(r["today_qty"]) if r["today_qty"] is not None else None,
             "today_avg_price": float(r["today_avg_price"]) if r["today_avg_price"] is not None else None,
         }

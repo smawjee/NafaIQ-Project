@@ -118,7 +118,7 @@ function PlansPage() {
   return (
     <div className="min-h-screen bg-background">
       {/* simple header */}
-      <header className="sticky top-0 z-50 border-b border-white/[0.06] bg-background/80 backdrop-blur-xl">
+      <header className="sticky top-0 z-50 border-b border-border bg-background/80 backdrop-blur-xl">
         <div className="mx-auto flex h-14 max-w-[1100px] items-center justify-between px-6">
           <Link to={backTo} className="flex items-center gap-2">
             <img src={logo} alt="NafaIQ" width={26} height={26} className="rounded-[6px]" />
@@ -153,7 +153,7 @@ function PlansPage() {
           </p>
 
           {/* billing toggle */}
-          <div className="mt-8 inline-flex items-center gap-1 rounded-full border border-white/[0.08] bg-surface p-1">
+          <div className="mt-8 inline-flex items-center gap-1 rounded-full border border-border bg-surface p-1">
             <button
               onClick={() => setBilling("monthly")}
               className={cn(
@@ -191,7 +191,7 @@ function PlansPage() {
                 "relative flex flex-col rounded-[16px] border bg-surface p-6",
                 tier.highlight
                   ? "border-bull/50 shadow-[0_0_40px_rgba(0,212,170,0.12)]"
-                  : "border-white/[0.07]",
+                  : "border-border",
               )}
             >
               {tier.highlight && (
@@ -233,7 +233,7 @@ function PlansPage() {
                         "mt-6 flex items-center justify-center rounded-[10px] px-4 py-2.5 text-sm font-semibold transition disabled:opacity-60",
                         tier.highlight
                           ? "bg-bull text-bull-foreground hover:bg-[#00efc0]"
-                          : "border border-white/[0.1] bg-surface text-text-primary hover:border-white/[0.2]",
+                          : "border border-border bg-surface text-text-primary hover:border-border-hover",
                       )}
                     >
                       {pendingThis
@@ -253,7 +253,7 @@ function PlansPage() {
                     "mt-6 flex items-center justify-center rounded-[10px] px-4 py-2.5 text-sm font-semibold transition",
                     tier.highlight
                       ? "bg-bull text-bull-foreground hover:bg-[#00efc0]"
-                      : "border border-white/[0.1] bg-surface text-text-primary hover:border-white/[0.2]",
+                      : "border border-border bg-surface text-text-primary hover:border-border-hover",
                   )}
                 >
                   {t(tier.cta)}
@@ -277,10 +277,10 @@ function PlansPage() {
           <h2 className="text-center font-display text-2xl font-bold text-text-primary">
             {t("Compare plans")}
           </h2>
-          <div className="mt-6 overflow-x-auto rounded-[16px] border border-white/[0.07]">
+          <div className="mt-6 overflow-x-auto rounded-[16px] border border-border">
             <table className="w-full min-w-[560px] text-sm">
               <thead>
-                <tr className="border-b border-white/[0.07] bg-surface">
+                <tr className="border-b border-border bg-surface">
                   <th className="px-5 py-4 text-left text-[11px] font-semibold uppercase tracking-wide text-text-muted">
                     {t("Feature")}
                   </th>
@@ -297,7 +297,7 @@ function PlansPage() {
                 {COMPARISON.map((row, i) => (
                   <tr
                     key={row.label}
-                    className={cn("border-b border-white/[0.04]", i % 2 === 1 && "bg-white/[0.02]")}
+                    className={cn("border-b border-border", i % 2 === 1 && "bg-white/[0.02]")}
                   >
                     <td className="px-5 py-3.5 text-text-secondary">{t(row.label)}</td>
                     {[row.free, row.pro, row.premium].map((cell, idx) => (

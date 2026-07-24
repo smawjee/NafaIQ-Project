@@ -166,3 +166,10 @@ async def remove_watchlist_symbol(
     user: Annotated[dict, Depends(require_user)],
 ):
     return await portfolio_service.remove_from_watchlist(user["user_id"], symbol)
+
+
+# Clear the whole watchlist. No {symbol} segment, so it never collides with the
+# per-symbol delete above. Scoped to the caller's own rows in the service.
+@router.delete("/watchlist")
+async def clear_all_watchlist(user: Annotated[dict, Depends(require_user)]):
+    return await portfolio_service.clear_watchlist(user["user_id"])

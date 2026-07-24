@@ -41,7 +41,7 @@ export function ReadingView({
         style={{ borderLeft: `4px solid ${ACCENT}` }}
       >
         <div
-          className="flex h-12 w-12 items-center justify-center rounded-btn border border-white/[0.06] bg-elevated"
+          className="flex h-12 w-12 items-center justify-center rounded-btn border border-border bg-elevated"
           style={{ color: ACCENT }}
         >
           <EmojiIcon emoji={lesson.emoji} size={24} />

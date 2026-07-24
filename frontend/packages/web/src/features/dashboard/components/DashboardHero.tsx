@@ -51,19 +51,19 @@ export function DashboardHero({
         </Link>
         <button
           onClick={onAddTransaction}
-          className="rounded-lg border border-white/[0.08] bg-surface px-3.5 py-2 text-[13px] font-semibold text-text-primary transition-all duration-200 hover:-translate-y-0.5 hover:border-white/[0.16]"
+          className="rounded-lg border border-border bg-surface px-3.5 py-2 text-[13px] font-semibold text-text-primary transition-all duration-200 hover:-translate-y-0.5 hover:border-border-hover"
         >
           {t("Add Transaction")}
         </button>
         <button
           onClick={onAddHolding}
-          className="rounded-lg border border-white/[0.08] bg-surface px-3.5 py-2 text-[13px] font-semibold text-text-primary transition-all duration-200 hover:-translate-y-0.5 hover:border-white/[0.16]"
+          className="rounded-lg border border-border bg-surface px-3.5 py-2 text-[13px] font-semibold text-text-primary transition-all duration-200 hover:-translate-y-0.5 hover:border-border-hover"
         >
           {t("Add Holding")}
         </button>
         <button
           onClick={onAddAlert}
-          className="rounded-lg border border-white/[0.08] bg-surface px-3.5 py-2 text-[13px] font-semibold text-text-primary transition-all duration-200 hover:-translate-y-0.5 hover:border-white/[0.16]"
+          className="rounded-lg border border-border bg-surface px-3.5 py-2 text-[13px] font-semibold text-text-primary transition-all duration-200 hover:-translate-y-0.5 hover:border-border-hover"
         >
           {t("Add Alert")}
         </button>

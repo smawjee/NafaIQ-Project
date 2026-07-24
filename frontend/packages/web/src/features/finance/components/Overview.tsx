@@ -30,7 +30,7 @@ function KpiCard({
       viewport={{ once: true, amount: 0.3 }}
       transition={{ duration: 0.4, delay: index * 0.05, ease: [0.22, 1, 0.36, 1] }}
       whileHover={reduce ? undefined : { y: -2 }}
-      className="group relative flex flex-col justify-between overflow-hidden rounded-[14px] border border-white/[0.06] bg-surface p-6 transition-colors duration-200 hover:border-white/[0.12]"
+      className="group relative flex flex-col justify-between overflow-hidden rounded-[14px] border border-border bg-surface p-6 transition-colors duration-200 hover:border-border-hover"
     >
       {/* accent glow on hover */}
       <div
@@ -64,7 +64,13 @@ export function Overview() {
   const hasSeries = realUserEnabled && !!seriesData && seriesData.series.length > 0;
   const useShowcaseFinance = isDemo;
 
-  const incomeVal = useShowcaseFinance ? local.summary.income : (summary?.income ?? 0);
+  // "income" = earned from transactions (variable); "total income" adds the
+  // fixed monthly salary set in Settings, which the backend counts every month.
+  const variableIncome = useShowcaseFinance ? local.summary.income : (summary?.income ?? 0);
+  const fixedIncomeVal = useShowcaseFinance ? 0 : (summary?.fixed_income ?? 0);
+  const incomeVal = useShowcaseFinance
+    ? local.summary.income
+    : (summary?.total_income ?? variableIncome);
   const expensesVal = useShowcaseFinance ? local.summary.expenses : (summary?.expenses ?? 0);
   const savingsVal = useShowcaseFinance ? local.summary.savings : (summary?.savings ?? 0);
   const rateVal = useShowcaseFinance ? local.summary.savingsRate : (summary?.savings_rate ?? 0);
@@ -141,13 +147,19 @@ export function Overview() {
           <div className="badge-positive mb-4 flex h-9 w-9 items-center justify-center rounded-[10px]">
             <ArrowUpRight className="h-5 w-5 text-bull" />
           </div>
-          <KpiLabel>Monthly Income</KpiLabel>
+          <KpiLabel>Total Monthly Income</KpiLabel>
           <div
             dir="ltr"
             className="mt-1 font-mono text-lg font-semibold tracking-tight text-bull tabular-nums sm:text-xl"
           >
             PKR <span ref={income.ref}>{income.formatted}</span>
           </div>
+          {fixedIncomeVal > 0 && (
+            <div dir="ltr" className="mt-1 text-[10px] text-text-muted sm:text-[11px]">
+              {formatPKR(variableIncome)} {t("earned")} + {formatPKR(fixedIncomeVal)}{" "}
+              {t("salary")}
+            </div>
+          )}
           <div className="mt-3 h-1 w-full overflow-hidden rounded-full bg-white/5">
             <AnimatedBar value={incomeBar} className="bg-bull" />
           </div>

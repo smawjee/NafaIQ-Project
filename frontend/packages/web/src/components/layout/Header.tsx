@@ -35,7 +35,7 @@ export function Header({
   return (
     <header
       className={cn(
-        "glass-chrome sticky top-0 z-20 flex h-[52px] items-center gap-2 border-b border-white/[0.06] px-3 sm:gap-3 lg:ps-6",
+        "glass-chrome sticky top-0 z-20 flex h-[52px] items-center gap-2 border-b border-border px-3 sm:gap-3 lg:ps-6",
       )}
     >
       <button

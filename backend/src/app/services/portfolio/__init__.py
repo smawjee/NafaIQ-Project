@@ -35,6 +35,7 @@ from app.services.portfolio.trades import (  # noqa: F401
 )
 from app.services.portfolio.watchlist import (  # noqa: F401
     add_to_watchlist,
+    clear_watchlist,
     enriched_watchlist,
     remove_from_watchlist,
 )

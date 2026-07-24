@@ -18,7 +18,8 @@ const CountUp = resolveCountUp(CountUpModule);
 
 /**
  * Smooth count-up for financial figures.
- * Counts from 0 -> value on mount over ~1.5s with an ease-out curve.
+ * Counts from 0 -> value on mount over ~1s with an ease-out curve — kept fast
+ * so numbers settle quickly (the animation stays, it just finishes sooner).
  */
 export function CountUpNumber({
   value,
@@ -26,7 +27,7 @@ export function CountUpNumber({
   prefix,
   suffix,
   className,
-  duration = 1.5,
+  duration = 1.0,
   preserveValue = false,
 }: {
   value: number;

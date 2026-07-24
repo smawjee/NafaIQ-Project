@@ -44,7 +44,7 @@ export function AlertsActiveList({
               <Card key={a.id} className="flex items-center gap-3">
                 <span
                   className={cn(
-                    "flex h-9 w-9 items-center justify-center rounded-[8px] border border-white/[0.06] bg-elevated text-text-secondary",
+                    "flex h-9 w-9 items-center justify-center rounded-[8px] border border-border bg-elevated text-text-secondary",
                     a.type === "goal"
                       ? "badge-positive"
                       : a.type === "bill" || a.type === "budget"
@@ -88,7 +88,7 @@ export function AlertsActiveList({
               <Card key={i} className="flex items-center gap-3">
                 <span
                   className={cn(
-                    "flex h-9 w-9 items-center justify-center rounded-[8px] border border-white/[0.06] bg-elevated text-text-secondary",
+                    "flex h-9 w-9 items-center justify-center rounded-[8px] border border-border bg-elevated text-text-secondary",
                     a.type.includes("Goal")
                       ? "badge-positive"
                       : a.type.includes("Bill") || a.type.includes("Budget")

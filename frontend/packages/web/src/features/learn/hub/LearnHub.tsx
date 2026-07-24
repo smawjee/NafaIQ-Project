@@ -155,7 +155,7 @@ export function LearnHub() {
                 style={{ borderLeft: `3px solid ${p.accent}` }}
               >
                 <div
-                  className="flex h-10 w-10 items-center justify-center rounded-[8px] border border-white/[0.06]"
+                  className="flex h-10 w-10 items-center justify-center rounded-[8px] border border-border"
                   style={{ background: `${p.accent}14`, color: p.accent }}
                 >
                   <PathIcon className="h-[18px] w-[18px]" strokeWidth={1.5} />
@@ -199,7 +199,7 @@ export function LearnHub() {
               <Link key={l.title} to="/learn/lesson/$id" params={{ id }}>
                 <Card className="group h-full transition-all hover:-translate-y-[3px] hover:border-bull">
                   <div className="flex items-start gap-3">
-                    <span className="flex h-10 w-10 items-center justify-center rounded-[8px] border border-white/[0.06] bg-elevated text-text-secondary">
+                    <span className="flex h-10 w-10 items-center justify-center rounded-[8px] border border-border bg-elevated text-text-secondary">
                       <EmojiIcon emoji={l.emoji} size={18} />
                     </span>
                     <div className="flex-1">

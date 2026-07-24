@@ -3,6 +3,8 @@ import { Check, Plus } from "lucide-react";
 import { toast } from "sonner";
 import { Card } from "@/components/shared/Card";
 import { useConfirm } from "@/components/shared/ConfirmDialog";
+import { DeleteAllButton } from "@/components/shared/DeleteAllButton";
+import { useDeleteAllFinance } from "@/hooks/use-finance-bulk";
 import { Modal, fieldClass } from "@/components/shared/Modal";
 import { fmtPKR } from "@/lib/data";
 import { cn } from "@/lib/utils";
@@ -32,6 +34,7 @@ export function Bills() {
   const storeBills = useAppSelector(selectBills);
 
   const confirm = useConfirm();
+  const deleteAll = useDeleteAllFinance();
   const { data: apiBills = [], isLoading } = useFinanceBills(!!user && !isDemo);
   const createBill = useCreateBill();
   const markBillPaid = useMarkBillPaid();
@@ -155,6 +158,15 @@ export function Bills() {
 
   return (
     <div className="space-y-3">
+      {!isDemo && user && bills.length > 0 && (
+        <div className="flex justify-end">
+          <DeleteAllButton
+            count={bills.length}
+            itemLabel="bills"
+            onConfirm={() => deleteAll.mutateAsync("bills")}
+          />
+        </div>
+      )}
       {!user && !isDemo && (
         <Card hover={false} className="text-sm text-text-secondary">
           {t("Please log in to view and add bills.")}

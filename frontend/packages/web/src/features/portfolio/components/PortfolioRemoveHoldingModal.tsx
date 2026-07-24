@@ -85,7 +85,7 @@ export function PortfolioRemoveHoldingModal({
       title={mode === "choose" ? t("Remove Holding") : t("Record Sale")}
     >
       <div className="space-y-3">
-        <div className="flex items-center gap-2 rounded-[8px] border border-white/[0.08] bg-surface px-3 py-2">
+        <div className="flex items-center gap-2 rounded-[8px] border border-border bg-surface px-3 py-2">
           <StockLogo symbol={target.symbol} size={22} />
           <span className="text-sm font-semibold text-bull">{target.symbol}</span>
           <span className="ml-auto text-[11px] text-text-muted">
@@ -102,7 +102,7 @@ export function PortfolioRemoveHoldingModal({
             <button
               type="button"
               onClick={() => setMode("sell")}
-              className="w-full rounded-[8px] border border-white/[0.08] bg-surface px-3 py-3 text-start transition hover:border-bull/50"
+              className="w-full rounded-[8px] border border-border bg-surface px-3 py-3 text-start transition hover:border-bull/50"
             >
               <span className="block text-sm font-semibold text-text-primary">
                 {t("I sold it")}
@@ -116,7 +116,7 @@ export function PortfolioRemoveHoldingModal({
               type="button"
               onClick={onRemove}
               disabled={pending}
-              className="w-full rounded-[8px] border border-white/[0.08] bg-surface px-3 py-3 text-start transition hover:border-bear/50 disabled:opacity-60"
+              className="w-full rounded-[8px] border border-border bg-surface px-3 py-3 text-start transition hover:border-bear/50 disabled:opacity-60"
             >
               <span className="block text-sm font-semibold text-text-primary">
                 {t("Just remove it")}
@@ -161,7 +161,7 @@ export function PortfolioRemoveHoldingModal({
             />
 
             {validPrice && validFees && (
-              <div className="space-y-1 rounded-[8px] border border-white/[0.08] bg-surface px-3 py-2 text-[11px]">
+              <div className="space-y-1 rounded-[8px] border border-border bg-surface px-3 py-2 text-[11px]">
                 <div className="flex justify-between text-text-muted">
                   <span>{t("Proceeds")}</span>
                   <span className="text-text-primary">PKR {fmtNum(proceeds)}</span>

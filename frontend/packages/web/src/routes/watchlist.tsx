@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { PsxWatchlistCard } from "@/features/psx/components/PsxWatchlistCard";
+import { DeleteAllButton } from "@/components/shared/DeleteAllButton";
 import {
   usePsxBatchSignals,
   usePsxLiveMarket,
@@ -32,13 +33,20 @@ function WatchlistRoute() {
 
   return (
     <div className="mx-auto max-w-4xl space-y-5">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight text-text-primary sm:text-3xl">
-          {t("Watchlist")}
-        </h1>
-        <p className="mt-1 text-sm text-text-secondary">
-          {t("Track live prices, technical setups, and the PSX names you care about.")}
-        </p>
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight text-text-primary sm:text-3xl">
+            {t("Watchlist")}
+          </h1>
+          <p className="mt-1 text-sm text-text-secondary">
+            {t("Track live prices, technical setups, and the PSX names you care about.")}
+          </p>
+        </div>
+        <DeleteAllButton
+          count={watchlist.symbols.length}
+          itemLabel="watchlist symbols"
+          onConfirm={() => watchlist.clear()}
+        />
       </div>
       <PsxWatchlistCard
         symbols={watchlist.symbols}

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { userGet, userPost, userDelete } from "@/lib/psx/client";
+import { userGet, userPost, userDelete, clearWatchlist } from "@/lib/psx/client";
 import { useAuth } from "@/hooks/use-auth";
 import { isDemoUser } from "@/lib/demo";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
@@ -91,11 +91,27 @@ export function useWatchlist() {
     [useLocal, user, qc, dispatch],
   );
 
+  const clear = useCallback(async () => {
+    if (useLocal) {
+      localSymbols.forEach((s) => dispatch(removeWatchlistSymbol(s)));
+      return;
+    }
+    setSymbols([]);
+    try {
+      await clearWatchlist();
+    } catch {
+      // Best-effort: the optimistic local clear above already applied.
+    }
+    qc.invalidateQueries({ queryKey: ["watchlist"] });
+    qc.invalidateQueries({ queryKey: ["enriched-watchlist"] });
+  }, [useLocal, localSymbols, qc, dispatch]);
+
   return {
     symbols: useLocal ? localSymbols : symbols,
     loading: useLocal ? false : loading,
     add,
     remove,
+    clear,
   };
 }
 

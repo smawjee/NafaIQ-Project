@@ -52,7 +52,7 @@ export function DashboardRecommendation({
       <button
         data-testid="dashboard-recommendation"
         onClick={() => setOpen(true)}
-        className="group relative flex w-full items-center gap-3 overflow-hidden rounded-[14px] border border-white/[0.08] bg-gradient-to-r from-primary/[0.10] via-surface to-ai/[0.08] px-4 py-3.5 text-left backdrop-blur-xl transition hover:border-primary/30 hover:from-primary/[0.16] hover:to-ai/[0.12]"
+        className="group relative flex w-full items-center gap-3 overflow-hidden rounded-[14px] border border-border bg-gradient-to-r from-primary/[0.10] via-surface to-ai/[0.08] px-4 py-3.5 text-left backdrop-blur-xl transition hover:border-primary/30 hover:from-primary/[0.16] hover:to-ai/[0.12]"
       >
         <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary/15 ring-1 ring-inset ring-primary/20">
           <Sparkles
@@ -83,12 +83,12 @@ export function DashboardRecommendation({
             role="dialog"
             aria-modal="true"
             onClick={(e) => e.stopPropagation()}
-            className="relative w-full max-w-lg overflow-hidden rounded-t-[20px] border border-white/[0.12] bg-surface/70 shadow-[0_8px_60px_rgba(0,0,0,0.55)] backdrop-blur-2xl sm:rounded-[20px]"
+            className="relative w-full max-w-lg overflow-hidden rounded-t-[20px] border border-border bg-surface/90 shadow-[0_8px_60px_rgba(0,0,0,0.55)] backdrop-blur-2xl sm:rounded-[20px]"
           >
             {/* Sheen: a soft top gradient for the "liquid glass" feel */}
             <div className="pointer-events-none absolute inset-x-0 top-0 h-24 bg-gradient-to-b from-primary/[0.12] to-transparent" />
 
-            <div className="relative flex items-center justify-between border-b border-white/[0.06] px-5 py-4">
+            <div className="relative flex items-center justify-between border-b border-border px-5 py-4">
               <div className="flex items-center gap-2.5">
                 <span className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/15 ring-1 ring-inset ring-primary/20">
                   <Sparkles className="h-4 w-4 text-primary" strokeWidth={1.75} />
@@ -105,7 +105,7 @@ export function DashboardRecommendation({
               <button
                 onClick={() => setOpen(false)}
                 aria-label={t("Close")}
-                className="flex h-8 w-8 items-center justify-center rounded-full text-text-muted transition hover:bg-white/[0.08] hover:text-text-primary"
+                className="flex h-8 w-8 items-center justify-center rounded-full text-text-muted transition hover:bg-hover hover:text-text-primary"
               >
                 <X className="h-4 w-4" />
               </button>
@@ -135,13 +135,13 @@ export function DashboardRecommendation({
               )}
             </div>
 
-            <div className="relative flex items-center justify-between gap-2 border-t border-white/[0.06] px-5 py-3">
+            <div className="relative flex items-center justify-between gap-2 border-t border-border px-5 py-3">
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => refresh()}
                   disabled={isRefreshing}
                   aria-label={t("Refresh recommendation")}
-                  className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs text-text-muted transition hover:bg-white/[0.06] hover:text-text-primary disabled:opacity-50"
+                  className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs text-text-muted transition hover:bg-hover hover:text-text-primary disabled:opacity-50"
                 >
                   <RotateCw
                     className={`h-3.5 w-3.5 ${isRefreshing ? "animate-spin" : ""}`}
@@ -155,7 +155,7 @@ export function DashboardRecommendation({
                       setOpen(false);
                       onDismiss();
                     }}
-                    className="rounded-lg px-2.5 py-1.5 text-xs text-text-muted transition hover:bg-white/[0.06] hover:text-text-primary"
+                    className="rounded-lg px-2.5 py-1.5 text-xs text-text-muted transition hover:bg-hover hover:text-text-primary"
                   >
                     {t("Dismiss")}
                   </button>

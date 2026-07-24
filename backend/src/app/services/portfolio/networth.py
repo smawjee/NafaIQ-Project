@@ -60,6 +60,7 @@ async def networth(user_id: str) -> dict[str, Any]:
             previous_close=r["previous_close"],
             today_qty=r["today_qty"],
             today_avg_price=r["today_avg_price"],
+            day_change=r.get("day_change"),
         )
         for r in raw
     ]

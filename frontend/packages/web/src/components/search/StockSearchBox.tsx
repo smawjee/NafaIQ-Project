@@ -115,7 +115,7 @@ export function StockSearchBox({
               onClick={() => choose(r)}
               className={cn(
                 "flex w-full items-center gap-2 rounded-[6px] px-2 py-1.5 text-left transition-colors",
-                i === active ? "bg-white/[0.06]" : "hover:bg-white/[0.04]",
+                i === active ? "bg-white/[0.06]" : "hover:bg-hover",
                 isAdded && "opacity-50",
               )}
             >
@@ -169,7 +169,7 @@ export function StockSearchBox({
           autoFocus={autoFocus}
           aria-label="Search stocks"
           placeholder={placeholder ?? "Search stocks (e.g. HBL, Engro)…"}
-          className="h-9 w-full rounded-[8px] border border-white/[0.08] bg-surface ps-8 pe-3 text-[13px] text-text-primary outline-none transition-colors placeholder:text-text-muted focus:border-bull"
+          className="h-9 w-full rounded-[8px] border border-border bg-surface ps-8 pe-3 text-[13px] text-text-primary outline-none transition-colors placeholder:text-text-muted focus:border-bull"
         />
       </div>
 
@@ -177,7 +177,7 @@ export function StockSearchBox({
         <div className="mt-1">{list}</div>
       ) : (
         showResults && (
-          <div className="glass-chrome absolute top-11 z-50 w-full overflow-hidden rounded-[12px] border border-white/[0.08] px-1 shadow-2xl">
+          <div className="glass-chrome absolute top-11 z-50 w-full overflow-hidden rounded-[12px] border border-border px-1 shadow-2xl">
             {list}
           </div>
         )

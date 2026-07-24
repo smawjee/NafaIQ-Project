@@ -1,7 +1,11 @@
 import { useMemo, useState } from "react";
-import { Pencil, Plus, Search } from "lucide-react";
+import { Link } from "@tanstack/react-router";
+import { Pencil, Plus, Search, Wallet } from "lucide-react";
 import { Card } from "@/components/shared/Card";
+import { useFinanceSettings } from "@/hooks/use-finance-settings";
 import { useConfirm } from "@/components/shared/ConfirmDialog";
+import { DeleteAllButton } from "@/components/shared/DeleteAllButton";
+import { useDeleteAllFinance } from "@/hooks/use-finance-bulk";
 import { Modal, fieldClass } from "@/components/shared/Modal";
 import { fmtPKR } from "@/lib/data";
 import { cn } from "@/lib/utils";
@@ -62,7 +66,10 @@ export function Transactions() {
   const createTransaction = useCreateTransaction();
   const updateTransaction = useUpdateTransaction();
   const deleteTransaction = useDeleteTransaction();
+  const deleteAll = useDeleteAllFinance();
   const createPaymentMethod = useCreatePaymentMethod();
+  const { data: financeSettings } = useFinanceSettings(canUseApi);
+  const fixedIncome = canUseApi ? Number(financeSettings?.monthly_income ?? 0) : 0;
 
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
@@ -280,7 +287,34 @@ export function Transactions() {
             className="w-full bg-transparent text-sm text-text-primary outline-none placeholder:text-text-muted"
           />
         </div>
+        <DeleteAllButton
+          count={canUseApi ? transactions.length : 0}
+          itemLabel="transactions"
+          onConfirm={() => deleteAll.mutateAsync("transactions")}
+        />
       </div>
+
+      {fixedIncome > 0 && (
+        <Card hover={false} className="flex items-center gap-3 border-bull/20 bg-bull/[0.06]">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-bull/15 text-bull">
+            <Wallet className="h-4 w-4" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <div className="text-sm font-medium text-text-primary">
+              {tr("Fixed monthly income")}
+            </div>
+            <div className="text-[11px] text-text-muted">
+              {tr("Counted as income every month.")}{" "}
+              <Link to="/settings" className="text-primary hover:underline">
+                {tr("Edit in Settings")}
+              </Link>
+            </div>
+          </div>
+          <span className="shrink-0 font-mono text-sm font-semibold tabular-nums text-bull">
+            +{fmtPKR(fixedIncome)}
+          </span>
+        </Card>
+      )}
 
       {!user && !isDemo && (
         <Card hover={false} className="text-sm text-text-secondary">

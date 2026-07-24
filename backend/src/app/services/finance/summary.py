@@ -44,6 +44,25 @@ async def update_settings(uid: str, body: SettingsUpdate) -> dict[str, Any]:
 # ---------- summary / series ----------
 
 
+def _fixed_income(settings_row) -> float:
+    """The user's recurring monthly income (salary) from settings, as a float.
+
+    Counted as income for EVERY month (it's a standing salary, not a one-off),
+    so it lands in both the monthly summary and every point of the trend chart.
+    0 when unset — so nothing changes for a user who never enters one."""
+    if not settings_row:
+        return 0.0
+    val = (
+        settings_row.get("monthly_income")
+        if hasattr(settings_row, "get")
+        else getattr(settings_row, "monthly_income", 0)
+    )
+    try:
+        return max(0.0, float(val or 0.0))
+    except (TypeError, ValueError):
+        return 0.0
+
+
 async def summary(uid: str, month: str | None = None) -> FinanceSummaryResponse:
     if month is None:
         month = datetime.now(timezone.utc).strftime("%Y-%m")
@@ -54,16 +73,24 @@ async def summary(uid: str, month: str | None = None) -> FinanceSummaryResponse:
     async with connect() as conn:
         rows = await repo.fetch_month_totals(conn, uid, month)
         last_rows = await repo.fetch_month_totals(conn, uid, last_month)
+        settings_row = await repo.get_settings_row(conn, uid)
 
-    income = rows.get("income", 0.0)
+    fixed_income = _fixed_income(settings_row)
+    income = rows.get("income", 0.0)  # earned this month (transactions)
+    total_income = income + fixed_income
     expenses = rows.get("expense", 0.0)
-    savings = income - expenses
-    savings_rate = round((savings / income) * 100, 1) if income > 0 else 0.0
-    last_income = last_rows.get("income", 0.0)
+    savings = total_income - expenses
+    savings_rate = round((savings / total_income) * 100, 1) if total_income > 0 else 0.0
+    # The fixed salary applies to last month too, so the "vs last month" deltas
+    # compare like with like (a change reflects real earning/spending, not the
+    # salary appearing out of nowhere).
+    last_income = last_rows.get("income", 0.0) + fixed_income
     last_expense = last_rows.get("expense", 0.0)
     return FinanceSummaryResponse(
         month=month,
         income=income,
+        fixed_income=fixed_income,
+        total_income=total_income,
         expenses=expenses,
         savings=savings,
         savings_rate=savings_rate,
@@ -80,6 +107,8 @@ async def income_expense_series(uid: str, months: int = 6, user: dict | None = N
     months = max(1, min(months, 12))
     async with connect() as conn:
         rows = await repo.fetch_income_expense(conn, uid, months)
+        settings_row = await repo.get_settings_row(conn, uid)
+    fixed_income = _fixed_income(settings_row)
     by_month: dict[str, dict[str, float]] = {}
     for r in rows:
         m = r["month"]
@@ -101,7 +130,8 @@ async def income_expense_series(uid: str, months: int = 6, user: dict | None = N
     series = [
         IncomeExpensePoint(
             month=m,
-            income=by_month.get(m, {}).get("income", 0.0),
+            # Fixed salary is standing income, so add it to every month's bar.
+            income=by_month.get(m, {}).get("income", 0.0) + fixed_income,
             expense=by_month.get(m, {}).get("expense", 0.0),
         )
         for m in grid

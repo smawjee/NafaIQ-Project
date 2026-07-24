@@ -24,7 +24,7 @@ export function ActionButtons({
         onClick={onToggleWatchlist}
         disabled={wlBusy}
         className={cn(
-          "flex items-center justify-center gap-1.5 rounded-[10px] border border-white/[0.08] bg-surface px-4 py-2 text-sm font-semibold text-text-primary transition-all duration-200 hover:border-white/[0.16] disabled:cursor-not-allowed disabled:opacity-60",
+          "flex items-center justify-center gap-1.5 rounded-[10px] border border-border bg-surface px-4 py-2 text-sm font-semibold text-text-primary transition-all duration-200 hover:border-border-hover disabled:cursor-not-allowed disabled:opacity-60",
           compact ? "flex-1" : "",
         )}
       >
@@ -48,7 +48,7 @@ export function ActionButtons({
       <button
         onClick={onSetAlert}
         className={cn(
-          "flex items-center justify-center gap-1.5 rounded-[10px] border border-white/[0.08] bg-surface px-4 py-2 text-sm font-semibold text-text-primary transition-all duration-200 hover:border-white/[0.16]",
+          "flex items-center justify-center gap-1.5 rounded-[10px] border border-border bg-surface px-4 py-2 text-sm font-semibold text-text-primary transition-all duration-200 hover:border-border-hover",
           compact ? "flex-1" : "",
         )}
       >

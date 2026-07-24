@@ -77,7 +77,7 @@ export function AlertCreateForm({
               "flex flex-col items-center gap-1.5 rounded-[10px] border p-3 text-xs font-medium transition",
               type === ty.label
                 ? "border-primary/40 bg-primary/10 text-primary"
-                : "border-white/[0.06] text-text-secondary hover:bg-white/[0.04]",
+                : "border-border text-text-secondary hover:bg-hover",
             )}
           >
             <ty.icon className="h-5 w-5" strokeWidth={1.75} />

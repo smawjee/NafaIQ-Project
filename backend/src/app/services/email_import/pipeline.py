@@ -82,16 +82,29 @@ class SyncResult:
     reconnect_required: bool = False
 
 
+class _BudgetExhausted(Exception):
+    """No LLM parses left this poll — the caller must stop and retry next poll
+    rather than skip past the unparsed candidate (which would lose it)."""
+
+
 async def _parse_message(msg: RawMessage, llm_budget: list[int]) -> ParsedEmailItem | None:
-    """Rules first (free, exact); LLM only if rules miss and budget remains."""
+    """Rules first (free, exact); LLM only if rules miss and budget remains.
+
+    Returns None when the message is genuinely not a transaction/bill (a
+    permanent verdict — safe to advance past). Raises _BudgetExhausted when the
+    LLM was needed but the poll's budget is spent — a TRANSIENT miss the caller
+    must retry, never treat as handled.
+    """
     parsed_txn = rules.parse(msg.subject, msg.body, msg.received_at, sender=msg.sender)
     if parsed_txn is not None:
         return parsed_txn
     parsed_bill = rules.parse_bill(msg.subject, msg.body, msg.received_at, sender=msg.sender)
     if parsed_bill is not None:
         return parsed_bill
-    if llm_budget[0] <= 0 or not llm.is_configured():
-        return None
+    if not llm.is_configured():
+        return None  # no LLM at all — permanent, nothing more to try
+    if llm_budget[0] <= 0:
+        raise _BudgetExhausted
     llm_budget[0] -= 1
     return await llm.parse(msg.subject, msg.body, msg.sender, msg.received_at)
 
@@ -216,27 +229,36 @@ async def sync_user(integration: dict) -> SyncResult:
     llm_budget = [settings.email_import_max_llm_per_poll]
     watermark = integration["last_internal_date"]
 
+    # messages arrive oldest-first. The watermark advances only PAST a message
+    # once it is handled (imported, duplicate, or a permanent non-transaction),
+    # so a transient miss never buries a real transaction behind an advanced
+    # watermark.
     for msg in messages:
-        # Advance for every message seen, so non-finance mail from allowlisted
-        # senders is never re-examined.
-        watermark = max(watermark, msg.internal_date)
         if not senders.is_candidate(msg.sender, msg.subject, msg.body):
+            # Not finance/receipt mail — handled (nothing to do); advance past it.
+            watermark = max(watermark, msg.internal_date)
             continue
         result.candidates += 1
         try:
             parsed = await _parse_message(msg, llm_budget)
+        except _BudgetExhausted:
+            # Out of LLM budget this poll. Stop WITHOUT advancing past this
+            # message so it — and everything newer — is re-fetched and parsed
+            # next poll with a fresh budget. Leaving the watermark here is what
+            # keeps a busy poll from silently dropping unparsed transactions.
+            log.info("email poll hit LLM budget for %s; resuming next poll", user_id)
+            break
+        try:
             if parsed is None:
                 result.skipped += 1
-                continue
-            if parsed.confidence < MIN_CONFIDENCE:
+            elif parsed.confidence < MIN_CONFIDENCE:
                 log.info(
                     "skipping low-confidence parse (%.2f) for user %s",
                     parsed.confidence,
                     user_id,
                 )
                 result.skipped += 1
-                continue
-            if await _import_message(user_id, msg, parsed):
+            elif await _import_message(user_id, msg, parsed):
                 result.imported += 1
                 if isinstance(parsed, ParsedBill):
                     result.imported_bills += 1
@@ -248,6 +270,7 @@ async def sync_user(integration: dict) -> SyncResult:
             # One bad message must not abort the rest of the mailbox.
             log.exception("failed to import message %s for %s", msg.message_id, user_id)
             result.skipped += 1
+        watermark = max(watermark, msg.internal_date)
 
     async with begin() as conn:
         await integrations_repo.update_watermark(conn, user_id, watermark)

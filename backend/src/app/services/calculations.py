@@ -57,6 +57,7 @@ def compute_holding_row(
     previous_close: Optional[float],
     today_qty: Optional[float] = None,
     today_avg_price: Optional[float] = None,
+    day_change: Optional[float] = None,
 ) -> dict[str, Any]:
     """Return a typed holding row for portfolio aggregation.
 
@@ -78,6 +79,13 @@ def compute_holding_row(
         # No real price -> no meaningful daily change.
         t_pnl = 0.0
         today_base_val = 0.0
+    elif day_change is not None and not (today_qty and today_qty > 0):
+        # Prefer PSX's OWN reported day change (per share). This is robust when
+        # the stored previous_close happens to equal the current price — e.g. a
+        # stale/empty snapshot makes current_price fall back to the latest EOD
+        # close, which equals previous_close, collapsing today's P/L to 0.
+        t_pnl = float(day_change) * shares
+        today_base_val = (price - float(day_change)) * shares
     elif today_qty and today_qty > 0:
         bought_today = min(today_qty, shares)
         old_shares = max(shares - today_qty, 0)

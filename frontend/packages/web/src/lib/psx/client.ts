@@ -243,6 +243,17 @@ export function fetchSignalLeaderboardV2(
 // === User-authenticated request exports ===
 export { userGet, userPost, userPatch, userDelete };
 
+// === Bulk "delete all" (user-scoped; server deletes only the caller's rows) ===
+export function deleteAllFinance(
+  entity: "transactions" | "bills" | "goals" | "budgets",
+): Promise<{ deleted: number; entity: string }> {
+  return userDelete<{ deleted: number; entity: string }>(`/api/finance/${entity}`);
+}
+
+export function clearWatchlist(): Promise<{ deleted: number }> {
+  return userDelete<{ deleted: number }>("/api/watchlist");
+}
+
 // === Allocation / performance / stock transactions (user-scoped) ===
 
 export interface PortfolioAllocationItem {

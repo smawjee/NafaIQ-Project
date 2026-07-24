@@ -5,6 +5,11 @@ service validates values and owns the transaction boundary.
 Re-exports the public functions so callers keep using
 `from app.repositories import finance as repo` and call `repo.<fn>`.
 """
+from app.repositories.finance._common import (  # noqa: F401
+    count_owned,
+    delete_all_rows,
+    table,
+)
 from app.repositories.finance.bills import (  # noqa: F401
     count_bills,
     delete_bill,

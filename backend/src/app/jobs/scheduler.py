@@ -713,6 +713,27 @@ async def job_poll_inboxes():
         log.exception("job:poll_inboxes:failed")
 
 
+async def job_keepalive():
+    """Ping the public API's health endpoint to keep the web service warm.
+
+    Railway cold-starts an idle service, and this app's boot cost (numpy/pandas
+    import + DB schema reflection) makes that first request slow. This runs on
+    the always-on worker, so a brief user gap never leaves the API cold. No-op
+    unless API_KEEPALIVE_URL is set.
+    """
+    url = settings.api_keepalive_url.strip()
+    if not url:
+        return
+    try:
+        import httpx
+
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            await client.get(f"{url.rstrip('/')}/api/health")
+    except Exception:
+        # A missed ping is harmless — the next tick tries again.
+        log.debug("keepalive_ping_failed", exc_info=True)
+
+
 async def job_check_alerts():
     """Evaluate ALL user alerts (stock price, bill, budget, goal) on a schedule.
 
@@ -1138,6 +1159,17 @@ def init_scheduler():
     scheduler.add_job(job_refresh_fundamentals, CronTrigger(day_of_week="sat", hour=4, minute=0, timezone="Asia/Karachi"), id="refresh_fundamentals", replace_existing=True)
     scheduler.add_job(job_refresh_index_eod, CronTrigger(hour=1, minute=0, timezone="Asia/Karachi"), id="refresh_index_eod", replace_existing=True)
     scheduler.add_job(job_check_alerts, IntervalTrigger(seconds=60), id="check_alerts", replace_existing=True)
+    # Keep-alive: the always-on worker pings the API so Railway can't cold-start
+    # it after an idle gap (a cold boot pays the numpy/pandas + reflection cost).
+    # Only scheduled when API_KEEPALIVE_URL is configured.
+    if settings.api_keepalive_url.strip():
+        scheduler.add_job(
+            job_keepalive,
+            IntervalTrigger(minutes=max(1, settings.keepalive_interval_minutes)),
+            id="keepalive",
+            replace_existing=True,
+            next_run_time=datetime.now(PTK_TZ),  # warm it immediately on boot
+        )
     scheduler.add_job(job_refresh_tv_data, IntervalTrigger(minutes=5), id="refresh_tv_data", replace_existing=True)
     # Shariah universe from the live KMIALLSHR index. Daily 03:30 PKT — index
     # membership is reviewed periodically, and this is the only writer of

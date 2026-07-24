@@ -7,6 +7,7 @@ from typing import Awaitable, Callable, Optional
 
 import structlog
 
+from app.config import settings
 from app.db.supabase import async_execute, get_supabase, select_all
 from app.scrapers.dps import DPSScraper
 from app.models import (
@@ -51,8 +52,17 @@ class CacheLayer:
         self.db = get_supabase()
         self._refreshing: set[str] = set()
         self._last_refresh_attempt: dict[str, float] = {}
+        # Live DPS scraping is the WORKER's job. On the web/API process
+        # (PROCESS_ROLE=web -> runs_scheduler False), never scrape in the request
+        # path: serve whatever the worker has written to the DB and return fast.
+        # A blocking DPS scrape here made market endpoints take 8-13s whenever
+        # DPS was unreachable (4 retries x backoff) — the "slow loading". On a
+        # single-process deploy (all/worker) this stays True, unchanged.
+        self.live_scrape = settings.runs_scheduler
 
     def _refresh_in_background(self, key: str, refresh: Callable[[], Awaitable[object]]) -> None:
+        if not self.live_scrape:
+            return  # web process: never scrape DPS off the request path either
         now = time.monotonic()
         if key in self._refreshing:
             return
@@ -93,7 +103,10 @@ class CacheLayer:
         except Exception:
             log.warning("cache_market_read_failed", exc_info=True)
 
-        # Nothing cached at all: a live scrape is the only option.
+        # Nothing cached: only the worker scrapes DPS. The web process returns
+        # empty instead of blocking the request on a (possibly failing) scrape.
+        if not self.live_scrape:
+            return []
         return await self._scrape_market_snapshot()
 
     async def _scrape_market_snapshot(self) -> list[MarketSnapshotItem]:
@@ -151,7 +164,9 @@ class CacheLayer:
         except Exception:
             log.warning("cache_history_read_failed", symbol=sym, exc_info=True)
 
-        # Cache miss: scrape + bulk write
+        # Cache miss: only the worker scrapes. Web returns empty (fast).
+        if not self.live_scrape:
+            return []
         bars = await self.dps.fetch_historical(sym)
         if bars:
             rows = [b.to_dict() for b in bars]
@@ -189,7 +204,9 @@ class CacheLayer:
         except Exception:
             log.warning("cache_symbols_read_failed", exc_info=True)
 
-        # Nothing cached at all: a live scrape is the only option.
+        # Nothing cached: web process returns empty rather than blocking on DPS.
+        if not self.live_scrape:
+            return []
         return await self._scrape_symbols()
 
     async def _scrape_symbols(self) -> list[SymbolInfo]:
@@ -232,6 +249,8 @@ class CacheLayer:
         except Exception:
             log.warning("cache_profile_read_failed", symbol=sym, exc_info=True)
 
+        if not self.live_scrape:
+            return None
         profile = await self.dps.fetch_profile(sym)
         try:
             await async_execute(lambda c: c.table("psx_profile").upsert({
@@ -270,6 +289,8 @@ class CacheLayer:
         except Exception:
             log.warning("cache_fundamentals_read_failed", symbol=sym, exc_info=True)
 
+        if not self.live_scrape:
+            return FundamentalsData(symbol=sym)
         fundamentals = await self.dps.fetch_fundamentals(sym)
         try:
             await async_execute(lambda c: c.table("psx_fundamentals").upsert({
@@ -380,6 +401,8 @@ class CacheLayer:
         except Exception:
             log.warning("cache_announcements_read_failed", exc_info=True)
 
+        if not self.live_scrape:
+            return []
         items = await self.dps.fetch_announcements(offset=0, count=limit)
         if items:
             rows = [
@@ -423,6 +446,8 @@ class CacheLayer:
         except Exception:
             log.warning("cache_dividends_read_failed", symbol=sym, exc_info=True)
 
+        if not self.live_scrape:
+            return []
         events = await self.dps.fetch_payouts(sym)
         if events:
             rows = [
@@ -453,16 +478,24 @@ class CacheLayer:
             rows = result.data or []
             if rows:
                 bars = [_row_to_index_bar(r) for r in rows]
-                if _index_bars_are_fresh(bars) or not self._can_refresh_now(f"index:{c}"):
+                if (
+                    _index_bars_are_fresh(bars)
+                    or not self.live_scrape
+                    or not self._can_refresh_now(f"index:{c}")
+                ):
                     return bars
                 refreshed = await self._scrape_index_eod(c)
                 return refreshed or bars
         except Exception:
             log.warning("cache_index_read_failed", code=c, exc_info=True)
 
+        if not self.live_scrape:
+            return []
         return await self._scrape_index_eod(c)
 
     async def get_live_index_snapshot(self) -> list[dict]:
+        if not self.live_scrape:
+            return []  # web process: never block index cards on a live DPS call
         return await self.dps.fetch_index_snapshot()
 
     async def _scrape_index_eod(self, code: str) -> list[IndexBar]:
@@ -517,7 +550,11 @@ class CacheLayer:
             rows = result.data or []
             if rows:
                 latest = [_row_to_index_bar(r) for r in rows]
-                if _index_bars_are_fresh(latest) or not self._can_refresh_now(f"index:{c}"):
+                if (
+                    _index_bars_are_fresh(latest)
+                    or not self.live_scrape
+                    or not self._can_refresh_now(f"index:{c}")
+                ):
                     return latest
                 refreshed = await self._scrape_index_eod(c)
                 newest_first = sorted(refreshed, key=lambda b: (b.date or date.min), reverse=True)
@@ -544,7 +581,7 @@ class CacheLayer:
             rows = await select_all("psx_market_snapshot", "*", order_by="symbol")
             snapshot = [_row_to_market_snapshot(r) for r in rows]
         except Exception:
-            snapshot = await self.dps.fetch_market_watch()
+            snapshot = await self.dps.fetch_market_watch() if self.live_scrape else []
 
         sector_map: dict[str, str] = {}
         try:
@@ -555,8 +592,8 @@ class CacheLayer:
         except Exception:
             pass
 
-        # Supplement from symbols API
-        if len(sector_map) < 50:
+        # Supplement from symbols API (worker only — web never scrapes).
+        if len(sector_map) < 50 and self.live_scrape:
             try:
                 symbols = await self.dps.fetch_symbols()
                 for s in symbols:

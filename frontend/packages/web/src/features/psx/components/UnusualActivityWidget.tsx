@@ -6,10 +6,11 @@ import { useLang, localizeDigits } from "@/hooks/use-lang";
 import { formatTimeAgo } from "@/features/stock/stock.utils";
 import { cn } from "@/lib/utils";
 
-/** Top 5 volume spikes. Click a row to jump to that symbol's stock page. */
+/** Top volume spikes. Click a row to jump to that symbol's stock page. Shows 6
+ * to sit level with the Macro and News columns beside it on the dashboard. */
 export function UnusualActivityWidget() {
   const { t } = useLang();
-  const { data, isLoading } = useUnusualActivity(5);
+  const { data, isLoading } = useUnusualActivity(6);
   const items = data ?? [];
 
   return (

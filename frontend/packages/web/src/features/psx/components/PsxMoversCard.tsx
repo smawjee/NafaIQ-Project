@@ -39,30 +39,40 @@ export function PsxMoversCard({
           <div
             key={s.ticker}
             className={cn(
-              "grid min-w-0 grid-cols-[1.5rem_minmax(4rem,1fr)_4.5rem_5rem_5.25rem_4.25rem] items-center rounded-[8px] py-1.5",
+              "min-w-0 rounded-[8px] px-2 py-1.5",
               i % 2 ? "bg-surface-alt" : "bg-surface",
             )}
           >
-            <span className="text-right tabular-nums text-text-muted">{i + 1}</span>
-            <span className="min-w-0 truncate pl-2 pr-2 font-semibold text-text-primary">
-              {s.ticker}
-            </span>
-            <span className="whitespace-nowrap text-right font-mono tabular-nums text-text-primary">
-              {fmtNum(s.price)}
-            </span>
-            <span className="whitespace-nowrap text-right">
-              <Change pct={s.changePct} />
-            </span>
-            <span className="min-w-0 justify-self-end overflow-hidden">
+            {/* Line 1: rank · ticker · price · change. Flex with a truncating
+                ticker so the row can never overflow the (narrow) panel — the
+                old fixed 6-column grid was wider than the panel and clipped the
+                volume column. */}
+            <div className="flex items-center gap-2">
+              <span className="w-4 shrink-0 text-right tabular-nums text-text-muted">
+                {i + 1}
+              </span>
+              <span className="min-w-0 flex-1 truncate font-semibold text-text-primary">
+                {s.ticker}
+              </span>
+              <span className="shrink-0 whitespace-nowrap font-mono tabular-nums text-text-primary">
+                {fmtNum(s.price)}
+              </span>
+              <span className="shrink-0 whitespace-nowrap text-right">
+                <Change pct={s.changePct} />
+              </span>
+            </div>
+            {/* Line 2: signal on the left, volume on the right — the vertical
+                expansion that lets the full "Strong Bullish/Bearish" label fit. */}
+            <div className="mt-1 flex items-center justify-between gap-2 pl-6">
               {s.signal ? (
-                <SignalBadge signal={s.signal} className="max-w-full px-2 text-[9px] tracking-normal" />
+                <SignalBadge signal={s.signal} className="px-2 text-[9px] tracking-normal" />
               ) : (
-                <span className="text-text-muted">-</span>
+                <span className="text-text-muted">—</span>
               )}
-            </span>
-            <span className="whitespace-nowrap text-right font-mono text-[11px] tabular-nums text-text-muted">
-              {s.volume}
-            </span>
+              <span className="shrink-0 whitespace-nowrap font-mono text-[11px] tabular-nums text-text-muted">
+                {t("Vol")} {s.volume}
+              </span>
+            </div>
           </div>
         ))}
       </div>

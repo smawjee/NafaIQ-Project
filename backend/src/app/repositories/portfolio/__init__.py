@@ -49,6 +49,7 @@ from app.repositories.portfolio.valuation import (  # noqa: F401
 )
 from app.repositories.portfolio.watchlist import (  # noqa: F401
     count_watchlist,
+    clear_watchlist,
     delete_watchlist_symbol,
     fetch_watchlist_enriched,
     insert_watchlist_symbol,

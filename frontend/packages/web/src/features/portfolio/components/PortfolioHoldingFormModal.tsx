@@ -40,7 +40,7 @@ export function PortfolioHoldingFormModal({
       <div className="space-y-3">
         {editIdx != null ? (
           // Editing: the symbol is fixed — show it read-only.
-          <div className="flex items-center gap-2 rounded-[8px] border border-white/[0.08] bg-surface px-3 py-2">
+          <div className="flex items-center gap-2 rounded-[8px] border border-border bg-surface px-3 py-2">
             <StockLogo symbol={form.ticker} size={22} />
             <span className="text-sm font-semibold text-bull">{form.ticker}</span>
             {form.sector && (
@@ -49,7 +49,7 @@ export function PortfolioHoldingFormModal({
           </div>
         ) : form.ticker ? (
           // Adding, symbol chosen: show the pick with a "Change" affordance.
-          <div className="flex items-center gap-2 rounded-[8px] border border-white/[0.08] bg-surface px-3 py-2">
+          <div className="flex items-center gap-2 rounded-[8px] border border-border bg-surface px-3 py-2">
             <StockLogo symbol={form.ticker} size={22} />
             <span className="text-sm font-semibold text-bull">{form.ticker}</span>
             {form.sector && <span className="text-[11px] text-text-muted">{form.sector}</span>}

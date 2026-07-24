@@ -89,7 +89,7 @@ export function StockTabs({
                   href={n.url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className={cn(rowClass, "hover:border-white/[0.16] hover:bg-hover")}
+                  className={cn(rowClass, "hover:border-border-hover hover:bg-hover")}
                 >
                   {RowInner}
                 </a>

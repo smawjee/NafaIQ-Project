@@ -36,7 +36,7 @@ export function DashboardMetricCards({
 
   if (showWelcome) {
     return (
-      <div className="rounded-[14px] border border-white/[0.06] bg-surface p-5 text-center">
+      <div className="rounded-[14px] border border-border bg-surface p-5 text-center">
         <h2 className="text-lg font-semibold text-text-primary">{t("Welcome to NafaIQ!")}</h2>
         <p className="mt-2 max-w-md mx-auto text-sm leading-relaxed text-text-secondary">
           {t("Add your first holding, transaction, or goal to get started with real insights.")}
@@ -50,13 +50,13 @@ export function DashboardMetricCards({
           </button>
           <button
             onClick={onAddTransaction}
-            className="rounded-lg border border-white/[0.08] bg-surface px-3.5 py-2 text-[13px] font-semibold text-text-primary transition hover:border-white/[0.16]"
+            className="rounded-lg border border-border bg-surface px-3.5 py-2 text-[13px] font-semibold text-text-primary transition hover:border-border-hover"
           >
             {t("Add Transaction")}
           </button>
           <Link
             to="/psx"
-            className="rounded-lg border border-white/[0.08] bg-surface px-3.5 py-2 text-[13px] font-semibold text-text-primary transition hover:border-white/[0.16]"
+            className="rounded-lg border border-border bg-surface px-3.5 py-2 text-[13px] font-semibold text-text-primary transition hover:border-border-hover"
           >
             {t("Explore PSX")}
           </Link>

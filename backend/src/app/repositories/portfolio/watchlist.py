@@ -81,6 +81,15 @@ async def delete_watchlist_symbol(conn: Executor, user_id: str, symbol: str) -> 
     return result.mappings().first() is not None
 
 
+async def clear_watchlist(conn: Executor, user_id: str) -> int:
+    """Remove EVERY symbol from this user's watchlist; returns the count."""
+    result = await conn.execute(
+        text("DELETE FROM user_watchlist WHERE user_id = :uid RETURNING id"),
+        {"uid": user_id},
+    )
+    return len(result.mappings().fetchall())
+
+
 async def fetch_watchlist_enriched(conn: Executor, user_id: str) -> list[dict[str, Any]]:
     # Price resolves live snapshot -> latest daily close (psx_ohlcv), so a
     # symbol always shows a price outside market hours instead of a blank "—".

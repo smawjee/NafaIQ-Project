@@ -34,7 +34,7 @@ export function AlertsNotificationHistory({
         {isLoggedIn && apiNotifications && apiNotifications.length > 0
           ? apiNotifications.map((n) => (
               <div key={n.id} className="flex items-center gap-3 px-3 py-3">
-                <span className="flex h-8 w-8 items-center justify-center rounded-[8px] border border-white/[0.06] bg-elevated">
+                <span className="flex h-8 w-8 items-center justify-center rounded-[8px] border border-border bg-elevated">
                   <span className="text-xs text-text-muted">🔔</span>
                 </span>
                 <div className="flex-1">
@@ -52,7 +52,7 @@ export function AlertsNotificationHistory({
               <div key={i} className="flex items-center gap-3 px-3 py-3">
                 <span
                   className={cn(
-                    "flex h-8 w-8 items-center justify-center rounded-[8px] border border-white/[0.06] bg-elevated text-text-secondary",
+                    "flex h-8 w-8 items-center justify-center rounded-[8px] border border-border bg-elevated text-text-secondary",
                     n.emoji === "🎯" || n.emoji === "📈"
                       ? "badge-positive"
                       : n.emoji === "📅" || n.emoji === "💸"

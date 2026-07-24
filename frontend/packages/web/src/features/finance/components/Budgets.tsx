@@ -12,6 +12,8 @@ import { useDemo } from "@/hooks/use-demo";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { selectBudgets, addBudget as reduxAddBudget } from "@/store/finance";
 import { useFinanceBudgets, useCreateBudget } from "@/hooks/use-finance-budgets";
+import { DeleteAllButton } from "@/components/shared/DeleteAllButton";
+import { useDeleteAllFinance } from "@/hooks/use-finance-bulk";
 import { CATEGORIES } from "@/features/finance/finance.data";
 
 // Budgets track spending, so income is not a budgetable category. Everything
@@ -27,6 +29,7 @@ export function Budgets() {
   const storeBudgets = useAppSelector(selectBudgets);
   const { data: apiBudgets } = useFinanceBudgets(!!user && !isDemo);
   const createBudget = useCreateBudget();
+  const deleteAll = useDeleteAllFinance();
   const [offset, setOffset] = useState(0);
   const [budgetOpen, setBudgetOpen] = useState(false);
   const [budgetCat, setBudgetCat] = useState(BUDGET_CATEGORIES[0]);
@@ -52,6 +55,15 @@ export function Budgets() {
 
   return (
     <div className="space-y-4">
+      {user && !isDemo && (apiBudgets?.length ?? 0) > 0 && (
+        <div className="flex justify-end">
+          <DeleteAllButton
+            count={apiBudgets?.length ?? 0}
+            itemLabel="budgets"
+            onConfirm={() => deleteAll.mutateAsync("budgets")}
+          />
+        </div>
+      )}
       <div className="flex items-center justify-center gap-4 text-sm text-text-secondary">
         <button onClick={() => setOffset((o) => o - 1)} className="hover:text-text-primary">
           ‹ {shortMonth(prev)}

@@ -27,8 +27,13 @@ log = logging.getLogger(__name__)
 
 API_BASE = "https://gmail.googleapis.com/gmail/v1/users/me"
 
-# Guard against a huge first sync.
-MAX_MESSAGES_PER_POLL = 50
+# Safety cap on how many messages one poll pulls. Raised from 50 once the query
+# widened to receipts: at 50 (with no paging) a burst of marketing/order mail
+# crowded real bank alerts out of the newest-50 window, and the watermark then
+# advanced past them so they were never fetched. We now page up to this many.
+MAX_MESSAGES_PER_POLL = 150
+# Gmail's messages.list caps a page at 100.
+_LIST_PAGE_SIZE = 100
 # Bank alerts are short; ignore giant bodies.
 MAX_BODY_CHARS = 20_000
 _TIMEOUT_S = 20.0
@@ -125,12 +130,23 @@ async def fetch_new_messages(
 
     try:
         async with httpx.AsyncClient(timeout=_TIMEOUT_S, headers=headers) as client:
-            listing = await _get(
-                client,
-                "/messages",
-                {"q": query, "maxResults": MAX_MESSAGES_PER_POLL},
-            )
-            ids = [m["id"] for m in listing.get("messages") or []]
+            # Page through the listing so a poll sees EVERY match since the
+            # watermark, not just the newest 50. Without this, a wide query lets
+            # marketing mail bury real transactions past the first page.
+            ids: list[str] = []
+            page_token: str | None = None
+            while len(ids) < MAX_MESSAGES_PER_POLL:
+                params = {
+                    "q": query,
+                    "maxResults": min(_LIST_PAGE_SIZE, MAX_MESSAGES_PER_POLL - len(ids)),
+                }
+                if page_token:
+                    params["pageToken"] = page_token
+                listing = await _get(client, "/messages", params)
+                ids.extend(m["id"] for m in listing.get("messages") or [])
+                page_token = listing.get("nextPageToken")
+                if not page_token:
+                    break
             if not ids:
                 return []
 

@@ -6,6 +6,7 @@ Sub-features live in their own modules; this package re-exports the public
 functions so callers can use `from app.services import finance as finance_service`
 and call `finance_service.<fn>`.
 """
+from app.services.finance.bulk import delete_all  # noqa: F401
 from app.services.finance.bills import (  # noqa: F401
     create_bill,
     delete_bill,

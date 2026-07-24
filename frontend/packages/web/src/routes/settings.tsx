@@ -46,21 +46,12 @@ export const Route = createFileRoute("/settings")({
       {
         name: "description",
         content:
-          "Manage your NafaIQ preferences, including app appearance, language, currency and notifications.",
+          "Manage your NafaIQ preferences, including app appearance, language and notifications.",
       },
     ],
   }),
   component: Settings,
 });
-
-const CURRENCIES = [
-  { code: "PKR", label: "Pakistani Rupee" },
-  { code: "USD", label: "US Dollar" },
-  { code: "AED", label: "UAE Dirham" },
-  { code: "SAR", label: "Saudi Riyal" },
-  { code: "EUR", label: "Euro" },
-  { code: "GBP", label: "British Pound" },
-];
 
 function Settings() {
   const { theme, setTheme } = useTheme();
@@ -75,13 +66,11 @@ function Settings() {
   const updatePrefs = useUpdateNotificationPrefs();
 
   const [income, setIncome] = useState<string>("");
-  const [currency, setCurrency] = useState<string>("PKR");
   const [hydrated, setHydrated] = useState(false);
 
   useEffect(() => {
     if (isLoggedIn && settings.data && !hydrated) {
       setIncome(String(settings.data.monthly_income || ""));
-      setCurrency(settings.data.currency || "PKR");
       setHydrated(true);
     }
   }, [isLoggedIn, settings.data, hydrated]);
@@ -103,8 +92,10 @@ function Settings() {
     const num = Number(income);
     try {
       await updateSettings.mutateAsync({
+        // NafaIQ is PKR-only — the currency selector was removed, but the field
+        // is kept in the payload (as PKR) so the settings contract is unchanged.
         monthly_income: Number.isNaN(num) ? 0 : num,
-        currency,
+        currency: "PKR",
         language: lang,
       });
       toast.success(t("Settings saved"));
@@ -235,29 +226,13 @@ function Settings() {
           <h2 className="text-sm font-semibold text-text-primary">{t("Finance")}</h2>
         </div>
         <p className="mb-4 text-[13px] text-text-secondary">
-          {t("Set your preferred currency and monthly income.")}
+          {t("Set a fixed monthly income (e.g. your salary). It's counted as income for every month in your finance.")}
         </p>
         {isLoggedIn ? (
           <div className="space-y-3">
             <div>
               <label className="mb-1 block text-[12px] font-medium text-text-secondary">
-                {t("Currency")}
-              </label>
-              <select
-                value={currency}
-                onChange={(e) => setCurrency(e.target.value)}
-                className="w-full rounded-[8px] border border-border bg-elevated px-3 py-2 text-sm text-text-primary"
-              >
-                {CURRENCIES.map((c) => (
-                  <option key={c.code} value={c.code}>
-                    {c.code} — {c.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="mb-1 block text-[12px] font-medium text-text-secondary">
-                {t("Monthly income")}
+                {t("Fixed monthly income (PKR)")}
               </label>
               <input
                 value={income}
@@ -266,6 +241,9 @@ function Settings() {
                 placeholder="0"
                 className="w-full rounded-[8px] border border-border bg-elevated px-3 py-2 text-sm text-text-primary"
               />
+              <p className="mt-1 text-[11px] text-text-muted">
+                {t("A recurring salary added to your income every month. Leave 0 if your income varies.")}
+              </p>
             </div>
             <button
               onClick={saveFinance}
@@ -282,7 +260,7 @@ function Settings() {
           </div>
         ) : (
           <p className="text-[13px] text-text-muted">
-            {t("Sign in to persist your currency and monthly income across devices.")}
+            {t("Sign in to save your monthly income across devices.")}
           </p>
         )}
       </Card>

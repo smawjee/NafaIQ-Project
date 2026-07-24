@@ -9,6 +9,8 @@ import { Card } from "@/components/shared/Card";
 import { Modal, fieldClass } from "@/components/shared/Modal";
 import { AnimatedBar } from "@/components/shared/CountUpNumber";
 import { useConfirm } from "@/components/shared/ConfirmDialog";
+import { DeleteAllButton } from "@/components/shared/DeleteAllButton";
+import { useDeleteAllFinance } from "@/hooks/use-finance-bulk";
 import { fmtPKR } from "@/lib/data";
 import { type Goal } from "@/lib/finance/data";
 import { cn } from "@/lib/utils";
@@ -35,6 +37,7 @@ export function Goals() {
   const contributeGoalApi = useApiContributeGoal();
   const deleteGoalApi = useApiDeleteGoal();
   const confirm = useConfirm();
+  const deleteAll = useDeleteAllFinance();
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
   const [target, setTarget] = useState("");
@@ -144,6 +147,15 @@ export function Goals() {
 
   return (
     <div className="grid gap-4 md:grid-cols-2">
+      {user && !isDemo && displayGoals.length > 0 && (
+        <div className="flex justify-end md:col-span-2">
+          <DeleteAllButton
+            count={displayGoals.length}
+            itemLabel="goals"
+            onConfirm={() => deleteAll.mutateAsync("goals")}
+          />
+        </div>
+      )}
       {user && displayGoals.length === 0 && (
         <Card hover={false} className="text-sm text-text-secondary md:col-span-2">
           {t("No goals yet. Add your first savings goal to start tracking progress.")}

@@ -54,3 +54,10 @@ async def remove_from_watchlist(user_id: str, symbol: str) -> dict[str, Any]:
     if not deleted:
         raise HTTPException(404, f"'{symbol.upper()}' is not in your watchlist")
     return {"deleted": symbol.upper()}
+
+
+async def clear_watchlist(user_id: str) -> dict[str, Any]:
+    """Remove every symbol from the user's watchlist. Returns the count."""
+    async with begin() as conn:
+        deleted = await repo.clear_watchlist(conn, user_id)
+    return {"deleted": deleted}

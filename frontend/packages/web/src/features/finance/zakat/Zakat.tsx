@@ -235,7 +235,7 @@ export function Zakat() {
           )}
         </div>
 
-        <div className="mt-5 flex items-center justify-between border-t border-white/[0.06] pt-4">
+        <div className="mt-5 flex items-center justify-between border-t border-border pt-4">
           <span className="text-sm font-bold text-text-primary">{t("Total Assets")}</span>
           <span className="font-mono text-base font-bold tabular-nums text-text-primary">
             <CountUpNumber value={totalAssets} prefix="PKR " preserveValue />
@@ -352,7 +352,7 @@ export function Zakat() {
             </p>
           ) : null}
           {history.data && history.data.length > 0 ? (
-            <div className="mt-4 border-t border-white/[0.06] pt-3 text-left">
+            <div className="mt-4 border-t border-border pt-3 text-left">
               <div className="text-[11px] font-semibold uppercase tracking-wide text-text-muted">
                 {t("History")}
               </div>
@@ -451,7 +451,7 @@ function MetalAssetRow({
           />
           <span className="text-xs text-text-muted">{t("tola")}</span>
         </div>
-        <div className="min-w-[150px] rounded-[8px] border border-white/[0.08] bg-elevated/60 px-3 py-2 text-right font-mono text-sm font-semibold tabular-nums text-text-primary">
+        <div className="min-w-[150px] rounded-[8px] border border-border bg-elevated/60 px-3 py-2 text-right font-mono text-sm font-semibold tabular-nums text-text-primary">
           PKR {formatNumber(computedValue, 0)}
         </div>
       </div>
