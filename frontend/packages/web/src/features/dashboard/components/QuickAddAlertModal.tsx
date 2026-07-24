@@ -4,9 +4,13 @@ import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/use-auth";
 import { useDemo } from "@/hooks/use-demo";
 import { useLang } from "@/hooks/use-lang";
-import { useAppDispatch } from "@/store/hooks";
+import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { addAlert } from "@/store/alerts";
+import { selectBills, selectBudgets, selectGoals } from "@/store/finance";
 import { useCreateAlert, useCreatePriceAlert } from "@/hooks/use-alert-events";
+import { useFinanceBills } from "@/hooks/use-finance-bills";
+import { useFinanceBudgets } from "@/hooks/use-finance-budgets";
+import { useFinanceGoals } from "@/hooks/use-finance-goals";
 import { useFinanceData } from "@/hooks/use-demo-data";
 import { Modal } from "@/components/shared/Modal";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -20,19 +24,32 @@ export function QuickAddAlertModal({ open, onClose }: { open: boolean; onClose: 
   const isLoggedIn = !!user && !isDemo;
   const createUserAlert = useCreateAlert();
   const createPriceAlert = useCreatePriceAlert();
-  // Bill/budget/goal choices come from the local store so demo-created
-  // items show up as alert targets.
-  const { bills: localBills, budgets: localBudgets, goals: localGoals } = useFinanceData();
+  const { data: realBills } = useFinanceBills(isLoggedIn);
+  const { data: realBudgets } = useFinanceBudgets(isLoggedIn);
+  const { data: realGoals } = useFinanceGoals(isLoggedIn);
+  const localBills = useAppSelector(selectBills);
+  const localBudgets = useAppSelector(selectBudgets);
+  const localGoals = useAppSelector(selectGoals);
+  const { bills: demoBills, budgets: demoBudgets, goals: demoGoals } = useFinanceData();
+  const billOptions = isLoggedIn ? (realBills ?? []).map((b: { name: string }) => b.name) : demoBills.map((b: { name: string }) => b.name);
+  const budgetOptions: { category: string }[] = isLoggedIn
+    ? (realBudgets ?? []).map((b: { category: string }) => ({ category: b.category }))
+    : demoBudgets;
+  const goalOptions: { name: string; emoji: string }[] = isLoggedIn
+    ? (realGoals ?? []).map((g: { name: string; emoji: string | null }) => ({ name: g.name, emoji: g.emoji || "🎯" }))
+    : demoGoals;
   const [type, setType] = useState("Stock Price");
   const [stock, setStock] = useState(ALERT_STOCKS[0]);
   const [direction, setDirection] = useState("Above");
   const [price, setPrice] = useState("");
-  const [bill, setBill] = useState(localBills[0]?.name ?? "");
+  const [bill, setBill] = useState(billOptions[0] ?? "");
   const [timing, setTiming] = useState("1 day before");
-  const [budgetCat, setBudgetCat] = useState(localBudgets[0]?.category ?? "");
+  const [budgetCat, setBudgetCat] = useState(budgetOptions[0]?.category ?? "");
   const [budgetThreshold, setBudgetThreshold] = useState("80");
-  const [goal, setGoal] = useState(localGoals[0]?.name ?? "");
+  const [budgetThresholdCustom, setBudgetThresholdCustom] = useState("");
+  const [goal, setGoal] = useState(goalOptions[0]?.name ?? "");
   const [goalMilestone, setGoalMilestone] = useState("50");
+  const [goalMilestoneCustom, setGoalMilestoneCustom] = useState("");
   const [push, setPush] = useState(true);
   const [email, setEmail] = useState(false);
   const [err, setErr] = useState("");
@@ -54,6 +71,10 @@ export function QuickAddAlertModal({ open, onClose }: { open: boolean; onClose: 
         ? { symbol: stock, direction: direction.toLowerCase(), price: num }
         : `Created ${new Date().toLocaleString("en-US", { month: "short", day: "numeric" })}`;
     } else if (type === "Bill Reminder") {
+      if (!bill) {
+        setErr(t("Please select a bill."));
+        return;
+      }
       title = `${bill} — ${timing}`;
       meta = isLoggedIn ? { bill, timing } : "Recurring monthly";
     } else if (type === "Budget") {
@@ -61,15 +82,25 @@ export function QuickAddAlertModal({ open, onClose }: { open: boolean; onClose: 
         setErr(t("Please select a budget category."));
         return;
       }
-      title = `${budgetCat} at ${budgetThreshold}% of budget`;
-      meta = isLoggedIn ? { category: budgetCat, threshold: budgetThreshold } : "Monthly";
+      const thresholdVal = budgetThreshold === "custom" ? budgetThresholdCustom : budgetThreshold;
+      if (!thresholdVal || Number.isNaN(Number(thresholdVal)) || Number(thresholdVal) <= 0) {
+        setErr(t("Please enter a valid threshold."));
+        return;
+      }
+      title = `${budgetCat} at ${thresholdVal}% of budget`;
+      meta = isLoggedIn ? { category: budgetCat, threshold: thresholdVal } : "Monthly";
     } else {
       if (!goal) {
         setErr(t("Please select a goal."));
         return;
       }
-      title = `${goal} ${goalMilestone}% reached`;
-      meta = isLoggedIn ? { goal, milestone: goalMilestone } : "One-time";
+      const milestoneVal = goalMilestone === "custom" ? goalMilestoneCustom : goalMilestone;
+      if (!milestoneVal || Number.isNaN(Number(milestoneVal)) || Number(milestoneVal) <= 0) {
+        setErr(t("Please enter a valid milestone."));
+        return;
+      }
+      title = `${goal} ${milestoneVal}% reached`;
+      meta = isLoggedIn ? { goal, milestone: milestoneVal } : "One-time";
     }
 
     if (isLoggedIn) {
@@ -77,7 +108,9 @@ export function QuickAddAlertModal({ open, onClose }: { open: boolean; onClose: 
         toast.success(t("Alert created"));
         setPrice("");
         setBudgetThreshold("80");
+        setBudgetThresholdCustom("");
         setGoalMilestone("50");
+        setGoalMilestoneCustom("");
         setErr("");
         onClose();
       };
@@ -125,7 +158,9 @@ export function QuickAddAlertModal({ open, onClose }: { open: boolean; onClose: 
       toast.success(t("Alert created"));
       setPrice("");
       setBudgetThreshold("80");
+      setBudgetThresholdCustom("");
       setGoalMilestone("50");
+      setGoalMilestoneCustom("");
       setErr("");
       onClose();
     }
@@ -187,9 +222,9 @@ export function QuickAddAlertModal({ open, onClose }: { open: boolean; onClose: 
               onChange={(e) => setBill(e.target.value)}
               className="rounded-[6px] border border-border bg-elevated px-3 py-2 text-sm text-text-primary"
             >
-              {localBills.map((b) => (
-                <option key={b.name} value={b.name}>
-                  {b.name}
+              {billOptions.map((name) => (
+                <option key={name} value={name}>
+                  {name}
                 </option>
               ))}
             </select>
@@ -210,23 +245,35 @@ export function QuickAddAlertModal({ open, onClose }: { open: boolean; onClose: 
               onChange={(e) => setBudgetCat(e.target.value)}
               className="rounded-[6px] border border-border bg-elevated px-3 py-2 text-sm text-text-primary"
             >
-              {localBudgets.map((b) => (
+              {budgetOptions.map((b) => (
                 <option key={b.category} value={b.category}>
                   {t(b.category)}
                 </option>
               ))}
             </select>
-            <select
-              value={budgetThreshold}
-              onChange={(e) => setBudgetThreshold(e.target.value)}
-              className="rounded-[6px] border border-border bg-elevated px-3 py-2 text-sm text-text-primary"
-            >
-              <option value="50">{t("50%")}</option>
-              <option value="75">{t("75%")}</option>
-              <option value="80">{t("80%")}</option>
-              <option value="90">{t("90%")}</option>
-              <option value="100">{t("100%")}</option>
-            </select>
+            <div className="flex gap-2">
+              <select
+                value={budgetThreshold}
+                onChange={(e) => setBudgetThreshold(e.target.value)}
+                className="flex-1 rounded-[6px] border border-border bg-elevated px-3 py-2 text-sm text-text-primary"
+              >
+                <option value="50">{t("50%")}</option>
+                <option value="75">{t("75%")}</option>
+                <option value="80">{t("80%")}</option>
+                <option value="90">{t("90%")}</option>
+                <option value="100">{t("100%")}</option>
+                <option value="custom">{t("Custom")}</option>
+              </select>
+              {budgetThreshold === "custom" && (
+                <input
+                  value={budgetThresholdCustom}
+                  onChange={(e) => setBudgetThresholdCustom(e.target.value)}
+                  inputMode="numeric"
+                  placeholder={t("e.g. 65")}
+                  className="w-24 rounded-[6px] border border-border bg-elevated px-3 py-2 text-sm text-text-primary outline-none placeholder:text-text-muted"
+                />
+              )}
+            </div>
           </div>
         ) : (
           <div className="grid gap-3 sm:grid-cols-2">
@@ -235,23 +282,36 @@ export function QuickAddAlertModal({ open, onClose }: { open: boolean; onClose: 
               onChange={(e) => setGoal(e.target.value)}
               className="rounded-[6px] border border-border bg-elevated px-3 py-2 text-sm text-text-primary"
             >
-              {localGoals.map((g) => (
+              {goalOptions.map((g) => (
                 <option key={g.name} value={g.name}>
                   {g.emoji} {t(g.name)}
                 </option>
               ))}
             </select>
-            <select
-              value={goalMilestone}
-              onChange={(e) => setGoalMilestone(e.target.value)}
-              className="rounded-[6px] border border-border bg-elevated px-3 py-2 text-sm text-text-primary"
-            >
-              <option value="25">{t("25%")}</option>
-              <option value="50">{t("50%")}</option>
-              <option value="75">{t("75%")}</option>
-              <option value="90">{t("90%")}</option>
-              <option value="100">{t("100%")}</option>
-            </select>
+            <div className="flex gap-2">
+              <select
+                value={goalMilestone}
+                onChange={(e) => setGoalMilestone(e.target.value)}
+                className="flex-1 rounded-[6px] border border-border bg-elevated px-3 py-2 text-sm text-text-primary"
+              >
+                <option value="10">{t("10%")}</option>
+                <option value="25">{t("25%")}</option>
+                <option value="50">{t("50%")}</option>
+                <option value="75">{t("75%")}</option>
+                <option value="90">{t("90%")}</option>
+                <option value="100">{t("100%")}</option>
+                <option value="custom">{t("Custom")}</option>
+              </select>
+              {goalMilestone === "custom" && (
+                <input
+                  value={goalMilestoneCustom}
+                  onChange={(e) => setGoalMilestoneCustom(e.target.value)}
+                  inputMode="numeric"
+                  placeholder={t("e.g. 33")}
+                  className="w-24 rounded-[6px] border border-border bg-elevated px-3 py-2 text-sm text-text-primary outline-none placeholder:text-text-muted"
+                />
+              )}
+            </div>
           </div>
         )}
         <div className="flex flex-wrap gap-3 text-xs text-text-secondary">
