@@ -69,3 +69,43 @@ async def test_non_rate_limit_error_is_not_retried(monkeypatch, _no_real_sleep):
     with pytest.raises(ProviderError):
         await providers.complete_with_tools([], [])
     assert calls["n"] == 1  # a non-429 failure surfaces immediately
+
+
+# --- skip-dead-key rotation ------------------------------------------------
+
+
+class _RateLimited(Exception):
+    status_code = 429
+
+
+def test_cooled_key_moves_to_the_back():
+    # A key that just 429'd is tried LAST, so the pool routes to a fresh org.
+    providers._KEY_COOLDOWNS.clear()
+    providers._cool_key("groq", 0, _RateLimited("rate limit; try again in 30s"))
+    assert providers._ready_indices("groq", 0, 3) == [1, 2, 0]
+    providers._KEY_COOLDOWNS.clear()
+
+
+def test_cooldown_expires_and_is_cleaned_up():
+    providers._KEY_COOLDOWNS.clear()
+    providers._KEY_COOLDOWNS[("groq", 1)] = 0.0  # deadline in the past
+    assert providers._key_ready("groq", 1) is True
+    assert ("groq", 1) not in providers._KEY_COOLDOWNS
+    providers._KEY_COOLDOWNS.clear()
+
+
+def test_all_keys_cooled_still_returns_every_index():
+    # Never silently drop the request: if every key is cooling, all are still
+    # tried (as a last resort) rather than returning an empty list.
+    providers._KEY_COOLDOWNS.clear()
+    providers._cool_key("groq", 0, _RateLimited("x"))
+    providers._cool_key("groq", 1, _RateLimited("x"))
+    assert sorted(providers._ready_indices("groq", 0, 2)) == [0, 1]
+    providers._KEY_COOLDOWNS.clear()
+
+
+def test_non_rate_limit_error_does_not_cool_a_key():
+    providers._KEY_COOLDOWNS.clear()
+    providers._cool_key("groq", 0, ProviderError("auth failed"))  # 401-ish, not 429
+    assert providers._ready_indices("groq", 0, 2) == [0, 1]  # nothing sidelined
+    providers._KEY_COOLDOWNS.clear()

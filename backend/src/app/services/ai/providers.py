@@ -262,6 +262,46 @@ def _is_rate_limit(exc: BaseException) -> bool:
     )
 
 
+# Keys that just hit their rate limit, with the monotonic time they can be tried
+# again. This lets the pool SKIP a spent key instead of wasting a round-trip on
+# it every request — the difference between a multi-org pool routing straight to
+# a fresh org and re-hammering a daily-exhausted one. Process-global: key N of a
+# provider is the same key whether a report or the assistant reaches for it.
+_KEY_COOLDOWNS: dict[tuple[str, int], float] = {}
+_MAX_KEY_COOLDOWN_S = 3600.0  # cap so a bogus retry-after can't sideline a key forever
+
+
+def _key_ready(provider: str, index: int) -> bool:
+    """True unless this key is inside a rate-limit cooldown window."""
+    deadline = _KEY_COOLDOWNS.get((provider, index))
+    if deadline is None:
+        return True
+    if time.monotonic() >= deadline:
+        _KEY_COOLDOWNS.pop((provider, index), None)
+        return True
+    return False
+
+
+def _cool_key(provider: str, index: int, exc: BaseException) -> None:
+    """Sideline a key that just hit its rate limit until its retry-after passes."""
+    if not _is_rate_limit(exc):
+        return
+    wait = _retry_after(exc)
+    wait = _MAX_KEY_COOLDOWN_S if wait is None else min(wait, _MAX_KEY_COOLDOWN_S)
+    _KEY_COOLDOWNS[(provider, index)] = time.monotonic() + wait
+
+
+def _ready_indices(provider: str, start: int, total: int) -> list[int]:
+    """Key indices [start, total) with cooled-down keys moved to the BACK, so a
+    request goes to a fresh key first and only falls back to a spent one if every
+    key is cooling (never silently drops the request)."""
+    ready: list[int] = []
+    cooling: list[int] = []
+    for i in range(start, total):
+        (ready if _key_ready(provider, i) else cooling).append(i)
+    return ready + cooling
+
+
 # One client per (base_url, api_key), reused for the process lifetime.
 #
 # A fresh AsyncOpenAI + httpx.AsyncClient per call means a fresh TCP + TLS
@@ -984,8 +1024,8 @@ async def _create_rotating(
     rc = report_client
     last: Optional[BaseException] = None
     try:
-        for index in range(report_client.key_index, total):
-            if index != report_client.key_index:
+        for index in _ready_indices(provider, report_client.key_index, total):
+            if index != rc.key_index:
                 # The previous key's client is dead to us — close it rather than
                 # stranding its pool for the life of the process.
                 if rc is not report_client:
@@ -1010,6 +1050,7 @@ async def _create_rotating(
                     if isinstance(e, openai.OpenAIError):
                         raise ProviderError(f"{provider}: {_err_text(e)}") from e
                     raise
+                _cool_key(provider, index, e)  # skip this key until it recovers
                 log.warning(
                     "llm_key_rotated",
                     provider=provider,
@@ -1143,7 +1184,8 @@ async def _complete_with_tools_once(
         raise ProviderError(f"no API key configured for {base_url}")
 
     last: Optional[BaseException] = None
-    for index, api_key in enumerate(keys):
+    for index in _ready_indices(provider, 0, len(keys)):
+        api_key = keys[index]
         client = _client(base_url, api_key, transport, trace=False)
         # `attempt` exists only for the malformed-tool-call retry below, which is
         # why the second pass raises the temperature instead of repeating an
@@ -1183,6 +1225,7 @@ async def _complete_with_tools_once(
                     continue
                 if not _should_rotate(e):
                     raise ProviderError(f"{base_url}: {_err_text(e)}") from e
+                _cool_key(provider, index, e)  # skip this key until it recovers
                 log.warning(
                     "llm_key_rotated",
                     provider=provider,

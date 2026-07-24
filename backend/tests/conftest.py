@@ -10,3 +10,17 @@ before app modules import, so it lives at module top-level, not in a fixture.
 import os
 
 os.environ.setdefault("LANGFUSE_TRACING_ENABLED", "false")
+
+import pytest
+
+
+@pytest.fixture(autouse=True)
+def _isolate_key_cooldowns():
+    """The provider key-cooldown map is process-global by design (it must persist
+    across requests in production). Isolate it per test so a simulated 429 in one
+    test can't sideline a key for another."""
+    from app.services.ai import providers
+
+    providers._KEY_COOLDOWNS.clear()
+    yield
+    providers._KEY_COOLDOWNS.clear()

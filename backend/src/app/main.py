@@ -86,7 +86,16 @@ log = structlog.get_logger()
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    log.info("startup", port=settings.port)
+    # Key-pool sizes at boot so a misconfigured GROQ_API_KEYS (keys not loaded /
+    # wrong env / no restart) is visible immediately instead of only surfacing as
+    # a rotation log under a 429. If groq_keys is smaller than expected, the pool
+    # didn't pick up the added keys.
+    log.info(
+        "startup",
+        port=settings.port,
+        groq_keys=len(settings.groq_api_key_pool),
+        gemini_keys=len(settings.gemini_api_key_pool),
+    )
     init_langfuse()
     drift = check_relevance_floor_calibration()
     if drift:
