@@ -7,7 +7,7 @@ import math
 import re
 from typing import Any
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ValidationError
 
 _STRIP_NUMBER_RE = re.compile(
     r"(?<![A-Za-z0-9\-.])[-+]?\d[\d,]*(?:\.\d+)?%?"
@@ -99,6 +99,13 @@ def _strip_orphan_numbers(
         "symbol",
         "ml_signal_status",
         "view_target",
+        # Enum / structural fields whose VALUES legitimately contain digits
+        # (e.g. timeframe="next_30_days", priority levels). The number-strip
+        # regex treats the "30" as an orphan and rewrites it to "next_—_days",
+        # which then fails enum validation and crashes the whole report.
+        "timeframe",
+        "priority",
+        "tier",
     }
 
     def patch_node(node: Any, orphan: float, key: str | None = None) -> Any:
@@ -115,4 +122,11 @@ def _strip_orphan_numbers(
     for orphan in _narrative_orphans(mismatches):
         data = patch_node(data, orphan)
 
-    return type(report).model_validate(data)
+    try:
+        return type(report).model_validate(data)
+    except ValidationError:
+        # The patch corrupted a structural field (or the model produced an
+        # already-invalid shape). Never let the best-effort strip crash the
+        # request — hand back the original report so the caller falls through to
+        # its own graceful handling instead of raising a 500.
+        return report
