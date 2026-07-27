@@ -17,7 +17,12 @@ export function useAdmin() {
   const query = useQuery<AdminMe | null>({
     queryKey: ["admin-me", user?.id],
     enabled: !!user,
-    staleTime: 60_000,
+    // Cached for the session: the admin check is a per-user backend call fired
+    // on every authenticated load, so keep it infrequent. Cheap and rarely
+    // changes; refetch on a fresh session.
+    staleTime: 10 * 60_000,
+    gcTime: 30 * 60_000,
+    refetchOnWindowFocus: false,
     retry: false,
     queryFn: async () => {
       try {
