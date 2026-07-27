@@ -17,19 +17,26 @@ export function useAdmin() {
   const query = useQuery<AdminMe | null>({
     queryKey: ["admin-me", user?.id],
     enabled: !!user,
-    // Cached for the session: the admin check is a per-user backend call fired
-    // on every authenticated load, so keep it infrequent. Cheap and rarely
-    // changes; refetch on a fresh session.
-    staleTime: 10 * 60_000,
+    // Cache a CONFIRMED result for a few minutes (admin status rarely changes),
+    // but never cache a transient failure — see queryFn.
+    staleTime: 5 * 60_000,
     gcTime: 30 * 60_000,
-    refetchOnWindowFocus: false,
-    retry: false,
+    // Recover automatically when the backend comes back after being unreachable.
+    refetchOnReconnect: true,
+    retry: 1,
     queryFn: async () => {
       try {
         return await adminApi.me();
-      } catch {
-        // 403 for non-admins (and any transient failure) → treat as "not admin".
-        return null;
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : "";
+        // A definitive "you're not an admin" (401/403) is a real, cacheable
+        // answer → hide admin affordances.
+        if (msg.includes(" 401 ") || msg.includes(" 403 ")) return null;
+        // Anything else (backend down, network, 5xx) is NOT an answer. Throw so
+        // it isn't cached as "not admin" — the query stays in an error state and
+        // re-checks on the next mount/navigation/reconnect, so a brief backend
+        // outage can never durably hide the Admin link.
+        throw e;
       }
     },
   });
