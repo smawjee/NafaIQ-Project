@@ -527,6 +527,42 @@ async def job_refresh_index_eod():
         await _record_health("index_eod", success=False, error=str(e))
 
 
+async def job_refresh_index_snapshot():
+    """Scrape DPS homepage for live index values every 5 min during market hours.
+
+    Writes to ``psx_index_live_snapshot`` so the web API can serve live
+    intraday index data for all 18 benchmark indices without scraping DPS on
+    the request path (which silently failed on Railway, causing stale
+    yesterday-EOD fallback).
+
+    The old live-scrape path on the web request had two problems:
+      1. The DPS homepage (~95KB) often timed out from Railway infrastructure.
+      2. The exception was caught silently by ``_live_index_by_code()``, which
+         returned ``{}``, causing ``index_cards()`` to fall back to the
+         ``psx_index_eod`` table — last written at 01:00 AM PKT.
+
+    With this job, the scheduler writes fresh intraday data to the DB, and the
+    web API reads it without ever touching DPS directly.
+    """
+    log.info("job:refresh_index_snapshot:start")
+    try:
+        rows = await dps.fetch_index_snapshot()
+        if rows:
+            now = datetime.now(timezone.utc).isoformat()
+            for r in rows:
+                r["updated_at"] = now
+            await async_execute(
+                lambda c: c.table("psx_index_live_snapshot").upsert(rows, on_conflict="code")
+            )
+            await _record_health("index_snapshot", success=True, rows_updated=len(rows))
+        else:
+            await _record_health("index_snapshot", success=False, error="DPS homepage returned no index rows")
+        log.info("job:refresh_index_snapshot:done", count=len(rows) if rows else 0)
+    except Exception as e:
+        log.exception("job:refresh_index_snapshot:failed")
+        await _record_health("index_snapshot", success=False, error=str(e))
+
+
 async def job_refresh_tv_data():
     """Fetch TradingView scanner data for sectors — primary source for all stocks."""
     log.info("job:refresh_tv_data:start")
@@ -1158,6 +1194,15 @@ def init_scheduler():
     # market-cap source), so its schedule is load-bearing.
     scheduler.add_job(job_refresh_fundamentals, CronTrigger(day_of_week="sat", hour=4, minute=0, timezone="Asia/Karachi"), id="refresh_fundamentals", replace_existing=True)
     scheduler.add_job(job_refresh_index_eod, CronTrigger(hour=1, minute=0, timezone="Asia/Karachi"), id="refresh_index_eod", replace_existing=True)
+    # Live index snapshot: every 5 min during market hours (Mon-Fri 09:00-17:00 PKT).
+    # Runs during market hours + buffer so the last snapshot before EOD is captured.
+    scheduler.add_job(
+        job_refresh_index_snapshot,
+        CronTrigger(day_of_week="mon-fri", hour="9-16", minute="*/5", timezone="Asia/Karachi"),
+        id="refresh_index_snapshot",
+        replace_existing=True,
+        misfire_grace_time=120,
+    )
     scheduler.add_job(job_check_alerts, IntervalTrigger(seconds=60), id="check_alerts", replace_existing=True)
     # Keep-alive: the always-on worker pings the API so Railway can't cold-start
     # it after an idle gap (a cold boot pays the numpy/pandas + reflection cost).

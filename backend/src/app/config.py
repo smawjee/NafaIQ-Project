@@ -78,6 +78,14 @@ class Settings(BaseSettings):
     # Get from Supabase Dashboard > Settings > API > JWT Secret
     supabase_jwt_secret: str = ""
 
+    # Admin dashboard bootstrap: comma-separated emails of EXISTING users who
+    # should receive the super_admin role on startup — but ONLY when no active
+    # super_admin exists yet (first-run claim). Grant is idempotent and
+    # self-disabling; rotate/extend by editing this env, never by editing code.
+    # No email is hard-coded anywhere. Leave blank in environments that already
+    # have an admin. See services/admin/bootstrap.py.
+    admin_bootstrap_emails: str = ""
+
     # Outbound email delivery for alerts/activity notifications. Brevo is the
     # preferred no-domain/testing provider; Resend remains available for a
     # domain-verified production sender later. Keep keys backend-only.
@@ -263,6 +271,16 @@ class Settings(BaseSettings):
         # all run the scheduler (lock-gated), so a misconfigured value can never
         # leave the market data with no writer.
         return self.process_role.strip().lower() != "web"
+
+    @property
+    def admin_bootstrap_email_list(self) -> list[str]:
+        """Bootstrap admin emails, lower-cased and de-duped."""
+        seen: list[str] = []
+        for raw in self.admin_bootstrap_emails.split(","):
+            email = raw.strip().lower()
+            if email and email not in seen:
+                seen.append(email)
+        return seen
 
     @property
     def supabase_service_key(self) -> str:

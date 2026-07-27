@@ -493,9 +493,44 @@ class CacheLayer:
             return []
         return await self._scrape_index_eod(c)
 
-    async def get_live_index_snapshot(self) -> list[dict]:
+    async def get_live_index_snapshot(self, max_age_seconds: int = 300) -> list[dict]:
+        """Read live index snapshot from DB; fall back to DPS scrape.
+
+        The scheduler writes ``psx_index_live_snapshot`` every 5 min during
+        market hours (Mon–Fri 09:00–17:00 PKT). The web process (which has
+        ``live_scrape=False``) returns the scheduler's latest snapshot from
+        the DB. The worker process (``live_scrape=True``) falls back to a
+        direct DPS homepage scrape when the DB row is stale or missing.
+        """
+        try:
+            result = await async_execute(
+                lambda c: c.table("psx_index_live_snapshot").select("*")
+            )
+            rows = result.data or []
+            if rows:
+                cutoff = datetime.now(timezone.utc) - timedelta(seconds=max_age_seconds)
+                fresh: list[dict] = []
+                for r in rows:
+                    updated = r.get("updated_at")
+                    if updated:
+                        if isinstance(updated, str):
+                            try:
+                                updated = datetime.fromisoformat(
+                                    updated.replace("Z", "+00:00")
+                                )
+                            except (ValueError, TypeError):
+                                continue
+                        if updated.tzinfo is None:
+                            updated = updated.replace(tzinfo=timezone.utc)
+                        if updated >= cutoff:
+                            fresh.append(r)
+                if fresh:
+                    return fresh
+        except Exception:
+            log.warning("cache_live_snapshot_read_failed", exc_info=True)
+
         if not self.live_scrape:
-            return []  # web process: never block index cards on a live DPS call
+            return []
         return await self.dps.fetch_index_snapshot()
 
     async def _scrape_index_eod(self, code: str) -> list[IndexBar]:

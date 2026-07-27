@@ -228,6 +228,10 @@ function AuthGate() {
   const isUrduQa = pathname === "/urdu-qa";
   const isTeam = pathname === "/team";
   const isPsx = pathname.startsWith("/psx") || pathname.startsWith("/stock");
+  // Admin routes bring their own chrome (AdminShell) and a second-level
+  // authorization guard. They are auth-required (not public), so an anonymous
+  // user is still redirected to /auth by the effect below.
+  const isAdminRoute = pathname === "/admin" || pathname.startsWith("/admin/");
   const isPublicAppRoute = PUBLIC_APP_ROUTES.has(pathname);
   const isPublic = isAuthRoute || isLanding || isPlans || isUrduQa || isTeam || isPublicAppRoute;
 
@@ -237,6 +241,17 @@ function AuthGate() {
       navigate({ to: "/auth", search: { redirect: pathname } });
     }
   }, [loading, user, isPublic, isPsx, navigate, pathname]);
+
+  // Admin routes render bare (AdminShell + AdminGuard live in the route tree).
+  // The redirect effect above sends anonymous users to /auth first.
+  if (isAdminRoute) {
+    return (
+      <>
+        <Outlet />
+        {loading && <Spinner />}
+      </>
+    );
+  }
 
   // PSX & public app routes get AppShell without auth requirement
   if (isPsx || isPublicAppRoute) {

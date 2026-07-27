@@ -106,3 +106,19 @@ class IndexEod(Base):
     low: Mapped[Optional[Decimal]] = mapped_column(Numeric(12, 2), nullable=True)
     close: Mapped[Decimal] = mapped_column(Numeric(12, 2), default=0)
     volume: Mapped[Optional[int]] = mapped_column(BigInteger, nullable=True)
+
+
+class IndexLiveSnapshot(Base):
+    """psx_index_live_snapshot - intraday index snapshot written by scheduler."""
+
+    __tablename__ = "psx_index_live_snapshot"
+
+    code: Mapped[str] = mapped_column(String, primary_key=True)
+    date: Mapped[date] = mapped_column(Date, nullable=False)
+    close: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
+    prev_close: Mapped[Optional[Decimal]] = mapped_column(Numeric(12, 2), nullable=True)
+    change: Mapped[Optional[Decimal]] = mapped_column(Numeric(12, 2), nullable=True)
+    change_pct: Mapped[Optional[Decimal]] = mapped_column(Numeric(12, 2), nullable=True)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )

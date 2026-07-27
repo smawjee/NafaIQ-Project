@@ -94,6 +94,22 @@ async function userPatch<T>(path: string, body: unknown): Promise<T> {
   return res.json() as Promise<T>;
 }
 
+async function userPut<T>(path: string, body: unknown): Promise<T> {
+  const session = await getSupabaseSession();
+  if (!session) throw new Error("Not authenticated");
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+    Authorization: `Bearer ${session.access_token}`,
+  };
+  const res = await fetch(`${BASE}${path}`, {
+    method: "PUT",
+    headers,
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw new Error(`${path}: ${res.status} ${res.statusText}`);
+  return res.json() as Promise<T>;
+}
+
 async function userDelete<T>(path: string): Promise<T> {
   const session = await getSupabaseSession();
   if (!session) throw new Error("Not authenticated");
@@ -241,7 +257,7 @@ export function fetchSignalLeaderboardV2(
 }
 
 // === User-authenticated request exports ===
-export { userGet, userPost, userPatch, userDelete };
+export { userGet, userPost, userPatch, userPut, userDelete };
 
 // === Bulk "delete all" (user-scoped; server deletes only the caller's rows) ===
 export function deleteAllFinance(

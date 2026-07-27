@@ -6,6 +6,14 @@ day: every migration proven-applied against live DB objects now has a ledger
 row, and each new migration records itself (see the footer in any file dated
 2026-07-22+).
 
+## Pending 2026-07-27 (admin dashboard)
+
+| Migration | What it does | Apply with |
+|---|---|---|
+| `20260727120000_admin_dashboard.sql` | Adds the admin RBAC model (`admin_roles`, `admin_permissions`, `admin_role_permissions`, `admin_role_assignments`), append-only `admin_audit_log` (UPDATE/DELETE-blocking trigger), `admin_user_notes`, typed `platform_flags`, and `profiles.account_status`/`status_reason`/`status_changed_at`/`status_changed_by`. All admin tables get RLS deny-all for anon/authenticated + service_role-only grants. Seeds roles, permissions, mappings, and starter flags. NON-DESTRUCTIVE. | `python -m scripts.apply_admin_migrations` |
+
+Rollback (if ever needed): `DROP TABLE public.admin_audit_log, public.admin_user_notes, public.admin_role_permissions, public.admin_role_assignments, public.admin_roles, public.admin_permissions, public.platform_flags CASCADE;` then `ALTER TABLE public.profiles DROP COLUMN account_status, DROP COLUMN status_reason, DROP COLUMN status_changed_at, DROP COLUMN status_changed_by;`. No existing table is modified destructively by the migration.
+
 ## Applied 2026-07-22 (this remediation)
 
 | Migration | What it did |

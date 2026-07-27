@@ -1,9 +1,19 @@
 import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
-import { ChevronLeft, ChevronRight, LogOut, PanelLeftClose, PanelRightClose, Sparkles, X } from "lucide-react";
+import {
+  ChevronLeft,
+  ChevronRight,
+  LogOut,
+  PanelLeftClose,
+  PanelRightClose,
+  ShieldCheck,
+  Sparkles,
+  X,
+} from "lucide-react";
 import logo from "@/assets/logo.png";
 import { useAuth } from "@/hooks/use-auth";
+import { useAdmin } from "@/features/admin/data/useAdmin";
 import { useLang } from "@/hooks/use-lang";
 import { SidebarLink } from "@/components/layout/SidebarLink";
 import { SIDEBAR_BOTTOM_NAV, SIDEBAR_SECTIONS } from "@/components/layout/layout.data";
@@ -15,6 +25,7 @@ export function Sidebar({ onCollapse }: { onCollapse: () => void }) {
   const navigate = useNavigate();
   const path = useRouterState({ select: (s) => s.location.pathname });
   const { profile, user, signOut } = useAuth();
+  const { isAdmin } = useAdmin();
   const [chatOpen, setChatOpen] = useState(false);
   const name = profile?.display_name || user?.email?.split("@")[0] || "User";
   const plan = profile?.plan || "Premium";
@@ -97,6 +108,15 @@ export function Sidebar({ onCollapse }: { onCollapse: () => void }) {
 
       <div className="premium-sidebar-footer border-t px-4 py-2.5">
         <div className="space-y-0.5">
+          {isAdmin && (
+            <SidebarLink
+              to="/admin"
+              label="Admin"
+              icon={ShieldCheck}
+              active={isActive("/admin")}
+              compact
+            />
+          )}
           {SIDEBAR_BOTTOM_NAV.map((item) => (
             <SidebarLink
               key={item.label}
@@ -125,9 +145,15 @@ export function Sidebar({ onCollapse }: { onCollapse: () => void }) {
             </div>
           </div>
           {isUrdu ? (
-            <ChevronLeft className="premium-sidebar-profile-chevron h-4 w-4 shrink-0" strokeWidth={1.9} />
+            <ChevronLeft
+              className="premium-sidebar-profile-chevron h-4 w-4 shrink-0"
+              strokeWidth={1.9}
+            />
           ) : (
-            <ChevronRight className="premium-sidebar-profile-chevron h-4 w-4 shrink-0" strokeWidth={1.9} />
+            <ChevronRight
+              className="premium-sidebar-profile-chevron h-4 w-4 shrink-0"
+              strokeWidth={1.9}
+            />
           )}
         </Link>
         <button

@@ -37,6 +37,7 @@ from app.api import (
     learn,
     learn_ai,
 )
+from app.api.admin import router as admin_router
 from app.jobs.scheduler import close_scrapers, init_scheduler, shutdown_scheduler
 from app.jobs.scheduler_lock import acquire_scheduler_lock, release_scheduler_lock
 from app.services.ai.providers import close_llm_clients
@@ -101,6 +102,10 @@ async def lifespan(app: FastAPI):
     if drift:
         log.warning("learnhub_relevance_floor_uncalibrated", detail=drift)
     await ensure_reflected()
+    # First-admin bootstrap: grants super_admin to ADMIN_BOOTSTRAP_EMAILS only
+    # when no super_admin exists yet. Idempotent, self-disabling, non-fatal.
+    from app.services.admin.bootstrap import ensure_bootstrap_admins
+    await ensure_bootstrap_admins()
     # Scheduler gating (see settings.process_role): a "web" process skips jobs
     # entirely; "all"/"worker" start them only after winning the advisory lock,
     # so a split deployment can never run two schedulers at once. Default is
@@ -226,3 +231,4 @@ app.include_router(unusual.router, prefix="/api")
 app.include_router(funds.router, prefix="/api")
 app.include_router(financials_extended.router, prefix="/api")
 app.include_router(integrations.router, prefix="/api")
+app.include_router(admin_router, prefix="/api")
