@@ -53,11 +53,18 @@ async def resolve_supabase_user(token: str) -> dict[str, Any]:
     except Exception as e:
         raise HTTPException(401, f"Invalid token: {e}") from e
     user_id = payload["sub"]
-    db_plan, features = await get_user_plan_features(user_id)
+    db_plan, features, account_status = await get_user_plan_features(user_id)
+    # Suspended accounts are rejected at the identity boundary, so every
+    # authenticated route (portfolio, finance, assistant, admin, …) is blocked
+    # at once. 'restricted' is intentionally NOT blocked here — it is a softer
+    # state reserved for future partial limits; only 'suspended' locks out.
+    if account_status == "suspended":
+        raise HTTPException(403, "Account suspended")
     plan: str = db_plan or payload.get("plan") or "Free"
     return {
         "user_id": user_id,
         "email": payload.get("email", ""),
         "plan": plan,
         "features": features,
+        "account_status": account_status,
     }

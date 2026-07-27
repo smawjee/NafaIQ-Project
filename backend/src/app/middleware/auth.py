@@ -25,6 +25,10 @@ USER_PATHS_PREFIXES = (
     # NafaIQ Assistant: every route reads or writes the caller's own finance
     # data, so the shared PSX API token must never satisfy it — JWT only.
     "/api/assistant",
+    # Admin dashboard: JWT flows through here; per-route dependencies
+    # (require_admin / require_permission) do the actual authorization. The
+    # shared PSX token must never satisfy an admin route.
+    "/api/admin",
     "/api/portfolio",
     "/api/profile",
     "/api/watchlist",

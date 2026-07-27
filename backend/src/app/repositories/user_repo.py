@@ -18,6 +18,7 @@ async def get_plan_features(conn: Executor, user_id: str) -> Optional[dict[str, 
                 """
                 SELECT
                     COALESCE(p.plan, 'Free') AS plan,
+                    COALESCE(p.account_status, 'active') AS account_status,
                     COALESCE(f.max_watchlist, 10) AS max_watchlist,
                     COALESCE(f.max_price_alerts, 5) AS max_price_alerts,
                     COALESCE(f.max_portfolios, 1) AS max_portfolios,

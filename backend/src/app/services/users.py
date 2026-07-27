@@ -14,15 +14,26 @@ from app.repositories.base import connect
 log = logging.getLogger(__name__)
 
 
-async def get_user_plan_features(user_id: str) -> tuple[Optional[str], dict[str, Any]]:
-    """Return (plan, features) for a user. (None, {}) when the profile row is
-    missing or the lookup fails; callers decide the fallback plan."""
+async def get_user_plan_features(
+    user_id: str,
+) -> tuple[Optional[str], dict[str, Any], str]:
+    """Return (plan, features, account_status) for a user.
+
+    (None, {}, 'active') when the profile row is missing or the lookup fails;
+    callers decide the fallback plan. account_status drives suspension checks in
+    services.auth — a lookup failure fails OPEN to 'active' so a transient DB
+    hiccup never locks every user out.
+    """
     try:
         async with connect() as conn:
             row = await repo.get_plan_features(conn, user_id)
         if row:
             plan = row["plan"]
-            return plan, {k: v for k, v in row.items() if k != "plan"}
+            status = row.get("account_status") or "active"
+            features = {
+                k: v for k, v in row.items() if k not in ("plan", "account_status")
+            }
+            return plan, features, status
     except Exception:
         log.warning("plan/features lookup failed for %s", user_id, exc_info=True)
-    return None, {}
+    return None, {}, "active"
