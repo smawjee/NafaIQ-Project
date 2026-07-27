@@ -2,6 +2,7 @@
 // Transactions / Budgets / Bills / Goals. Backed by the FastAPI finance
 // endpoints via React Query hooks (src/hooks/queries/use-finance*.ts); list
 // tabs are virtualized FlatLists.
+import { useRouter } from "expo-router";
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
@@ -65,6 +66,7 @@ import {
   useZakatSettings,
 } from "@/hooks/queries/use-zakat";
 import { useFinanceReport } from "@/hooks/ai/use-ai-report";
+import { useFinanceSettings } from "@/hooks/queries/use-finance-settings";
 import { useIncomeExpenseSeries } from "@/hooks/queries/use-finance-series";
 import { fmtPKR } from "@nafaiq/shared";
 import {
@@ -82,6 +84,7 @@ import {
   Sparkles,
   Target,
   Trash2,
+  Wallet,
 } from "@/lib/icons";
 
 const AVENIR = Platform.select({ ios: "Avenir-Heavy", default: fonts.sans });
@@ -313,7 +316,9 @@ function Overview() {
   }
 
   const s = summaryQ.data;
-  const income = s?.income ?? 0;
+  // total_income folds in the fixed monthly income (salary) from settings —
+  // same as the web Overview card; falls back for older cached payloads.
+  const income = s?.total_income ?? s?.income ?? 0;
   const expenses = s?.expenses ?? 0;
   const savings = s?.savings ?? 0;
   const rate = s?.savings_rate ?? 0;
@@ -457,8 +462,13 @@ const TxnGroupCard = memo(function TxnGroupCard({
 function Transactions() {
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
+  const router = useRouter();
   const { data: transactions = [], isPending, isError, refetch } = useFinanceTransactions();
   const { data: vocabulary } = useFinanceVocabulary();
+  // Standing salary from Settings — pinned above the list because it counts as
+  // income every month without ever appearing as a transaction row (web parity).
+  const { data: financeSettings } = useFinanceSettings();
+  const fixedIncome = Math.max(0, Number(financeSettings?.monthly_income ?? 0));
   const createTransaction = useCreateTransaction();
   const updateTransaction = useUpdateTransaction();
   const deleteTransaction = useDeleteTransaction();
@@ -609,16 +619,43 @@ function Transactions() {
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
         ListHeaderComponent={
-          <View style={styles.search}>
-            <Search color={colors.textMuted} size={16} />
-            <TextInput
-              value={q}
-              onChangeText={setQ}
-              placeholder="Search transactions"
-              placeholderTextColor={colors.textMuted}
-              style={{ flex: 1, color: colors.textPrimary }}
-              accessibilityLabel="Search transactions"
-            />
+          <View style={{ gap: 10 }}>
+            <View style={styles.search}>
+              <Search color={colors.textMuted} size={16} />
+              <TextInput
+                value={q}
+                onChangeText={setQ}
+                placeholder="Search transactions"
+                placeholderTextColor={colors.textMuted}
+                style={{ flex: 1, color: colors.textPrimary }}
+                accessibilityLabel="Search transactions"
+              />
+            </View>
+            {fixedIncome > 0 && (
+              <Pressable
+                onPress={() => router.push("/settings")}
+                accessibilityRole="button"
+                accessibilityLabel={`Fixed monthly income, +${fmtPKR(fixedIncome)}. Counted as income every month. Edit in Settings.`}
+                style={({ pressed }) => [
+                  styles.fixedIncome,
+                  { borderColor: colors.bull + "33", backgroundColor: colors.bull + "0f" },
+                  pressed && { opacity: 0.75 },
+                ]}
+              >
+                <View style={[styles.fixedIncomeIcon, { backgroundColor: colors.bull + "26" }]}>
+                  <Wallet color={colors.bull} size={16} />
+                </View>
+                <View style={{ flex: 1, minWidth: 0 }}>
+                  <Text style={{ fontWeight: "600", fontSize: 13.5 }}>Fixed monthly income</Text>
+                  <Text variant="muted">
+                    Counted as income every month. <Text style={{ color: colors.primary, fontSize: 12 }}>Edit in Settings</Text>
+                  </Text>
+                </View>
+                <Text variant="mono" style={{ color: colors.bull, fontWeight: "700", fontSize: 13.5 }}>
+                  +{fmtPKR(fixedIncome)}
+                </Text>
+              </Pressable>
+            )}
           </View>
         }
         ListEmptyComponent={
@@ -1486,6 +1523,8 @@ const makeStyles = (c: ThemeColors) =>
     kpi: { width: "47%", flexGrow: 1, padding: 14 },
     iconChip: { width: 34, height: 34, borderRadius: 10, alignItems: "center", justifyContent: "center" },
     search: { flexDirection: "row", alignItems: "center", gap: 8, borderWidth: 1, borderColor: c.border, backgroundColor: c.glassFillStrong, borderRadius: radii.btn, paddingHorizontal: 12, minHeight: 44 },
+    fixedIncome: { flexDirection: "row", alignItems: "center", gap: 10, borderWidth: 1, borderRadius: radii.card, paddingHorizontal: 12, paddingVertical: 10, minHeight: 44 },
+    fixedIncomeIcon: { width: 34, height: 34, borderRadius: 17, alignItems: "center", justifyContent: "center" },
     txn: { flexDirection: "row", alignItems: "center", gap: 12, paddingHorizontal: 12, paddingVertical: 10 },
     dot: { width: 34, height: 34, borderRadius: 17, alignItems: "center", justifyContent: "center" },
     monthNav: { flexDirection: "row", justifyContent: "center", alignItems: "center", gap: 20 },
