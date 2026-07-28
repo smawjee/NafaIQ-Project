@@ -32,39 +32,43 @@ describe("normalizePlan", () => {
     expect(normalizePlan("trial")).toBe("Free");
   });
 
-  // ---------------------------------------------------------------------
-  // KNOWN DIVERGENCE FROM THE BACKEND — see the note in the describe below.
-  // These assertions document what the code does today; they are NOT an
-  // endorsement of it.
-  // ---------------------------------------------------------------------
-  it("is case-SENSITIVE, unlike the backend it claims to mirror", () => {
-    expect(normalizePlan("pro")).toBe("Free");
-    expect(normalizePlan("PRO")).toBe("Free");
-    expect(normalizePlan("premium")).toBe("Free");
-    expect(normalizePlan("PREMIUM")).toBe("Free");
+  it("is case-insensitive, matching the backend (KAN-1)", () => {
+    expect(normalizePlan("pro")).toBe("Pro");
+    expect(normalizePlan("PRO")).toBe("Pro");
+    expect(normalizePlan("premium")).toBe("Premium");
+    expect(normalizePlan("PREMIUM")).toBe("Premium");
+    expect(normalizePlan("pReMiUm")).toBe("Premium");
+    expect(normalizePlan("  free  ")).toBe("Free");
   });
 });
 
 /**
- * The header of src/lib/plan-features.ts says "Keep this in sync with
- * backend/src/app/services/permissions.py".  They are not in sync:
+ * Parity with backend/src/app/services/permissions.py normalize_plan(), which
+ * does `plan.strip().title()`.
  *
- *   backend  permissions.py:20   plan.strip().title()   -> "pro" becomes "Pro"
- *   web      plan-features.ts:111 plan.trim() + ===     -> "pro" becomes "Free"
- *
- * `usePlan()` feeds `profile?.plan` — the raw `profiles.plan` column — straight
- * into normalizePlan, so a row stored as "pro" silently gates a paying user
- * down to Free in the UI while the backend still treats them as Pro.
- * frontend/packages/mobile/src/lib/plan-features.ts has the identical bug.
- *
- * The test below is the regression guard: delete the `.skip` once the frontends
- * adopt title-casing, and it will hold both platforms to the backend's rule.
+ * Before KAN-1 was fixed, both frontends compared exactly, so a `profiles.plan`
+ * of "pro" resolved to Free and gated a paying user down while the backend
+ * still authorised them as Pro. The identical suite in
+ * frontend/packages/mobile/src/lib/__tests__/plan-features.test.ts holds mobile
+ * to the same contract.
  */
 describe("plan normalisation parity with the backend", () => {
-  it.skip("should title-case like backend permissions.py normalize_plan()", () => {
+  it("title-cases like backend permissions.py normalize_plan()", () => {
     expect(normalizePlan("pro")).toBe("Pro");
     expect(normalizePlan("PREMIUM")).toBe("Premium");
     expect(normalizePlan("  free  ")).toBe("Free");
+  });
+
+  it("still rejects a value that is not a plan, whatever its casing", () => {
+    expect(normalizePlan("enterprise")).toBe("Free");
+    expect(normalizePlan("ENTERPRISE")).toBe("Free");
+    expect(normalizePlan("prooo")).toBe("Free");
+  });
+
+  it("gates on the normalised value, so a lower-case Pro gets Pro limits", () => {
+    expect(hasPlan("pro", "Pro")).toBe(true);
+    expect(hasPlan("premium", "Pro")).toBe(true);
+    expect(getPlanFeatures("pro").max_watchlist).toBe(PLAN_FEATURES.Pro.max_watchlist);
   });
 });
 
