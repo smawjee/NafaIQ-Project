@@ -1,4 +1,5 @@
 import { defineConfig, devices } from "@playwright/test";
+import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -20,16 +21,45 @@ const PYTHON =
   process.env.E2E_PYTHON ??
   (process.env.CI ? "python" : path.join(BACKEND_DIR, ".venv/bin/python"));
 
-/** Vite only inlines VITE_* that exist in the dev server's own process env. */
-const VITE_ENV: Record<string, string> = {
+/**
+ * Environment handed to the Vite dev server.
+ *
+ * The web package's .env is read HERE rather than relying on the caller to
+ * source it, and rather than relying on Vite to pick it up. Neither assumption
+ * held: run from this package, the dev server started without
+ * VITE_DEMO_PASSWORD, so use-demo.ts threw "Demo password not configured" —
+ * which AuthPage.tsx catches and turns into a toast. The result was a demo
+ * sign-in that failed with no network request, no page error and no obvious
+ * cause.
+ *
+ * Precedence: real process env > web/.env file > nothing. Only the API base URL
+ * is forced, because that is the one value the e2e run must control so the app
+ * under test talks to OUR backend.
+ */
+function readWebEnvFile(): Record<string, string> {
+  const file = path.join(REPO_ROOT, "frontend/packages/web/.env");
+  if (!fs.existsSync(file)) return {};
+  const out: Record<string, string> = {};
+  for (const raw of fs.readFileSync(file, "utf8").split("\n")) {
+    const line = raw.trim();
+    if (!line || line.startsWith("#")) continue;
+    const eq = line.indexOf("=");
+    if (eq === -1) continue;
+    const key = line.slice(0, eq).trim();
+    const value = line.slice(eq + 1).trim().replace(/^["']|["']$/g, "");
+    if (key.startsWith("VITE_") && value) out[key] = value;
+  }
+  return out;
+}
+
+export const VITE_ENV: Record<string, string> = {
+  ...readWebEnvFile(),
+  // process.env wins, so CI secrets override whatever a developer has locally.
+  ...Object.fromEntries(
+    Object.entries(process.env).filter(([k, v]) => k.startsWith("VITE_") && v),
+  ) as Record<string, string>,
   VITE_API_URL: API_URL,
   VITE_PSX_API_URL: API_URL,
-  VITE_SUPABASE_URL: process.env.VITE_SUPABASE_URL ?? "",
-  VITE_SUPABASE_ANON_KEY: process.env.VITE_SUPABASE_ANON_KEY ?? "",
-  VITE_SUPABASE_PUBLISHABLE_KEY: process.env.VITE_SUPABASE_PUBLISHABLE_KEY ?? "",
-  VITE_PSX_API_TOKEN: process.env.VITE_PSX_API_TOKEN ?? "",
-  VITE_DEMO_EMAIL: process.env.VITE_DEMO_EMAIL ?? "demo@nafaiq.com",
-  VITE_DEMO_PASSWORD: process.env.VITE_DEMO_PASSWORD ?? "",
 };
 
 export const AUTH_STATE = path.join(HERE, "playwright/.auth/demo.json");
