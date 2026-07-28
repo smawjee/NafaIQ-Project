@@ -1,0 +1,220 @@
+name: CI
+
+# `push` on main is REQUIRED, not optional: Railway's "Wait for CI" only waits
+# when the commit actually has check runs. Without a push trigger the gate
+# silently no-ops on merge commits and the backend deploys regardless.
+on:
+  push:
+    branches: [main, dev]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  # No .nvmrc and no engines field exist in the repo; this matches the version
+  # the project is developed against.
+  NODE_VERSION: "22.18.0"
+  # backend/pyproject.toml: requires-python = ">=3.12"
+  PYTHON_VERSION: "3.12"
+
+jobs:
+  node-checks:
+    name: node-checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      # No `version:` — action-setup v4 reads packageManager "pnpm@9.15.4" from
+      # the root package.json, keeping CI and dev in lockstep automatically.
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm turbo run typecheck
+
+  web-unit:
+    name: web-unit
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: vitest
+        working-directory: frontend/packages/web
+        env:
+          # src/integrations/supabase/client.ts throws at import time when these
+          # are missing, and vitest.config.ts loads the app's module graph.
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
+        run: pnpm exec vitest run --reporter=default --reporter=junit --outputFile=junit-web.xml
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: junit-web
+          path: frontend/packages/web/junit-web.xml
+          retention-days: 7
+
+  mobile-unit:
+    name: mobile-unit
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: jest-expo
+        working-directory: frontend/packages/mobile
+        run: pnpm exec jest --ci --runInBand
+
+  backend-tests:
+    name: backend-tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: backend/pyproject.toml
+      - run: python -m pip install --upgrade pip
+      - run: python -m pip install -e ".[dev]"
+      - name: pytest
+        env:
+          LANGFUSE_TRACING_ENABLED: "false"
+          # Deliberately NOT set, not even to dummy values. ~10 test files carry
+          # `skipif(not (supabase_url and supabase_service_key))`; any non-empty
+          # value satisfies that guard, and those tests then run against a
+          # non-existent server and fail. Absent credentials is the correct
+          # configuration — tests/conftest.py supplies an inert client so the
+          # otherwise-offline suites still run. Verified locally: 1149 passed,
+          # 31 skipped.
+          SUPABASE_URL: ""
+          SUPABASE_SERVICE_KEY: ""
+          SUPABASE_SECRET_KEY: ""
+        run: python -m pytest -q --durations=15 --junitxml=junit-backend.xml
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: junit-backend
+          path: backend/junit-backend.xml
+          retention-days: 7
+
+  e2e:
+    name: e2e
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    # TODO: flip to a hard gate once a week of runs has established the flake
+    # rate. Until then a red e2e must not block every merge.
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: backend/pyproject.toml
+      - name: Install backend (playwright's webServer starts uvicorn)
+        working-directory: backend
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e ".[dev]"
+
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+
+      - name: Resolve Playwright version
+        id: pw
+        run: |
+          V=$(pnpm --filter @nafaiq/e2e exec playwright --version | sed 's/^Version //')
+          echo "version=$V" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: ms-playwright-${{ runner.os }}-${{ steps.pw.outputs.version }}
+
+      # Cheap when the binaries restore from cache, but still installs the apt
+      # system deps, which are not part of the cached path.
+      - name: Install browser + system deps
+        run: pnpm --filter @nafaiq/e2e exec playwright install --with-deps chromium
+
+      - name: Run Playwright
+        working-directory: frontend/packages/e2e
+        env:
+          CI: "true"
+          E2E_PYTHON: python
+          E2E_WEB_PORT: "8080"
+          E2E_API_PORT: "8000"
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
+          VITE_PSX_API_TOKEN: ${{ secrets.VITE_PSX_API_TOKEN }}
+          VITE_DEMO_EMAIL: ${{ secrets.VITE_DEMO_EMAIL }}
+          # The whole authed suite dies without this: use-demo.ts throws
+          # "Demo password not configured" when it is blank.
+          VITE_DEMO_PASSWORD: ${{ secrets.VITE_DEMO_PASSWORD }}
+          # The e2e backend DOES need credentials — it serves real read-only
+          # market data to the app under test.
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
+          SUPABASE_JWT_SECRET: ${{ secrets.SUPABASE_JWT_SECRET }}
+          PSX_API_TOKEN: ${{ secrets.PSX_API_TOKEN }}
+        run: pnpm exec playwright test --project=public-chromium --project=authed-chromium
+
+      - name: Upload Playwright report (html + results.json)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report-${{ github.run_id }}
+          path: frontend/packages/e2e/reports/
+          retention-days: 14
+
+      - name: Upload traces / screenshots / videos
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-artifacts-${{ github.run_id }}
+          path: frontend/packages/e2e/test-results/
+          retention-days: 7
+
+  # THE ONLY check to put in branch protection. Job-name-based required checks
+  # break whenever a job is renamed or a matrix dimension changes; this does not.
+  ci-required:
+    name: ci-required
+    if: always()
+    needs: [node-checks, web-unit, mobile-unit, backend-tests, e2e]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Fail if anything upstream failed or was cancelled
+        if: contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled')
+        run: |
+          echo "Upstream results: ${{ join(needs.*.result, ', ') }}"
+          exit 1
+      - run: echo "All CI jobs green."

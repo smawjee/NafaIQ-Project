@@ -108,3 +108,8 @@ backend/catboost_info/
 # AI tooling dirs (not project code)
 .agents/
 .codex/
+
+# Playwright (e2e run artifacts)
+frontend/packages/e2e/reports/
+frontend/packages/e2e/test-results/
+frontend/packages/e2e/playwright/.auth/

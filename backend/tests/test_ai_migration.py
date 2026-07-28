@@ -1,8 +1,20 @@
-"""Verifies the 20260712000000_ai_tutor_history_usage migration is applied."""
+"""Verifies the 20260712000000_ai_tutor_history_usage migration is applied.
+
+Inspects the live schema, so it is guarded like the other live-database suites
+(see tests/test_sell_holding.py) and skips on a credential-free CI run instead
+of failing with a socket error.
+"""
 from __future__ import annotations
 
 import pytest
 from sqlalchemy import text
+
+from app.config import settings
+
+pytestmark = pytest.mark.skipif(
+    not (settings.supabase_url and settings.supabase_service_key),
+    reason="Supabase credentials not configured",
+)
 
 
 async def _scalar(sql: str, **params):
