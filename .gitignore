@@ -113,3 +113,18 @@ backend/catboost_info/
 frontend/packages/e2e/reports/
 frontend/packages/e2e/test-results/
 frontend/packages/e2e/playwright/.auth/
+
+# Personal working notes, prep material and decks — local only.
+# These were swept in once by a `git add -A`; the explicit entries stop that
+# recurring. CLAUDE.md is listed above under the Claude Code section.
+/Complete Project Plan.md
+/PRESENTATION_PREP*.md
+/*.pptx
+/ai-workflow-diagrams/
+/ai-workflows.md
+/explaination.md
+/plan.md
+/pres.md
+/progress.md
+/project.md
+/week*-prep.md
