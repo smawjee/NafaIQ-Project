@@ -33,23 +33,34 @@ describe("normalizePlan", () => {
     expect(normalizePlan("Enterprise")).toBe("Free");
   });
 
-  // See KAN-1. Documents today's behaviour; not an endorsement of it.
-  it("is case-SENSITIVE, unlike the backend it claims to mirror", () => {
-    expect(normalizePlan("pro")).toBe("Free");
-    expect(normalizePlan("PREMIUM")).toBe("Free");
+  it("is case-insensitive, matching the backend (KAN-1)", () => {
+    expect(normalizePlan("pro")).toBe("Pro");
+    expect(normalizePlan("PREMIUM")).toBe("Premium");
+    expect(normalizePlan("pReMiUm")).toBe("Premium");
   });
 });
 
 /**
- * KAN-1: backend permissions.py normalize_plan() does `.strip().title()`, so
- * "pro" becomes "Pro". Mobile (and web) compare exactly, so "pro" becomes
- * "Free" and a paying user is gated down while the backend still authorises
- * them as Pro. Un-skip this when the fix lands.
+ * Parity with backend/src/app/services/permissions.py normalize_plan(), which
+ * does `plan.strip().title()`. Mirrors the identical block in
+ * frontend/packages/web/src/lib/__tests__/plan-features.test.ts — the two
+ * platforms must gate the same account the same way (KAN-1).
  */
 describe("plan normalisation parity with the backend", () => {
-  it.skip("should title-case like backend permissions.py normalize_plan()", () => {
+  it("title-cases like backend permissions.py normalize_plan()", () => {
     expect(normalizePlan("pro")).toBe("Pro");
     expect(normalizePlan("PREMIUM")).toBe("Premium");
+    expect(normalizePlan("  free  ")).toBe("Free");
+  });
+
+  it("still rejects a non-plan value, whatever its casing", () => {
+    expect(normalizePlan("enterprise")).toBe("Free");
+    expect(normalizePlan("ENTERPRISE")).toBe("Free");
+  });
+
+  it("gates on the normalised value, so a lower-case Pro gets Pro limits", () => {
+    expect(hasPlan("pro", "Pro")).toBe(true);
+    expect(getPlanFeatures("pro").max_watchlist).toBe(PLAN_FEATURES.Pro.max_watchlist);
   });
 });
 

@@ -108,8 +108,14 @@ export const PLAN_RANK: Record<Plan, number> = { Free: 0, Pro: 1, Premium: 2 };
 
 export function normalizePlan(plan: string | null | undefined): Plan {
   if (!plan) return "Free";
+  // Case-insensitive, matching backend permissions.py normalize_plan(), which
+  // does `plan.strip().title()`. Comparing exactly used to send a plan stored
+  // as "pro" to Free, gating a paying user down while the backend still
+  // authorised them as Pro (KAN-1). Plan names are single words, so
+  // first-upper/rest-lower is equivalent to Python's .title().
   const p = plan.trim();
-  if (p === "Free" || p === "Pro" || p === "Premium") return p;
+  const titled = p.charAt(0).toUpperCase() + p.slice(1).toLowerCase();
+  if (titled === "Free" || titled === "Pro" || titled === "Premium") return titled;
   return "Free";
 }
 
