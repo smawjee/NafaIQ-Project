@@ -77,6 +77,31 @@ run in CI while still failing loudly if they ever touch the real client.
 
 ## 3. Required GitHub secrets
 
+### Setting them
+
+**Requires ADMIN on the repository** — `push` is not enough; GitHub restricts
+Actions secrets to admins. Check yours with:
+
+```bash
+gh api repos/usmankhalidj15-glitch/NafaIQ-MainProject --jq .permissions
+```
+
+All ten values already exist in the two gitignored `.env` files, so there is no
+need to copy any of them by hand:
+
+```bash
+bash .github/scripts/set-secrets.sh            # dry run — shows names only
+bash .github/scripts/set-secrets.sh --apply    # sets them via gh
+gh secret list --repo usmankhalidj15-glitch/NafaIQ-MainProject   # verify
+```
+
+The script never prints a secret value. Anyone running it needs both `.env`
+files present locally and admin on the repo.
+
+Web UI alternative: **Settings → Secrets and variables → Actions → New
+repository secret**, once per row below.
+
+
 | Secret | Used by | Source |
 |---|---|---|
 | `VITE_SUPABASE_URL` | web-unit, e2e | `frontend/packages/web/.env` |
