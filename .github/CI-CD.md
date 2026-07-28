@@ -61,13 +61,12 @@ Measured, full suite, same commit:
 
 | Configuration | Result |
 |---|---|
-| Credentials **empty** | **1149 passed, 1 failed, 31 skipped** |
+| Credentials **empty** | **1170 passed, 0 failed, 31 skipped** |
 | Credentials **dummy** | 1159 passed, **14 failed** |
 
-The one remaining failure with empty credentials is **KAN-2**
-(`test_the_whole_tool_payload_stays_small`), which is a genuine pre-existing
-regression on `main`, not an environment problem. **The backend job will be red
-until KAN-2 is fixed.**
+The backend suite is fully green with credentials absent. (It briefly carried
+one real failure, KAN-2 — the assistant tool schemas had grown past their own
+7000-character budget — which is now fixed.)
 
 A dozen tests that are logically offline still construct a `CacheLayer`, whose
 `__init__` calls `get_supabase()` and raised without credentials.
@@ -281,8 +280,7 @@ regardless of target, so authors get signal before opening against `dev`.
 
 ## 7. Rollout order
 
-1. Fix **KAN-2** (assistant tool schemas over budget) — until then `backend-tests`
-   is red and `ci-required` can never pass.
+1. ~~Fix KAN-2~~ — done; `backend-tests` is green (1170 passed).
 2. Add the secrets in §3.
 3. Merge the workflows. Watch a few runs; `e2e` is non-blocking at this stage.
 4. Decide on the lint cleanup (§1) and add `lint` to `node-checks`.
@@ -290,3 +288,7 @@ regardless of target, so authors get signal before opening against `dev`.
 6. Remove `continue-on-error: true` from the `e2e` job once its flake rate is known.
 7. Enable Railway **Wait for CI** last, after CI has been green across several
    consecutive `main` pushes.
+
+Note that the `e2e` job still carries one known failure: the landing spec
+catches the KAN-4 router-preload errors. That is why `e2e` is
+`continue-on-error` at step 3 — fix KAN-4 before step 6.
