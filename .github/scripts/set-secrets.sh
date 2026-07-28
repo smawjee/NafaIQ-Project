@@ -46,6 +46,11 @@ declare -A SOURCES=(
   [SUPABASE_URL]="$ROOT_ENV"
   [SUPABASE_SECRET_KEY]="$ROOT_ENV"
   [SUPABASE_JWT_SECRET]="$ROOT_ENV"
+  # Needed by the e2e job only: main.py's lifespan reflects the schema at
+  # startup, so uvicorn will not boot without these.
+  [SUPABASE_DATABASE_PASSWORD]="$ROOT_ENV"
+  [SUPABASE_POOLER_HOST]="$ROOT_ENV"
+  [SUPABASE_POOLER_USER]="$ROOT_ENV"
   [PSX_API_TOKEN]="$ROOT_ENV"
 )
 

@@ -61,12 +61,22 @@ Measured, full suite, same commit:
 
 | Configuration | Result |
 |---|---|
-| Credentials **empty** | **1170 passed, 0 failed, 31 skipped** |
+| Credentials **empty** | **1155 passed, 0 failed, 46 skipped** (72s) |
 | Credentials **dummy** | 1159 passed, **14 failed** |
 
-The backend suite is fully green with credentials absent. (It briefly carried
-one real failure, KAN-2 — the assistant tool schemas had grown past their own
-7000-character budget — which is now fixed.)
+The backend suite is fully green with credentials absent.
+
+`SUPABASE_DATABASE_PASSWORD` matters as much as the keys. Sixteen tests reach
+the SQLAlchemy engine — some directly, some via `repositories.base`'s
+`connect()`/`begin()` — and it raises without that password. They now carry
+`@pytest.mark.requires_db` and `tests/conftest.py` skips them when it is unset.
+Before that guard they failed in CI *and* burned ~60s each first, because
+`ensure_reflected()` retries six times with backoff: the job took 9m04s to
+produce 16 failures, versus 72s to pass now.
+
+Skipping is deliberate rather than handing CI a database password: those tests
+assert against real rows, so pointing them at production from a PR would be
+slow and would put live data in the merge path.
 
 A dozen tests that are logically offline still construct a `CacheLayer`, whose
 `__init__` calls `get_supabase()` and raised without credentials.
@@ -86,7 +96,7 @@ Actions secrets to admins. Check yours with:
 gh api repos/usmankhalidj15-glitch/NafaIQ-MainProject --jq .permissions
 ```
 
-All ten values already exist in the two gitignored `.env` files, so there is no
+All thirteen values already exist in the two gitignored `.env` files, so there is no
 need to copy any of them by hand:
 
 ```bash
@@ -109,30 +119,31 @@ repository secret**, once per row below.
 | `VITE_SUPABASE_PUBLISHABLE_KEY` | web-unit, e2e | same |
 | `VITE_PSX_API_TOKEN` | e2e | same |
 | `VITE_DEMO_EMAIL` | e2e | same (`demo@nafaiq.com`) |
-| **`VITE_DEMO_PASSWORD`** | e2e | **currently EMPTY in `frontend/packages/web/.env`** — see the warning below |
+| **`VITE_DEMO_PASSWORD`** | e2e | same — the whole authed suite dies without it |
 | `SUPABASE_URL` | e2e backend only | root `.env` |
 | `SUPABASE_SECRET_KEY` | e2e backend only | root `.env` |
 | `SUPABASE_JWT_SECRET` | e2e backend only | root `.env` |
+| **`SUPABASE_DATABASE_PASSWORD`** | e2e backend only | root `.env` — **uvicorn will not boot without it** |
+| `SUPABASE_POOLER_HOST` | e2e backend only | root `.env` |
+| `SUPABASE_POOLER_USER` | e2e backend only | root `.env` |
 | `PSX_API_TOKEN` | e2e backend only | root `.env` |
 
 The e2e job's uvicorn **does** need real credentials — it serves live read-only
 market data to the app under test. The `backend-tests` job does **not** (§2).
 
-### ⚠ `VITE_DEMO_PASSWORD` is not set anywhere yet
+### The two that bite hardest
 
-`frontend/packages/web/.env` declares `VITE_DEMO_PASSWORD=` with an **empty
-value**. Consequences, both verified:
+**`SUPABASE_DATABASE_PASSWORD`** — `main.py`'s lifespan calls
+`ensure_reflected()` at startup, so without it uvicorn exits, Playwright's
+`webServer` never comes up, and the e2e job dies before a single test runs.
+The failure looks nothing like a missing secret; it looks like Playwright is
+broken.
 
-- The **authed e2e project cannot run.** `tests/auth.setup.ts` fails fast with
-  `VITE_DEMO_PASSWORD must be set`, and its 9 dependent specs are skipped. The
-  `public-chromium` project is unaffected and green.
-- The **"Try Demo" button is broken on any environment using this `.env`** —
-  `src/hooks/use-demo.ts:17` throws `Demo password not configured` before it
-  ever calls Supabase.
-
-Someone with access to the `demo@nafaiq.com` credentials needs to populate it
-locally **and** add it as a GitHub secret. Until then the authed journeys are
-written but unverified.
+**`VITE_DEMO_PASSWORD`** — blank means `use-demo.ts` throws
+`Demo password not configured`, which `AuthPage.tsx` swallows into a toast. The
+authed suite then fails with no network request and no error. The same gap
+breaks the "Try Demo" button for real users on any environment using that
+`.env`.
 
 **Jira credentials are deliberately absent.** The `qa-e2e-triage` skill runs in
 a developer's Claude Code session against the OAuth'd MCP server. Putting a Jira

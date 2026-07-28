@@ -458,6 +458,7 @@ def test_serve_uses_a_real_date_so_the_cache_can_match():
 # --------------------------------------------------------------------------- #
 # Failure cooldown — the quota guard                                          #
 # --------------------------------------------------------------------------- #
+@pytest.mark.requires_db  # touches the real engine
 async def test_a_failed_report_is_not_regenerated_on_every_page_load(monkeypatch):
     """The dashboard nudge auto-loads. Without a cooldown, a provider outage
     meant every refresh rebuilt ~13s of context and spent another burst of
@@ -493,6 +494,7 @@ async def test_a_failed_report_is_not_regenerated_on_every_page_load(monkeypatch
     reports_api._recent_failures.clear()
 
 
+@pytest.mark.requires_db  # touches the real engine
 async def test_the_cooldown_expires_so_recovery_is_automatic(monkeypatch):
     """A provider outage must not disable the report until a redeploy."""
     from app.services.ai import report_service as reports_api

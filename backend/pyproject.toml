@@ -71,3 +71,6 @@ asyncio_mode = "auto"
 asyncio_default_test_loop_scope = "session"
 testpaths = ["tests"]
 pythonpath = ["src"]
+markers = [
+    "requires_db: needs a live Postgres (SUPABASE_DATABASE_PASSWORD). Skipped automatically when unset — see tests/conftest.py.",
+]

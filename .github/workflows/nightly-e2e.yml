@@ -82,6 +82,9 @@ jobs:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
           SUPABASE_JWT_SECRET: ${{ secrets.SUPABASE_JWT_SECRET }}
+          SUPABASE_DATABASE_PASSWORD: ${{ secrets.SUPABASE_DATABASE_PASSWORD }}
+          SUPABASE_POOLER_HOST: ${{ secrets.SUPABASE_POOLER_HOST }}
+          SUPABASE_POOLER_USER: ${{ secrets.SUPABASE_POOLER_USER }}
           PSX_API_TOKEN: ${{ secrets.PSX_API_TOKEN }}
         run: pnpm exec playwright test --project=${{ matrix.project }}
 

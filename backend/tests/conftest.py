@@ -14,6 +14,30 @@ os.environ.setdefault("LANGFUSE_TRACING_ENABLED", "false")
 import pytest
 
 
+def pytest_collection_modifyitems(config, items):
+    """Skip `@pytest.mark.requires_db` tests when there is no database.
+
+    These reach the SQLAlchemy engine (directly, or via repositories.base's
+    connect()/begin()), which raises without SUPABASE_DATABASE_PASSWORD. Without
+    this they fail in every credential-free environment — i.e. every CI run —
+    and each one burns ~60s first, because ensure_reflected() retries six times
+    with backoff before giving up.
+
+    Skipping is the right call rather than handing CI a database password:
+    these assert against real rows, so pointing them at production from a PR
+    would be both slow and a live-data dependency in the merge path.
+    """
+    from app.config import settings
+
+    if settings.supabase_database_password:
+        return
+
+    skip = pytest.mark.skip(reason="SUPABASE_DATABASE_PASSWORD not configured")
+    for item in items:
+        if "requires_db" in item.keywords:
+            item.add_marker(skip)
+
+
 @pytest.fixture(autouse=True)
 def _supabase_client_without_credentials(monkeypatch):
     """Let credential-free runs construct (but never use) a Supabase client.

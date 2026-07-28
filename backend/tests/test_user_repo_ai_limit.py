@@ -12,6 +12,11 @@ from sqlalchemy import text
 from app.repositories import user_repo
 from app.repositories.base import connect
 
+# Every test here reaches the SQLAlchemy engine; skipped automatically when
+# SUPABASE_DATABASE_PASSWORD is unset (see tests/conftest.py).
+pytestmark = pytest.mark.requires_db
+
+
 
 @pytest.mark.asyncio
 async def test_plan_features_include_ai_tutor_daily_limit():

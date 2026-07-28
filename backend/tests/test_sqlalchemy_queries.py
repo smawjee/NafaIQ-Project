@@ -3,6 +3,11 @@ from __future__ import annotations
 import pytest
 from sqlalchemy import func, select
 
+# Every test here reaches the SQLAlchemy engine; skipped automatically when
+# SUPABASE_DATABASE_PASSWORD is unset (see tests/conftest.py).
+pytestmark = pytest.mark.requires_db
+
+
 
 @pytest.mark.asyncio
 async def test_market_snapshot_count():

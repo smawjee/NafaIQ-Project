@@ -14,6 +14,7 @@ async def test_networth_endpoint_requires_auth():
 
 
 @pytest.mark.asyncio
+@pytest.mark.requires_db  # touches the real engine
 async def test_history_coverage_endpoint_returns_list():
     """Public PSX-token endpoint returns list of {symbol, days_available, ...}."""
     from httpx import ASGITransport, AsyncClient
