@@ -15,6 +15,7 @@ import {
   User,
 } from "lucide-react";
 import { toast } from "sonner";
+import { usePlatformFlags } from "@/hooks/use-platform-flags";
 import { useAuth } from "@/hooks/use-auth";
 import { useDemo } from "@/hooks/use-demo";
 import { useLandingTheme } from "@/hooks/use-landing-theme";
@@ -33,6 +34,7 @@ export function AuthPage() {
   const { redirect } = useSearch({ from: "/auth" });
 
   const [mode, setMode] = useState<"signin" | "signup">("signup");
+  const { registrationEnabled, maintenanceMode } = usePlatformFlags();
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
@@ -95,7 +97,9 @@ export function AuthPage() {
     }
   }
 
-  const isSignup = mode === "signup";
+  // Registration closed by an administrator: fall back to sign-in rather than
+  // leaving the user on a form that cannot succeed.
+  const isSignup = mode === "signup" && registrationEnabled;
 
   const pwChecks = [
     { label: "At least 8 characters", ok: password.length >= 8 },
@@ -203,7 +207,20 @@ export function AuthPage() {
                   </p>
                 </div>
 
-                <GoogleButton onClick={handleGoogle} disabled={busy} />
+                {maintenanceMode && (
+                  <div className="rounded-xl border border-warning/30 bg-warning/10 px-3 py-2.5 text-sm text-warning">
+                    NafaIQ is undergoing scheduled maintenance. You may not be able to sign in until
+                    it completes.
+                  </div>
+                )}
+
+                {!registrationEnabled && (
+                  <div className="rounded-xl border border-border bg-surface-alt px-3 py-2.5 text-sm text-text-secondary">
+                    New sign-ups are temporarily closed. Existing accounts can still sign in.
+                  </div>
+                )}
+
+                <GoogleButton onClick={handleGoogle} disabled={busy || maintenanceMode} />
 
                 <div className="relative flex items-center">
                   <div className="flex-1 border-t border-border" />
@@ -336,7 +353,7 @@ export function AuthPage() {
                   <motion.button
                     variants={formItem}
                     type="submit"
-                    disabled={busy}
+                    disabled={busy || maintenanceMode}
                     className="group mt-2 flex h-14 w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-primary to-info font-semibold text-primary-foreground shadow-[0_8px_24px_-8px_color-mix(in_oklab,var(--color-primary)_60%,transparent)] transition-all duration-200 hover:brightness-110 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:brightness-100"
                   >
                     {busy ? (
@@ -351,15 +368,17 @@ export function AuthPage() {
                 </motion.form>
 
                 <div className="space-y-3 text-center">
-                  <p className="text-sm text-text-muted">
-                    {isSignup ? "Already have an account? " : "New to NafaIQ? "}
-                    <button
-                      onClick={() => setMode(isSignup ? "signin" : "signup")}
-                      className="font-medium text-primary transition-colors duration-200 hover:underline"
-                    >
-                      {isSignup ? "Sign In" : "Create one"}
-                    </button>
-                  </p>
+                  {(isSignup || registrationEnabled) && (
+                    <p className="text-sm text-text-muted">
+                      {isSignup ? "Already have an account? " : "New to NafaIQ? "}
+                      <button
+                        onClick={() => setMode(isSignup ? "signin" : "signup")}
+                        className="font-medium text-primary transition-colors duration-200 hover:underline"
+                      >
+                        {isSignup ? "Sign In" : "Create one"}
+                      </button>
+                    </p>
+                  )}
                   {isSignup && (
                     <p className="text-xs leading-relaxed text-text-muted/80">
                       By creating an account you agree to the{" "}

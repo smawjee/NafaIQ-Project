@@ -43,6 +43,27 @@ async def count_bills(conn: Executor, uid: str) -> int:
     return await count_owned(conn, "user_bills", uid)
 
 
+async def find_duplicate_bill(conn: Executor, uid: str, correlation_key: str) -> bool:
+    """True if this user already has a bill for the same biller, amount and due
+    date.
+
+    The content-level guard the email_message_id index cannot provide: a biller
+    sends the invoice and then a reminder days later, as two distinct Gmail
+    messages, which previously created two bills for one obligation.
+    """
+    if not correlation_key:
+        return False
+    bills = await table("user_bills")
+    if "correlation_key" not in bills.c:
+        return False  # migration not applied yet — fail open, never block an import
+    result = await conn.execute(
+        select(bills.c.id)
+        .where(bills.c.user_id == uid, bills.c.correlation_key == correlation_key)
+        .limit(1)
+    )
+    return result.first() is not None
+
+
 async def list_bills(conn: Executor, uid: str) -> list[dict[str, Any]]:
     bills = await table("user_bills")
     result = await conn.execute(
@@ -68,6 +89,9 @@ async def insert_bill_dedup(
     transaction importer, so repeated Gmail polls cannot duplicate the same bill.
     """
     bills = await table("user_bills")
+    # Reflected schema + out-of-band migrations: drop keys the DB lacks rather
+    # than failing the import (mirrors insert_transaction_dedup).
+    values = {k: v for k, v in values.items() if k in bills.c}
     result = await conn.execute(
         pg_insert(bills)
         .values(**values)

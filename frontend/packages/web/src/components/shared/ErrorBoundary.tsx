@@ -1,6 +1,7 @@
 import { Component, type ErrorInfo, type ReactNode } from "react";
 import { AlertCircle, RefreshCw } from "lucide-react";
 import { Card } from "@/components/shared/Card";
+import { reportError } from "@/lib/telemetry";
 
 interface Props {
   children: ReactNode;
@@ -27,6 +28,9 @@ export class ErrorBoundary extends Component<Props, State> {
     if (typeof console !== "undefined") {
       console.error("ErrorBoundary caught:", error, info.componentStack);
     }
+    // Ship it. The console line only ever helped whoever had DevTools open —
+    // which is never the user who actually hit the crash.
+    reportError(error, { componentStack: info.componentStack ?? undefined });
   }
 
   override render() {
@@ -39,7 +43,8 @@ export class ErrorBoundary extends Component<Props, State> {
             {this.props.label ?? "Something went wrong"}
           </h3>
           <p className="max-w-md text-xs text-text-secondary">
-            {this.state.error?.message ?? "An unexpected error occurred while rendering this section."}
+            {this.state.error?.message ??
+              "An unexpected error occurred while rendering this section."}
           </p>
           <button
             type="button"

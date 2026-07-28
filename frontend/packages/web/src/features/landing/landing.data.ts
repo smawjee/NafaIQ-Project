@@ -43,7 +43,7 @@ export const FEATURES: {
     iconColor: "text-ai",
     chipBg: "bg-blue-500/[0.12]",
     title: "AI Financial Advisor",
-    desc: "Personalized insights, AI-generated portfolio reports, and a 24/7 finance tutor — powered by Claude AI.",
+    desc: "Personalized insights, AI-generated portfolio reports, and a 24/7 finance tutor.",
   },
   {
     Icon: Moon,

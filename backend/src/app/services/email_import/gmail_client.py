@@ -57,6 +57,10 @@ class RawMessage:
     body: str
     received_at: datetime
     internal_date: int  # ms since epoch — the poll watermark
+    # Gmail groups a merchant's own order/receipt/delivered mails into one
+    # thread — free correlation evidence for those legs. The bank's alert is
+    # always a separate thread, which is why this can never be the only signal.
+    thread_id: Optional[str] = None
 
 
 def _b64url(data: str) -> str:
@@ -182,6 +186,7 @@ async def fetch_new_messages(
                         body=_extract_body(payload),
                         received_at=received,
                         internal_date=internal_date,
+                        thread_id=full.get("threadId"),
                     )
                 )
     except httpx.HTTPError as e:

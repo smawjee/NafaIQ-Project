@@ -19,6 +19,7 @@ import { reportNafaIQError } from "../lib/errors/reporting";
 import { AppShell } from "../components/layout/AppShell";
 import { AuthProvider, useAuth } from "@/hooks/use-auth";
 import { LandingThemeProvider } from "@/hooks/use-landing-theme";
+import { installGlobalErrorReporting } from "@/lib/telemetry";
 import { LearnProvider } from "@/hooks/learn/use-learn";
 import { Toaster } from "@/components/ui/sonner";
 import { ConfirmProvider } from "@/components/shared/ConfirmDialog";
@@ -292,6 +293,10 @@ function AuthGate() {
 
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
+
+  // Catches what an ErrorBoundary structurally cannot: errors thrown from event
+  // handlers, async callbacks and rejected promises.
+  useEffect(() => installGlobalErrorReporting(), []);
 
   return (
     <Provider store={store}>

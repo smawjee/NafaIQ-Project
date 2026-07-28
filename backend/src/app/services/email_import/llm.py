@@ -63,6 +63,16 @@ def _build_messages(subject: str, body: str, sender: str) -> list[dict[str, str]
     ]
 
 
+class FxUnavailable(Exception):
+    """The FX snapshot needed to convert a foreign receipt is unavailable.
+
+    TRANSIENT, not a verdict: the receipt is real and must be retried on a later
+    poll. Previously this path returned None, which the pipeline could not tell
+    apart from "this email is not a transaction" — so the receipt was staged as
+    handled and silently lost.
+    """
+
+
 async def _to_pkr(amount: float, currency: str) -> Optional[float]:
     """Convert a foreign-currency receipt amount to PKR via the live FX snapshot.
 
@@ -124,6 +134,8 @@ def _coerce_transaction(
             transaction_date=received_at,
             account=payload.get("account") or None,
             confidence=float(payload.get("confidence", 0.0)),
+            original_amount=payload.get("original_amount"),
+            original_currency=payload.get("original_currency"),
         )
     except Exception:
         log.warning("LLM returned an unusable transaction payload", exc_info=True)
@@ -200,13 +212,19 @@ async def parse(
                 ccy = str(payload.get("currency") or "PKR").strip().upper()
                 if ccy not in ("", "PKR"):
                     try:
-                        pkr = await _to_pkr(float(payload["amount"]), ccy)
+                        original = float(payload["amount"])
                     except (TypeError, ValueError):
-                        pkr = None
+                        original = None
+                    pkr = await _to_pkr(original, ccy) if original is not None else None
                     if pkr is None:
-                        log.info("skipping receipt in unconvertible currency %s", ccy)
-                        return None
+                        # Raise rather than return None: the caller must retry
+                        # this receipt, not record it as "not a transaction".
+                        raise FxUnavailable(f"cannot convert {ccy} to PKR")
                     payload["amount"] = pkr
+                    # Kept so correlation can apply its FX tolerance — the bank's
+                    # own leg carries a markup and will never match this exactly.
+                    payload["original_amount"] = original
+                    payload["original_currency"] = ccy
             return _coerce(
                 payload, received_at, sender=sender, context_text=f"{subject}\n{body}"
             )

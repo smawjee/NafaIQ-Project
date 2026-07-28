@@ -1,10 +1,12 @@
+import { useState } from "react";
 import { Link, useRouterState } from "@tanstack/react-router";
-import { Menu, Sparkles, PanelLeft, PanelRight } from "lucide-react";
+import { LifeBuoy, Menu, Sparkles, PanelLeft, PanelRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useLang } from "@/hooks/use-lang";
 import { usePermissions } from "@/hooks/use-permissions";
 import { useLandingTheme } from "@/hooks/use-landing-theme";
 import { ThemeToggle } from "@/components/shared/ThemeToggle";
+import { ReportIssueDialog } from "@/components/shared/ReportIssueDialog";
 import { Logo } from "@/components/layout/Logo";
 import { StockSearch } from "@/components/layout/StockSearch";
 import { NotificationBell } from "@/components/layout/NotificationBell";
@@ -22,6 +24,7 @@ export function Header({
 }) {
   const { t, isUrdu } = useLang();
   const { theme, toggleTheme } = useLandingTheme();
+  const [reportOpen, setReportOpen] = useState(false);
   const isDark = theme === "dark";
   const { plan } = usePermissions();
   const cta = upgradeCta(plan);
@@ -87,9 +90,18 @@ export function Header({
             </Link>
           </>
         )}
+        <button
+          onClick={() => setReportOpen(true)}
+          aria-label={t("Report a problem")}
+          title={t("Report a problem")}
+          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[9px] text-text-secondary transition-colors hover:bg-hover hover:text-text-primary"
+        >
+          <LifeBuoy className="h-[18px] w-[18px]" strokeWidth={1.75} />
+        </button>
         <ThemeToggle isDark={isDark} onToggle={toggleTheme} />
         <NotificationBell />
         <UserMenu />
+        <ReportIssueDialog open={reportOpen} onOpenChange={setReportOpen} />
       </div>
     </header>
   );

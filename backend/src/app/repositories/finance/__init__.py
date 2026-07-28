@@ -13,6 +13,7 @@ from app.repositories.finance._common import (  # noqa: F401
 from app.repositories.finance.bills import (  # noqa: F401
     count_bills,
     delete_bill,
+    find_duplicate_bill,
     insert_bill,
     insert_bill_dedup,
     list_bills,
@@ -51,7 +52,11 @@ from app.repositories.finance.summary import (  # noqa: F401
 )
 from app.repositories.finance.transactions import (  # noqa: F401
     delete_transaction,
+    absorb_transaction,
     find_duplicate_transaction,
+    fill_missing_correlation_fields,
+    find_reversal_target,
+    get_transactions_by_ids,
     insert_transaction,
     insert_transaction_dedup,
     list_transactions,

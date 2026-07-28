@@ -12,6 +12,7 @@ from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 from fastapi import HTTPException
 
 from app.config import settings
+from app.repositories import email_import_messages as ledger_repo
 from app.repositories import email_integrations as repo
 from app.repositories.base import begin, connect
 from app.services.crypto import CryptoError, decrypt, encrypt
@@ -153,7 +154,19 @@ async def complete_connect(code: Optional[str], state: Optional[str], error: Opt
 async def get_status(user_id: str) -> Optional[dict[str, Any]]:
     """Connection status, or None when not connected. Never the token."""
     async with connect() as conn:
-        return await repo.get_status(conn, user_id)
+        status = await repo.get_status(conn, user_id)
+        if status is None:
+            return None
+        # How many emails could not be read. Surfaced so an incomplete picture
+        # is VISIBLE to the user rather than silently incomplete — they would
+        # otherwise have no way to know a receipt never made it in.
+        try:
+            status["unparsed_count"] = await ledger_repo.unparsed_count(conn, user_id)
+        except Exception:
+            # The ledger is diagnostics; never let it break the status endpoint.
+            log.warning("could not read unparsed count for %s", user_id, exc_info=True)
+            status["unparsed_count"] = 0
+        return status
 
 
 async def disconnect(user_id: str) -> dict[str, Any]:
@@ -198,4 +211,10 @@ async def sync_now(user_id: str) -> dict[str, Any]:
         "imported": result.imported,
         "duplicates": result.duplicates,
         "skipped": result.skipped,
+        # Surfaced so "Sync now" reports the whole picture rather than only the
+        # happy path: legs collapsed into an existing row, declined payments
+        # deliberately not imported, and emails still owed a retry.
+        "merged": result.merged,
+        "failed_txn": result.failed_txn,
+        "parse_errors": result.parse_errors,
     }

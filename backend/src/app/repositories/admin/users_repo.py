@@ -167,6 +167,36 @@ async def set_status(
     return dict(row) if row else None
 
 
+async def anonymise_profile(conn: Executor, *, user_id: str) -> Optional[dict[str, Any]]:
+    """Strip identifying fields from a profile, keeping the row and its records.
+
+    The row itself is deliberately kept: portfolios, holdings, transactions and
+    alerts reference it, and deleting it would either cascade real activity away
+    or leave orphans. Blanking the identifying columns and suspending the account
+    achieves erasure while platform aggregates stay truthful.
+
+    `display_name` is the only PII this table holds — the email lives in
+    auth.users and is tombstoned by the caller.
+    """
+    row = (
+        await conn.execute(
+            text(
+                """
+                UPDATE profiles
+                SET display_name = NULL,
+                    account_status = 'suspended',
+                    status_reason = 'Anonymised by administrator',
+                    status_changed_at = now()
+                WHERE id = :uid
+                RETURNING id, account_status
+                """
+            ),
+            {"uid": user_id},
+        )
+    ).mappings().first()
+    return dict(row) if row else None
+
+
 async def set_plan(
     conn: Executor, *, user_id: str, plan: str
 ) -> Optional[dict[str, Any]]:

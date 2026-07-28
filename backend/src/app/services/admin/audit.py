@@ -7,6 +7,7 @@ its own transaction for read-only or best-effort events (e.g. bootstrap).
 from __future__ import annotations
 
 import logging
+from datetime import datetime
 from typing import Any, Optional
 
 from app.repositories.admin import audit_repo
@@ -23,8 +24,10 @@ async def list_audit(
     actor_user_id: Optional[str],
     target_user_id: Optional[str],
     status: Optional[str],
-    page: int,
-    page_size: int,
+    since: Optional[datetime] = None,
+    until: Optional[datetime] = None,
+    page: int = 1,
+    page_size: int = 50,
 ) -> Page[AuditEntry]:
     offset = (page - 1) * page_size
     async with connect() as conn:
@@ -34,6 +37,8 @@ async def list_audit(
             actor_user_id=actor_user_id,
             target_user_id=target_user_id,
             status=status,
+            since=since,
+            until=until,
             limit=page_size,
             offset=offset,
         )
