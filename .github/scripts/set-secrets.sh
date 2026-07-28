@@ -12,11 +12,21 @@
 # Usage:
 #   bash .github/scripts/set-secrets.sh            # show what would be set
 #   bash .github/scripts/set-secrets.sh --apply    # actually set them
+#   bash .github/scripts/set-secrets.sh --print    # print name/value pairs for
+#                                                  # pasting into the web UI
+#
+# --print writes real secret values to your terminal. Use it only when adding
+# them through Settings -> Secrets and variables -> Actions by hand, and clear
+# your scrollback afterwards.
 set -uo pipefail
 
 REPO="${REPO:-usmankhalidj15-glitch/NafaIQ-MainProject}"
 APPLY=0
-[ "${1:-}" = "--apply" ] && APPLY=1
+PRINT=0
+case "${1:-}" in
+  --apply) APPLY=1 ;;
+  --print) PRINT=1 ;;
+esac
 
 cd "$(git rev-parse --show-toplevel)" || exit 1
 
@@ -51,6 +61,20 @@ read_env() {
   [ -n "$value" ] || return 1
   printf '%s' "$value"
 }
+
+if [ "$PRINT" -eq 1 ]; then
+  echo "Paste each of these into Settings -> Secrets and variables -> Actions."
+  echo "These are REAL VALUES — clear your scrollback when you are done."
+  echo
+  for name in "${!SOURCES[@]}"; do
+    if value=$(read_env "$name" "${SOURCES[$name]}"); then
+      printf '%s\n%s\n\n' "$name" "$value"
+    else
+      printf '%s\n<MISSING from %s>\n\n' "$name" "${SOURCES[$name]}"
+    fi
+  done
+  exit 0
+fi
 
 echo "Repository: $REPO"
 if [ "$APPLY" -eq 0 ]; then
