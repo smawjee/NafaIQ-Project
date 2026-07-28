@@ -103,7 +103,7 @@ class AddPriceAlertArgs(BaseModel):
 class AddBillAlertArgs(BaseModel):
     bill_name: Optional[str] = Field(None, description="A tracked bill, named in context.")
     timing: Optional[str] = Field(
-        None, description='How many days before due. One of "1 day before", "3 days before", "7 days before".'
+        None, description='Days before due: "1 day before", "3 days before", "7 days before".'
     )
 
 
@@ -133,7 +133,7 @@ class RecordTradeArgs(BaseModel):
 
 class WatchlistArgs(BaseModel):
     symbol: Optional[str] = Field(
-        None, description="PSX ticker. Call resolve_symbol first if given a company name."
+        None, description="PSX ticker. Use resolve_symbol for a company name."
     )
 
 
@@ -291,7 +291,7 @@ TOOLS: tuple[Tool, ...] = (
         name="add_goal_alert",
         kind="write",
         tier="immediate",
-        description="Alert at a percentage of a goal. For 'any goal', call once per goal.",
+        description="Alert at a percent of a goal. For 'any goal', call per goal.",
         params=AddGoalAlertArgs,
         request=AppAlertCreate,
         # The API takes type/title/meta; we assemble all three from the goal name
@@ -324,7 +324,7 @@ TOOLS: tuple[Tool, ...] = (
         name="add_budget_alert",
         kind="write",
         tier="immediate",
-        description="Alert when spending in a category reaches a percent of the budget.",
+        description="Alert when category spend hits a percent of budget.",
         params=AddBudgetAlertArgs,
         request=AppAlertCreate,
         requires=("category",),
@@ -363,7 +363,7 @@ TOOLS: tuple[Tool, ...] = (
     Tool(
         name="resolve_symbol",
         kind="read",
-        description="Company name -> PSX ticker candidates. Ask which if more than one.",
+        description="Company name -> PSX ticker candidates. Ask if ambiguous.",
         params=ResolveSymbolArgs,
     ),
     # --- navigation --------------------------------------------------------

@@ -4,7 +4,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any, Generic, Optional, TypeVar
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 T = TypeVar("T")
 
@@ -172,3 +172,53 @@ class OverviewResponse(BaseModel):
     tiers: MetricBlock
     engagement: MetricBlock
     recent_actions: list[AuditEntry]
+
+
+# --- Plan entitlements ------------------------------------------------------
+class PlanUpdate(BaseModel):
+    """Partial update to a row of `plan_features`.
+
+    Every field is optional and UNSET by default, which is what lets the route
+    distinguish "not sent" (leave alone) from "sent as null" (set to unlimited)
+    via `model_dump(exclude_unset=True)`.
+
+    `extra="forbid"` rejects unknown keys at the boundary; `plan` and `rank` are
+    absent on purpose — the first is the identity of the row and the second
+    orders upgrade comparisons elsewhere, so neither is editable from here.
+    Range and type rules live in services/admin/plans.py, which stays the
+    authority.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    max_watchlist: Optional[int] = None
+    max_price_alerts: Optional[int] = None
+    max_portfolios: Optional[int] = None
+    max_holdings_per_portfolio: Optional[int] = None
+    max_budgets: Optional[int] = None
+    max_bills: Optional[int] = None
+    max_goals: Optional[int] = None
+    max_finance_history_days: Optional[int] = None
+
+    # None means "no limit" for these two, so null is a real value, not absence.
+    ai_tutor_daily_limit: Optional[int] = None
+    ai_reports_per_period: Optional[int] = None
+    ai_reports_period: Optional[str] = None
+
+    has_email_alerts: Optional[bool] = None
+    has_push_alerts: Optional[bool] = None
+    has_export: Optional[bool] = None
+    has_multi_currency: Optional[bool] = None
+    has_realtime_psx: Optional[bool] = None
+    has_screener_full: Optional[bool] = None
+    has_webhook_integration: Optional[bool] = None
+    has_api_access: Optional[bool] = None
+
+    description: Optional[str] = None
+
+    reason: Optional[str] = Field(None, max_length=500)
+
+
+class AnonymiseRequest(BaseModel):
+    reason: Optional[str] = Field(None, max_length=500)
+

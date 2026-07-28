@@ -8,6 +8,7 @@ import { usePermissions } from "@/hooks/use-permissions";
 import { useLandingTheme } from "@/hooks/use-landing-theme";
 import { DemoBanner } from "@/components/demo/DemoBanner";
 import { useLang } from "@/hooks/use-lang";
+import { usePlatformFlags } from "@/hooks/use-platform-flags";
 import { ScrollToTop } from "@/components/shared/ScrollToTop";
 import { NAV } from "@/components/layout/layout.data";
 import { initial, upgradeCta } from "@/components/layout/layout.utils";
@@ -60,6 +61,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           onExpand={() => toggleCollapsed(false)}
         />
         <Breadcrumbs />
+        <MaintenanceBanner />
         <DemoBanner />
         <main
           className={cn(
@@ -139,6 +141,29 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </motion.div>
         )}
       </AnimatePresence>
+    </div>
+  );
+}
+
+/**
+ * Shown while an administrator has `maintenance_mode` on.
+ *
+ * The backend already 503s every /api route in that state, so without this the
+ * app just looks broken — every panel would show its own generic error. This
+ * turns a wall of failures into one explained state.
+ */
+function MaintenanceBanner() {
+  const { maintenanceMode } = usePlatformFlags();
+  const { t } = useLang();
+  if (!maintenanceMode) return null;
+  return (
+    <div
+      role="status"
+      className="mx-3 mt-3 rounded-xl border border-warning/30 bg-warning/10 px-3 py-2.5 text-sm text-warning sm:mx-5 lg:mx-6"
+    >
+      {t(
+        "NafaIQ is undergoing scheduled maintenance. Some data may be unavailable until it completes.",
+      )}
     </div>
   );
 }

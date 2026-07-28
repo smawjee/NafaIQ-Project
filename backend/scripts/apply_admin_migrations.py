@@ -23,6 +23,15 @@ from dotenv import load_dotenv
 ROOT = Path(__file__).resolve().parents[1]
 MIGRATIONS = (
     "20260727120000_admin_dashboard.sql",
+    # Adds alerts.read for the alerts oversight screen and removes the two
+    # permissions that had no endpoint behind them (users.delete,
+    # subscriptions.write). Idempotent, like every statement above.
+    "20260728090000_admin_alerts_and_dead_permissions.sql",
+    # Restores subscriptions.write (the endpoint now exists) and adds
+    # users.anonymise, granted to super_admin only.
+    "20260728150000_admin_plan_entitlements.sql",
+    # Error capture + user bug reports, and the four permissions that gate them.
+    "20260728180000_error_tracking_and_bug_reports.sql",
 )
 
 _CONN_ERRORS = (

@@ -9,6 +9,16 @@ from app.config import settings
 PUBLIC_PATHS = {
     "/api/health",
     "/api/health/db",
+    # Client-safe platform flags (registration_enabled, maintenance_mode).
+    # Must be anonymous: the app reads maintenance_mode before it can sign
+    # anyone in, and the sign-up screen reads registration_enabled before a
+    # session exists. The endpoint only returns an allow-listed subset.
+    "/api/platform/flags",
+    # Client error capture. Anonymous by design: a crash on the sign-in screen
+    # is exactly the failure nobody hears about today. The endpoint stores
+    # nothing the caller controls unredacted, is rate-limited per caller, and
+    # returns a bare acknowledgement — see api/telemetry.py.
+    "/api/telemetry/errors",
     "/docs",
     "/openapi.json",
     "/redoc",
@@ -37,6 +47,9 @@ USER_PATHS_PREFIXES = (
     "/api/finance",
     "/api/finance-extended",
     "/api/integrations",
+    # Bug reports are scoped to the caller's own account, so JWT only — the
+    # shared PSX token must never satisfy them.
+    "/api/support",
 )
 
 # Write/admin endpoints that live under an otherwise-public prefix. Checked

@@ -168,6 +168,14 @@ BILLER_DISPLAY_NAMES: dict[str, str] = {
 }
 
 
+# Shown as the transaction's "way of transaction" when the sender is neither a
+# known bank nor a known biller. Lives here beside the other display names so
+# the pipeline and the reconciler share one definition — the reconciler needs
+# it to know which of two merged rows carries the more informative source.
+SOURCE_FALLBACK = "Email receipt · auto"
+BILL_SOURCE_FALLBACK = "Email bill · auto"
+
+
 def biller_display_name(from_header: str) -> str | None:
     domain = sender_domain(from_header)
     if not domain:
@@ -191,6 +199,9 @@ PURCHASE_HINTS: tuple[str, ...] = (
     "invoice",
     "purchase",
     "payment received",
+    # A store's own refund mail — same reason as TRANSACTION_HINTS above.
+    "refund",
+    "refunded",
 )
 
 # Any currency amount anywhere in the mail (PKR/Rs/USD/$/€/£/…). Required by
@@ -216,6 +227,12 @@ TRANSACTION_HINTS: tuple[str, ...] = (
     "spent",
     "received",
     "alert",
+    # Reversal wording, so money coming back passes the gate on its own. A
+    # bank's "PKR 500 refunded" names no other transaction word.
+    "refund",
+    "refunded",
+    "reversed",
+    "reversal",
 )
 
 # Mail we must never treat as a transaction even from a bank sender. Declined /
@@ -234,6 +251,16 @@ BILL_HINTS: tuple[str, ...] = (
     "renewal",
     "receipt",
 )
+# Mail that is genuinely not a financial event: no money moved and none is
+# owed. Excluded before parsing so it never costs an LLM call.
+#
+# NOTE what is deliberately NOT here any more. "reversed"/"refund" used to sit
+# in this tuple, which meant money genuinely coming back to the user was
+# dropped at the gate and never imported — the user's records showed the
+# original charge and no sign of it being returned. "declined"/"failed" were
+# here too; those correctly produce no transaction, but they must still be
+# RECORDED, because a failed payment that is retried successfully has to
+# correlate against that failure to import exactly once.
 EXCLUDE_HINTS: tuple[str, ...] = (
     "one-time password",
     "otp",
@@ -243,12 +270,44 @@ EXCLUDE_HINTS: tuple[str, ...] = (
     "newsletter",
     "promotion",
     "unsubscribe from",
+)
+
+# Money coming back. Imported as its own offsetting row linked to the original.
+REVERSAL_HINTS: tuple[str, ...] = (
+    "reversed",
+    "reversal",
+    "refund",
+    "refunded",
+    "chargeback",
+)
+
+# No money moved. Recorded in the staging ledger, never imported.
+FAILURE_HINTS: tuple[str, ...] = (
     "declined",
     "unsuccessful",
     "was not successful",
-    "reversed",
     "failed",
+    "could not be processed",
+    "payment failure",
 )
+
+CLASS_NORMAL = "normal"
+CLASS_REVERSAL = "reversal"
+CLASS_FAILED = "failed"
+
+
+def classify(subject: str, body: str) -> str:
+    """What KIND of financial event this mail describes.
+
+    Failure is checked before reversal on purpose: "your refund failed" is a
+    failure, not a refund. Both are checked before `normal`.
+    """
+    haystack = f"{subject} {body}".lower()
+    if any(hint in haystack for hint in FAILURE_HINTS):
+        return CLASS_FAILED
+    if any(hint in haystack for hint in REVERSAL_HINTS):
+        return CLASS_REVERSAL
+    return CLASS_NORMAL
 
 _EMAIL_RE = re.compile(r"[\w.+-]+@([\w-]+\.[\w.-]+)")
 _APP_TZ = ZoneInfo("Asia/Karachi")
@@ -350,10 +409,13 @@ def gmail_query(
     # …) are downloaded too — not only the finance allowlist. Receipt-specific
     # phrases, not bare "order", to keep marketing volume down; the local
     # looks_like_purchase amount-gate does the rest.
+    # `refund` is in here because a merchant's refund mail carries none of the
+    # receipt words — without it, money coming back from a non-bank sender is
+    # never even downloaded, so no amount of local logic could recover it.
     receipts = (
-        'subject:(receipt OR invoice OR "order confirmation" OR "your order" '
-        'OR "payment received") OR "order receipt" OR "thanks for your order" '
-        'OR "your receipt"'
+        'subject:(receipt OR invoice OR refund OR refunded OR "order confirmation" '
+        'OR "your order" OR "payment received") OR "order receipt" '
+        'OR "thanks for your order" OR "your receipt"'
     )
     if after_internal_date_ms > 0:
         # Nudge back one day: `after:` is coarse and we'd rather re-see a

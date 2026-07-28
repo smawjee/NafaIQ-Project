@@ -9,6 +9,12 @@ export interface EmailIntegrationStatus {
   last_polled_at?: string | null;
   /** Set when the Google grant expired or was revoked — prompt a reconnect. */
   last_error?: string | null;
+  /**
+   * Emails that could not be read. Surfaced so an incomplete picture is VISIBLE
+   * rather than silently incomplete — otherwise the user has no way to know a
+   * receipt never made it in.
+   */
+  unparsed_count?: number;
 }
 
 export interface EmailSyncResult {
@@ -17,6 +23,12 @@ export interface EmailSyncResult {
   imported: number;
   duplicates: number;
   skipped: number;
+  /** Legs of one order collapsed into a transaction that already existed. */
+  merged: number;
+  /** Declined/failed payments: recorded, deliberately not imported. */
+  failed_txn: number;
+  /** Emails still owed a retry. */
+  parse_errors: number;
 }
 
 export function useEmailIntegration(enabled: boolean = true) {

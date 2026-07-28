@@ -45,6 +45,23 @@ class ParsedTransaction(BaseModel):
     # 0..1. The rules parser emits 1.0; the LLM reports its own confidence.
     confidence: float = Field(default=1.0, ge=0.0, le=1.0)
 
+    # Set only when llm._to_pkr converted a foreign receipt. `amount` above is
+    # always the PKR figure that gets stored; these keep the pre-conversion
+    # values because correlation needs them: a converted leg can never equal the
+    # bank's own marked-up figure, so exact amount matching would never pair
+    # them. They also keep a merge explainable after the fact.
+    original_amount: Optional[float] = Field(default=None, gt=0)
+    original_currency: Optional[str] = Field(default=None, max_length=8)
+
+    # A refund or reversal. Imported as its own offsetting row linked to the
+    # original via reverses_transaction_id — never by mutating the original,
+    # which would destroy the record that a refund happened at all.
+    is_reversal: bool = False
+
+    # The order/reference id shared with the other emails describing this same
+    # event. The single decisive correlation signal.
+    order_ref: Optional[str] = Field(default=None, max_length=64)
+
     @field_validator("category")
     @classmethod
     def _normalize_category(cls, v: str) -> str:

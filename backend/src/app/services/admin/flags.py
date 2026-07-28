@@ -12,6 +12,7 @@ from fastapi import HTTPException
 
 from app.repositories.admin import flags_repo
 from app.repositories.base import begin, connect
+from app.services import flags as flag_reader
 from app.services.admin.audit import write_audit
 from app.services.admin.authz import AdminContext, RequestMeta
 from app.schemas.admin import FlagInfo
@@ -73,4 +74,7 @@ async def update_flag(
             reason=reason,
             meta=meta,
         )
+    # Make the change effective immediately on this process. Other web
+    # processes pick it up when their own cache expires (see flags._TTL).
+    flag_reader.invalidate()
     return FlagInfo(**updated)
