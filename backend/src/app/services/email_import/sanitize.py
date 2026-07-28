@@ -26,6 +26,25 @@ _PHONE_RE = re.compile(
 # swallowed part of the transaction sentence.
 _CONTAINS_AMOUNT_RE = re.compile(r"\b(?:PKR|Rs\.?|RS)\s*[\d,]", re.IGNORECASE)
 
+_MONTHS = (
+    r"jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|"
+    r"aug(?:ust)?|sep(?:t(?:ember)?)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?"
+)
+# A DATE captured as the merchant. Found in production: a Bank Alfalah cashback
+# promo reading "spend ... from 1st May to 31st May and get up to PKR 20,000
+# cashback" parsed as a PKR 20,000 CREDIT from "31st May" -- a PKR 20,000
+# phantom income injected into the user's finances from a marketing email.
+# A date is never a counterparty, and rejecting it here sends the mail to the
+# LLM (which classifies promos as non-transactions) instead of inventing money.
+_DATE_LIKE_RES = (
+    re.compile(rf"^\d{{1,2}}(?:st|nd|rd|th)?\s+(?:{_MONTHS})\b", re.IGNORECASE),
+    re.compile(rf"^(?:{_MONTHS})\s+\d{{1,2}}(?:st|nd|rd|th)?\b", re.IGNORECASE),
+    re.compile(rf"^(?:{_MONTHS})\s*,?\s*\d{{4}}$", re.IGNORECASE),
+    re.compile(rf"^(?:{_MONTHS})$", re.IGNORECASE),
+    re.compile(r"^\d{1,2}[/-]\d{1,2}(?:[/-]\d{2,4})?$"),
+    re.compile(r"^\d{4}-\d{1,2}-\d{1,2}$"),
+)
+
 # Fragments that mark footer/boilerplate captures, not counterparties.
 _BOILERPLATE_FRAGMENTS: tuple[str, ...] = (
     "visit our website",
@@ -79,6 +98,10 @@ def is_valid_merchant(candidate: str | None, sender_domain: str | None = None) -
         return False
 
     if _PHONE_RE.match(s):
+        return False
+    # A date is never a counterparty — see _DATE_LIKE_RES for the production
+    # promo this exists to stop.
+    if any(pattern.match(s) for pattern in _DATE_LIKE_RES):
         return False
     # Mostly digits ("021111331331", "8287 Amount 199"): digits dominate letters.
     digits = sum(c.isdigit() for c in s)

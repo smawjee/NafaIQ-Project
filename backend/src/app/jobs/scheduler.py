@@ -28,6 +28,11 @@ from app.scrapers.ahletrade import AhleTradePoller
 #   a no-op and was disabled.
 #   Sector is static metadata; heatmap freshness comes from psx_market_snapshot
 #   (refreshed every 5s), not from psx_profile.
+#   Repairing drift: the pre-fix overwrites left 42 DPS-classified symbols on TV
+#   buckets. `python -m scripts.repair_tv_sector_drift` (dry run by default)
+#   re-resolves them from DPS and writes only the sector column. Drift is
+#   detected by CASE — DPS is UPPERCASE, every TV value is title case — which
+#   also catches sectors TV_SECTOR_MAP has no entry for and passes through raw.
 from app.scrapers.tradingview import TV_SECTOR_MAP, TradingViewScraper
 from app.scrapers.sbp import SBPScraper
 from app.scrapers.mufap import MUFAPScraper
@@ -630,6 +635,25 @@ async def job_refresh_tv_data():
     except Exception as e:
         log.exception("job:refresh_tv_data:failed")
         await _record_health("tradingview", success=False, error=str(e))
+
+
+async def job_purge_error_events():
+    """Age out captured error events past the retention window.
+
+    Only the individual occurrences are deleted; app_error_groups keeps its
+    counters and triage state, so a long-running bug's history isn't lost when
+    its oldest samples expire.
+    """
+    from app.services import telemetry
+
+    try:
+        deleted = await telemetry.purge_expired()
+        log.info("job:purge_error_events:done", deleted=deleted)
+        await _record_health("error_retention", success=True, rows_updated=deleted,
+                             allow_zero_rows=True)
+    except Exception as e:
+        log.exception("job:purge_error_events:failed")
+        await _record_health("error_retention", success=False, error=str(e))
 
 
 async def job_snapshot_signals():
@@ -1338,6 +1362,15 @@ def init_scheduler():
         job_precompute_cross_section,
         CronTrigger(hour=20, minute=0, timezone="Asia/Karachi"),
         id="precompute_cross_section",
+        replace_existing=True,
+        misfire_grace_time=3600,
+    )
+    # Error-event retention sweep. Daily and off-peak: the table is append-only
+    # on the failure path, so it only ever grows without this.
+    scheduler.add_job(
+        job_purge_error_events,
+        CronTrigger(hour=4, minute=15, timezone="Asia/Karachi"),
+        id="purge_error_events",
         replace_existing=True,
         misfire_grace_time=3600,
     )

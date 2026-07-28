@@ -39,7 +39,10 @@ import { Route as AdminSignalsRouteImport } from './routes/admin.signals'
 import { Route as AdminRolesRouteImport } from './routes/admin.roles'
 import { Route as AdminMarketDataRouteImport } from './routes/admin.market-data'
 import { Route as AdminFlagsRouteImport } from './routes/admin.flags'
+import { Route as AdminErrorsRouteImport } from './routes/admin.errors'
+import { Route as AdminBugReportsRouteImport } from './routes/admin.bug-reports'
 import { Route as AdminAuditRouteImport } from './routes/admin.audit'
+import { Route as AdminAlertsRouteImport } from './routes/admin.alerts'
 import { Route as AdminAiRouteImport } from './routes/admin.ai'
 import { Route as LearnLessonIdRouteImport } from './routes/learn.lesson.$id'
 import { Route as AdminUsersUserIdRouteImport } from './routes/admin.users.$userId'
@@ -194,9 +197,24 @@ const AdminFlagsRoute = AdminFlagsRouteImport.update({
   path: '/flags',
   getParentRoute: () => AdminRoute,
 } as any)
+const AdminErrorsRoute = AdminErrorsRouteImport.update({
+  id: '/errors',
+  path: '/errors',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminBugReportsRoute = AdminBugReportsRouteImport.update({
+  id: '/bug-reports',
+  path: '/bug-reports',
+  getParentRoute: () => AdminRoute,
+} as any)
 const AdminAuditRoute = AdminAuditRouteImport.update({
   id: '/audit',
   path: '/audit',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminAlertsRoute = AdminAlertsRouteImport.update({
+  id: '/alerts',
+  path: '/alerts',
   getParentRoute: () => AdminRoute,
 } as any)
 const AdminAiRoute = AdminAiRouteImport.update({
@@ -237,7 +255,10 @@ export interface FileRoutesByFullPath {
   '/urdu-qa': typeof UrduQaRoute
   '/watchlist': typeof WatchlistRoute
   '/admin/ai': typeof AdminAiRoute
+  '/admin/alerts': typeof AdminAlertsRoute
   '/admin/audit': typeof AdminAuditRoute
+  '/admin/bug-reports': typeof AdminBugReportsRoute
+  '/admin/errors': typeof AdminErrorsRoute
   '/admin/flags': typeof AdminFlagsRoute
   '/admin/market-data': typeof AdminMarketDataRoute
   '/admin/roles': typeof AdminRolesRoute
@@ -271,7 +292,10 @@ export interface FileRoutesByTo {
   '/urdu-qa': typeof UrduQaRoute
   '/watchlist': typeof WatchlistRoute
   '/admin/ai': typeof AdminAiRoute
+  '/admin/alerts': typeof AdminAlertsRoute
   '/admin/audit': typeof AdminAuditRoute
+  '/admin/bug-reports': typeof AdminBugReportsRoute
+  '/admin/errors': typeof AdminErrorsRoute
   '/admin/flags': typeof AdminFlagsRoute
   '/admin/market-data': typeof AdminMarketDataRoute
   '/admin/roles': typeof AdminRolesRoute
@@ -308,7 +332,10 @@ export interface FileRoutesById {
   '/urdu-qa': typeof UrduQaRoute
   '/watchlist': typeof WatchlistRoute
   '/admin/ai': typeof AdminAiRoute
+  '/admin/alerts': typeof AdminAlertsRoute
   '/admin/audit': typeof AdminAuditRoute
+  '/admin/bug-reports': typeof AdminBugReportsRoute
+  '/admin/errors': typeof AdminErrorsRoute
   '/admin/flags': typeof AdminFlagsRoute
   '/admin/market-data': typeof AdminMarketDataRoute
   '/admin/roles': typeof AdminRolesRoute
@@ -346,7 +373,10 @@ export interface FileRouteTypes {
     | '/urdu-qa'
     | '/watchlist'
     | '/admin/ai'
+    | '/admin/alerts'
     | '/admin/audit'
+    | '/admin/bug-reports'
+    | '/admin/errors'
     | '/admin/flags'
     | '/admin/market-data'
     | '/admin/roles'
@@ -380,7 +410,10 @@ export interface FileRouteTypes {
     | '/urdu-qa'
     | '/watchlist'
     | '/admin/ai'
+    | '/admin/alerts'
     | '/admin/audit'
+    | '/admin/bug-reports'
+    | '/admin/errors'
     | '/admin/flags'
     | '/admin/market-data'
     | '/admin/roles'
@@ -416,7 +449,10 @@ export interface FileRouteTypes {
     | '/urdu-qa'
     | '/watchlist'
     | '/admin/ai'
+    | '/admin/alerts'
     | '/admin/audit'
+    | '/admin/bug-reports'
+    | '/admin/errors'
     | '/admin/flags'
     | '/admin/market-data'
     | '/admin/roles'
@@ -667,11 +703,32 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminFlagsRouteImport
       parentRoute: typeof AdminRoute
     }
+    '/admin/errors': {
+      id: '/admin/errors'
+      path: '/errors'
+      fullPath: '/admin/errors'
+      preLoaderRoute: typeof AdminErrorsRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/bug-reports': {
+      id: '/admin/bug-reports'
+      path: '/bug-reports'
+      fullPath: '/admin/bug-reports'
+      preLoaderRoute: typeof AdminBugReportsRouteImport
+      parentRoute: typeof AdminRoute
+    }
     '/admin/audit': {
       id: '/admin/audit'
       path: '/audit'
       fullPath: '/admin/audit'
       preLoaderRoute: typeof AdminAuditRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/alerts': {
+      id: '/admin/alerts'
+      path: '/alerts'
+      fullPath: '/admin/alerts'
+      preLoaderRoute: typeof AdminAlertsRouteImport
       parentRoute: typeof AdminRoute
     }
     '/admin/ai': {
@@ -712,7 +769,10 @@ const AdminUsersRouteWithChildren = AdminUsersRoute._addFileChildren(
 
 interface AdminRouteChildren {
   AdminAiRoute: typeof AdminAiRoute
+  AdminAlertsRoute: typeof AdminAlertsRoute
   AdminAuditRoute: typeof AdminAuditRoute
+  AdminBugReportsRoute: typeof AdminBugReportsRoute
+  AdminErrorsRoute: typeof AdminErrorsRoute
   AdminFlagsRoute: typeof AdminFlagsRoute
   AdminMarketDataRoute: typeof AdminMarketDataRoute
   AdminRolesRoute: typeof AdminRolesRoute
@@ -725,7 +785,10 @@ interface AdminRouteChildren {
 
 const AdminRouteChildren: AdminRouteChildren = {
   AdminAiRoute: AdminAiRoute,
+  AdminAlertsRoute: AdminAlertsRoute,
   AdminAuditRoute: AdminAuditRoute,
+  AdminBugReportsRoute: AdminBugReportsRoute,
+  AdminErrorsRoute: AdminErrorsRoute,
   AdminFlagsRoute: AdminFlagsRoute,
   AdminMarketDataRoute: AdminMarketDataRoute,
   AdminRolesRoute: AdminRolesRoute,

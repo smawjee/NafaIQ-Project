@@ -1,6 +1,11 @@
 """A poll that runs out of LLM budget must RETRY the unparsed candidate next
 poll, not skip past it. _parse_message signals that by raising _BudgetExhausted
 (transient) instead of returning None (permanent non-transaction).
+
+Every rules parser in the chain is stubbed out so these tests exercise the LLM
+branch specifically. _MSG is a store receipt, which rules.parse_receipt now
+handles deterministically -- without stubbing it these tests would never reach
+the budget logic they exist to pin.
 """
 from datetime import datetime, timezone
 
@@ -17,6 +22,7 @@ _MSG = RawMessage(
     body="Order receipt. Total PKR 930.80",
     received_at=datetime(2026, 7, 4, tzinfo=timezone.utc),
     internal_date=1_000,
+    thread_id=None,
 )
 
 
@@ -26,6 +32,7 @@ async def test_budget_exhausted_raises_not_skips(monkeypatch):
     # the caller leaves the watermark and retries (never silently drops it).
     monkeypatch.setattr(pipeline.rules, "parse", lambda *a, **k: None)
     monkeypatch.setattr(pipeline.rules, "parse_bill", lambda *a, **k: None)
+    monkeypatch.setattr(pipeline.rules, "parse_receipt", lambda *a, **k: None)
     monkeypatch.setattr(pipeline.llm, "is_configured", lambda: True)
     with pytest.raises(pipeline._BudgetExhausted):
         await pipeline._parse_message(_MSG, [0])
@@ -36,6 +43,7 @@ async def test_no_llm_configured_returns_none(monkeypatch):
     # No LLM at all -> permanent verdict, return None (safe to advance past).
     monkeypatch.setattr(pipeline.rules, "parse", lambda *a, **k: None)
     monkeypatch.setattr(pipeline.rules, "parse_bill", lambda *a, **k: None)
+    monkeypatch.setattr(pipeline.rules, "parse_receipt", lambda *a, **k: None)
     monkeypatch.setattr(pipeline.llm, "is_configured", lambda: False)
     assert await pipeline._parse_message(_MSG, [0]) is None
 
@@ -49,6 +57,7 @@ async def test_budget_spent_when_llm_used(monkeypatch):
 
     monkeypatch.setattr(pipeline.rules, "parse", lambda *a, **k: None)
     monkeypatch.setattr(pipeline.rules, "parse_bill", lambda *a, **k: None)
+    monkeypatch.setattr(pipeline.rules, "parse_receipt", lambda *a, **k: None)
     monkeypatch.setattr(pipeline.llm, "is_configured", lambda: True)
     monkeypatch.setattr(pipeline.llm, "parse", fake_llm_parse)
     budget = [2]

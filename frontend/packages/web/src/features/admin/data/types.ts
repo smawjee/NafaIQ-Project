@@ -126,3 +126,106 @@ export interface OverviewResponse {
   engagement: MetricBlock;
   recent_actions: AuditEntry[];
 }
+
+/** GET /api/admin/alerts — platform-wide aggregates, never per-user contents. */
+export interface AlertsOverview {
+  price_alerts: MetricBlock;
+  app_alerts: MetricBlock;
+  delivery: MetricBlock;
+  events_by_day: MetricBlock;
+  top_symbols: MetricBlock;
+}
+
+/**
+ * A row of `plan_features` — live entitlement configuration, not display copy.
+ * Every field is enforced server-side on the request path, so editing one
+ * changes what users on that plan can actually do.
+ *
+ * `plan` and `rank` are read-only: `plan` is the row identity and `rank` orders
+ * upgrade comparisons elsewhere in the backend.
+ */
+export interface PlanFeatures {
+  plan: string;
+  rank: number;
+
+  max_watchlist: number;
+  max_price_alerts: number;
+  max_portfolios: number;
+  max_holdings_per_portfolio: number;
+  max_budgets: number;
+  max_bills: number;
+  max_goals: number;
+  max_finance_history_days: number;
+
+  /** null means "no limit". */
+  ai_tutor_daily_limit: number | null;
+  ai_reports_per_period: number | null;
+  ai_reports_period: "day" | "week" | "month" | null;
+
+  has_email_alerts: boolean;
+  has_push_alerts: boolean;
+  has_export: boolean;
+  has_multi_currency: boolean;
+  has_realtime_psx: boolean;
+  has_screener_full: boolean;
+  has_webhook_integration: boolean;
+  has_api_access: boolean;
+
+  description: string | null;
+  updated_at: string | null;
+}
+
+/** Partial update — only the keys sent are changed. */
+export type PlanUpdate = Partial<Omit<PlanFeatures, "plan" | "rank" | "updated_at">> & {
+  reason?: string;
+};
+
+/** One distinct captured failure. Occurrences roll up into this. */
+export interface ErrorGroup {
+  fingerprint: string;
+  source: "client" | "server";
+  message: string;
+  route: string | null;
+  sample_stack?: string | null;
+  status: "open" | "investigating" | "resolved" | "ignored";
+  event_count: number;
+  users_affected: number;
+  first_seen: string;
+  last_seen: string;
+  admin_note: string | null;
+  resolved_at: string | null;
+}
+
+export interface ErrorEventRow {
+  id: number;
+  user_id: string | null;
+  user_email: string | null;
+  route: string | null;
+  stack: string | null;
+  status_code: number | null;
+  app_version: string | null;
+  user_agent: string | null;
+  created_at: string;
+}
+
+export interface BugReport {
+  id: number;
+  user_id: string;
+  user_email: string | null;
+  title: string;
+  description: string;
+  category: string;
+  route: string | null;
+  app_version: string | null;
+  user_agent: string | null;
+  status: "open" | "investigating" | "resolved" | "wont_fix";
+  admin_note: string | null;
+  error_fingerprint: string | null;
+  created_at: string;
+  resolved_at: string | null;
+}
+
+export interface TelemetrySummary {
+  errors: { open_groups: number; active_24h: number; events_24h: number };
+  reports: { open_reports: number; investigating: number; new_7d: number; total: number };
+}

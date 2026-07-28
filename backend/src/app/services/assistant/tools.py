@@ -288,7 +288,7 @@ TOOLS: tuple[Tool, ...] = (
         name="add_goal_alert",
         kind="write",
         tier="immediate",
-        description="Alert at a percentage of a goal. For 'any goal', call once per goal.",
+        description="Alert at a percent of a goal. For 'any goal', call per goal.",
         params=AddGoalAlertArgs,
         request=AppAlertCreate,
         # The API takes type/title/meta; we assemble all three from the goal name
@@ -321,7 +321,7 @@ TOOLS: tuple[Tool, ...] = (
         name="add_budget_alert",
         kind="write",
         tier="immediate",
-        description="Alert when spending in a category reaches a percent of the budget.",
+        description="Alert when category spend hits a percent of budget.",
         params=AddBudgetAlertArgs,
         request=AppAlertCreate,
         requires=("category",),
@@ -360,7 +360,7 @@ TOOLS: tuple[Tool, ...] = (
     Tool(
         name="resolve_symbol",
         kind="read",
-        description="Company name -> PSX ticker candidates. Ask which if more than one.",
+        description="Company name -> PSX ticker candidates. Ask if ambiguous.",
         params=ResolveSymbolArgs,
     ),
     # --- navigation --------------------------------------------------------

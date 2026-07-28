@@ -21,7 +21,19 @@ from app.services.email_import.sanitize import (
     fallback_title,
     is_valid_merchant,
 )
-from app.services.email_import.senders import biller_display_name, sender_domain
+from app.services.email_import.correlate import (
+    domain_brand,
+    extract_order_ref,
+    is_freemail,
+)
+from app.services.email_import.senders import (
+    CLASS_REVERSAL,
+    PURCHASE_HINTS,
+    biller_display_name,
+    classify,
+    is_bank_sender,
+    sender_domain,
+)
 
 log = logging.getLogger(__name__)
 
@@ -360,6 +372,116 @@ def parse(
     except Exception:
         log.debug("rules parse produced an invalid transaction", exc_info=True)
         return None
+
+# ── merchant receipt parsing ─────────────────────────────────────────────────
+# A store's own receipt (foodpanda, Daraz, a subscription) uses none of the
+# bank vocabulary this module was built for: there is no "debited"/"credited",
+# so _direction() returns None and parse() gives up. Every such receipt
+# therefore fell through to the LLM — which meant a store purchase could not be
+# imported at all when the LLM was unconfigured, down, or out of poll budget,
+# and cost a model call every time it was.
+#
+# This parser is merchant-agnostic: it names no store. It keys off receipt
+# vocabulary plus a labelled total, and takes the merchant from the sending
+# domain, so a new merchant works on day one with no code change.
+
+# Ordered strongest-label-first. "total" alone is last because it is the most
+# easily confused; `(?<!sub)` keeps it off a "Subtotal" line, which is not what
+# the customer paid.
+_RECEIPT_TOTAL_RES = tuple(
+    re.compile(
+        rf"(?is)\b{label}\b\D{{0,24}}(?:PKR|Rs\.?|RS)\s*([\d,]+(?:\.\d{{1,2}})?)"
+    )
+    for label in (
+        r"grand\s+total",
+        r"order\s+total",
+        r"total\s+paid",
+        r"amount\s+paid",
+        r"you\s+paid",
+        r"total\s+amount",
+        r"(?<!sub)total",
+    )
+)
+
+# Lines that quote a number which is NOT what the customer paid.
+_RECEIPT_NOISE_RE = re.compile(
+    r"(?i)\b(?:subtotal|delivery\s+fee|service\s+fee|discount|voucher|"
+    r"tax|gst|tip|savings?|you\s+saved)\b"
+)
+
+
+def parse_receipt(
+    subject: str, body: str, received_at: datetime, sender: str = ""
+) -> Optional[ParsedTransaction]:
+    """Parse a merchant's own purchase receipt, or None to defer to the LLM.
+
+    Deliberately NOT applied to bank senders: their alerts are parse()'s job,
+    and a bank mail that parse() rejected is one we do not understand well
+    enough to guess at.
+    """
+    if is_bank_sender(sender):
+        return None
+
+    clean_body = strip_boilerplate(body)
+    text = f"{subject}\n{clean_body}"
+    low = text.lower()
+
+    # Receipt vocabulary, or there is no reason to think money changed hands.
+    if not any(hint in low for hint in PURCHASE_HINTS):
+        return None
+
+    amount = None
+    for pattern in _RECEIPT_TOTAL_RES:
+        for match in pattern.finditer(text):
+            line_start = text.rfind("\n", 0, match.start()) + 1
+            if _RECEIPT_NOISE_RE.search(text[line_start : match.start()]):
+                continue  # a fee/discount/subtotal line, not the total
+            amount = _to_amount(match.group(1))
+            if amount is not None:
+                break
+        if amount is not None:
+            break
+    if amount is None:
+        return None
+
+    # The merchant is whoever sent it. A receipt from foodpanda IS from
+    # foodpanda — far more reliable than regexing a name out of marketing copy.
+    merchant = biller_display_name(sender)
+    if not merchant:
+        domain = sender_domain(sender)
+        # A forwarded receipt arrives from the user's OWN mailbox, so the domain
+        # names their mail provider, not the shop. Seen in production filing a
+        # purchase against a merchant called "Gmail". Defer to the LLM, which
+        # reads the forwarded body, rather than inventing a merchant.
+        if is_freemail(domain):
+            return None
+        brand = domain_brand(domain)
+        if not brand:
+            return None
+        merchant = clean_merchant(brand.replace("-", " ").title())
+    if not is_valid_merchant(merchant, sender_domain(sender)):
+        return None
+
+    # A refund/reversal returns money; an ordinary receipt spends it.
+    direction = "credit" if classify(subject, clean_body) == CLASS_REVERSAL else "debit"
+
+    try:
+        return ParsedTransaction(
+            amount=amount,
+            merchant=merchant,
+            direction=direction,
+            category=categorize(merchant, text),
+            transaction_date=received_at,
+            account=_account(text),
+            order_ref=extract_order_ref(subject, clean_body),
+            # Deterministic, but anchored on a generic label rather than a known
+            # template — honest about being a notch below a bank template.
+            confidence=0.9,
+        )
+    except Exception:
+        log.debug("rules receipt parse produced an invalid transaction", exc_info=True)
+        return None
+
 
 # ── bill/invoice parsing ─────────────────────────────────────────────────────
 # Bills are not completed transactions yet: they belong in user_bills so the due

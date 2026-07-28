@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+from datetime import datetime
 from typing import Any, Optional
 
 from sqlalchemy import text
@@ -72,6 +73,8 @@ async def query(
     actor_user_id: Optional[str] = None,
     target_user_id: Optional[str] = None,
     status: Optional[str] = None,
+    since: Optional[datetime] = None,
+    until: Optional[datetime] = None,
     limit: int = 50,
     offset: int = 0,
 ) -> tuple[list[dict[str, Any]], int]:
@@ -83,8 +86,13 @@ async def query(
     where = ["TRUE"]
     params: dict[str, Any] = {"limit": limit, "offset": offset}
     if action:
-        where.append("action = :action")
-        params["action"] = action
+        # Substring match, not equality: the console's filter box is a search
+        # field, so "user" must find admin.user.tier / admin.user.status rather
+        # than requiring the caller to type an exact action name. LIKE wildcards
+        # in the input are escaped so a stray % can't widen the match.
+        where.append("action ILIKE :action ESCAPE '\\'")
+        escaped = action.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+        params["action"] = f"%{escaped}%"
     if actor_user_id:
         where.append("actor_user_id = :actor_user_id")
         params["actor_user_id"] = actor_user_id
@@ -94,6 +102,12 @@ async def query(
     if status:
         where.append("status = :status")
         params["status"] = status
+    if since:
+        where.append("created_at >= :since")
+        params["since"] = since
+    if until:
+        where.append("created_at <= :until")
+        params["until"] = until
     clause = " AND ".join(where)
 
     total = (

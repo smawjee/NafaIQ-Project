@@ -5,7 +5,7 @@ from typing import Annotated, Optional
 
 from fastapi import APIRouter, Depends, Query
 
-from app.services.admin import users as users_service
+from app.services.admin import user_ops, users as users_service
 from app.services.admin.authz import (
     AdminContext,
     RequestMeta,
@@ -13,6 +13,7 @@ from app.services.admin.authz import (
     require_permission,
 )
 from app.schemas.admin import (
+    AnonymiseRequest,
     AdminNote,
     NoteCreate,
     Page,
@@ -101,3 +102,61 @@ async def add_note(
     return await users_service.add_note(
         actor=ctx, meta=meta, user_id=user_id, note=body.note
     )
+
+
+# ---------------------------------------------------------------------------
+# Lifecycle actions (Supabase Auth admin API). See services/admin/user_ops.py —
+# recovery links are generated and mailed there, never returned or logged.
+# ---------------------------------------------------------------------------
+
+
+@router.post("/users/{user_id}/sign-out")
+async def force_sign_out(
+    user_id: str,
+    ctx: Annotated[AdminContext, Depends(require_permission("users.suspend"))],
+    meta: Annotated[RequestMeta, Depends(request_meta)],
+) -> dict:
+    """Revoke every active session. Suspension blocks the next request; this
+    invalidates the refresh tokens so no new access token can be minted."""
+    return await user_ops.force_sign_out(actor=ctx, meta=meta, user_id=user_id)
+
+
+@router.post("/users/{user_id}/password-reset")
+async def send_password_reset(
+    user_id: str,
+    ctx: Annotated[AdminContext, Depends(require_permission("users.suspend"))],
+    meta: Annotated[RequestMeta, Depends(request_meta)],
+) -> dict:
+    """Send the account holder their own recovery email.
+
+    Returns a status only. The recovery URL is never returned to the caller —
+    doing so would make this an account-takeover primitive.
+    """
+    return await user_ops.send_password_reset(actor=ctx, meta=meta, user_id=user_id)
+
+
+@router.post("/users/{user_id}/resend-verification")
+async def resend_verification(
+    user_id: str,
+    ctx: Annotated[AdminContext, Depends(require_permission("users.suspend"))],
+    meta: Annotated[RequestMeta, Depends(request_meta)],
+) -> dict:
+    """Re-send the sign-up confirmation mail. 409s if already confirmed."""
+    return await user_ops.resend_verification(actor=ctx, meta=meta, user_id=user_id)
+
+
+@router.post("/users/{user_id}/anonymise")
+async def anonymise_user(
+    user_id: str,
+    body: AnonymiseRequest,
+    ctx: Annotated[AdminContext, Depends(require_permission("users.anonymise"))],
+    meta: Annotated[RequestMeta, Depends(request_meta)],
+) -> dict:
+    """Irreversibly scrub personal data, keeping portfolio/finance records.
+
+    Gated on `users.anonymise`, which the migration grants to super_admin only.
+    """
+    return await user_ops.anonymise(
+        actor=ctx, meta=meta, user_id=user_id, reason=body.reason
+    )
+

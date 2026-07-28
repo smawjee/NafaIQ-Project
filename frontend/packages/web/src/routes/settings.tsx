@@ -367,6 +367,7 @@ function BankEmailCard({
   // Google "Testing" mode refresh tokens expire after 7 days — surface that as
   // an actionable reconnect rather than a silent stall.
   const needsReconnect = !!status.data?.last_error;
+  const unparsedCount = status.data?.unparsed_count ?? 0;
 
   // The backend's OAuth callback redirects here with ?gmail=<result>.
   useEffect(() => {
@@ -388,10 +389,16 @@ function BankEmailCard({
   const handleSync = async () => {
     try {
       const r = await sync.mutateAsync();
+      // Report what actually happened, not just the happy path. "Imported 1"
+      // while three emails silently failed to parse is a misleading success.
+      const notes: string[] = [];
+      if (r.merged > 0) notes.push(`${r.merged} ${t("merged into existing")}`);
+      if (r.parse_errors > 0) notes.push(`${r.parse_errors} ${t("could not be read")}`);
+      const detail = notes.length ? ` (${notes.join(", ")})` : "";
       toast.success(
-        r.imported > 0
+        (r.imported > 0
           ? `${t("Imported")} ${r.imported} ${t("transaction(s)")}`
-          : t("No new transactions found"),
+          : t("No new transactions found")) + detail,
       );
     } catch (err) {
       toast.error(err instanceof Error ? err.message : t("Sync failed"));
@@ -440,6 +447,15 @@ function BankEmailCard({
               <p className="mt-1 flex items-start gap-1 text-[11px] text-bear">
                 <ShieldAlert className="mt-[1px] h-3 w-3 shrink-0" strokeWidth={1.75} />
                 {status.data?.last_error}
+              </p>
+            ) : null}
+            {/* An incomplete import must be visible. Without this the user sees
+                a healthy connection and simply never learns a receipt was
+                missed. */}
+            {unparsedCount > 0 ? (
+              <p className="mt-1 flex items-start gap-1 text-[11px] text-warning">
+                <ShieldAlert className="mt-[1px] h-3 w-3 shrink-0" strokeWidth={1.75} />
+                {`${unparsedCount} ${t("email(s) could not be read and were skipped. They stay on record and are retried.")}`}
               </p>
             ) : null}
           </div>

@@ -89,7 +89,28 @@ CHECKS: List[MigrationCheck] = [
             # 20260714130000_db_integrity_cleanup migration as duplicates; assert
             # the surviving index of each pair (kept for the symbol/date reads).
             Check("psx_market_snapshot(symbol) index", "SELECT to_regclass('public.idx_psx_market_snapshot_symbol') IS NOT NULL"),
-            Check("psx_ohlcv(symbol,date) index", "SELECT to_regclass('public.idx_psx_ohlcv_symbol_date_desc') IS NOT NULL"),
+            # Asserted by SHAPE, not by index name. The real invariant is that
+            # (symbol, date) reads are index-covered — which of the equivalent
+            # indexes happens to provide that is an implementation detail.
+            #
+            # This previously named idx_psx_ohlcv_symbol_date_desc specifically.
+            # That index is absent in production (20260712110000 is recorded as
+            # applied and its sibling index exists, so this one failed or was
+            # later dropped), yet the UNIQUE constraint index
+            # psx_ohlcv_symbol_date_key already covers (symbol, date) — and
+            # Postgres scans a btree backwards, so a separate DESC index buys
+            # nothing. The name check therefore failed while the property it
+            # was protecting held, and "fixing" it by creating the named index
+            # would have added a redundant duplicate over ~1M rows.
+            Check(
+                "psx_ohlcv (symbol, date) reads are index-covered",
+                """SELECT EXISTS (
+                     SELECT 1 FROM pg_indexes
+                     WHERE schemaname = 'public'
+                       AND tablename = 'psx_ohlcv'
+                       AND indexdef ~ 'USING btree \\(symbol, date'
+                   )""",
+            ),
             # idx_psx_alerts_user went with psx_alerts when it was dropped.
             Check("idx_psx_alerts_user index dropped", "SELECT to_regclass('public.idx_psx_alerts_user') IS NULL"),
             Check("RLS on psx_holdings", "SELECT relrowsecurity FROM pg_class WHERE relname='psx_holdings'"),
@@ -236,17 +257,19 @@ CHECKS: List[MigrationCheck] = [
             # classify shows up on a TV bucket, something overwrote good data —
             # which is exactly the bug fixed by making job_refresh_tv_data
             # preserve an existing sector instead of rewriting it every 5 min.
-            Check("No DPS-classified symbol has been reverted to a raw TradingView sector",
+            # Detected by CASE rather than by an allow-list of the 18 mapped
+            # TradingView buckets. DPS returns PSX's classification in upper
+            # case ("COMMERCIAL BANKS", "OIL & GAS EXPLORATION COMPANIES");
+            # every TradingView value is title case. Crucially, when TV returns
+            # a sector TV_SECTOR_MAP has no entry for, the raw TV string is
+            # stored as-is — so an allow-list of the 18 mapped names silently
+            # misses those. That is exactly how MDTL sat on "Consumer Services"
+            # while this check passed. Casing catches both paths.
+            Check("No DPS-classified symbol has been reverted to a TradingView sector",
                   """SELECT (COUNT(*) FILTER (
                        WHERE listed_shares IS NOT NULL
-                         AND sector IN (
-                           'Finance', 'Process Industries', 'Producer Manufacturing',
-                           'Energy Minerals', 'Consumer Non-Durables', 'Distribution Services',
-                           'Health Technology', 'Utilities', 'Retail Trade', 'Consumer Durables',
-                           'Non-Energy Minerals', 'Electronic Technology', 'Health Services',
-                           'Transportation', 'Commercial Services', 'Industrial Services',
-                           'Communications', 'Technology Services'
-                         )
+                         AND sector IS NOT NULL
+                         AND sector <> upper(sector)
                    ) = 0)::int FROM psx_profile"""),
         ],
     ),
@@ -300,6 +323,48 @@ CHECKS: List[MigrationCheck] = [
         checks=[
             Check("_applied_migrations ledger exists and has rows",
                   "SELECT (COUNT(*) > 0)::int FROM _applied_migrations"),
+        ],
+    ),
+    MigrationCheck(
+        filename="20260728120000_email_import_correlation.sql",
+        description=(
+            "Email-import correlation: staging ledger, learned merchant aliases, "
+            "and the correlation/lifecycle columns on user_transactions."
+        ),
+        checks=[
+            Check("email_import_messages table",
+                  "SELECT to_regclass('public.email_import_messages') IS NOT NULL"),
+            Check("email_merchant_aliases table",
+                  "SELECT to_regclass('public.email_merchant_aliases') IS NOT NULL"),
+            Check("email_import_messages unique on (user_id, message_id)",
+                  "SELECT to_regclass('public.uq_email_import_messages_user_message') IS NOT NULL",
+                  "Without it a re-poll re-stages the same email and the ledger "
+                  "stops being an idempotency key."),
+            Check("email_import_messages reconcile index",
+                  "SELECT to_regclass('public.idx_email_import_messages_recon') IS NOT NULL"),
+            Check("user_transactions.order_ref column",
+                  "SELECT 1 FROM information_schema.columns WHERE table_name='user_transactions' AND column_name='order_ref'"),
+            Check("user_transactions.account_tail column",
+                  "SELECT 1 FROM information_schema.columns WHERE table_name='user_transactions' AND column_name='account_tail'"),
+            Check("user_transactions.correlation_key column",
+                  "SELECT 1 FROM information_schema.columns WHERE table_name='user_transactions' AND column_name='correlation_key'"),
+            Check("user_transactions.reverses_transaction_id column",
+                  "SELECT 1 FROM information_schema.columns WHERE table_name='user_transactions' AND column_name='reverses_transaction_id'"),
+            Check("user_transactions.edited_at column",
+                  "SELECT 1 FROM information_schema.columns WHERE table_name='user_transactions' AND column_name='edited_at'",
+                  "The merge guard. Without it the reconciler cannot tell a "
+                  "user-corrected row from an untouched import and could absorb it."),
+            Check("user_bills.correlation_key column",
+                  "SELECT 1 FROM information_schema.columns WHERE table_name='user_bills' AND column_name='correlation_key'"),
+            Check("RLS on email_import_messages",
+                  "SELECT relrowsecurity FROM pg_class WHERE relname='email_import_messages'",
+                  "Holds email subjects and parsed financial detail; must be "
+                  "backend-only, like user_email_integrations."),
+            Check("email_import_messages has NO policy for authenticated",
+                  "SELECT NOT EXISTS (SELECT 1 FROM pg_policies "
+                  "WHERE schemaname='public' AND tablename='email_import_messages')"),
+            Check("RLS on email_merchant_aliases",
+                  "SELECT relrowsecurity FROM pg_class WHERE relname='email_merchant_aliases'"),
         ],
     ),
     MigrationCheck(
