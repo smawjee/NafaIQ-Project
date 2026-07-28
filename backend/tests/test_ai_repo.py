@@ -8,6 +8,11 @@ from sqlalchemy import text
 
 from app.repositories.base import begin, connect
 
+# Every test here reaches the SQLAlchemy engine; skipped automatically when
+# SUPABASE_DATABASE_PASSWORD is unset (see tests/conftest.py).
+pytestmark = pytest.mark.requires_db
+
+
 
 async def _any_user_id() -> str | None:
     async with connect() as conn:

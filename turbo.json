@@ -11,6 +11,14 @@
       "persistent": true
     },
     "lint": {},
-    "typecheck": {}
+    "typecheck": {},
+    "test": {
+      "dependsOn": ["^build"],
+      "inputs": ["src/**", "tests/**", "package.json", "vite.config.ts", "vitest.config.ts", "jest.config.js", "jest.setup.ts"],
+      "outputs": []
+    },
+    "test:e2e": {
+      "cache": false
+    }
   }
 }

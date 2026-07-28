@@ -1,0 +1,96 @@
+name: Nightly E2E
+
+# Cross-browser / mobile-viewport coverage, deliberately OFF the merge path.
+# ci.yml runs only public-chromium + authed-chromium so a PR is not gated on a
+# viewport nobody is shipping a fix for right now.
+on:
+  schedule:
+    # 03:00 UTC = 08:00 PKT, weekdays — just before PSX opens.
+    - cron: "0 3 * * 1-5"
+  workflow_dispatch:
+    inputs:
+      api_url:
+        description: "Point at a deployed backend instead of local uvicorn (e.g. the Railway URL)"
+        required: false
+        default: ""
+
+permissions:
+  contents: read
+
+env:
+  NODE_VERSION: "22.18.0"
+  PYTHON_VERSION: "3.12"
+
+jobs:
+  matrix:
+    name: nightly-e2e (${{ matrix.project }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    strategy:
+      fail-fast: false
+      matrix:
+        project: [public-chromium, authed-chromium, authed-mobile]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: backend/pyproject.toml
+      - name: Install backend
+        if: github.event.inputs.api_url == ''
+        working-directory: backend
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e ".[dev]"
+
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+
+      - name: Resolve Playwright version
+        id: pw
+        run: |
+          V=$(pnpm --filter @nafaiq/e2e exec playwright --version | sed 's/^Version //')
+          echo "version=$V" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: ms-playwright-${{ runner.os }}-${{ steps.pw.outputs.version }}
+
+      - name: Install browser + system deps
+        run: pnpm --filter @nafaiq/e2e exec playwright install --with-deps chromium
+
+      - name: Run Playwright
+        working-directory: frontend/packages/e2e
+        env:
+          CI: "true"
+          E2E_PYTHON: python
+          # Empty => playwright.config.ts starts a local uvicorn.
+          E2E_API_URL: ${{ github.event.inputs.api_url }}
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
+          VITE_PSX_API_TOKEN: ${{ secrets.VITE_PSX_API_TOKEN }}
+          VITE_DEMO_EMAIL: ${{ secrets.VITE_DEMO_EMAIL }}
+          VITE_DEMO_PASSWORD: ${{ secrets.VITE_DEMO_PASSWORD }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
+          SUPABASE_JWT_SECRET: ${{ secrets.SUPABASE_JWT_SECRET }}
+          SUPABASE_DATABASE_PASSWORD: ${{ secrets.SUPABASE_DATABASE_PASSWORD }}
+          SUPABASE_POOLER_HOST: ${{ secrets.SUPABASE_POOLER_HOST }}
+          SUPABASE_POOLER_USER: ${{ secrets.SUPABASE_POOLER_USER }}
+          PSX_API_TOKEN: ${{ secrets.PSX_API_TOKEN }}
+        run: pnpm exec playwright test --project=${{ matrix.project }}
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: nightly-report-${{ matrix.project }}-${{ github.run_id }}
+          path: frontend/packages/e2e/reports/
+          retention-days: 14

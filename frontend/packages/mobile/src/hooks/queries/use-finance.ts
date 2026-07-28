@@ -296,7 +296,9 @@ export function useDeleteBill() {
 
 export interface FinanceSummary {
   month: string;
-  income: number;
+  income: number; // earned this month from transactions (variable)
+  fixed_income: number; // recurring monthly income (salary) from settings
+  total_income: number; // income + fixed_income — the real monthly income
   expenses: number;
   savings: number;
   savings_rate: number;

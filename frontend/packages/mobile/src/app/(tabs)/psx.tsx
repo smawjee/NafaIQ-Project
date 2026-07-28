@@ -172,7 +172,11 @@ export default function PsxScreen() {
     return signal === "All" ? all : all.filter((r) => r.signal === signal);
   }, [snapshot, symbolsData, batchSignals, screenerMetrics, signal]);
 
-  const modelReady = !!aiSignal && aiSignal.signal !== "NO SIGNAL";
+  // Require an actual signal label: some symbols return a signal object whose
+  // `signal` is undefined, and `undefined !== "NO SIGNAL"` is true — that let
+  // t(aiSignal!.signal).toLowerCase() below crash the whole screen.
+  const modelReady =
+    !!aiSignal && !!aiSignal.signal && aiSignal.signal !== "NO SIGNAL";
 
   const renderRow = useCallback(
     ({ item }: { item: ScreenerRow }) => {

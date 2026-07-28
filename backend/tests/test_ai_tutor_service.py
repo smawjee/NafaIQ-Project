@@ -107,6 +107,7 @@ async def test_mid_stream_failure_does_not_fall_back(monkeypatch):
 
 
 @pytest.mark.asyncio
+@pytest.mark.requires_db  # touches the real engine
 async def test_check_quota_under_at_and_unlimited(monkeypatch):
     from app.repositories import ai_repo
     from app.services.ai import quota

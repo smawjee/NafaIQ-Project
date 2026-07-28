@@ -58,14 +58,12 @@ Tier = Literal["confirm", "immediate"]
 
 
 class AddTransactionArgs(BaseModel):
-    merchant: Optional[str] = Field(None, description="Who was paid, or the income source.")
+    merchant: Optional[str] = Field(None, description="Payee or income source.")
     amount: Optional[float] = Field(None, description="PKR, positive.")
     transaction_type: Optional[Literal["expense", "income"]] = None
-    category: Optional[str] = Field(None, description="One of the categories listed in context.")
-    transaction_date: Optional[str] = Field(None, description="ISO 8601. Omit for now.")
-    source: Optional[str] = Field(
-        None, description="One of the payment methods listed in context."
-    )
+    category: Optional[str] = Field(None, description="From the context list.")
+    transaction_date: Optional[str] = Field(None, description="ISO 8601; omit = now.")
+    source: Optional[str] = Field(None, description="From the context list.")
     note: Optional[str] = None
 
 
@@ -85,12 +83,12 @@ class AddGoalArgs(BaseModel):
 
 
 class ContributeToGoalArgs(BaseModel):
-    goal_name: Optional[str] = Field(None, description="An existing goal, named in context.")
+    goal_name: Optional[str] = Field(None, description="Existing goal from context.")
     amount: Optional[float] = Field(None, description="PKR to add.")
 
 
 class AddGoalAlertArgs(BaseModel):
-    goal_name: Optional[str] = Field(None, description="An existing goal, named in context.")
+    goal_name: Optional[str] = Field(None, description="Existing goal from context.")
     milestone: Optional[float] = Field(None, description="Percent of target, e.g. 50.")
 
 
@@ -101,24 +99,23 @@ class AddPriceAlertArgs(BaseModel):
 
 
 class AddBillAlertArgs(BaseModel):
-    bill_name: Optional[str] = Field(None, description="A tracked bill, named in context.")
-    timing: Optional[str] = Field(
-        None, description='How many days before due. One of "1 day before", "3 days before", "7 days before".'
-    )
+    bill_name: Optional[str] = Field(None, description="Tracked bill from context.")
+    # An enum rather than a described string: execute.py passes this straight
+    # through as the alert's display text, so the three accepted values are the
+    # contract. Constraining them costs fewer characters than describing them.
+    timing: Optional[Literal["1 day before", "3 days before", "7 days before"]] = None
 
 
 class AddBudgetAlertArgs(BaseModel):
     category: Optional[str] = Field(None, description="Budget category.")
-    threshold: Optional[float] = Field(
-        None, description="Percent of budget that triggers the alert, e.g. 80."
-    )
+    threshold: Optional[float] = Field(None, description="Percent of budget, e.g. 80.")
 
 
 class AddHoldingArgs(BaseModel):
     symbol: Optional[str] = Field(None, description="PSX ticker.")
     shares: Optional[int] = None
     avg_cost: Optional[float] = Field(None, description="Per share, PKR.")
-    portfolio_id: Optional[int] = Field(None, description="Omit if the user has only one.")
+    portfolio_id: Optional[int] = Field(None, description="Omit if only one.")
     purchased_at: Optional[str] = Field(None, description="YYYY-MM-DD.")
 
 
@@ -128,12 +125,12 @@ class RecordTradeArgs(BaseModel):
     quantity: Optional[int] = None
     price: Optional[float] = Field(None, description="Per share, PKR.")
     fees: Optional[float] = Field(None, description="PKR.")
-    portfolio_id: Optional[int] = Field(None, description="Omit if the user has only one.")
+    portfolio_id: Optional[int] = Field(None, description="Omit if only one.")
 
 
 class WatchlistArgs(BaseModel):
     symbol: Optional[str] = Field(
-        None, description="PSX ticker. Call resolve_symbol first if given a company name."
+        None, description="PSX ticker; use resolve_symbol for a company name."
     )
 
 
@@ -147,7 +144,7 @@ class NoArgs(BaseModel):
 
 
 class SpendingByCategoryArgs(BaseModel):
-    days: int = Field(30, ge=1, le=365, description="Look-back window in days.")
+    days: int = Field(30, ge=1, le=365, description="Look-back days.")
 
 
 class GetTransactionsArgs(BaseModel):
@@ -155,7 +152,7 @@ class GetTransactionsArgs(BaseModel):
 
 
 class FinanceSummaryArgs(BaseModel):
-    month: Optional[str] = Field(None, description="YYYY-MM. Omit for the current month.")
+    month: Optional[str] = Field(None, description="YYYY-MM; omit = current.")
 
 
 class ResolveSymbolArgs(BaseModel):

@@ -6,7 +6,9 @@
     "build": "turbo run build",
     "lint": "turbo run lint",
     "format": "prettier --write .",
-    "typecheck": "turbo run typecheck"
+    "typecheck": "turbo run typecheck",
+    "test": "turbo run test",
+    "test:e2e": "pnpm --filter @nafaiq/e2e test:e2e"
   },
   "devDependencies": {
     "prettier": "^3.7.3",

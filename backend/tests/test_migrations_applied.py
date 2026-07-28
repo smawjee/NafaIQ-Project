@@ -1,6 +1,11 @@
 """Pytest: verify required migrations are applied to Supabase.
 
 Checks each migration's expected schema changes against the live DB.
+
+Requires a live database — it inspects the real schema, so there is nothing
+meaningful to assert without one. Guarded like the other live-DB suites (see
+tests/test_sell_holding.py) so a credential-free CI run skips it instead of
+reporting a false failure.
 """
 from __future__ import annotations
 
@@ -11,7 +16,13 @@ from typing import List
 import pytest
 from sqlalchemy import text
 
+from app.config import settings
 from app.db.sqlalchemy import ensure_reflected, get_engine
+
+pytestmark = pytest.mark.skipif(
+    not (settings.supabase_url and settings.supabase_service_key),
+    reason="Supabase credentials not configured",
+)
 
 
 @dataclass

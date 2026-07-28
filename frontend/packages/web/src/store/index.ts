@@ -18,7 +18,9 @@ const appReducer = combineReducers({
 
 // resetDemoData re-seeds every slice from its fixture initial state, so demo
 // activity cannot leak across logout or into a real-user session.
-const rootReducer: typeof appReducer = (state, action) =>
+// Exported so tests can build an isolated store without the persistence
+// middleware or the localStorage rehydration below (see src/test-utils.tsx).
+export const rootReducer: typeof appReducer = (state, action) =>
   appReducer(resetDemoData.match(action) ? undefined : state, action);
 
 const preloaded = loadPersistedState<ReturnType<typeof appReducer>>() ?? undefined;
