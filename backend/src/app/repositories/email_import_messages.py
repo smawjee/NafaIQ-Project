@@ -14,7 +14,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any, Optional
 
-from sqlalchemy import and_, func, select, update
+from sqlalchemy import and_, func, literal_column, select, update
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 
 from app.repositories.finance._common import table
