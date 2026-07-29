@@ -1,0 +1,32 @@
+{
+  "results": {
+    "20D": {
+      "q5_minus_q1_after_cost": -0.0142,
+      "q5_excess_after_cost": -0.0336,
+      "n_dates": 369,
+      "monotonicity": -0.9,
+      "by_quintile": {
+        "q1": -0.0194,
+        "q2": -0.0189,
+        "q3": -0.0195,
+        "q4": -0.0212,
+        "q5": -0.0286
+      }
+    },
+    "60D": {
+      "q5_minus_q1_after_cost": -0.0195,
+      "q5_excess_after_cost": -0.1051,
+      "n_dates": 360,
+      "monotonicity": -1.0,
+      "by_quintile": {
+        "q1": -0.0855,
+        "q2": -0.0873,
+        "q3": -0.0876,
+        "q4": -0.0922,
+        "q5": -0.1001
+      }
+    }
+  },
+  "verdict": "RED",
+  "signal": "ret_240d_ex20 (12-1 momentum)"
+}

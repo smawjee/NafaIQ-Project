@@ -1,0 +1,15 @@
+Loading Supabase data for feature store...
+Loaded OHLCV for 50/507 symbols
+Loaded OHLCV for 100/507 symbols
+Loaded OHLCV for 150/507 symbols
+Loaded OHLCV for 200/507 symbols
+Loaded OHLCV for 250/507 symbols
+Loaded OHLCV for 300/507 symbols
+Loaded OHLCV for 350/507 symbols
+Loaded OHLCV for 400/507 symbols
+Loaded OHLCV for 450/507 symbols
+Loaded OHLCV for 500/507 symbols
+Adjusted OHLCV for 191/459 symbols (mode=price)
+Building 5D V3 feature store...
+Building 20D V3 feature store...
+Building 60D V3 feature store...

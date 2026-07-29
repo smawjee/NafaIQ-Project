@@ -1,27 +1,22 @@
-from datetime import datetime, timezone
-from functools import lru_cache
+"""Health routes: thin HTTP layer over services.health.
 
-from fastapi import APIRouter
-from sqlalchemy import text
+`set_market_refresh_time` is re-exported for backwards compatibility with
+existing importers (e.g. the scheduler).
+"""
+import logging
 
-from app.scrapers.dps import DPSScraper
-from app.services.cache import CacheLayer
-from app.db.sqlalchemy import ensure_reflected, get_session_factory
+from fastapi import APIRouter, Request
+
+from app.middleware.rate_limit import limiter
+from app.services.health import (  # noqa: F401
+    db_ping,
+    get_market_refresh_time,
+    set_market_refresh_time,
+)
+
+log = logging.getLogger(__name__)
 
 router = APIRouter(tags=["health"])
-
-
-@lru_cache
-def _get_cache() -> CacheLayer:
-    return CacheLayer(DPSScraper())
-
-
-_last_market_refresh: datetime | None = None
-
-
-def set_market_refresh_time():
-    global _last_market_refresh
-    _last_market_refresh = datetime.now(timezone.utc)
 
 
 @router.get("/health")
@@ -29,17 +24,38 @@ async def health():
     return {
         "status": "ok",
         "version": "0.1.0",
-        "last_market_refresh": _last_market_refresh.isoformat() if _last_market_refresh else None,
+        "last_market_refresh": get_market_refresh_time(),
     }
 
 
 @router.get("/health/db")
 async def health_db():
-    import time
-    await ensure_reflected()
-    factory = get_session_factory()
-    start = time.perf_counter()
-    async with factory() as session:
-        await session.execute(text("SELECT 1"))
-    latency = (time.perf_counter() - start) * 1000
-    return {"status": "ok", "latency_ms": round(latency, 2)}
+    return await db_ping()
+
+
+@router.get("/health/sources")
+@limiter.limit("30/minute")
+async def health_sources(request: Request):
+    """Return last-success / last-error timestamps per data source.
+
+    Reads from psx_data_source_health table and returns all rows ordered
+    by source name. Used by the frontend observability widget.
+    """
+    from app.db.supabase import async_execute
+    try:
+        # Explicit columns, NOT select("*"): last_error_message holds the raw
+        # str(e) that _record_health captured from the job, which can carry the
+        # Supabase project URL, table names and connection detail. This
+        # endpoint is anonymous, so the widget gets the error *timestamp* to
+        # show a source as unhealthy; the text stays in the logs.
+        result = await async_execute(lambda c: c.table("psx_data_source_health")
+                                     .select("source,last_success,last_error,"
+                                             "rows_updated,refreshed_at")
+                                     .order("source"))
+        rows = result.data or []
+        return {"sources": rows, "healthy": True}
+    except Exception:
+        # This endpoint is public — never echo the exception text, it can carry
+        # the project URL, table names and connection detail.
+        log.exception("health_sources query failed")
+        return {"sources": [], "healthy": False, "error": "health check unavailable"}

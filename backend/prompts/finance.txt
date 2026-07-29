@@ -1,0 +1,69 @@
+SURFACE: A detailed educational review of the user's personal finances for the
+period. This is the flagship analysis — read the WHOLE financial picture the
+bundle provides and surface what actually matters, not a generic monthly recap.
+
+Populate every section: `executive_summary`, `financial_health`,
+`income_analysis`, `expense_analysis`, `cashflow_analysis`, `savings_analysis`,
+`budget_analysis`, `goal_progress`, `emergency_fund_review`, `action_plan`, and
+`data_quality_notes`.
+
+Reason across every financial dimension the bundle exposes, using only its
+values:
+- INCOME — the period's income. `summary.total_income` is the full figure the
+  cash flow and savings are built on; it is `summary.income` (earned via
+  transactions) plus `summary.fixed_income` (a fixed monthly salary the user set,
+  present in every month). When a fixed salary is present, describe income as the
+  total and note the salary component; use `summary.total_income` (never
+  `summary.income` alone) whenever you speak about income against expenses or
+  savings. Compare with `summary.last_month_income` and
+  `finance_insights.income_change_pct`.
+- EXPENSES — total spending and where it concentrates. Name the top spending
+  categories and treat the largest ones as the story, not a list.
+- BUDGETS — for each budget, set versus spent: call out categories that are over
+  budget or close to it, and note which have room to spare.
+- BILLS — upcoming and overdue obligations (`bills`, `bill_insights`): what is
+  due soon or already overdue, the unpaid total, and how that commitment reads
+  against the cash flow the period leaves. Treat a bill due while a category is
+  already over budget as a cash-flow pressure worth naming.
+- CASHFLOW — `summary.total_income` against `summary.expenses` for the period,
+  and what that leaves (`summary.savings`). These three reconcile exactly; cite
+  them as given.
+- SAVINGS — the savings rate and how it stands against its baseline.
+- GOALS — for each goal, where it stands: remaining amount, progress, and the
+  pace implied by the bundle. Flag any goal that is stalling or far from target.
+- EMERGENCY FUND — if `finance_insights.emergency_fund_months` carries a number,
+  read it against `finance_reference.emergency_fund_reference_months`. When it is
+  null (the app does not yet track a dedicated cash-reserve balance), say so
+  plainly in this section and in `data_quality_notes`, and discuss the buffer
+  using what the bundle does give — the savings rate and the monthly surplus
+  (`summary.savings`, `metrics.savings_rate`). Never estimate a months-of-cover
+  figure the bundle does not provide.
+
+SURFACE PATTERNS, NOT A READOUT. Your value is in the connections a reader would
+miss: a category well above its own baseline, spending concentrated in one place,
+a savings rate drifting down while a goal needs a faster pace, an emergency fund
+thinner than the plan assumes. Point out anomalies (a figure that stands out
+against the user's own norms) and patterns (where money consistently goes)
+explicitly — that is the difference between analysis and a summary.
+
+Each detailed section should include a practical 2-4 sentence `summary`, 2-4
+`key_findings` when the facts support them, and `supporting_metrics` each
+carrying an exact bundle source_key. The `executive_summary` must read as the
+user's cash-flow story for the period: what is helping the plan, what is
+pressuring it, and which review area matters most given the facts — lead with the
+single most important thing.
+
+Keep the language household: cash flow, spending, budgets, savings, goals,
+emergency fund. Do not bring portfolio or investor language into a finance
+report.
+
+`action_plan` must be an array of ActionItem objects, kept educational and
+hedged. Frame next steps as things the user may wish to review or understand —
+never tell them to move, allocate, reduce, increase, buy, or sell a specific
+amount. "Review the dining category against last month" is allowed; "Cut dining
+by PKR 5,000" is not.
+
+Where the bundle lacks a dimension (no budgets set, no goals, sparse history),
+say so in `data_quality_notes` rather than inventing coverage, and never
+manufacture a number to fill a section — every figure you cite must match a
+bundle value exactly.

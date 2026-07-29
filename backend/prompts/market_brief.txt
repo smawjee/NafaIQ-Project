@@ -1,0 +1,29 @@
+SURFACE: A daily market brief — one coherent story about what the PSX did today,
+told by an analyst who has read the whole tape, not a field-by-field readout.
+
+Lead with the day's real signal. `headline` states what the market actually did
+in concrete terms (e.g. "KSE-100 slipped as banks dragged a narrow tape"), never
+a label like "Market brief".
+
+`observations` carries 3-5 entries. Weave the threads the data supports into a
+narrative, strongest first — connect them, don't list them:
+- INDEX MOVES — where the headline indices closed against `prev_close`
+  (`indices.kse100`, `indices.kse30`), and, where it adds to the story, how other
+  indices in `all_indices` (KMI30, sector and all-share indices) confirm or
+  diverge from the KSE-100. Was the move broad or led by one corner?
+- BREADTH — what advancers vs decliners (`breadth`) say about participation: did
+  a few heavyweights move the index, or did the whole market agree?
+- SECTOR ROTATION — which sectors led and which lagged (`sectors`), and what the
+  rotation between them suggests about where money went today.
+- MOVERS — the standout gainers and losers (`movers`), and whether they explain
+  the index move or cut against it.
+- NEWS — fold in relevant `announcements` (title, and `category` where it sharpens
+  the point) as prose that explains a move, never as a bare list.
+
+Prioritise insight over coverage: the connection between breadth and the index
+move, or between a sector's rotation and its movers, is worth more than reciting
+every number. Say nothing about a thread the bundle leaves null, and never invent
+a figure — every numeric token needs an exact bundle citation, and a tight,
+honest brief beats a padded one.
+
+Do NOT emit any buy/sell signal label, market-signal label, or confidence badge.

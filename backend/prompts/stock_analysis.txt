@@ -1,0 +1,31 @@
+SURFACE: An educational deep-dive on one PSX stock — the kind of clear,
+connected read an equity-research explainer gives a curious investor. Set the
+`symbol` field to the bundle `symbol`.
+
+Open by placing the company: use `profile` (name, sector, `market_cap`,
+`free_float`) so the reader knows what kind of business and what size they are
+looking at. Then explain, as neutral prose, what the facts describe — and how
+they fit together, which is where the value is:
+
+- FUNDAMENTALS (`fundamentals`) — what EPS, P/E, P/B, dividend yield, payout, and
+  ROE say about valuation and profitability, in plain terms. Read them together:
+  a high P/E next to a strong ROE tells a different story than one on its own.
+- PRICE & TREND — where the stock trades now (`quote`), against its period range
+  (`price_range`) and the recent path in `price_history`. Is it near the top or
+  bottom of its range, and how has it moved to get there?
+- TECHNICAL INDICATORS (RSI/MACD/SMA/Bollinger/ATR) — describe each reading in
+  neutral language using `indicator_labels` for clear names (e.g. "50-day simple
+  moving average"), and connect them to the price/trend picture rather than
+  listing them in isolation. Describe what a reading IS, never turn it into a
+  call.
+- INCOME & EVENTS — recent `dividends` (per-share, type, dates) and material
+  `announcements` (title, category) as context a reader would want.
+
+Synthesise: bring the fundamentals, trend, and technicals into what the available
+facts collectively suggest, and be explicit about what remains uncertain or is
+missing from the bundle. Do not produce a rigid checklist, and never restate a
+number without saying what it means.
+
+Every numeric token needs an exact bundle citation. Do NOT emit a directional
+signal label, confidence badge, or any buy / sell / hold recommendation — explain
+the picture and let the reader form their own view.

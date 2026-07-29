@@ -1,0 +1,51 @@
+-- psx_ohlcv: add a date-leading index to serve the volume-spike scan.
+--
+-- =========================================================================
+-- !! RUN THIS FILE AS A SINGLE STANDALONE STATEMENT — NOT IN A TRANSACTION !!
+--
+-- CREATE INDEX CONCURRENTLY cannot run inside a transaction block. If the
+-- Supabase Dashboard SQL Editor wraps the statement (it does when you paste
+-- several statements at once, and may implicitly), this fails with:
+--     25001: CREATE INDEX CONCURRENTLY cannot run inside a transaction block
+--
+-- That is why this migration contains exactly ONE statement and no BEGIN/COMMIT
+-- — do not bundle it with other DDL and do not add any. Paste the single
+-- CREATE INDEX line into an empty editor tab and run it on its own.
+-- =========================================================================
+--
+-- WHY: services/signals/volume_spikes.py scans psx_ohlcv filtering
+--   date >= (today - 31), date < today, volume >= 1
+-- with NO symbol predicate, ordered by symbol, date, paged ~12x, every 5 min.
+--
+-- Every existing index on psx_ohlcv leads with `symbol`, so none can serve a
+-- symbol-less date range — the planner falls back to a full scan of ~973,599
+-- rows plus a sort, on every page, every 5 minutes:
+--   * psx_ohlcv_symbol_date_key      — auto index from the inline UNIQUE(symbol, date)
+--                                      in 20260706120000:34
+--   * idx_psx_ohlcv_symbol_date_desc — (symbol, date DESC), 20260712110000:10
+--   * idx_psx_ohlcv_split            — (symbol, split_date) partial, 20260715020000:42
+--   * psx_ohlcv_pkey                 — on id, 20260706120000:26
+--   (idx_psx_ohlcv_sym_date from 20260706120000:36 no longer exists — dropped
+--    by 20260714130000:39 as a duplicate of the DESC index.)
+--
+-- A (date, symbol) index makes the date range a leading-column scan, and the
+-- resulting order matches the query's ORDER BY symbol, date only partially —
+-- but the range restriction is the win: ~31 days instead of ~10 years.
+-- INCLUDE (volume) makes it covering, so the volume >= 1 filter and the
+-- returned volume are satisfied from the index without heap fetches.
+--
+-- COST: the table is ~973k rows / ~80MB, so the build takes a little time.
+-- CONCURRENTLY is used precisely so the 5-minute scraper writes are not locked
+-- out while it runs. The tradeoff: CONCURRENTLY does two table passes (slower)
+-- and, if it fails, leaves an INVALID index behind. If that happens, drop it
+-- and retry — the IF NOT EXISTS below will NOT retry it for you, because an
+-- invalid index still counts as existing:
+--     DROP INDEX CONCURRENTLY IF EXISTS public.idx_psx_ohlcv_date_symbol;
+-- Check validity after applying:
+--     SELECT indisvalid FROM pg_index WHERE indexrelid =
+--         'public.idx_psx_ohlcv_date_symbol'::regclass;
+--
+-- Idempotent: IF NOT EXISTS makes a re-run a no-op (see the INVALID caveat above).
+
+CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_psx_ohlcv_date_symbol
+    ON public.psx_ohlcv (date, symbol) INCLUDE (volume);

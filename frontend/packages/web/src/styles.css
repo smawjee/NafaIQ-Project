@@ -51,7 +51,12 @@
 
   --color-text-primary: #ffffff;
   --color-text-secondary: #b0c4de;
-  --color-text-muted: #64748b;
+  /* Lightened from #64748b: on the #0a0a0f dark surface that slate was ~3.9:1,
+     below the WCAG AA 4.5:1 floor. #7e8ca0 clears AA (~5.1:1) for every muted
+     element (report disclaimers, data-quality notes, timestamps, subtitles)
+     while staying clearly below text-secondary. Light mode keeps #64748b, which
+     already passes on white. */
+  --color-text-muted: #7e8ca0;
 
   --color-input: rgba(255, 255, 255, 0.08);
   --color-ring: #00d4aa;
@@ -694,9 +699,9 @@ html {
   --color-primary-foreground: #ffffff;
   --color-info: #0d9488;
 
-  /* AI + Learn keep a distinct violet accent in light mode */
-  --color-ai: #7c3aed;
-  --color-ai-tint: #f5f3ff;
+  /* AI and Learn use the same green/teal brand accent */
+  --color-ai: #0d9488;
+  --color-ai-tint: #e8f7f4;
 
   /* Market signals â€” deepened for contrast on white */
   --color-bull: #0d9488;
@@ -889,19 +894,227 @@ html {
   border: 1px solid rgba(255, 255, 255, 0.06);
   box-shadow: 0 1px 2px rgba(15, 23, 42, 0.12);
 }
+.market-strip-live {
+  background: rgba(255, 255, 255, 0.04);
+  border-right: 1px solid rgba(255, 255, 255, 0.06);
+}
+.market-strip .market-strip-symbol {
+  color: #f8fafc;
+}
 .market-strip .market-strip-muted {
   color: #94a3b8;
 }
 
 /* Light theme ticker override */
 .theme-light .market-strip {
-  background: var(--color-surface-alt);
-  color: var(--color-text-primary);
-  border: 1px solid var(--color-border);
-  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.06);
+  background: #ffffff;
+  color: #0f172a;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 10px 28px rgba(15, 23, 42, 0.06);
+}
+.theme-light .market-strip-live {
+  background: #ecfdf9;
+  border-right: 1px solid #d8f3ef;
+}
+.theme-light .market-strip .market-strip-symbol {
+  color: #0f172a;
 }
 .theme-light .market-strip .market-strip-muted {
+  color: #475569;
+}
+
+.theme-light .heatmap-tile-label {
+  text-shadow: none !important;
+}
+
+/* ============================================================
+   Premium app sidebar. Dark mode uses the default design tokens;
+   light mode matches the approved high-fidelity sidebar mockup.
+   ============================================================ */
+.premium-sidebar {
+  background: var(--color-sidebar);
+  border-color: var(--color-border);
+}
+.premium-sidebar-scroll {
+  scrollbar-gutter: stable;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(148, 163, 184, 0.42) transparent;
+}
+.premium-sidebar-scroll::-webkit-scrollbar {
+  width: 10px;
+}
+.premium-sidebar-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+.premium-sidebar-scroll::-webkit-scrollbar-thumb {
+  min-height: 42px;
+  border: 3px solid transparent;
+  border-radius: 999px;
+  background: rgba(148, 163, 184, 0.42);
+  background-clip: content-box;
+}
+.premium-sidebar-scroll::-webkit-scrollbar-thumb:hover {
+  background: rgba(148, 163, 184, 0.6);
+  background-clip: content-box;
+}
+.premium-sidebar-scroll::-webkit-scrollbar-button {
+  display: none;
+  width: 0;
+  height: 0;
+}
+.premium-sidebar-logo,
+.premium-sidebar-profile-name {
+  color: var(--color-text-primary);
+}
+.premium-sidebar-subtitle,
+.premium-sidebar-profile-chevron {
+  color: var(--color-text-secondary);
+}
+.premium-sidebar-collapse,
+.premium-sidebar-profile,
+.premium-sidebar-signout {
+  background: var(--color-elevated);
+  border-color: var(--color-border);
+  color: var(--color-text-secondary);
+}
+.premium-sidebar-collapse:hover,
+.premium-sidebar-profile:hover,
+.premium-sidebar-signout:hover {
+  background: var(--color-hover);
+  border-color: var(--color-border-hover);
+  color: var(--color-text-primary);
+}
+.premium-sidebar-ai-cta {
+  background: color-mix(in oklab, var(--color-elevated) 92%, var(--color-bull) 8%);
+  border-color: color-mix(in oklab, var(--color-border) 70%, var(--color-bull) 30%);
+  color: var(--color-bull);
+}
+.premium-sidebar-ai-cta:hover {
+  border-color: color-mix(in oklab, var(--color-border-hover) 55%, var(--color-bull) 45%);
+  box-shadow: 0 18px 40px rgba(0, 212, 170, 0.12);
+}
+.premium-sidebar-ai-icon,
+.premium-sidebar-avatar,
+.premium-sidebar-badge {
+  background: rgba(0, 212, 170, 0.12);
+  border-color: rgba(0, 212, 170, 0.28);
+  color: var(--color-bull);
+}
+.premium-sidebar-section-label {
   color: var(--color-text-muted);
+}
+.premium-sidebar-footer {
+  border-color: var(--color-border);
+}
+.premium-sidebar-link {
+  color: var(--color-text-secondary);
+}
+.premium-sidebar-link:hover {
+  background: var(--color-hover);
+  color: var(--color-text-primary);
+}
+.premium-sidebar-link-pill {
+  background: rgba(0, 212, 170, 0.1);
+}
+.premium-sidebar-link-indicator {
+  background: var(--color-bull);
+}
+.premium-sidebar-link-icon {
+  color: var(--color-text-muted);
+}
+.premium-sidebar-link:hover .premium-sidebar-link-icon,
+.premium-sidebar-link.is-active,
+.premium-sidebar-link.is-active .premium-sidebar-link-icon {
+  color: var(--color-bull);
+}
+
+.theme-light .premium-sidebar {
+  background: #fcfcfd;
+  border-color: #eaecf0;
+  box-shadow: 10px 0 34px rgba(16, 24, 40, 0.04);
+}
+.theme-light .premium-sidebar-scroll {
+  scrollbar-color: #cbd5e1 transparent;
+}
+.theme-light .premium-sidebar-scroll::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  background-clip: content-box;
+}
+.theme-light .premium-sidebar-scroll::-webkit-scrollbar-thumb:hover {
+  background: #98a2b3;
+  background-clip: content-box;
+}
+.theme-light .premium-sidebar-logo,
+.theme-light .premium-sidebar-profile-name {
+  color: #101828;
+}
+.theme-light .premium-sidebar-subtitle,
+.theme-light .premium-sidebar-profile-chevron {
+  color: #667085;
+}
+.theme-light .premium-sidebar-collapse,
+.theme-light .premium-sidebar-profile,
+.theme-light .premium-sidebar-signout {
+  background: #ffffff;
+  border-color: #eaecf0;
+  color: #667085;
+}
+.theme-light .premium-sidebar-collapse:hover,
+.theme-light .premium-sidebar-profile:hover,
+.theme-light .premium-sidebar-signout:hover {
+  background: #f4f7f9;
+  border-color: #d0d5dd;
+  color: #101828;
+}
+.theme-light .premium-sidebar-ai-cta {
+  background: #ffffff;
+  border-color: #d8f3ef;
+  color: #0f766e;
+  box-shadow: 0 8px 18px rgba(16, 24, 40, 0.06);
+}
+.theme-light .premium-sidebar-ai-cta:hover {
+  border-color: #99e6dd;
+  box-shadow: 0 10px 22px rgba(16, 24, 40, 0.08);
+}
+.theme-light .premium-sidebar-ai-icon,
+.theme-light .premium-sidebar-avatar {
+  background: #ddf6f2;
+  color: #0f766e;
+}
+.theme-light .premium-sidebar-ai-cta:hover .premium-sidebar-ai-icon {
+  background: #d8f3ef;
+}
+.theme-light .premium-sidebar-badge {
+  background: #e7f8f5;
+  border-color: #b8eee6;
+  color: #0f766e;
+}
+.theme-light .premium-sidebar-section-label {
+  color: #98a2b3;
+}
+.theme-light .premium-sidebar-footer {
+  border-color: #eaecf0;
+}
+.theme-light .premium-sidebar-link {
+  color: #667085;
+}
+.theme-light .premium-sidebar-link:hover {
+  background: #f4f7f9;
+  color: #101828;
+}
+.theme-light .premium-sidebar-link-pill {
+  background: #e7f8f5;
+}
+.theme-light .premium-sidebar-link-indicator {
+  background: #14b8a6;
+}
+.theme-light .premium-sidebar-link-icon {
+  color: #667085;
+}
+.theme-light .premium-sidebar-link:hover .premium-sidebar-link-icon,
+.theme-light .premium-sidebar-link.is-active,
+.theme-light .premium-sidebar-link.is-active .premium-sidebar-link-icon {
+  color: #14b8a6;
 }
 
 /* ============================================================
@@ -918,7 +1131,7 @@ html {
    ============================================================ */
 
 /* Primary CTA accent system â€” teal is the single primary action color.
-   Orange stays reserved for warning/attention, purple (--color-ai) for AI.
+   Orange stays reserved for warning/attention; AI follows the teal brand accent.
    .cta-primary normalizes any non-teal primary CTA to teal in light mode. */
 .theme-light .cta-primary {
   background: var(--color-primary);
@@ -1051,9 +1264,9 @@ html {
   --color-primary-foreground: #ffffff;
   --color-info: #0a7c6e;
 
-  /* AI violet — refined, less saturated */
-  --color-ai: #6d3fc4;
-  --color-ai-tint: #f5f0fc;
+  /* AI uses the same refined green/teal brand accent */
+  --color-ai: #0a7c6e;
+  --color-ai-tint: #e8f4ef;
 
   /* Market signals — deepened for cream backgrounds */
   --color-bull: #0a7c6e;
@@ -1143,11 +1356,15 @@ html {
 .landing-light .glass-card {
   background: #ffffff;
   border-color: rgba(12, 31, 26, 0.08);
-  box-shadow: 0 1px 3px rgba(12, 31, 26, 0.04), 0 8px 24px -8px rgba(12, 31, 26, 0.08);
+  box-shadow:
+    0 1px 3px rgba(12, 31, 26, 0.04),
+    0 8px 24px -8px rgba(12, 31, 26, 0.08);
 }
 .landing-light .glass-card-hover:hover {
   border-color: rgba(12, 31, 26, 0.12);
-  box-shadow: 0 4px 12px rgba(12, 31, 26, 0.06), 0 14px 40px -10px rgba(12, 31, 26, 0.1);
+  box-shadow:
+    0 4px 12px rgba(12, 31, 26, 0.06),
+    0 14px 40px -10px rgba(12, 31, 26, 0.1);
 }
 
 /* Landing light: gold glass — warm antique tint */
@@ -1176,12 +1393,12 @@ html {
 }
 
 /* Landing light: market strip — deep forest data band */
-.landing-light .market-strip {
+.landing-light:not(.theme-light) .market-strip {
   background: #1a2820;
   color: #e8e4d8;
   border-color: rgba(232, 228, 216, 0.08);
 }
-.landing-light .market-strip .market-strip-muted {
+.landing-light:not(.theme-light) .market-strip .market-strip-muted {
   color: #a89e88;
 }
 
@@ -1220,7 +1437,12 @@ html {
 
 /* Landing light: hero gradient — warm teal tint at top, blending to cream */
 .landing-light [style*="radial-gradient(ellipse 80% 60% at 50% 0%"] {
-  background: radial-gradient(ellipse 80% 60% at 50% 0%, rgba(10, 124, 110, 0.14) 0%, #f0ece2 50%, #faf8f3 75%) !important;
+  background: radial-gradient(
+    ellipse 80% 60% at 50% 0%,
+    rgba(10, 124, 110, 0.14) 0%,
+    #f0ece2 50%,
+    #faf8f3 75%
+  ) !important;
 }
 
 /* Landing light: hero mouse-following glows — softened for light bg */
@@ -1322,5 +1544,211 @@ body,
   .glass-chrome,
   .border-border {
     transition: none;
+  }
+}
+
+/* ==========================================================================
+   NafaIQ Admin — scoped design layer
+   --------------------------------------------------------------------------
+   The admin console has its own visual identity (near-black + deep emerald,
+   #2DD4A7 accent, dashboard-density spacing). Rather than forking the
+   component library, we re-point the *same* CSS custom properties inside
+   `.admin-root`. Every Tailwind utility already compiles to `var(--color-*)`,
+   so `bg-card` / `text-primary` / `border-border` automatically re-theme
+   inside /admin and are completely unchanged everywhere else in the app.
+   ========================================================================== */
+
+/* The token block is applied to BOTH the console root and, while the console is
+   mounted, the <html> element (AdminShell sets data-admin-console).
+
+   The second selector is what themes PORTALLED surfaces: the sonner Toaster and
+   the ConfirmDialog are mounted once at the app root, outside `.admin-root`, so
+   without this every toast and confirmation in the console would render in the
+   main app's palette. Both already style themselves from these same tokens, so
+   hoisting the block to <html> re-themes them with no component changes. */
+.admin-root,
+html[data-admin-console] {
+  /* Surfaces — near-black base, cool emerald undertone, layered elevation. */
+  --color-background: #05090c;
+  --color-sidebar: #04070a;
+  --color-surface: #0a1014;
+  --color-surface-alt: #0d141a;
+  --color-elevated: #111a20;
+  --color-card: #0a1014;
+  --color-card-foreground: #e8f2ee;
+  --color-popover: #0e161b;
+  --color-popover-foreground: #e8f2ee;
+
+  /* Hairlines carry a faint emerald cast so borders read as part of the brand. */
+  --color-border: rgba(148, 195, 180, 0.1);
+  --color-border-hover: rgba(45, 212, 167, 0.26);
+  --color-hover: rgba(45, 212, 167, 0.06);
+
+  /* Accent */
+  --color-primary: #2dd4a7;
+  --color-primary-foreground: #04120d;
+  --color-ring: #2dd4a7;
+  --color-accent: #111a20;
+  --color-accent-foreground: #e8f2ee;
+  --color-secondary: #111a20;
+  --color-secondary-foreground: #e8f2ee;
+  --color-muted: #0f171c;
+  --color-muted-foreground: #8aa39b;
+
+  /* Semantic status */
+  --color-bull: #2dd4a7;
+  --color-bull-foreground: #04120d;
+  --color-bear: #f2555a;
+  --color-warning: #f5a524;
+  --color-info: #38bdf8;
+  --color-destructive: #f2555a;
+  --color-destructive-foreground: #ffffff;
+
+  /* Text ramp — all three clear WCAG AA on the #05090c base. */
+  --color-text-primary: #e8f2ee;
+  --color-text-secondary: #a9bfb8;
+  --color-text-muted: #7d938c;
+
+  /* Admin-only design tokens (elevation, glass, radii, ambient glow). */
+  --admin-elev-1: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --admin-elev-2: 0 4px 16px -4px rgba(0, 0, 0, 0.55);
+  --admin-elev-3: 0 16px 48px -12px rgba(0, 0, 0, 0.7);
+  --admin-glass: rgba(10, 16, 20, 0.72);
+  --admin-glow: rgba(45, 212, 167, 0.14);
+  --admin-radius: 0.75rem;
+  --admin-header-h: 3.5rem;
+
+  color-scheme: dark;
+  background-color: var(--color-background);
+  color: var(--color-text-primary);
+}
+
+/* Light theme variant — same structure, inverted ramp, WCAG-AA emerald. */
+.theme-light .admin-root,
+.theme-sepia .admin-root,
+html.theme-light[data-admin-console],
+html.theme-sepia[data-admin-console] {
+  --color-background: #f6f9f8;
+  --color-sidebar: #ffffff;
+  --color-surface: #ffffff;
+  --color-surface-alt: #eef4f2;
+  --color-elevated: #ffffff;
+  --color-card: #ffffff;
+  --color-card-foreground: #0b1a15;
+  --color-popover: #ffffff;
+  --color-popover-foreground: #0b1a15;
+
+  --color-border: rgba(11, 26, 21, 0.1);
+  --color-border-hover: rgba(6, 122, 95, 0.3);
+  --color-hover: rgba(6, 122, 95, 0.06);
+
+  /* #2DD4A7 is only ~1.9:1 on white — unusable for text/icons. The light
+     theme darkens the accent to #067a5f (4.9:1) and keeps #2DD4A7 for fills
+     where it sits behind dark-on-light text instead. */
+  --color-primary: #067a5f;
+  --color-primary-foreground: #ffffff;
+  --color-ring: #067a5f;
+  --color-accent: #eef4f2;
+  --color-accent-foreground: #0b1a15;
+  --color-secondary: #eef4f2;
+  --color-secondary-foreground: #0b1a15;
+  --color-muted: #eef4f2;
+  --color-muted-foreground: #4a5f59;
+
+  --color-bull: #067a5f;
+  --color-bull-foreground: #ffffff;
+  --color-bear: #c8323a;
+  --color-warning: #a86800;
+  --color-info: #0369a1;
+  --color-destructive: #c8323a;
+
+  --color-text-primary: #0b1a15;
+  --color-text-secondary: #40554e;
+  --color-text-muted: #5d726b;
+
+  --admin-elev-1: 0 1px 2px rgba(11, 26, 21, 0.06);
+  --admin-elev-2: 0 4px 16px -4px rgba(11, 26, 21, 0.1);
+  --admin-elev-3: 0 16px 48px -12px rgba(11, 26, 21, 0.16);
+  --admin-glass: rgba(255, 255, 255, 0.82);
+  --admin-glow: rgba(6, 122, 95, 0.1);
+
+  color-scheme: light;
+}
+
+/* Ambient emerald wash — this is what makes the base read as "deep emerald"
+   rather than flat black, without tinting text surfaces.
+
+   Deliberately a SEPARATE class rather than `.admin-root::before`:
+   `.admin-root` is also applied to portalled content (drawers, dropdowns,
+   tooltips, the command palette) so those inherit the console's tokens. If the
+   glow lived on `.admin-root` every one of those portals would paint its own
+   full-viewport gradient on top of the page.
+
+   `isolation: isolate` gives the shell its own stacking context so the
+   `z-index: -1` layer sits above the background but below all content —
+   without needing a `position` override on children, which would break the
+   `position: fixed` sidebar and sticky header. */
+.admin-ambient {
+  position: relative;
+  isolation: isolate;
+}
+.admin-ambient::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    radial-gradient(60rem 40rem at 12% -10%, var(--admin-glow), transparent 60%),
+    radial-gradient(50rem 34rem at 100% 0%, rgba(45, 212, 167, 0.07), transparent 55%);
+}
+
+/* Numeric columns must align — every table cell and KPI figure opts in. */
+.admin-root .tabular {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1;
+}
+
+/* One consistent, always-visible focus ring across the whole console.
+   No `border-radius` here on purpose — modern browsers already follow the
+   element's own radius when drawing the outline, and forcing one would square
+   off pill-shaped controls (the flag toggles, status badges) on focus. */
+.admin-root :focus-visible {
+  outline: 2px solid var(--color-ring);
+  outline-offset: 2px;
+}
+
+/* Frosted chrome used by the sidebar, sticky header and drawers. */
+.admin-root .admin-glass {
+  background-color: var(--admin-glass);
+  backdrop-filter: blur(12px) saturate(140%);
+  -webkit-backdrop-filter: blur(12px) saturate(140%);
+}
+
+/* Scrollbars — thin and themed so dense tables don't get chunky OS bars. */
+.admin-root *::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+.admin-root *::-webkit-scrollbar-thumb {
+  background-color: var(--color-border-hover);
+  border: 3px solid transparent;
+  background-clip: content-box;
+  border-radius: 9999px;
+}
+.admin-root *::-webkit-scrollbar-thumb:hover {
+  background-color: var(--color-primary);
+}
+.admin-root *::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .admin-root *,
+  .admin-root *::before,
+  .admin-root *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
   }
 }

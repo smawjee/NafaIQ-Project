@@ -1,0 +1,41 @@
+{
+  "results": {
+    "20D": {
+      "q5_minus_q1_after_cost": -0.0098,
+      "q5_excess_after_cost": -0.0103,
+      "n_dates": 72,
+      "monotonicity": -0.3,
+      "by_quintile": {
+        "q1": -0.0005,
+        "q2": 0.0014,
+        "q3": 0.0049,
+        "q4": 0.0,
+        "q5": -0.0053
+      },
+      "sim_net_return": -0.053,
+      "sim_excess_return": -2.6695,
+      "sim_max_drawdown": -0.1885,
+      "sim_sharpe": -0.0094
+    },
+    "60D": {
+      "q5_minus_q1_after_cost": -0.0327,
+      "q5_excess_after_cost": -0.031,
+      "n_dates": 34,
+      "monotonicity": -0.2,
+      "by_quintile": {
+        "q1": 0.0017,
+        "q2": -0.0104,
+        "q3": 0.0353,
+        "q4": 0.0028,
+        "q5": -0.026
+      },
+      "sim_net_return": -0.0288,
+      "sim_excess_return": -2.6748,
+      "sim_max_drawdown": -0.1152,
+      "sim_sharpe": -0.0061
+    }
+  },
+  "verdict": "RED",
+  "signal": "-ret_240d_ex20 (12-1 losers)",
+  "universe": 200
+}

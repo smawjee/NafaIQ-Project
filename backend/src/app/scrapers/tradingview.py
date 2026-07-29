@@ -14,7 +14,7 @@ TV_SCANNER_URL = "https://scanner.tradingview.com/pakistan/scan"
 
 SCAN_PAYLOAD = {
     "filter": [{"left": "type", "operation": "equal", "right": "stock"}],
-    "columns": ["name", "close", "change", "change_abs", "volume", "sector", "market_cap_basic"],
+    "columns": ["name", "close", "change", "change_abs", "volume", "sector", "market_cap_basic", "logoid"],
     "sort": {"sortBy": "volume", "sortOrder": "desc"},
     "range": [0, 500],
 }
@@ -41,6 +41,16 @@ TV_SECTOR_MAP: dict[str, str] = {
 }
 
 
+_scanner: TradingViewScraper | None = None
+
+
+def get_scanner() -> TradingViewScraper:
+    global _scanner
+    if _scanner is None:
+        _scanner = TradingViewScraper()
+    return _scanner
+
+
 class TradingViewScraper:
     def __init__(self):
         self._client: Optional[httpx.AsyncClient] = None
@@ -63,6 +73,29 @@ class TradingViewScraper:
         if self._client:
             await self._client.aclose()
             self._client = None
+
+    async def scan(
+        self,
+        columns: list[str] | None = None,
+        sort_by: str = "volume",
+        sort_dir: str = "desc",
+        limit: int = 500,
+    ) -> list[dict]:
+        """Flexible scanner endpoint for arbitrary TV column queries."""
+        payload: dict = {
+            "filter": [{"left": "type", "operation": "equal", "right": "stock"}],
+            "columns": columns or SCAN_PAYLOAD["columns"],
+            "sort": {"sortBy": sort_by, "sortOrder": sort_dir},
+            "range": [0, limit],
+        }
+        client = await self._get_client()
+        try:
+            r = await client.post(TV_SCANNER_URL, json=payload)
+            r.raise_for_status()
+            return r.json().get("data", [])
+        except Exception:
+            log.warning("tv_scanner_scan_failed", exc_info=True)
+            return []
 
     async def fetch_market_data(self) -> list[dict]:
         """Fetch all PSX stocks with price, change, volume, sector, market cap."""
@@ -88,6 +121,7 @@ class TradingViewScraper:
                     "volume": d[4],
                     "sector": tv_sector,
                     "market_cap": d[6],
+                    "logoid": d[7] if len(d) > 7 else None,
                 })
             return results
         except Exception:

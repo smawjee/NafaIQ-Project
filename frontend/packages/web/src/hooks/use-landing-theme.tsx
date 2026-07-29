@@ -22,19 +22,28 @@ interface ThemeContextValue {
   theme: LandingTheme;
   setTheme: (t: LandingTheme) => void;
   toggleTheme: () => void;
+  hydrated: boolean;
 }
 
 const LandingThemeContext = createContext<ThemeContextValue>({
   theme: "dark",
   setTheme: () => {},
   toggleTheme: () => {},
+  hydrated: false,
 });
 
 function useStoredTheme(): ThemeContextValue {
-  const [theme, setThemeState] = useState<LandingTheme>(readStored);
+  const [theme, setThemeState] = useState<LandingTheme>("dark");
+  const [hydrated, setHydrated] = useState(false);
+
+  useEffect(() => {
+    setThemeState(readStored());
+    setHydrated(true);
+  }, []);
 
   const setTheme = useCallback((t: LandingTheme) => {
     setThemeState(t);
+    setHydrated(true);
     if (typeof window !== "undefined") {
       window.localStorage.setItem(STORAGE_KEY, t);
     }
@@ -50,7 +59,7 @@ function useStoredTheme(): ThemeContextValue {
     });
   }, []);
 
-  return { theme, setTheme, toggleTheme };
+  return { theme, setTheme, toggleTheme, hydrated };
 }
 
 export function LandingThemeProvider({ children }: { children: React.ReactNode }) {
@@ -61,8 +70,9 @@ export function LandingThemeProvider({ children }: { children: React.ReactNode }
   // without a flash. The pre-hydration inline script in __root.tsx handles
   // the first paint; this effect keeps subsequent toggles in lockstep.
   useEffect(() => {
+    if (!value.hydrated) return;
     applyToDocument(value.theme);
-  }, [value.theme]);
+  }, [value.hydrated, value.theme]);
 
   return <LandingThemeContext.Provider value={value}>{children}</LandingThemeContext.Provider>;
 }

@@ -10,6 +10,7 @@ import {
   Scripts,
 } from "@tanstack/react-router";
 import { useEffect, type ReactNode } from "react";
+import { Provider } from "react-redux";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { Loader2 } from "lucide-react";
 
@@ -18,8 +19,11 @@ import { reportNafaIQError } from "../lib/errors/reporting";
 import { AppShell } from "../components/layout/AppShell";
 import { AuthProvider, useAuth } from "@/hooks/use-auth";
 import { LandingThemeProvider } from "@/hooks/use-landing-theme";
+import { installGlobalErrorReporting } from "@/lib/telemetry";
 import { LearnProvider } from "@/hooks/learn/use-learn";
 import { Toaster } from "@/components/ui/sonner";
+import { ConfirmProvider } from "@/components/shared/ConfirmDialog";
+import { store } from "../store";
 
 function NotFoundComponent() {
   return (
@@ -141,7 +145,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
 
 function RootShell({ children }: { children: ReactNode }) {
   return (
-    <html lang="en" className="dark">
+    <html lang="en" className="dark" suppressHydrationWarning>
       <head>
         <HeadContent />
         <script
@@ -167,7 +171,31 @@ function Spinner() {
   );
 }
 
-const TARGET_PATHS = new Set(["/", "/app", "/psx", "/portfolio", "/finance", "/learn", "/team"]);
+const TARGET_PATHS = new Set([
+  "/",
+  "/app",
+  "/psx",
+  "/portfolio",
+  "/watchlist",
+  "/finance",
+  "/ai-insights",
+  "/learn",
+  "/monetary",
+  "/help",
+  "/team",
+]);
+
+const PUBLIC_APP_ROUTES = new Set([
+  "/portfolio",
+  "/watchlist",
+  "/finance",
+  "/ai-insights",
+  "/learn",
+  "/monetary",
+  "/alerts",
+  "/settings",
+  "/help",
+]);
 
 function PageTransition({ routeKey, children }: { routeKey: string; children: ReactNode }) {
   const reduce = useReducedMotion();
@@ -201,7 +229,12 @@ function AuthGate() {
   const isUrduQa = pathname === "/urdu-qa";
   const isTeam = pathname === "/team";
   const isPsx = pathname.startsWith("/psx") || pathname.startsWith("/stock");
-  const isPublic = isAuthRoute || isLanding || isPlans || isUrduQa || isTeam;
+  // Admin routes bring their own chrome (AdminShell) and a second-level
+  // authorization guard. They are auth-required (not public), so an anonymous
+  // user is still redirected to /auth by the effect below.
+  const isAdminRoute = pathname === "/admin" || pathname.startsWith("/admin/");
+  const isPublicAppRoute = PUBLIC_APP_ROUTES.has(pathname);
+  const isPublic = isAuthRoute || isLanding || isPlans || isUrduQa || isTeam || isPublicAppRoute;
 
   useEffect(() => {
     if (loading) return;
@@ -210,8 +243,19 @@ function AuthGate() {
     }
   }, [loading, user, isPublic, isPsx, navigate, pathname]);
 
-  // PSX routes get AppShell without auth requirement
-  if (isPsx) {
+  // Admin routes render bare (AdminShell + AdminGuard live in the route tree).
+  // The redirect effect above sends anonymous users to /auth first.
+  if (isAdminRoute) {
+    return (
+      <>
+        <Outlet />
+        {loading && <Spinner />}
+      </>
+    );
+  }
+
+  // PSX & public app routes get AppShell without auth requirement
+  if (isPsx || isPublicAppRoute) {
     return (
       <>
         <AppShell>
@@ -250,17 +294,25 @@ function AuthGate() {
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
 
+  // Catches what an ErrorBoundary structurally cannot: errors thrown from event
+  // handlers, async callbacks and rejected promises.
+  useEffect(() => installGlobalErrorReporting(), []);
+
   return (
-    <QueryClientProvider client={queryClient}>
-      {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
-      <AuthProvider>
-        <LearnProvider>
-          <LandingThemeProvider>
-            <AuthGate />
-            <Toaster />
-          </LandingThemeProvider>
-        </LearnProvider>
-      </AuthProvider>
-    </QueryClientProvider>
+    <Provider store={store}>
+      <QueryClientProvider client={queryClient}>
+        {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
+        <AuthProvider>
+          <LearnProvider>
+            <LandingThemeProvider>
+              <ConfirmProvider>
+                <AuthGate />
+                <Toaster />
+              </ConfirmProvider>
+            </LandingThemeProvider>
+          </LearnProvider>
+        </AuthProvider>
+      </QueryClientProvider>
+    </Provider>
   );
 }

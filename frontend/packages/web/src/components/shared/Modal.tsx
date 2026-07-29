@@ -27,7 +27,7 @@ export function Modal({ open, onClose, title, children, className }: ModalProps)
     >
       <div
         className={cn(
-          "w-full max-w-md rounded-t-2xl border border-white/[0.08] bg-surface p-5 shadow-[0_8px_48px_rgba(0,0,0,0.6)] sm:rounded-2xl",
+          "w-full max-w-md rounded-t-2xl border border-border bg-surface p-5 shadow-[0_8px_48px_rgba(0,0,0,0.6)] sm:rounded-2xl",
           className,
         )}
         onClick={(e) => e.stopPropagation()}
@@ -36,7 +36,7 @@ export function Modal({ open, onClose, title, children, className }: ModalProps)
           <h3 className="text-base font-semibold text-text-primary">{title}</h3>
           <button
             onClick={onClose}
-            className="flex h-7 w-7 items-center justify-center rounded-full text-text-muted hover:bg-white/[0.06] hover:text-text-primary"
+            className="flex h-7 w-7 items-center justify-center rounded-full text-text-muted hover:bg-hover hover:text-text-primary"
           >
             <X className="h-4 w-4" />
           </button>

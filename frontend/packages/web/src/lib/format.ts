@@ -15,6 +15,9 @@ const GROUPING_LOCALE = "en-US";
 
 /** Western 3-digit grouped number, e.g. 858054 -> "858,054" (Urdu numerals in UR mode). */
 export function formatNumber(value: number, decimals = 0): string {
+  // Defensive: NaN / ±Infinity (e.g. a divide-by-zero % when cost basis is 0)
+  // must never render as "NaN"/"∞" in the UI — coerce to 0.
+  if (!Number.isFinite(value)) value = 0;
   return localizeDigits(
     value.toLocaleString(GROUPING_LOCALE, {
       minimumFractionDigits: decimals,
@@ -45,4 +48,30 @@ export function formatSignedPercent(value: number, decimals = 2): string {
 /** Leading-sign currency, e.g. 2500 -> "+PKR 2,500", -2500 -> "-PKR 2,500". */
 export function formatSignedPKR(value: number, decimals = 0): string {
   return `${leadingSign(value)}PKR ${formatNumber(Math.abs(value), decimals)}`;
+}
+
+/** Compact magnitude, e.g. 2.4e12 -> "2.4T", 2.15e11 -> "215B", 4.5e7 -> "45M". */
+export function formatCompact(value: number): string {
+  const abs = Math.abs(value);
+  const sign = value < 0 ? "-" : "";
+  const units: [number, string][] = [
+    [1e12, "T"],
+    [1e9, "B"],
+    [1e6, "M"],
+    [1e3, "K"],
+  ];
+  for (const [threshold, suffix] of units) {
+    if (abs >= threshold) {
+      const scaled = abs / threshold;
+      // One decimal below 100 (2.4T, 45.6B), none above (215B, 312K).
+      const digits = scaled < 100 ? 1 : 0;
+      return `${sign}${localizeDigits(scaled.toFixed(digits))}${suffix}`;
+    }
+  }
+  return `${sign}${formatNumber(abs, 0)}`;
+}
+
+/** Compact currency, e.g. 2.15e11 -> "PKR 215B". */
+export function formatCompactPKR(value: number): string {
+  return `PKR ${formatCompact(value)}`;
 }

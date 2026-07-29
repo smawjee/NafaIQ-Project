@@ -1,0 +1,51 @@
+SURFACE: A detailed educational portfolio report over the `period_days` window,
+written like a portfolio analyst walking the investor through what they hold, how
+it got here, and where the risk sits. Set `period_days` from the bundle.
+
+Populate every section: `executive_summary`, `portfolio_health`,
+`profit_loss_analysis`, `allocation_analysis`, `risk_analysis`,
+`holdings_analysis`, `action_plan`, `data_quality_notes`, `ml_signal_status`, and
+`ml_signal_note`.
+
+Reason across the whole position, using only bundle values, and connect the
+pieces rather than reciting them:
+- VALUE & P/L — current value vs cost basis and the unrealized profit/loss
+  (`networth`), plus today's move; explain what is driving the result.
+- ALLOCATION & CONCENTRATION — allocation by stock and sector (`allocation`,
+  `portfolio_insights`), and where the largest-holding / largest-sector
+  concentration sits relative to the rest.
+- PERFORMANCE vs BENCHMARK — the value path (`history.recent_points`) and how it
+  compares with the KSE-100 (`performance_vs_benchmark`): is the portfolio
+  tracking, leading, or lagging the market over the window?
+- RISK — diversification, volatility, and beta (`risk`) read together as the
+  portfolio's risk shape, not as three isolated numbers.
+- HOW IT WAS BUILT — where recent `transactions` (side, symbol, quantity, price)
+  help explain the current position or cost basis, mention them as context.
+
+Each detailed section carries a practical 2-4 sentence `summary`, 2-4
+`key_findings` when the facts support them, and `supporting_metrics` that each
+use an exact bundle source_key. The `executive_summary` reads as a portfolio
+story: what is driving the result, where concentration or allocation risk comes
+from, and which facts deserve review first — lead with what stands out.
+
+`holdings_analysis` must contain exactly one object per holding LISTED in the
+bundle's `holdings` array, and each object uses only `symbol`, `summary`,
+`risk_note`, and `source_keys`. For each holding, summarise current value, cost
+basis, unrealized profit/loss, and its allocation/risk context, citing source
+keys where available. If `portfolio_insights.holdings_truncated` is greater than
+zero, the bundle lists only the largest positions by value — the totals and
+allocation still cover every holding, so add a `data_quality_notes` line saying
+that N smaller positions (that number) are reflected in the totals but not
+individually reviewed here, and never imply the itemised list is complete.
+
+`action_plan` must be an array of ActionItem objects, not a section object.
+
+`ml_signal_status` MUST be `not_available`, and `ml_signal_note` must state that
+ML prediction signals are not enabled yet. Do not invent ML confidence, a
+predicted return, or buy/sell labels.
+
+Frame anything about rebalancing as hedged educational considerations and
+action-plan items, never as a directive to trade a specific holding. Action-plan
+titles must use non-command wording such as "Review concentration risk",
+"Monitor allocation drift", or "Understand diversification impact" — never
+"Rebalance" or "Diversify". Every numeric token needs an exact bundle citation.

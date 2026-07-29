@@ -1,0 +1,49 @@
+# Docker build context is the repo root (railway.json points at
+# backend/Dockerfile, which does `COPY backend/ .`). Without this file that COPY
+# sweeps in backend/.env — live LLM keys, the Supabase service key and the DB
+# password — and bakes them into an image layer, where they survive even if a
+# later layer deletes the file.
+#
+# Railway builds from the git repo, so .gitignore already keeps .env out of ITS
+# context. This is what protects a local `docker build`, which reads the working
+# tree and does not consult .gitignore at all.
+
+**/.env
+**/.env.*
+!**/.env.example
+
+# Secrets / credentials
+*.pem
+*.key
+**/service-account*.json
+
+# VCS + agent scratch
+.git
+.gitignore
+.agents/
+.codex/
+.claude/
+
+# Dependencies and build output — reinstalled in the image, and copying them
+# invalidates the layer cache on every change.
+**/node_modules
+**/dist
+**/build
+**/.turbo
+**/.vite
+**/__pycache__
+**/*.py[cod]
+**/.pytest_cache
+**/.ruff_cache
+**/.mypy_cache
+**/*.egg-info
+**/.venv
+**/venv
+
+# Frontend: the backend image has no use for it
+frontend/
+
+# Local noise
+**/.DS_Store
+**/*.log
+**/coverage

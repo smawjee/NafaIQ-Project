@@ -8,6 +8,33 @@ For complex query helpers, see `app.db.sqlalchemy` (the engine/factory).
 from __future__ import annotations
 
 from sqlalchemy import MetaData
+from sqlalchemy.dialects.postgresql.base import ischema_names
+from sqlalchemy.types import UserDefinedType
+
+
+class _PgVector(UserDefinedType):
+    """pgvector's `vector`, taught to reflection by name only.
+
+    `reflect()` below walks every public table, so it meets
+    learnhub_knowledge_chunks.embedding and warned "Did not recognize type
+    'vector'" on every boot. Nothing reads embeddings through the ORM —
+    services/learnhub/retrieval.py casts them in raw SQL — so this needs to do
+    nothing but stop the warning. Registering here rather than adding the
+    pgvector package: a dependency to silence a log line is a bad trade.
+    """
+
+    cache_ok = True
+
+    def __init__(self, dim: int | None = None) -> None:
+        # Reflection calls this as _PgVector(768) — the column is declared
+        # vector(768), and PG hands the dimension through as a type arg.
+        self.dim = dim
+
+    def get_col_spec(self, **kw) -> str:
+        return "vector" if self.dim is None else f"vector({self.dim})"
+
+
+ischema_names["vector"] = _PgVector
 
 metadata = MetaData()
 _reflection_done = False

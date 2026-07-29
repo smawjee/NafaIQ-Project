@@ -9,6 +9,7 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as WatchlistRouteImport } from './routes/watchlist'
 import { Route as UrduQaRouteImport } from './routes/urdu-qa'
 import { Route as TeamRouteImport } from './routes/team'
 import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
@@ -16,16 +17,41 @@ import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as PsxRouteImport } from './routes/psx'
 import { Route as PortfolioRouteImport } from './routes/portfolio'
 import { Route as PlansRouteImport } from './routes/plans'
+import { Route as MonetaryRouteImport } from './routes/monetary'
 import { Route as LearnRouteImport } from './routes/learn'
+import { Route as HelpRouteImport } from './routes/help'
+import { Route as FundsRouteImport } from './routes/funds'
 import { Route as FinanceRouteImport } from './routes/finance'
+import { Route as DividendsRouteImport } from './routes/dividends'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AppRouteImport } from './routes/app'
 import { Route as AlertsRouteImport } from './routes/alerts'
+import { Route as AiInsightsRouteImport } from './routes/ai-insights'
+import { Route as AdminRouteImport } from './routes/admin'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as LearnIndexRouteImport } from './routes/learn.index'
+import { Route as AdminIndexRouteImport } from './routes/admin.index'
 import { Route as StockTickerRouteImport } from './routes/stock.$ticker'
+import { Route as AdminUsersRouteImport } from './routes/admin.users'
+import { Route as AdminSystemRouteImport } from './routes/admin.system'
+import { Route as AdminSubscriptionsRouteImport } from './routes/admin.subscriptions'
+import { Route as AdminSignalsRouteImport } from './routes/admin.signals'
+import { Route as AdminRolesRouteImport } from './routes/admin.roles'
+import { Route as AdminMarketDataRouteImport } from './routes/admin.market-data'
+import { Route as AdminFlagsRouteImport } from './routes/admin.flags'
+import { Route as AdminErrorsRouteImport } from './routes/admin.errors'
+import { Route as AdminBugReportsRouteImport } from './routes/admin.bug-reports'
+import { Route as AdminAuditRouteImport } from './routes/admin.audit'
+import { Route as AdminAlertsRouteImport } from './routes/admin.alerts'
+import { Route as AdminAiRouteImport } from './routes/admin.ai'
 import { Route as LearnLessonIdRouteImport } from './routes/learn.lesson.$id'
+import { Route as AdminUsersUserIdRouteImport } from './routes/admin.users.$userId'
 
+const WatchlistRoute = WatchlistRouteImport.update({
+  id: '/watchlist',
+  path: '/watchlist',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const UrduQaRoute = UrduQaRouteImport.update({
   id: '/urdu-qa',
   path: '/urdu-qa',
@@ -61,14 +87,34 @@ const PlansRoute = PlansRouteImport.update({
   path: '/plans',
   getParentRoute: () => rootRouteImport,
 } as any)
+const MonetaryRoute = MonetaryRouteImport.update({
+  id: '/monetary',
+  path: '/monetary',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const LearnRoute = LearnRouteImport.update({
   id: '/learn',
   path: '/learn',
   getParentRoute: () => rootRouteImport,
 } as any)
+const HelpRoute = HelpRouteImport.update({
+  id: '/help',
+  path: '/help',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const FundsRoute = FundsRouteImport.update({
+  id: '/funds',
+  path: '/funds',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const FinanceRoute = FinanceRouteImport.update({
   id: '/finance',
   path: '/finance',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DividendsRoute = DividendsRouteImport.update({
+  id: '/dividends',
+  path: '/dividends',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthRoute = AuthRouteImport.update({
@@ -86,6 +132,16 @@ const AlertsRoute = AlertsRouteImport.update({
   path: '/alerts',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AiInsightsRoute = AiInsightsRouteImport.update({
+  id: '/ai-insights',
+  path: '/ai-insights',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminRoute = AdminRouteImport.update({
+  id: '/admin',
+  path: '/admin',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
@@ -96,24 +152,100 @@ const LearnIndexRoute = LearnIndexRouteImport.update({
   path: '/',
   getParentRoute: () => LearnRoute,
 } as any)
+const AdminIndexRoute = AdminIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AdminRoute,
+} as any)
 const StockTickerRoute = StockTickerRouteImport.update({
   id: '/stock/$ticker',
   path: '/stock/$ticker',
   getParentRoute: () => rootRouteImport,
+} as any)
+const AdminUsersRoute = AdminUsersRouteImport.update({
+  id: '/users',
+  path: '/users',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminSystemRoute = AdminSystemRouteImport.update({
+  id: '/system',
+  path: '/system',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminSubscriptionsRoute = AdminSubscriptionsRouteImport.update({
+  id: '/subscriptions',
+  path: '/subscriptions',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminSignalsRoute = AdminSignalsRouteImport.update({
+  id: '/signals',
+  path: '/signals',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminRolesRoute = AdminRolesRouteImport.update({
+  id: '/roles',
+  path: '/roles',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminMarketDataRoute = AdminMarketDataRouteImport.update({
+  id: '/market-data',
+  path: '/market-data',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminFlagsRoute = AdminFlagsRouteImport.update({
+  id: '/flags',
+  path: '/flags',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminErrorsRoute = AdminErrorsRouteImport.update({
+  id: '/errors',
+  path: '/errors',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminBugReportsRoute = AdminBugReportsRouteImport.update({
+  id: '/bug-reports',
+  path: '/bug-reports',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminAuditRoute = AdminAuditRouteImport.update({
+  id: '/audit',
+  path: '/audit',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminAlertsRoute = AdminAlertsRouteImport.update({
+  id: '/alerts',
+  path: '/alerts',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminAiRoute = AdminAiRouteImport.update({
+  id: '/ai',
+  path: '/ai',
+  getParentRoute: () => AdminRoute,
 } as any)
 const LearnLessonIdRoute = LearnLessonIdRouteImport.update({
   id: '/lesson/$id',
   path: '/lesson/$id',
   getParentRoute: () => LearnRoute,
 } as any)
+const AdminUsersUserIdRoute = AdminUsersUserIdRouteImport.update({
+  id: '/$userId',
+  path: '/$userId',
+  getParentRoute: () => AdminUsersRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/admin': typeof AdminRouteWithChildren
+  '/ai-insights': typeof AiInsightsRoute
   '/alerts': typeof AlertsRoute
   '/app': typeof AppRoute
   '/auth': typeof AuthRoute
+  '/dividends': typeof DividendsRoute
   '/finance': typeof FinanceRoute
+  '/funds': typeof FundsRoute
+  '/help': typeof HelpRoute
   '/learn': typeof LearnRouteWithChildren
+  '/monetary': typeof MonetaryRoute
   '/plans': typeof PlansRoute
   '/portfolio': typeof PortfolioRoute
   '/psx': typeof PsxRoute
@@ -121,16 +253,36 @@ export interface FileRoutesByFullPath {
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/team': typeof TeamRoute
   '/urdu-qa': typeof UrduQaRoute
+  '/watchlist': typeof WatchlistRoute
+  '/admin/ai': typeof AdminAiRoute
+  '/admin/alerts': typeof AdminAlertsRoute
+  '/admin/audit': typeof AdminAuditRoute
+  '/admin/bug-reports': typeof AdminBugReportsRoute
+  '/admin/errors': typeof AdminErrorsRoute
+  '/admin/flags': typeof AdminFlagsRoute
+  '/admin/market-data': typeof AdminMarketDataRoute
+  '/admin/roles': typeof AdminRolesRoute
+  '/admin/signals': typeof AdminSignalsRoute
+  '/admin/subscriptions': typeof AdminSubscriptionsRoute
+  '/admin/system': typeof AdminSystemRoute
+  '/admin/users': typeof AdminUsersRouteWithChildren
   '/stock/$ticker': typeof StockTickerRoute
+  '/admin/': typeof AdminIndexRoute
   '/learn/': typeof LearnIndexRoute
+  '/admin/users/$userId': typeof AdminUsersUserIdRoute
   '/learn/lesson/$id': typeof LearnLessonIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/ai-insights': typeof AiInsightsRoute
   '/alerts': typeof AlertsRoute
   '/app': typeof AppRoute
   '/auth': typeof AuthRoute
+  '/dividends': typeof DividendsRoute
   '/finance': typeof FinanceRoute
+  '/funds': typeof FundsRoute
+  '/help': typeof HelpRoute
+  '/monetary': typeof MonetaryRoute
   '/plans': typeof PlansRoute
   '/portfolio': typeof PortfolioRoute
   '/psx': typeof PsxRoute
@@ -138,18 +290,39 @@ export interface FileRoutesByTo {
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/team': typeof TeamRoute
   '/urdu-qa': typeof UrduQaRoute
+  '/watchlist': typeof WatchlistRoute
+  '/admin/ai': typeof AdminAiRoute
+  '/admin/alerts': typeof AdminAlertsRoute
+  '/admin/audit': typeof AdminAuditRoute
+  '/admin/bug-reports': typeof AdminBugReportsRoute
+  '/admin/errors': typeof AdminErrorsRoute
+  '/admin/flags': typeof AdminFlagsRoute
+  '/admin/market-data': typeof AdminMarketDataRoute
+  '/admin/roles': typeof AdminRolesRoute
+  '/admin/signals': typeof AdminSignalsRoute
+  '/admin/subscriptions': typeof AdminSubscriptionsRoute
+  '/admin/system': typeof AdminSystemRoute
+  '/admin/users': typeof AdminUsersRouteWithChildren
   '/stock/$ticker': typeof StockTickerRoute
+  '/admin': typeof AdminIndexRoute
   '/learn': typeof LearnIndexRoute
+  '/admin/users/$userId': typeof AdminUsersUserIdRoute
   '/learn/lesson/$id': typeof LearnLessonIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/admin': typeof AdminRouteWithChildren
+  '/ai-insights': typeof AiInsightsRoute
   '/alerts': typeof AlertsRoute
   '/app': typeof AppRoute
   '/auth': typeof AuthRoute
+  '/dividends': typeof DividendsRoute
   '/finance': typeof FinanceRoute
+  '/funds': typeof FundsRoute
+  '/help': typeof HelpRoute
   '/learn': typeof LearnRouteWithChildren
+  '/monetary': typeof MonetaryRoute
   '/plans': typeof PlansRoute
   '/portfolio': typeof PortfolioRoute
   '/psx': typeof PsxRoute
@@ -157,19 +330,40 @@ export interface FileRoutesById {
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/team': typeof TeamRoute
   '/urdu-qa': typeof UrduQaRoute
+  '/watchlist': typeof WatchlistRoute
+  '/admin/ai': typeof AdminAiRoute
+  '/admin/alerts': typeof AdminAlertsRoute
+  '/admin/audit': typeof AdminAuditRoute
+  '/admin/bug-reports': typeof AdminBugReportsRoute
+  '/admin/errors': typeof AdminErrorsRoute
+  '/admin/flags': typeof AdminFlagsRoute
+  '/admin/market-data': typeof AdminMarketDataRoute
+  '/admin/roles': typeof AdminRolesRoute
+  '/admin/signals': typeof AdminSignalsRoute
+  '/admin/subscriptions': typeof AdminSubscriptionsRoute
+  '/admin/system': typeof AdminSystemRoute
+  '/admin/users': typeof AdminUsersRouteWithChildren
   '/stock/$ticker': typeof StockTickerRoute
+  '/admin/': typeof AdminIndexRoute
   '/learn/': typeof LearnIndexRoute
+  '/admin/users/$userId': typeof AdminUsersUserIdRoute
   '/learn/lesson/$id': typeof LearnLessonIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/admin'
+    | '/ai-insights'
     | '/alerts'
     | '/app'
     | '/auth'
+    | '/dividends'
     | '/finance'
+    | '/funds'
+    | '/help'
     | '/learn'
+    | '/monetary'
     | '/plans'
     | '/portfolio'
     | '/psx'
@@ -177,16 +371,36 @@ export interface FileRouteTypes {
     | '/sitemap.xml'
     | '/team'
     | '/urdu-qa'
+    | '/watchlist'
+    | '/admin/ai'
+    | '/admin/alerts'
+    | '/admin/audit'
+    | '/admin/bug-reports'
+    | '/admin/errors'
+    | '/admin/flags'
+    | '/admin/market-data'
+    | '/admin/roles'
+    | '/admin/signals'
+    | '/admin/subscriptions'
+    | '/admin/system'
+    | '/admin/users'
     | '/stock/$ticker'
+    | '/admin/'
     | '/learn/'
+    | '/admin/users/$userId'
     | '/learn/lesson/$id'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/ai-insights'
     | '/alerts'
     | '/app'
     | '/auth'
+    | '/dividends'
     | '/finance'
+    | '/funds'
+    | '/help'
+    | '/monetary'
     | '/plans'
     | '/portfolio'
     | '/psx'
@@ -194,17 +408,38 @@ export interface FileRouteTypes {
     | '/sitemap.xml'
     | '/team'
     | '/urdu-qa'
+    | '/watchlist'
+    | '/admin/ai'
+    | '/admin/alerts'
+    | '/admin/audit'
+    | '/admin/bug-reports'
+    | '/admin/errors'
+    | '/admin/flags'
+    | '/admin/market-data'
+    | '/admin/roles'
+    | '/admin/signals'
+    | '/admin/subscriptions'
+    | '/admin/system'
+    | '/admin/users'
     | '/stock/$ticker'
+    | '/admin'
     | '/learn'
+    | '/admin/users/$userId'
     | '/learn/lesson/$id'
   id:
     | '__root__'
     | '/'
+    | '/admin'
+    | '/ai-insights'
     | '/alerts'
     | '/app'
     | '/auth'
+    | '/dividends'
     | '/finance'
+    | '/funds'
+    | '/help'
     | '/learn'
+    | '/monetary'
     | '/plans'
     | '/portfolio'
     | '/psx'
@@ -212,18 +447,39 @@ export interface FileRouteTypes {
     | '/sitemap.xml'
     | '/team'
     | '/urdu-qa'
+    | '/watchlist'
+    | '/admin/ai'
+    | '/admin/alerts'
+    | '/admin/audit'
+    | '/admin/bug-reports'
+    | '/admin/errors'
+    | '/admin/flags'
+    | '/admin/market-data'
+    | '/admin/roles'
+    | '/admin/signals'
+    | '/admin/subscriptions'
+    | '/admin/system'
+    | '/admin/users'
     | '/stock/$ticker'
+    | '/admin/'
     | '/learn/'
+    | '/admin/users/$userId'
     | '/learn/lesson/$id'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AdminRoute: typeof AdminRouteWithChildren
+  AiInsightsRoute: typeof AiInsightsRoute
   AlertsRoute: typeof AlertsRoute
   AppRoute: typeof AppRoute
   AuthRoute: typeof AuthRoute
+  DividendsRoute: typeof DividendsRoute
   FinanceRoute: typeof FinanceRoute
+  FundsRoute: typeof FundsRoute
+  HelpRoute: typeof HelpRoute
   LearnRoute: typeof LearnRouteWithChildren
+  MonetaryRoute: typeof MonetaryRoute
   PlansRoute: typeof PlansRoute
   PortfolioRoute: typeof PortfolioRoute
   PsxRoute: typeof PsxRoute
@@ -231,11 +487,19 @@ export interface RootRouteChildren {
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
   TeamRoute: typeof TeamRoute
   UrduQaRoute: typeof UrduQaRoute
+  WatchlistRoute: typeof WatchlistRoute
   StockTickerRoute: typeof StockTickerRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/watchlist': {
+      id: '/watchlist'
+      path: '/watchlist'
+      fullPath: '/watchlist'
+      preLoaderRoute: typeof WatchlistRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/urdu-qa': {
       id: '/urdu-qa'
       path: '/urdu-qa'
@@ -285,6 +549,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PlansRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/monetary': {
+      id: '/monetary'
+      path: '/monetary'
+      fullPath: '/monetary'
+      preLoaderRoute: typeof MonetaryRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/learn': {
       id: '/learn'
       path: '/learn'
@@ -292,11 +563,32 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LearnRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/help': {
+      id: '/help'
+      path: '/help'
+      fullPath: '/help'
+      preLoaderRoute: typeof HelpRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/funds': {
+      id: '/funds'
+      path: '/funds'
+      fullPath: '/funds'
+      preLoaderRoute: typeof FundsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/finance': {
       id: '/finance'
       path: '/finance'
       fullPath: '/finance'
       preLoaderRoute: typeof FinanceRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/dividends': {
+      id: '/dividends'
+      path: '/dividends'
+      fullPath: '/dividends'
+      preLoaderRoute: typeof DividendsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/auth': {
@@ -320,6 +612,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AlertsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/ai-insights': {
+      id: '/ai-insights'
+      path: '/ai-insights'
+      fullPath: '/ai-insights'
+      preLoaderRoute: typeof AiInsightsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin': {
+      id: '/admin'
+      path: '/admin'
+      fullPath: '/admin'
+      preLoaderRoute: typeof AdminRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
@@ -334,12 +640,103 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LearnIndexRouteImport
       parentRoute: typeof LearnRoute
     }
+    '/admin/': {
+      id: '/admin/'
+      path: '/'
+      fullPath: '/admin/'
+      preLoaderRoute: typeof AdminIndexRouteImport
+      parentRoute: typeof AdminRoute
+    }
     '/stock/$ticker': {
       id: '/stock/$ticker'
       path: '/stock/$ticker'
       fullPath: '/stock/$ticker'
       preLoaderRoute: typeof StockTickerRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/admin/users': {
+      id: '/admin/users'
+      path: '/users'
+      fullPath: '/admin/users'
+      preLoaderRoute: typeof AdminUsersRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/system': {
+      id: '/admin/system'
+      path: '/system'
+      fullPath: '/admin/system'
+      preLoaderRoute: typeof AdminSystemRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/subscriptions': {
+      id: '/admin/subscriptions'
+      path: '/subscriptions'
+      fullPath: '/admin/subscriptions'
+      preLoaderRoute: typeof AdminSubscriptionsRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/signals': {
+      id: '/admin/signals'
+      path: '/signals'
+      fullPath: '/admin/signals'
+      preLoaderRoute: typeof AdminSignalsRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/roles': {
+      id: '/admin/roles'
+      path: '/roles'
+      fullPath: '/admin/roles'
+      preLoaderRoute: typeof AdminRolesRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/market-data': {
+      id: '/admin/market-data'
+      path: '/market-data'
+      fullPath: '/admin/market-data'
+      preLoaderRoute: typeof AdminMarketDataRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/flags': {
+      id: '/admin/flags'
+      path: '/flags'
+      fullPath: '/admin/flags'
+      preLoaderRoute: typeof AdminFlagsRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/errors': {
+      id: '/admin/errors'
+      path: '/errors'
+      fullPath: '/admin/errors'
+      preLoaderRoute: typeof AdminErrorsRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/bug-reports': {
+      id: '/admin/bug-reports'
+      path: '/bug-reports'
+      fullPath: '/admin/bug-reports'
+      preLoaderRoute: typeof AdminBugReportsRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/audit': {
+      id: '/admin/audit'
+      path: '/audit'
+      fullPath: '/admin/audit'
+      preLoaderRoute: typeof AdminAuditRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/alerts': {
+      id: '/admin/alerts'
+      path: '/alerts'
+      fullPath: '/admin/alerts'
+      preLoaderRoute: typeof AdminAlertsRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/ai': {
+      id: '/admin/ai'
+      path: '/ai'
+      fullPath: '/admin/ai'
+      preLoaderRoute: typeof AdminAiRouteImport
+      parentRoute: typeof AdminRoute
     }
     '/learn/lesson/$id': {
       id: '/learn/lesson/$id'
@@ -348,8 +745,61 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LearnLessonIdRouteImport
       parentRoute: typeof LearnRoute
     }
+    '/admin/users/$userId': {
+      id: '/admin/users/$userId'
+      path: '/$userId'
+      fullPath: '/admin/users/$userId'
+      preLoaderRoute: typeof AdminUsersUserIdRouteImport
+      parentRoute: typeof AdminUsersRoute
+    }
   }
 }
+
+interface AdminUsersRouteChildren {
+  AdminUsersUserIdRoute: typeof AdminUsersUserIdRoute
+}
+
+const AdminUsersRouteChildren: AdminUsersRouteChildren = {
+  AdminUsersUserIdRoute: AdminUsersUserIdRoute,
+}
+
+const AdminUsersRouteWithChildren = AdminUsersRoute._addFileChildren(
+  AdminUsersRouteChildren,
+)
+
+interface AdminRouteChildren {
+  AdminAiRoute: typeof AdminAiRoute
+  AdminAlertsRoute: typeof AdminAlertsRoute
+  AdminAuditRoute: typeof AdminAuditRoute
+  AdminBugReportsRoute: typeof AdminBugReportsRoute
+  AdminErrorsRoute: typeof AdminErrorsRoute
+  AdminFlagsRoute: typeof AdminFlagsRoute
+  AdminMarketDataRoute: typeof AdminMarketDataRoute
+  AdminRolesRoute: typeof AdminRolesRoute
+  AdminSignalsRoute: typeof AdminSignalsRoute
+  AdminSubscriptionsRoute: typeof AdminSubscriptionsRoute
+  AdminSystemRoute: typeof AdminSystemRoute
+  AdminUsersRoute: typeof AdminUsersRouteWithChildren
+  AdminIndexRoute: typeof AdminIndexRoute
+}
+
+const AdminRouteChildren: AdminRouteChildren = {
+  AdminAiRoute: AdminAiRoute,
+  AdminAlertsRoute: AdminAlertsRoute,
+  AdminAuditRoute: AdminAuditRoute,
+  AdminBugReportsRoute: AdminBugReportsRoute,
+  AdminErrorsRoute: AdminErrorsRoute,
+  AdminFlagsRoute: AdminFlagsRoute,
+  AdminMarketDataRoute: AdminMarketDataRoute,
+  AdminRolesRoute: AdminRolesRoute,
+  AdminSignalsRoute: AdminSignalsRoute,
+  AdminSubscriptionsRoute: AdminSubscriptionsRoute,
+  AdminSystemRoute: AdminSystemRoute,
+  AdminUsersRoute: AdminUsersRouteWithChildren,
+  AdminIndexRoute: AdminIndexRoute,
+}
+
+const AdminRouteWithChildren = AdminRoute._addFileChildren(AdminRouteChildren)
 
 interface LearnRouteChildren {
   LearnIndexRoute: typeof LearnIndexRoute
@@ -365,11 +815,17 @@ const LearnRouteWithChildren = LearnRoute._addFileChildren(LearnRouteChildren)
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AdminRoute: AdminRouteWithChildren,
+  AiInsightsRoute: AiInsightsRoute,
   AlertsRoute: AlertsRoute,
   AppRoute: AppRoute,
   AuthRoute: AuthRoute,
+  DividendsRoute: DividendsRoute,
   FinanceRoute: FinanceRoute,
+  FundsRoute: FundsRoute,
+  HelpRoute: HelpRoute,
   LearnRoute: LearnRouteWithChildren,
+  MonetaryRoute: MonetaryRoute,
   PlansRoute: PlansRoute,
   PortfolioRoute: PortfolioRoute,
   PsxRoute: PsxRoute,
@@ -377,6 +833,7 @@ const rootRouteChildren: RootRouteChildren = {
   SitemapDotxmlRoute: SitemapDotxmlRoute,
   TeamRoute: TeamRoute,
   UrduQaRoute: UrduQaRoute,
+  WatchlistRoute: WatchlistRoute,
   StockTickerRoute: StockTickerRoute,
 }
 export const routeTree = rootRouteImport

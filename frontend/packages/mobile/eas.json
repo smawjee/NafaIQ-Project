@@ -1,0 +1,41 @@
+{
+  "cli": {
+    "version": ">= 12.0.0",
+    "appVersionSource": "local"
+  },
+  "build": {
+    "development": {
+      "developmentClient": true,
+      "distribution": "internal",
+      "channel": "development",
+      "env": {
+        "EXPO_PUBLIC_SUPABASE_URL": "https://gmonfgxmjgzipnbhgimv.supabase.co",
+        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "sb_publishable_aJUwvjC4anq5dmtlbMcTjA_4y_pvfE1"
+      }
+    },
+    "preview": {
+      "distribution": "internal",
+      "channel": "preview",
+      "android": {
+        "buildType": "apk"
+      },
+      "env": {
+        "EXPO_PUBLIC_SUPABASE_URL": "https://gmonfgxmjgzipnbhgimv.supabase.co",
+        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "sb_publishable_aJUwvjC4anq5dmtlbMcTjA_4y_pvfE1",
+        "EXPO_PUBLIC_API_URL": "https://illustrious-vitality-production-fb80.up.railway.app"
+      }
+    },
+    "production": {
+      "autoIncrement": true,
+      "channel": "production",
+      "env": {
+        "EXPO_PUBLIC_SUPABASE_URL": "https://gmonfgxmjgzipnbhgimv.supabase.co",
+        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "sb_publishable_aJUwvjC4anq5dmtlbMcTjA_4y_pvfE1",
+        "EXPO_PUBLIC_API_URL": "https://illustrious-vitality-production-fb80.up.railway.app"
+      }
+    }
+  },
+  "submit": {
+    "production": {}
+  }
+}

@@ -9,6 +9,7 @@ import httpx
 from bs4 import BeautifulSoup
 
 from app.config import settings
+from app.scrapers._http import ResilientHTTP
 from app.models import (
     MarketSnapshotItem,
     OHLCVBar,
@@ -36,58 +37,45 @@ POST_HEADERS = {
 
 
 class DPSScraper:
-    """Scrapes dps.psx.com.pk for market data. Polite: max 2 concurrent requests."""
+    """Scrapes dps.psx.com.pk for market data. Polite: max 2 concurrent requests.
+
+    Transport reliability
+    ---------------------
+    Requests retry on the FULL family of transport failures via
+    ``httpx.TransportError``. The previous code caught only
+    ``(HTTPStatusError, ConnectError, ReadTimeout)``, which silently excluded
+    ``RemoteProtocolError`` — httpx's "Server disconnected without sending a
+    response". That one gap took down three jobs at once (audit 2026-07-22 §7):
+    refresh_dividends reported 1077/1077 symbols failed, and psx_announcements
+    and shariah_universe both recorded that exact message, while the same code
+    worked fine from a developer laptop.
+
+    The reason it only bit in production: a long-lived process reuses pooled
+    keepalive connections. DPS closes an idle one, and the next request on that
+    dead connection raises RemoteProtocolError. A laptop making a handful of
+    requests on a fresh client never sees it; a Railway worker crawling ~1,000
+    symbols hits it constantly.
+
+    So a protocol error also RECYCLES the client — the pooled connection is
+    poisoned and every subsequent request on it would fail the same way.
+    ``keepalive_expiry`` is short for the same reason.
+    """
 
     def __init__(self):
-        self._sem = asyncio.Semaphore(2)
-        self._client: Optional[httpx.AsyncClient] = None
-
-    async def _get_client(self) -> httpx.AsyncClient:
-        if self._client is None:
-            self._client = httpx.AsyncClient(
-                http2=True,
-                headers=GET_HEADERS,
-                timeout=15.0,
-                follow_redirects=True,
-            )
-        return self._client
+        self._http = ResilientHTTP(
+            headers=GET_HEADERS, concurrency=2, name="dps",
+        )
 
     async def close(self):
-        if self._client:
-            await self._client.aclose()
-            self._client = None
+        await self._http.aclose()
 
     async def _get(self, path: str) -> str:
-        client = await self._get_client()
-        url = f"{settings.dps_base_url}{path}"
-        async with self._sem:
-            for attempt in (1, 2):
-                try:
-                    r = await client.get(url)
-                    r.raise_for_status()
-                    return r.text
-                except (httpx.HTTPStatusError, httpx.ConnectError, httpx.ReadTimeout):
-                    if attempt == 1:
-                        await asyncio.sleep(2.0)
-                        continue
-                    raise
-            raise httpx.HTTPError(f"Unreachable after retries: {url}")
+        return await self._http.get_text(f"{settings.dps_base_url}{path}")
 
     async def _post(self, path: str, data: dict) -> str:
-        client = await self._get_client()
-        url = f"{settings.dps_base_url}{path}"
-        async with self._sem:
-            for attempt in (1, 2):
-                try:
-                    r = await client.post(url, data=data, headers=POST_HEADERS)
-                    r.raise_for_status()
-                    return r.text
-                except (httpx.HTTPStatusError, httpx.ConnectError, httpx.ReadTimeout):
-                    if attempt == 1:
-                        await asyncio.sleep(2.0)
-                        continue
-                    raise
-            raise httpx.HTTPError(f"Unreachable after retries: {url}")
+        return await self._http.post_text(
+            f"{settings.dps_base_url}{path}", data=data, headers=POST_HEADERS
+        )
 
     # ---------- market-watch ----------
 
@@ -254,7 +242,12 @@ class DPSScraper:
         )
 
     async def fetch_fundamentals(self, symbol: str) -> FundamentalsData:
-        html = await self._get(f"/company/{symbol.upper()}")
+        sym = symbol.upper()
+        html_task = asyncio.create_task(self._get(f"/company/{sym}"))
+        payouts_task = asyncio.create_task(self.fetch_payouts(sym))
+        html = await html_task
+        payouts = await payouts_task
+
         soup = BeautifulSoup(html, "lxml")
         text = soup.get_text(" ", strip=True)
 
@@ -262,10 +255,12 @@ class DPSScraper:
             m = re.search(rf"{label}[^0-9\-]*(-?\d+(?:\.\d+)?)", text, re.I)
             return float(m.group(1)) if m else None
 
+        # ── P/E ──
         pe = find(r"P/E\s*Ratio\s*\(TTM\)")
         if pe is None:
             pe = find(r"P\s*/\s*E")
 
+        # ── EPS (table first, then regex) ──
         eps = None
         for table in soup.find_all("table"):
             for tr in (table.find("tbody") or table).find_all("tr"):
@@ -276,16 +271,57 @@ class DPSScraper:
             if eps is not None:
                 break
         if eps is None:
-            eps = find(r"EPS\b")
+            m = re.search(r"EPS\s+(-?\d+\.\d+)", text, re.I)
+            if m:
+                eps = _f(m.group(1))
+            else:
+                m = re.search(r"EPS\s+(-?\d+)", text, re.I)
+                if m:
+                    val = _f(m.group(1))
+                    if val is not None and val < 1000:
+                        eps = val
+
+        # ── Price ──
+        price = None
+        price_div = soup.find("div", class_="quote__close")
+        if price_div:
+            price = _f(price_div.get_text(strip=True).lstrip("Rs."))
+
+        # ── Div yield & Payout from payout data ──
+        div_yield = None
+        payout = None
+        ttm_cutoff = date.today().replace(year=date.today().year - 1)
+        ttm_div = sum(
+            d.per_share for d in payouts
+            if d.payout_type == "cash"
+            and d.announcement_date is not None
+            and d.announcement_date >= ttm_cutoff
+            and d.per_share is not None
+        )
+        if ttm_div and price:
+            div_yield = round((ttm_div / price) * 100, 2)
+        if ttm_div and eps:
+            payout = round((ttm_div / eps) * 100, 2)
+
+        # ── P/B & ROE ── parse the labels if present, else derive from the
+        # book value per share on the page (real data only; None when genuinely
+        # unavailable — never a fabricated placeholder).
+        book_value = find(r"Book\s*Value(?:\s*/?\s*Share)?")
+        pb = find(r"P/B\s*Ratio") or find(r"P\s*/\s*B")
+        if pb is None and price and book_value:
+            pb = round(price / book_value, 2)
+        roe = find(r"Return\s*on\s*Equity") or find(r"\bROE\b")
+        if roe is None and eps is not None and book_value:
+            roe = round((eps / book_value) * 100, 2)
 
         return FundamentalsData(
-            symbol=symbol.upper(),
+            symbol=sym,
             eps=eps,
             pe=pe,
-            pb=find(r"P\s*/\s*B"),
-            div_yield=find(r"Dividend\s*Yield"),
-            payout=find(r"Payout\s*Ratio"),
-            roe=find(r"ROE\b"),
+            pb=pb,
+            div_yield=div_yield,
+            payout=payout,
+            roe=roe,
         )
 
     # ---------- announcements ----------
@@ -345,6 +381,19 @@ class DPSScraper:
 
     # ---------- payouts / dividends ----------
 
+    # TODO (Workstream E, follow-up): split detection. The psx_ohlcv table now
+    # has `is_adjusted`, `adjustment_factor`, and `split_date` columns to track
+    # split-adjusted bars. This scraper is the right place to populate them
+    # from the payout feed — `payout_type == "right"` (R) entries are right
+    # issues, not splits, so a real detector needs to look elsewhere. Candidates:
+    #   1. Parse the DPS "Corporate Actions" / "Stock Splits" page if/when PSX
+    #      publishes one, or
+    #   2. Detect splits from the ex_date discontinuity in fetch_payouts (a
+    #      right issue has no per_share for cash, but a true split has no
+    #      announcement_id collision and a clean price/2 or price/3 on the
+    #      following bar from fetch_historical).
+    # Until then, freshly written bars default to is_adjusted=true and
+    # adjustment_factor=1.0, which is what the migration guarantees.
     async def fetch_payouts(self, symbol: str) -> list[DividendEvent]:
         html = await self._post("/company/payouts", {"symbol": symbol.upper()})
         soup = BeautifulSoup(html, "lxml")
@@ -397,8 +446,14 @@ class DPSScraper:
                         pass
 
                 per_share = pct * 10.0 / 100.0 if payout_type == "cash" else None
-                bonus_pct_val = pct if payout_type == "bonus" else None
-                announcement_id = f"{symbol.upper()}-{fiscal_end.year}-{period_code}"
+                # rights store their pct here too — adjustments.py needs the
+                # dilution ratio and no other column captures it
+                bonus_pct_val = pct if payout_type in ("bonus", "right") else None
+                # type letter must be part of the id: a cash + bonus payout for
+                # the same fiscal period would otherwise collide on the PK and
+                # the bonus row would silently vanish (observed: zero bonus
+                # rows in psx_dividends despite bonus-heavy PSX history)
+                announcement_id = f"{symbol.upper()}-{fiscal_end.year}-{period_code}-{type_letter}"
 
                 items.append(DividendEvent(
                     announcement_id=announcement_id,
@@ -412,6 +467,46 @@ class DPSScraper:
         return items
 
     # ---------- index EOD ----------
+
+    async def fetch_index_snapshot(self) -> list[dict]:
+        """Live top-index strip from the DPS homepage.
+
+        ``/timeseries/eod/{code}`` is daily history and can lag until the EOD
+        file is published. The homepage top-index carousel carries the current
+        intraday index value/change for KSE100, KMI30, ALLSHR, etc.
+        """
+        html = await self._get("/")
+        soup = BeautifulSoup(html, "lxml")
+        text = soup.get_text(" ", strip=True)
+        as_of = _parse_first_month_datetime(text)
+
+        rows: list[dict] = []
+        for item in soup.select(".topIndices__item"):
+            code_el = item.select_one(".topIndices__item__name")
+            val_el = item.select_one(".topIndices__item__val")
+            if not code_el or not val_el:
+                continue
+            code = code_el.get_text(strip=True).upper()
+            close = _f(val_el.get_text(strip=True))
+            if not code or close is None:
+                continue
+
+            change_el = item.select_one(".topIndices__item__change")
+            pct_el = item.select_one(".topIndices__item__changep")
+            change = _f(re.sub(r"[^\d.\-+]", "", change_el.get_text(" ", strip=True))) if change_el else None
+            change_pct = _f(re.sub(r"[^\d.\-+]", "", pct_el.get_text(" ", strip=True))) if pct_el else None
+            prev_close = close - change if change is not None else None
+            rows.append(
+                {
+                    "code": code,
+                    "date": as_of.date().isoformat() if as_of else date.today().isoformat(),
+                    "close": close,
+                    "prev_close": prev_close,
+                    "change": change,
+                    "change_pct": change_pct,
+                }
+            )
+        return rows
 
     async def fetch_index_eod(self, code: str) -> list[IndexBar]:
         import json as _json
@@ -438,9 +533,50 @@ class DPSScraper:
                     vol = int(float(row[2]))
                 except (ValueError, TypeError):
                     pass
+            open_p = close
+            high_p = close
+            low_p = close
+            if len(row) >= 6:
+                try:
+                    open_p = float(row[1])
+                    high_p = float(row[2])
+                    low_p = float(row[3])
+                    close = float(row[4])
+                    if row[5] not in (None, ""):
+                        vol = int(float(row[5]))
+                except (ValueError, TypeError, IndexError):
+                    pass
             d = datetime.fromtimestamp(ts, tz=timezone.utc).date()
-            bars.append(IndexBar(code=code.upper(), date=d, close=close, volume=vol))
+            bars.append(IndexBar(
+                code=code.upper(),
+                date=d,
+                open=open_p,
+                high=high_p,
+                low=low_p,
+                close=close,
+                volume=vol,
+            ))
         return bars
+
+    # ---------- index constituents ----------
+
+    async def fetch_index_constituents(self, code: str) -> list[str]:
+        """Symbols in a PSX index (KMIALLSHR, KMI30, KSE100, ...).
+
+        The page's DataTables paging is client-side, so every constituent is in
+        the served HTML — no JS needed. Order is preserved and duplicates are
+        dropped; callers size-check the result before trusting it.
+        """
+        html = await self._get(f"/indices/{code.upper()}")
+        soup = BeautifulSoup(html, "lxml")
+        symbols: list[str] = []
+        seen: set[str] = set()
+        for a in soup.select("a.tbl__symbol"):
+            sym = a.get_text(strip=True).upper()
+            if sym and sym not in seen:
+                seen.add(sym)
+                symbols.append(sym)
+        return symbols
 
 
 # ---------- helpers ----------
@@ -470,3 +606,19 @@ def _parse_date_month_name(s: str) -> Optional[date]:
         return date.fromisoformat(raw[:10])
     except ValueError:
         return None
+
+
+def _parse_first_month_datetime(s: str) -> Optional[datetime]:
+    m = re.search(
+        r"\b(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+\d{1,2},\s+\d{4}(?:\s+\d{1,2}:\d{2}\s+[AP]M)?",
+        str(s),
+    )
+    if not m:
+        return None
+    raw = m.group(0)
+    for fmt in ("%b %d, %Y %I:%M %p", "%b %d, %Y"):
+        try:
+            return datetime.strptime(raw, fmt)
+        except ValueError:
+            continue
+    return None

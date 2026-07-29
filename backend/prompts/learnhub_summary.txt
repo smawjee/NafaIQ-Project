@@ -1,0 +1,14 @@
+TASK: Write revision notes for {scope}, for a learner reviewing it before a quiz.
+Capture what actually matters, in the order it builds understanding — not a flat
+list of everything mentioned.
+- `key_ideas`: 3 to 5 short bullets — the core ideas a learner must walk away
+  with. Each should stand on its own and be worth remembering.
+- `terms`: 0 to 4 key terms the lesson introduces (the terms themselves, not
+  their definitions). Omit if the content introduces none.
+- `pitfall`: ONE common mistake or misunderstanding this material tends to cause,
+  ONLY if the retrieved content supports it. Use null if it does not — do not
+  invent one.
+
+{data_open}
+{content_block}
+{data_close}

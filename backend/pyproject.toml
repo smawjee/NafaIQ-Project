@@ -24,14 +24,43 @@ dependencies = [
     "scikit-learn>=1.6",
     "joblib>=1.4",
     "sqlalchemy[asyncio]>=2.0",
+    "asyncpg>=0.30",
     "slowapi>=0.1.9",
+    "openai>=2.45",
+    "instructor>=1.15",
+    "pdfplumber>=0.11",
+    # LLM observability — drop-in OpenAI tracer + @observe. No-op unless the
+    # LANGFUSE_* keys are set (see services/ai/observability.py).
+    "langfuse>=4.0",
+    # Fernet encryption for mailbox credentials at rest (services/crypto.py).
+    # Also pulled in transitively by PyJWT for RS256/ES256 — declared here
+    # because we import it directly.
+    "cryptography>=44",
+    # Required at IMPORT time by api/funds.py's UploadFile/File(...) params —
+    # FastAPI resolves the dependant when the decorator runs, so the whole app
+    # fails to import without it. Plain `fastapi` does not pull it in (only
+    # `fastapi[standard]` does); it was reaching dev machines transitively via
+    # an unrelated tool, which is why the suite looked green while the image
+    # crash-looped.
+    "python-multipart>=0.0.9",
+    # api/deps.py and services/auth.py import jwt directly. It currently
+    # arrives transitively via supabase-auth; declared so a supabase bump
+    # cannot silently drop it.
+    "PyJWT>=2.8",
 ]
 
 [project.optional-dependencies]
 dev = [
     "pytest>=8.3",
     "pytest-asyncio>=0.25",
+    # Static undefined-name guard -- see tests/test_no_undefined_names.py
+    "pyflakes>=3.2",
     "httpx-sse>=0.4",
+]
+signals-ml = [
+    "lightgbm>=4.5",
+    "xgboost>=2.1",
+    "catboost>=1.2",
 ]
 
 [tool.setuptools.packages.find]
@@ -39,5 +68,11 @@ where = ["src"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
+# Session-scoped loop: the SQLAlchemy engine is process-global; per-function
+# loops intermittently close under it on Windows (event-loop-closed flakes).
+asyncio_default_test_loop_scope = "session"
 testpaths = ["tests"]
 pythonpath = ["src"]
+markers = [
+    "requires_db: needs a live Postgres (SUPABASE_DATABASE_PASSWORD). Skipped automatically when unset — see tests/conftest.py.",
+]

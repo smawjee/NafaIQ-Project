@@ -147,7 +147,7 @@ function SocialLink({
       className={`flex h-9 w-9 items-center justify-center rounded-full border backdrop-blur-sm transition-all duration-300 ${
         isLight
           ? "border-[rgba(12,31,26,0.08)] bg-[rgba(12,31,26,0.03)] text-[#4a5b56] hover:border-[rgba(12,31,26,0.15)] hover:bg-[rgba(12,31,26,0.06)] hover:text-[#0c1f1a]"
-          : "border-white/[0.08] bg-white/[0.04] text-white/50 hover:border-white/[0.15] hover:bg-white/[0.08] hover:text-white/90"
+          : "border-border bg-white/[0.04] text-white/50 hover:border-border-hover hover:bg-hover hover:text-white/90"
       }`}
       onMouseEnter={(e) => {
         e.currentTarget.style.color = `hsla(${hue}, 60%, 65%, 1)`;
@@ -170,9 +170,7 @@ function TeamPage() {
   const isLight = theme === "light";
 
   return (
-    <div
-      className={`relative min-h-screen ${isLight ? "bg-background" : "bg-[#060B17]"}`}
-    >
+    <div className={`relative min-h-screen ${isLight ? "bg-background" : "bg-[#060B17]"}`}>
       {/* subtle grid pattern — dark only */}
       {!isLight && (
         <div
@@ -201,7 +199,7 @@ function TeamPage() {
           className={`flex h-14 w-full max-w-[760px] items-center gap-3 rounded-full border px-3 shadow-[0_8px_40px_rgba(0,0,0,0.45)] backdrop-blur-xl backdrop-saturate-150 sm:px-4 ${
             isLight
               ? "border-[rgba(12,31,26,0.08)] bg-[rgba(250,248,243,0.88)]"
-              : "border-white/[0.08] bg-[#0B1220]/80"
+              : "border-border bg-[#0B1220]/80"
           }`}
         >
           <Link to="/" className="flex shrink-0 items-center gap-2">
@@ -267,7 +265,7 @@ function TeamPage() {
               className={`group relative flex flex-col overflow-hidden rounded-[28px] border p-9 backdrop-blur-xl ${
                 isLight
                   ? "border-[rgba(12,31,26,0.08)] bg-white"
-                  : "border-white/[0.08] bg-[#111827]/80"
+                  : "border-border bg-[#111827]/80"
               }`}
               style={{
                 boxShadow: isLight
@@ -353,10 +351,17 @@ function TeamPage() {
       </section>
 
       {/* footer */}
-      <footer className={`border-t ${isLight ? "border-[rgba(12,31,26,0.08)] bg-[#f0ece2]" : "border-white/[0.06] bg-[#060B17]"}`}>
-        <div className={`mx-auto flex max-w-[1200px] flex-col gap-2 px-6 py-5 text-xs sm:flex-row sm:items-center sm:justify-between ${isLight ? "text-text-muted" : "text-[#94A3B8]"}`}>
+      <footer
+        className={`border-t ${isLight ? "border-[rgba(12,31,26,0.08)] bg-[#f0ece2]" : "border-border bg-[#060B17]"}`}
+      >
+        <div
+          className={`mx-auto flex max-w-[1200px] flex-col gap-2 px-6 py-5 text-xs sm:flex-row sm:items-center sm:justify-between ${isLight ? "text-text-muted" : "text-[#94A3B8]"}`}
+        >
           <span>&copy; 2026 NafaIQ &middot; Built in Pakistan</span>
-          <Link to="/" className={`${isLight ? "text-text-muted hover:text-text-primary" : "text-[#94A3B8] hover:text-[#F8FAFC]"} transition`}>
+          <Link
+            to="/"
+            className={`${isLight ? "text-text-muted hover:text-text-primary" : "text-[#94A3B8] hover:text-[#F8FAFC]"} transition`}
+          >
             Back to homepage
           </Link>
         </div>

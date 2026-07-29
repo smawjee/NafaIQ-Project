@@ -1,42 +1,34 @@
+// DTO contracts for the NafaIQ Python (FastAPI) backend.
+// Mirrors frontend/packages/web/src/lib/psx/types.ts — the web client is the
+// reference implementation; keep the two in sync when endpoints change.
+
+import type { Signal } from "./data";
+
 export interface ApiMarketSnapshotItem {
-  id: number;
   symbol: string;
   price: number | null;
   change: number | null;
   change_pct: number | null;
-  volume: number | null;
+  volume: number;
   day_high: number | null;
   day_low: number | null;
-  refreshed_at: string;
 }
 
 export interface ApiOHLCVBar {
-  id: number;
   symbol: string;
   date: string;
-  open: number | null;
-  high: number | null;
-  low: number | null;
-  close: number | null;
-  volume: number | null;
-}
-
-export interface ApiSignal {
-  symbol: string;
-  signal: string;
-  confidence: number;
-  probabilities?: Record<string, number>;
-  model_version?: string;
-}
-
-export interface BatchSignalsResponse {
-  signals: ApiSignal[];
+  open: number;
+  high: number;
+  low: number;
+  close: number;
+  volume: number;
 }
 
 export interface ApiSymbolInfo {
   symbol: string;
   name: string;
   sector: string | null;
+  logoid?: string | null;
 }
 
 export interface ApiCompanyProfile {
@@ -45,7 +37,6 @@ export interface ApiCompanyProfile {
   sector: string | null;
   listed_shares: number | null;
   free_float: number | null;
-  refreshed_at: string;
 }
 
 export interface ApiFundamentalsData {
@@ -56,13 +47,12 @@ export interface ApiFundamentalsData {
   div_yield: number | null;
   payout: number | null;
   roe: number | null;
-  refreshed_at: string;
 }
 
 export interface ApiAnnouncementItem {
   id: string;
   symbol: string | null;
-  posted_at: string;
+  posted_at: string | null;
   title: string;
   category: string | null;
   url: string | null;
@@ -73,7 +63,7 @@ export interface ApiDividendEvent {
   symbol: string;
   ex_date: string | null;
   announcement_date: string | null;
-  payout_type: string | null;
+  payout_type: string;
   per_share: number | null;
   bonus_pct: number | null;
 }
@@ -81,51 +71,207 @@ export interface ApiDividendEvent {
 export interface ApiIndexBar {
   code: string;
   date: string;
-  close: number | null;
+  open: number | null;
+  high: number | null;
+  low: number | null;
+  close: number;
   volume: number | null;
 }
 
+export interface ApiIndexCard {
+  code: string;
+  date: string | null;
+  close: number;
+  prev_close: number | null;
+  change: number;
+  change_pct: number;
+}
+
+export interface ApiScreenerMetric {
+  symbol: string;
+  rsi: number | null;
+  market_cap: number | null;
+}
+
 export interface ApiSectorDataItem {
+  name: string;
+  pct: number;
+  volume: number | null;
+  value: number | null;
+}
+
+export interface ApiHeatmapStockItem {
+  symbol: string;
+  name: string;
   sector: string;
-  avg_change_pct: number;
-  stock_count: number;
-  total_volume: number;
+  close: number;
+  change_pct: number;
+  volume: number;
+  market_cap: number | null;
+}
+
+export interface ApiHeatmapResponse {
+  source: string;
+  sectors: ApiSectorDataItem[];
+  stocks: ApiHeatmapStockItem[];
+  count: number;
 }
 
 export interface ApiIndicatorPayload {
   symbol: string;
-  indicators: Record<string, number | Record<string, number>>;
+  indicators: Record<string, number | null>;
+}
+
+export interface ScreenerResultRow {
+  symbol: string;
+  price: number | null;
+  change_pct: number | null;
+  volume: number;
+  sector: string | null;
+  signal: string | null;
+  rsi: number | null;
+}
+
+export interface ScreenerResponse {
+  results: ScreenerResultRow[];
+  count: number;
 }
 
 export interface ScreenerRequest {
   sector?: string;
-  min_pe?: number;
-  max_pe?: number;
-  min_volume?: number;
-  min_price?: number;
-  max_price?: number;
-  rsi_min?: number;
+  pe_max?: number;
+  roe_min?: number;
+  pb_max?: number;
+  div_yield_min?: number;
+  above_sma200?: boolean;
   rsi_max?: number;
+  rsi_min?: number;
+  sort_by?: string;
+  desc?: boolean;
   limit?: number;
 }
 
-export interface ScreenerResponse {
-  results: unknown[];
-  count: number;
-}
-
 export interface BacktestRequest {
-  filter_spec?: unknown;
-  initial_capital?: number;
-  start_date?: string;
-  end_date?: string;
+  filter_spec: Record<string, unknown>;
+  hold_days?: number;
+  since?: string;
 }
 
 export interface ApiBacktestResult {
-  total_return: number;
-  annual_return: number;
-  max_drawdown: number;
-  sharpe_ratio: number;
-  win_rate: number;
-  trades: unknown[];
+  avg_return: number;
+  median_return: number;
+  kse_return: number;
+  winners: number;
+  losers: number;
+  matched_symbols: number;
+}
+
+export interface ApiSignal {
+  symbol: string;
+  signal: Signal;
+  confidence: number;
+  probabilities: Record<string, number>;
+  features_used: string[];
+  model_version: string;
+}
+
+export interface BatchSignalsResponse {
+  signals: ApiSignal[];
+  count: number;
+}
+
+/* ── Signals v2 (backend api/signals.py /signals/v2/*) ──────────────────── */
+
+export type SignalHorizon = "5D" | "20D" | "60D";
+
+/** v2 can decline to call a setup; the 5-value `Signal` stays badge-safe. */
+export type SignalV2Label = Signal | "NO SIGNAL";
+
+export interface ApiIndicatorVote {
+  name: string;
+  vote: -1 | 0 | 1;
+  weight: number;
+  value: number | null;
+  reason: string;
+}
+
+/** TradingView technical-rating consensus used as an external cross-check. */
+export interface ApiSignalConsensus {
+  rating: number;
+  ma_rating: number | null;
+  oscillator_rating: number | null;
+  label: string | null;
+  source: string;
+  as_of: string;
+}
+
+export interface ApiSignalRiskMetrics {
+  annualized_volatility: number;
+  expected_20d_move_pct: number;
+  suggested_stop_pct: number;
+  position_risk: "LOW" | "MODERATE" | "HIGH" | "EXTREME";
+  continuation: {
+    n: number;
+    p_negative_20d: number;
+    median_20d_return: number;
+  } | null;
+}
+
+/** Market-wide FIPI foreign-flow summary attached to every v2 signal. */
+export interface ApiFlowContext {
+  foreign_net_5d_pkr: number;
+  foreign_net_20d_pkr: number;
+  foreign_net_5d_usd: number;
+  trend: "FOREIGN_BUYING" | "FOREIGN_SELLING" | "MIXED" | "NEUTRAL";
+  last_date: string;
+  days_covered: number;
+  source: string;
+}
+
+export interface ApiSignalV2 {
+  symbol: string;
+  horizon: SignalHorizon;
+  signal: SignalV2Label;
+  confidence: number;
+  rank_score: number;
+  technical_signal: SignalV2Label;
+  technical_score: number;
+  ml_signal: Signal | null;
+  ml_confidence: number | null;
+  risk_level: "LOW" | "MODERATE" | "HIGH" | "EXTREME";
+  regime: "BULLISH" | "NEUTRAL" | "BEARISH" | "HIGH_VOLATILITY";
+  freshness: "LIVE" | "DELAYED" | "STALE" | "UNKNOWN";
+  reasons: string[];
+  warnings: string[];
+  indicator_votes: ApiIndicatorVote[];
+  probabilities: Record<string, number> | null;
+  consensus?: ApiSignalConsensus | null;
+  consensus_agreement?: "AGREES" | "MIXED" | "DISAGREES" | null;
+  trend_state?: "UPTREND" | "WEAKENING" | "DOWNTREND" | "BASING" | "RANGE" | "UNKNOWN" | null;
+  trend_score?: number | null;
+  risk_metrics?: ApiSignalRiskMetrics | null;
+  flow_context?: ApiFlowContext | null;
+  features_snapshot: Record<string, unknown>;
+  model_version: string;
+  engine_version: string;
+  predicted_at: string;
+}
+
+/* ── Signal track record (/signals/v2/track-record) ─────────────────────── */
+
+export interface ApiTrackRecordEntry {
+  n: number;
+  hit_rate: number;
+  avg_return: number;
+  avg_excess: number;
+  large_loss_rate: number;
+  avoided_loss_rate?: number;
+}
+
+export interface ApiTrackRecord {
+  matured_total: number;
+  /** Keys are underscore signal labels ("STRONG_BUY"), per the outcomes store. */
+  by_signal: Record<string, ApiTrackRecordEntry>;
+  pending_maturity: number;
+  note: string;
 }

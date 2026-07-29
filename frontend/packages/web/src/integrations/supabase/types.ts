@@ -14,48 +14,228 @@ export type Database = {
   }
   public: {
     Tables: {
-      finance_transactions: {
+      ai_chat_history: {
         Row: {
-          amount: number
-          category: string | null
-          created_at: string | null
-          currency: string | null
-          email_subject: string | null
-          id: string
-          merchant: string | null
-          raw_text: string | null
-          source: string | null
-          transaction_date: string | null
-          transaction_type: string | null
+          content: string
+          created_at: string
+          id: number
+          lang: string | null
+          lesson_title: string | null
+          model: string | null
+          provider: string | null
+          role: string
+          tokens_in: number | null
+          tokens_out: number | null
           user_id: string
         }
         Insert: {
-          amount: number
-          category?: string | null
-          created_at?: string | null
-          currency?: string | null
-          email_subject?: string | null
-          id?: string
-          merchant?: string | null
-          raw_text?: string | null
-          source?: string | null
-          transaction_date?: string | null
-          transaction_type?: string | null
+          content: string
+          created_at?: string
+          id?: never
+          lang?: string | null
+          lesson_title?: string | null
+          model?: string | null
+          provider?: string | null
+          role: string
+          tokens_in?: number | null
+          tokens_out?: number | null
           user_id: string
         }
         Update: {
-          amount?: number
-          category?: string | null
-          created_at?: string | null
-          currency?: string | null
-          email_subject?: string | null
-          id?: string
-          merchant?: string | null
-          raw_text?: string | null
-          source?: string | null
-          transaction_date?: string | null
-          transaction_type?: string | null
+          content?: string
+          created_at?: string
+          id?: never
+          lang?: string | null
+          lesson_title?: string | null
+          model?: string | null
+          provider?: string | null
+          role?: string
+          tokens_in?: number | null
+          tokens_out?: number | null
           user_id?: string
+        }
+        Relationships: []
+      }
+      ai_usage: {
+        Row: {
+          message_count: number
+          tokens_in: number
+          tokens_out: number
+          updated_at: string
+          usage_date: string
+          user_id: string
+        }
+        Insert: {
+          message_count?: number
+          tokens_in?: number
+          tokens_out?: number
+          updated_at?: string
+          usage_date: string
+          user_id: string
+        }
+        Update: {
+          message_count?: number
+          tokens_in?: number
+          tokens_out?: number
+          updated_at?: string
+          usage_date?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      alert_events: {
+        Row: {
+          alert_id: number | null
+          alert_type: string
+          body: string
+          channel: string
+          created_at: string
+          delivered_at: string | null
+          id: number
+          payload: Json
+          read_at: string | null
+          symbol: string | null
+          title: string
+          user_id: string
+        }
+        Insert: {
+          alert_id?: number | null
+          alert_type: string
+          body: string
+          channel?: string
+          created_at?: string
+          delivered_at?: string | null
+          id?: number
+          payload?: Json
+          read_at?: string | null
+          symbol?: string | null
+          title: string
+          user_id: string
+        }
+        Update: {
+          alert_id?: number | null
+          alert_type?: string
+          body?: string
+          channel?: string
+          created_at?: string
+          delivered_at?: string | null
+          id?: number
+          payload?: Json
+          read_at?: string | null
+          symbol?: string | null
+          title?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      in_app_notifications: {
+        Row: {
+          body: string
+          created_at: string
+          id: number
+          kind: string
+          link: string | null
+          read: boolean
+          title: string
+          user_id: string
+        }
+        Insert: {
+          body: string
+          created_at?: string
+          id?: number
+          kind: string
+          link?: string | null
+          read?: boolean
+          title: string
+          user_id: string
+        }
+        Update: {
+          body?: string
+          created_at?: string
+          id?: number
+          kind?: string
+          link?: string | null
+          read?: boolean
+          title?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      plan_features: {
+        Row: {
+          ai_reports_per_period: number | null
+          ai_reports_period: string | null
+          ai_tutor_daily_limit: number | null
+          description: string | null
+          has_api_access: boolean
+          has_email_alerts: boolean
+          has_export: boolean
+          has_multi_currency: boolean
+          has_push_alerts: boolean
+          has_realtime_psx: boolean
+          has_screener_full: boolean
+          has_webhook_integration: boolean
+          max_bills: number
+          max_budgets: number
+          max_finance_history_days: number
+          max_goals: number
+          max_holdings_per_portfolio: number
+          max_portfolios: number
+          max_price_alerts: number
+          max_watchlist: number
+          plan: string
+          rank: number
+          updated_at: string
+        }
+        Insert: {
+          ai_reports_per_period?: number | null
+          ai_reports_period?: string | null
+          ai_tutor_daily_limit?: number | null
+          description?: string | null
+          has_api_access?: boolean
+          has_email_alerts?: boolean
+          has_export?: boolean
+          has_multi_currency?: boolean
+          has_push_alerts?: boolean
+          has_realtime_psx?: boolean
+          has_screener_full?: boolean
+          has_webhook_integration?: boolean
+          max_bills: number
+          max_budgets: number
+          max_finance_history_days: number
+          max_goals: number
+          max_holdings_per_portfolio: number
+          max_portfolios: number
+          max_price_alerts: number
+          max_watchlist: number
+          plan: string
+          rank: number
+          updated_at?: string
+        }
+        Update: {
+          ai_reports_per_period?: number | null
+          ai_reports_period?: string | null
+          ai_tutor_daily_limit?: number | null
+          description?: string | null
+          has_api_access?: boolean
+          has_email_alerts?: boolean
+          has_export?: boolean
+          has_multi_currency?: boolean
+          has_push_alerts?: boolean
+          has_realtime_psx?: boolean
+          has_screener_full?: boolean
+          has_webhook_integration?: boolean
+          max_bills?: number
+          max_budgets?: number
+          max_finance_history_days?: number
+          max_goals?: number
+          max_holdings_per_portfolio?: number
+          max_portfolios?: number
+          max_price_alerts?: number
+          max_watchlist?: number
+          plan?: string
+          rank?: number
+          updated_at?: string
         }
         Relationships: []
       }
@@ -65,6 +245,11 @@ export type Database = {
           created_at: string
           enabled: boolean
           id: number
+          last_triggered_at: string | null
+          notes: string | null
+          notify_email: boolean
+          notify_push: boolean
+          one_time: boolean
           price: number
           symbol: string
           triggered_at: string | null
@@ -75,6 +260,11 @@ export type Database = {
           created_at?: string
           enabled?: boolean
           id?: number
+          last_triggered_at?: string | null
+          notes?: string | null
+          notify_email?: boolean
+          notify_push?: boolean
+          one_time?: boolean
           price: number
           symbol: string
           triggered_at?: string | null
@@ -85,6 +275,11 @@ export type Database = {
           created_at?: string
           enabled?: boolean
           id?: number
+          last_triggered_at?: string | null
+          notes?: string | null
+          notify_email?: boolean
+          notify_push?: boolean
+          one_time?: boolean
           price?: number
           symbol?: string
           triggered_at?: string | null
@@ -99,6 +294,8 @@ export type Database = {
           display_name: string | null
           id: string
           plan: string
+          plan_selected_at: string | null
+          tier: string | null
           updated_at: string
         }
         Insert: {
@@ -107,6 +304,8 @@ export type Database = {
           display_name?: string | null
           id: string
           plan?: string
+          plan_selected_at?: string | null
+          tier?: string | null
           updated_at?: string
         }
         Update: {
@@ -115,6 +314,8 @@ export type Database = {
           display_name?: string | null
           id?: string
           plan?: string
+          plan_selected_at?: string | null
+          tier?: string | null
           updated_at?: string
         }
         Relationships: []
@@ -291,18 +492,27 @@ export type Database = {
           close: number | null
           code: string
           date: string
+          high: number
+          low: number
+          open: number
           volume: number | null
         }
         Insert: {
           close?: number | null
           code: string
           date: string
+          high?: number
+          low?: number
+          open?: number
           volume?: number | null
         }
         Update: {
           close?: number | null
           code?: string
           date?: string
+          high?: number
+          low?: number
+          open?: number
           volume?: number | null
         }
         Relationships: []
@@ -401,6 +611,7 @@ export type Database = {
         Row: {
           free_float: number | null
           listed_shares: number | null
+          logoid: string | null
           name: string
           refreshed_at: string
           sector: string | null
@@ -409,6 +620,7 @@ export type Database = {
         Insert: {
           free_float?: number | null
           listed_shares?: number | null
+          logoid?: string | null
           name?: string
           refreshed_at?: string
           sector?: string | null
@@ -417,6 +629,7 @@ export type Database = {
         Update: {
           free_float?: number | null
           listed_shares?: number | null
+          logoid?: string | null
           name?: string
           refreshed_at?: string
           sector?: string | null
@@ -499,23 +712,429 @@ export type Database = {
         }
         Relationships: []
       }
+      stock_transactions: {
+        Row: {
+          created_at: string
+          executed_at: string
+          fees: number
+          id: number
+          notes: string | null
+          portfolio_id: number
+          price: number
+          quantity: number
+          side: string
+          source: string
+          symbol: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          executed_at?: string
+          fees?: number
+          id?: number
+          notes?: string | null
+          portfolio_id: number
+          price: number
+          quantity: number
+          side: string
+          source?: string
+          symbol: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          executed_at?: string
+          fees?: number
+          id?: number
+          notes?: string | null
+          portfolio_id?: number
+          price?: number
+          quantity?: number
+          side?: string
+          source?: string
+          symbol?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "stock_transactions_portfolio_id_fkey"
+            columns: ["portfolio_id"]
+            isOneToOne: false
+            referencedRelation: "psx_portfolios"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_alerts: {
+        Row: {
+          created_at: string
+          enabled: boolean
+          id: number
+          meta: Json
+          title: string
+          triggered_at: string | null
+          type: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          enabled?: boolean
+          id?: number
+          meta?: Json
+          title: string
+          triggered_at?: string | null
+          type: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          enabled?: boolean
+          id?: number
+          meta?: Json
+          title?: string
+          triggered_at?: string | null
+          type?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      user_bills: {
+        Row: {
+          amount: number
+          created_at: string
+          currency: string
+          due_date: string | null
+          id: number
+          name: string
+          paid_at: string | null
+          recurring: boolean
+          status: string
+          user_id: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          currency?: string
+          due_date?: string | null
+          id?: number
+          name: string
+          paid_at?: string | null
+          recurring?: boolean
+          status?: string
+          user_id: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          currency?: string
+          due_date?: string | null
+          id?: number
+          name?: string
+          paid_at?: string | null
+          recurring?: boolean
+          status?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      user_budgets: {
+        Row: {
+          category: string
+          created_at: string
+          id: number
+          limit_amount: number
+          period: string
+          spent: number
+          tip: string | null
+          user_id: string
+        }
+        Insert: {
+          category: string
+          created_at?: string
+          id?: number
+          limit_amount?: number
+          period?: string
+          spent?: number
+          tip?: string | null
+          user_id: string
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          id?: number
+          limit_amount?: number
+          period?: string
+          spent?: number
+          tip?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      user_goals: {
+        Row: {
+          ai_tip: string | null
+          color: string
+          created_at: string
+          emoji: string
+          id: number
+          name: string
+          saved: number
+          target: number
+          target_date: string | null
+          user_id: string
+        }
+        Insert: {
+          ai_tip?: string | null
+          color?: string
+          created_at?: string
+          emoji?: string
+          id?: number
+          name: string
+          saved?: number
+          target: number
+          target_date?: string | null
+          user_id: string
+        }
+        Update: {
+          ai_tip?: string | null
+          color?: string
+          created_at?: string
+          emoji?: string
+          id?: number
+          name?: string
+          saved?: number
+          target?: number
+          target_date?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      user_notification_prefs: {
+        Row: {
+          email_activity: boolean
+          email_alerts: boolean
+          in_app_alerts: boolean
+          push_alerts: boolean
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          email_activity?: boolean
+          email_alerts?: boolean
+          in_app_alerts?: boolean
+          push_alerts?: boolean
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          email_activity?: boolean
+          email_alerts?: boolean
+          in_app_alerts?: boolean
+          push_alerts?: boolean
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      user_settings: {
+        Row: {
+          currency: string
+          language: string
+          monthly_income: number | null
+          plan: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          currency?: string
+          language?: string
+          monthly_income?: number | null
+          plan?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          currency?: string
+          language?: string
+          monthly_income?: number | null
+          plan?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      user_transactions: {
+        Row: {
+          amount: number
+          category: string
+          created_at: string
+          currency: string
+          email_message_id: string | null
+          id: number
+          merchant: string
+          note: string | null
+          source: string | null
+          stock_transaction_id: number | null
+          transaction_date: string
+          transaction_type: string
+          user_id: string
+        }
+        Insert: {
+          amount: number
+          category: string
+          created_at?: string
+          currency?: string
+          email_message_id?: string | null
+          id?: number
+          merchant: string
+          note?: string | null
+          source?: string | null
+          stock_transaction_id?: number | null
+          transaction_date?: string
+          transaction_type: string
+          user_id: string
+        }
+        Update: {
+          amount?: number
+          category?: string
+          created_at?: string
+          currency?: string
+          email_message_id?: string | null
+          id?: number
+          merchant?: string
+          note?: string | null
+          source?: string | null
+          stock_transaction_id?: number | null
+          transaction_date?: string
+          transaction_type?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_transactions_stock_transaction_id_fkey"
+            columns: ["stock_transaction_id"]
+            isOneToOne: false
+            referencedRelation: "stock_transactions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_watchlist: {
         Row: {
           added_at: string
           id: number
+          notes: string | null
+          notify_email: boolean
+          notify_push: boolean
           symbol: string
           user_id: string
         }
         Insert: {
           added_at?: string
           id?: number
+          notes?: string | null
+          notify_email?: boolean
+          notify_push?: boolean
           symbol: string
           user_id: string
         }
         Update: {
           added_at?: string
           id?: number
+          notes?: string | null
+          notify_email?: boolean
+          notify_push?: boolean
           symbol?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      user_zakat_records: {
+        Row: {
+          breakdown: Json
+          calculated_at: string
+          created_at: string
+          id: number
+          islamic_year: string
+          method: string
+          net_zakatable_pkr: number
+          nisab_value_pkr: number
+          rate_pct: number
+          total_assets_pkr: number
+          total_deductions_pkr: number
+          user_id: string
+          zakat_due_pkr: number
+        }
+        Insert: {
+          breakdown?: Json
+          calculated_at?: string
+          created_at?: string
+          id?: number
+          islamic_year: string
+          method: string
+          net_zakatable_pkr: number
+          nisab_value_pkr: number
+          rate_pct: number
+          total_assets_pkr: number
+          total_deductions_pkr?: number
+          user_id: string
+          zakat_due_pkr: number
+        }
+        Update: {
+          breakdown?: Json
+          calculated_at?: string
+          created_at?: string
+          id?: number
+          islamic_year?: string
+          method?: string
+          net_zakatable_pkr?: number
+          nisab_value_pkr?: number
+          rate_pct?: number
+          total_assets_pkr?: number
+          total_deductions_pkr?: number
+          user_id?: string
+          zakat_due_pkr?: number
+        }
+        Relationships: []
+      }
+      user_zakat_settings: {
+        Row: {
+          custom_rate_pct: number | null
+          include_cash: boolean
+          include_investments: boolean
+          include_receivables: boolean
+          method: string
+          nisab_source: string
+          nisab_value_pkr: number | null
+          notes: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          custom_rate_pct?: number | null
+          include_cash?: boolean
+          include_investments?: boolean
+          include_receivables?: boolean
+          method?: string
+          nisab_source?: string
+          nisab_value_pkr?: number | null
+          notes?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          custom_rate_pct?: number | null
+          include_cash?: boolean
+          include_investments?: boolean
+          include_receivables?: boolean
+          method?: string
+          nisab_source?: string
+          nisab_value_pkr?: number | null
+          notes?: string | null
+          updated_at?: string
           user_id?: string
         }
         Relationships: []
