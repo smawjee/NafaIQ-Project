@@ -136,11 +136,10 @@ export function AdminOverview() {
 
           {(can("errors.read") || can("support.read")) && <ReliabilityStrip data={relQ.data} />}
 
-          <div className="grid gap-4 xl:grid-cols-3">
+          <div className="grid gap-4">
             <Panel
               title="Subscription tiers"
               description="Distribution across the whole user base"
-              className="xl:col-span-1"
               actions={
                 can("users.tier.read") && (
                   <Link
@@ -158,14 +157,13 @@ export function AdminOverview() {
                   hint="The aggregate query failed on this request."
                 />
               ) : (
-                <DonutChart data={tierSegments} centerLabel="users" />
+                <DonutChart data={tierSegments} height={220} centerLabel="users" />
               )}
             </Panel>
 
             <Panel
               title="Platform engagement"
               description="Lifetime totals across user-owned records"
-              className="xl:col-span-2"
             >
               {!engagement?.available ? (
                 <EmptyBlock label="Engagement data unavailable" />
