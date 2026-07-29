@@ -1,0 +1,39 @@
+# The Docker build context is THIS directory (Railway's service Root Directory),
+# so Docker reads this file — not the repo-root .dockerignore, which is never
+# consulted for a backend/ context. Without this, `COPY . .` in the Dockerfile
+# sweeps in backend/.env — live LLM keys, the Supabase service key and the DB
+# password — and bakes them into an image layer, where they survive even if a
+# later layer deletes the file.
+#
+# Railway builds from the git repo, so .gitignore already keeps .env out of ITS
+# context. This is what protects a local `docker build`, which reads the working
+# tree and does not consult .gitignore at all.
+
+**/.env
+**/.env.*
+!**/.env.example
+
+# Secrets / credentials
+*.pem
+*.key
+**/service-account*.json
+
+# Python build/cache noise — reinstalled in the image, and copying it
+# invalidates the layer cache on every change.
+**/__pycache__
+**/*.py[cod]
+**/.pytest_cache
+**/.ruff_cache
+**/.mypy_cache
+**/*.egg-info
+**/.venv
+**/venv
+
+# Local noise
+**/.DS_Store
+**/*.log
+**/coverage
+**/htmlcov
+
+# NOTE: README.md must NOT be ignored — pyproject.toml declares
+# `readme = "README.md"`, so the editable install fails without it.
