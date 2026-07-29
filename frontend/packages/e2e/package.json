@@ -7,6 +7,8 @@
     "test:e2e:ui": "playwright test --ui",
     "test:e2e:public": "playwright test --project=public-chromium",
     "test:e2e:authed": "playwright test --project=authed-chromium",
+    "test:e2e:live": "node scripts/run-and-replay.mjs",
+    "test:e2e:replay": "node scripts/replay-failure.mjs",
     "report": "playwright show-report reports/html",
     "typecheck": "tsc --noEmit"
   },

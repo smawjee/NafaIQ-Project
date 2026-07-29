@@ -1,4 +1,4 @@
-import { expect, test } from "../fixtures";
+import { authSettled, expect, test } from "../fixtures";
 
 /**
  * J8 — portfolio holding removal.
@@ -17,6 +17,7 @@ import { expect, test } from "../fixtures";
 test.describe("portfolio holdings", () => {
   test("lists holdings with labelled edit and delete controls", async ({ page }) => {
     await page.goto("/portfolio");
+    await authSettled(page);
     await expect(page).toHaveTitle(/Portfolio — NafaIQ/);
 
     const deletes = page.getByRole("button", { name: /^delete$/i });
@@ -26,6 +27,7 @@ test.describe("portfolio holdings", () => {
 
   test("deleting asks how, rather than removing immediately", async ({ page }) => {
     await page.goto("/portfolio");
+    await authSettled(page);
 
     const deletes = page.getByRole("button", { name: /^delete$/i });
     await expect(deletes.first()).toBeVisible();
@@ -42,6 +44,7 @@ test.describe("portfolio holdings", () => {
 
   test('"Just remove it" drops the holding from the table', async ({ page }) => {
     await page.goto("/portfolio");
+    await authSettled(page);
 
     const deletes = page.getByRole("button", { name: /^delete$/i });
     await expect(deletes.first()).toBeVisible();
@@ -56,6 +59,7 @@ test.describe("portfolio holdings", () => {
 
   test('"I sold it" opens the sale form instead of deleting', async ({ page }) => {
     await page.goto("/portfolio");
+    await authSettled(page);
 
     const deletes = page.getByRole("button", { name: /^delete$/i });
     await expect(deletes.first()).toBeVisible();
