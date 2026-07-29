@@ -53,6 +53,8 @@ dependencies = [
 dev = [
     "pytest>=8.3",
     "pytest-asyncio>=0.25",
+    # Static undefined-name guard -- see tests/test_no_undefined_names.py
+    "pyflakes>=3.2",
     "httpx-sse>=0.4",
 ]
 signals-ml = [
