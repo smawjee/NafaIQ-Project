@@ -501,32 +501,82 @@ async def job_refresh_fundamentals():
         await _record_health("psx_fundamentals", success=False, error=str(e))
 
 
-async def job_refresh_index_eod():
+async def _ingest_index_eod(code: str) -> int:
+    """Fetch + upsert one index's EOD history. Returns rows written."""
+    bars = await dps.fetch_index_eod(code)
+    if not bars:
+        return 0
+    # Keyed by (code, date), not a list comprehension: DPS returns an exact
+    # duplicate bar for 2024-01-22 in 15 of the 18 indices (and 2021-10-29 for
+    # BKTI/OGTI), and Postgres rejects the whole batch with 21000 "ON CONFLICT
+    # DO UPDATE command cannot affect row a second time" when two proposed rows
+    # share the conflict target. One duplicated day cost the index its ENTIRE
+    # history: only the three duplicate-free codes ingested, while ALLSHR sat
+    # three weeks stale. Last one wins — the duplicates observed are identical
+    # bars, so which survives does not matter; failing the code does. Same bug
+    # class as job_refresh_dividends (fixed 2026-07-16).
+    rows_by_key = {
+        (b.code, b.date.isoformat()): {
+            "code": b.code,
+            "date": b.date.isoformat(),
+            "open": b.open or 0,
+            "high": b.high or 0,
+            "low": b.low or 0,
+            "close": b.close,
+            "volume": b.volume,
+        }
+        for b in bars
+    }
+    rows = list(rows_by_key.values())
+    await async_execute(
+        lambda c, r=rows: c.table("psx_index_eod").upsert(r, on_conflict="code,date")
+    )
+    return len(rows)
+
+
+async def job_refresh_index_eod(attempts: int = 3, backoff_seconds: float = 30.0):
+    """Ingest EOD bars for all 18 indices, retrying the ones that fail.
+
+    This job used to run exactly once a day at 01:00 PKT with no retry, so any
+    code that failed stayed stale for a FULL 24 hours — and if it failed again
+    the next night, indefinitely. That is how ALLSHR drifted three weeks behind
+    without anything downstream noticing.
+
+    Retrying failed codes in-run turns a transient DPS hiccup into a delay of
+    seconds instead of a day. Codes that already succeeded are never re-fetched.
+    """
     total_bars = 0
+    pending = list(ALL_PSX_INDICES)
     try:
-        log.info("job:refresh_index_eod:start")
-        for code in ALL_PSX_INDICES:
-            try:
-                bars = await dps.fetch_index_eod(code)
-                if bars:
-                    rows = [
-                        {
-                            "code": b.code,
-                            "date": b.date.isoformat(),
-                            "open": b.open or 0,
-                            "high": b.high or 0,
-                            "low": b.low or 0,
-                            "close": b.close,
-                            "volume": b.volume,
-                        }
-                        for b in bars
-                    ]
-                    await async_execute(lambda c: c.table("psx_index_eod").upsert(rows, on_conflict="code,date"))
-                    total_bars += len(bars)
-            except Exception as e:
-                log.warning("job:refresh_index_eod:failed", code=code, error=str(e))
-        log.info("job:refresh_index_eod:done", total_bars=total_bars)
-        await _record_health("index_eod", success=True, rows_updated=total_bars)
+        log.info("job:refresh_index_eod:start", indices=len(pending))
+        for attempt in range(1, attempts + 1):
+            failed: list[str] = []
+            for code in pending:
+                try:
+                    total_bars += await _ingest_index_eod(code)
+                except Exception as e:
+                    failed.append(code)
+                    log.warning(
+                        "job:refresh_index_eod:code_failed",
+                        code=code, attempt=attempt, error=str(e),
+                    )
+            pending = failed
+            if not pending or attempt == attempts:
+                break
+            log.info("job:refresh_index_eod:retrying", codes=pending, attempt=attempt)
+            await asyncio.sleep(backoff_seconds)
+
+        log.info("job:refresh_index_eod:done", total_bars=total_bars, errors=len(pending))
+        # A partial run is NOT a success. Counting only the codes that landed and
+        # always reporting green is how 15 broken indices looked identical to a
+        # clean night for weeks.
+        await _record_health(
+            "index_eod",
+            success=not pending,
+            rows_updated=total_bars,
+            error=None if not pending else
+            f"{len(pending)}/{len(ALL_PSX_INDICES)} indices failed after {attempts} attempts: {', '.join(pending)}",
+        )
     except Exception as e:
         log.exception("job:refresh_index_eod:failed")
         await _record_health("index_eod", success=False, error=str(e))
@@ -1141,6 +1191,7 @@ async def job_refresh_dividends():
             return
 
         counters = {"total": 0, "errors": 0}
+        failed: list[str] = []
 
         async def _per_symbol(sym: str) -> None:
             try:
@@ -1174,11 +1225,24 @@ async def job_refresh_dividends():
             except asyncio.CancelledError:
                 raise
             except Exception as e:
-                counters["errors"] += 1
+                failed.append(sym)
                 log.warning("job:refresh_dividends:symbol_failed", symbol=sym, error=str(e))
 
         await _run_concurrently(symbols, _per_symbol, max_concurrent=3)
 
+        # Retry the stragglers. A calm re-probe of failing symbols returns clean
+        # data, so the ~66/1077 failures seen nightly are transient timeouts from
+        # the concurrent crawl, not broken symbols — and without a retry they
+        # silently skipped a day's payouts and turned the whole run red.
+        for attempt in range(1, 3):
+            if not failed:
+                break
+            retry_syms, failed = failed, []
+            log.info("job:refresh_dividends:retrying", count=len(retry_syms), attempt=attempt)
+            await asyncio.sleep(5)
+            await _run_concurrently(retry_syms, _per_symbol, max_concurrent=2)
+
+        counters["errors"] = len(failed)
         log.info(
             "job:refresh_dividends:done",
             total=counters["total"],
@@ -1217,6 +1281,11 @@ def init_scheduler():
     # is the only writer of psx_profile.listed_shares (the treemap's real
     # market-cap source), so its schedule is load-bearing.
     scheduler.add_job(job_refresh_fundamentals, CronTrigger(day_of_week="sat", hour=4, minute=0, timezone="Asia/Karachi"), id="refresh_fundamentals", replace_existing=True)
+    # EOD bars twice a day, not once. DPS publishes the day's close shortly after
+    # the 15:30 PKT session ends, so the 18:00 run puts it in the table the same
+    # evening instead of ~7 hours later. The 01:00 run stays as the safety net
+    # that also catches a late DPS publish. Both are idempotent upserts.
+    scheduler.add_job(job_refresh_index_eod, CronTrigger(day_of_week="mon-fri", hour=18, minute=0, timezone="Asia/Karachi"), id="refresh_index_eod_postclose", replace_existing=True)
     scheduler.add_job(job_refresh_index_eod, CronTrigger(hour=1, minute=0, timezone="Asia/Karachi"), id="refresh_index_eod", replace_existing=True)
     # Live index snapshot: every 5 min during market hours (Mon-Fri 09:00-17:00 PKT).
     # Runs during market hours + buffer so the last snapshot before EOD is captured.

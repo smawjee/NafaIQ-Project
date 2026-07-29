@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import logging
 import time
 from contextlib import asynccontextmanager
@@ -41,7 +42,11 @@ from app.api import (
 )
 from app.api.admin import router as admin_router
 from app.jobs.scheduler import close_scrapers, init_scheduler, shutdown_scheduler
-from app.jobs.scheduler_lock import acquire_scheduler_lock, release_scheduler_lock
+from app.jobs.scheduler_lock import (
+    acquire_scheduler_lock,
+    await_scheduler_lock,
+    release_scheduler_lock,
+)
 from app.services import flags
 from app.services import telemetry
 from app.services.ai.providers import close_llm_clients
@@ -114,14 +119,27 @@ async def lifespan(app: FastAPI):
     # entirely; "all"/"worker" start them only after winning the advisory lock,
     # so a split deployment can never run two schedulers at once. Default is
     # "all" — a single box that both serves and schedules, exactly as before.
-    if settings.runs_scheduler and await acquire_scheduler_lock():
+    lock_retry: asyncio.Task | None = None
+    if not settings.runs_scheduler:
+        log.info("scheduler:skipped", role=settings.process_role,
+                 runs=settings.runs_scheduler)
+    elif await acquire_scheduler_lock():
         init_scheduler()
         log.info("scheduler:enabled", role=settings.process_role)
     else:
-        log.info("scheduler:skipped", role=settings.process_role,
-                 runs=settings.runs_scheduler)
+        # Losing the lock at boot must not be terminal. This process keeps
+        # retrying in the background so a deployment can never be left with zero
+        # schedulers — the state that froze every index card on 2026-07-29.
+        def _start() -> None:
+            init_scheduler()
+            log.info("scheduler:enabled_after_retry", role=settings.process_role)
+
+        lock_retry = asyncio.create_task(await_scheduler_lock(_start))
+        log.info("scheduler:awaiting_lock", role=settings.process_role)
     await _check_history_coverage()
     yield
+    if lock_retry is not None:
+        lock_retry.cancel()
     shutdown_scheduler()
     await release_scheduler_lock()
     await close_scrapers()

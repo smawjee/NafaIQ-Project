@@ -493,7 +493,7 @@ class CacheLayer:
             return []
         return await self._scrape_index_eod(c)
 
-    async def get_live_index_snapshot(self, max_age_seconds: int = 300) -> list[dict]:
+    async def get_live_index_snapshot(self, max_age_seconds: int = 900) -> list[dict]:
         """Read live index snapshot from DB; fall back to DPS scrape.
 
         The scheduler writes ``psx_index_live_snapshot`` every 5 min during
@@ -501,6 +501,14 @@ class CacheLayer:
         ``live_scrape=False``) returns the scheduler's latest snapshot from
         the DB. The worker process (``live_scrape=True``) falls back to a
         direct DPS homepage scrape when the DB row is stale or missing.
+
+        The cutoff is 900s, NOT the 300s that matches the cron interval. At 300s
+        a row written at T expires at exactly T+300 — the instant the next run
+        *starts*, before it has scraped DPS and written. That left a guaranteed
+        dead window every single cycle where every index card silently dropped
+        to the previous day's EOD close, held there for up to TTL_INDEX (60s) by
+        the in-process memo. 900s absorbs two missed beats and still surfaces a
+        genuinely dead scheduler within 15 minutes.
         """
         try:
             result = await async_execute(
