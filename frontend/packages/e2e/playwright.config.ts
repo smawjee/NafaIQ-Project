@@ -15,6 +15,7 @@ const BASE_URL = process.env.E2E_BASE_URL ?? `http://127.0.0.1:${WEB_PORT}`;
 /** Point at a deployed backend (Railway) to skip the local uvicorn entirely. */
 const EXTERNAL_API = process.env.E2E_API_URL?.trim() || "";
 const API_URL = EXTERNAL_API || `http://127.0.0.1:${API_PORT}`;
+const LIVE_REPLAY = process.env.E2E_LIVE_REPLAY === "1";
 
 /** venv python locally; plain `python` on CI, where setup-python owns PATH. */
 const PYTHON =
@@ -46,7 +47,10 @@ function readWebEnvFile(): Record<string, string> {
     const eq = line.indexOf("=");
     if (eq === -1) continue;
     const key = line.slice(0, eq).trim();
-    const value = line.slice(eq + 1).trim().replace(/^["']|["']$/g, "");
+    const value = line
+      .slice(eq + 1)
+      .trim()
+      .replace(/^["']|["']$/g, "");
     if (key.startsWith("VITE_") && value) out[key] = value;
   }
   return out;
@@ -55,9 +59,9 @@ function readWebEnvFile(): Record<string, string> {
 export const VITE_ENV: Record<string, string> = {
   ...readWebEnvFile(),
   // process.env wins, so CI secrets override whatever a developer has locally.
-  ...Object.fromEntries(
+  ...(Object.fromEntries(
     Object.entries(process.env).filter(([k, v]) => k.startsWith("VITE_") && v),
-  ) as Record<string, string>,
+  ) as Record<string, string>),
   VITE_API_URL: API_URL,
   VITE_PSX_API_URL: API_URL,
 };
@@ -68,7 +72,7 @@ export default defineConfig({
   testDir: "./tests",
   // Kept OUT of reports/ so the html reporter's folder wipe cannot race the
   // json file the qa-e2e-triage skill reads.
-  outputDir: "./test-results",
+  outputDir: LIVE_REPLAY ? "./replay-results" : "./test-results",
 
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
@@ -81,17 +85,22 @@ export default defineConfig({
   expect: { timeout: 10_000 },
   globalTimeout: 25 * 60 * 1000,
 
-  reporter: [
-    ["list"],
-    ["html", { outputFolder: "reports/html", open: "never" }],
-    // STABLE PATH — consumed by .claude/skills/qa-e2e-triage.
-    ["json", { outputFile: "reports/results.json" }],
-    ...(process.env.CI ? [["github"] as const] : []),
-  ],
+  reporter: LIVE_REPLAY
+    ? [["list"]]
+    : [
+        ["list"],
+        ["html", { outputFolder: "reports/html", open: "never" }],
+        // STABLE PATH — consumed by .claude/skills/qa-e2e-triage.
+        ["json", { outputFile: "reports/results.json" }],
+        ...(process.env.CI ? [["github"] as const] : []),
+      ],
 
   use: {
     baseURL: BASE_URL,
-    trace: "retain-on-failure",
+    // A visible-login replay types a real demo password. Disable traces for
+    // that local mode so Playwright cannot persist the filled value inside a
+    // trace archive; normal headless runs retain their diagnostic traces.
+    trace: LIVE_REPLAY ? "off" : "retain-on-failure",
     screenshot: "only-on-failure",
     video: "retain-on-failure",
     actionTimeout: 15_000,
@@ -117,7 +126,10 @@ export default defineConfig({
     {
       name: "public-chromium",
       testMatch: /public\/.*\.spec\.ts/,
-      use: { ...devices["Desktop Chrome"], storageState: { cookies: [], origins: [] } },
+      use: {
+        ...devices["Desktop Chrome"],
+        storageState: { cookies: [], origins: [] },
+      },
     },
     {
       name: "authed-chromium",

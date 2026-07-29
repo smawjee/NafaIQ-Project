@@ -47,6 +47,7 @@ supabase/.temp/
 # OS
 .DS_Store
 Thumbs.db
+.~lock.*#
 *.suo
 *.ntvs*
 *.njsproj
@@ -112,6 +113,7 @@ backend/catboost_info/
 # Playwright (e2e run artifacts)
 frontend/packages/e2e/reports/
 frontend/packages/e2e/test-results/
+frontend/packages/e2e/replay-results/
 frontend/packages/e2e/playwright/.auth/
 
 # Personal working notes, prep material and decks — local only.

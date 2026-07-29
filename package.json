@@ -8,7 +8,9 @@
     "format": "prettier --write .",
     "typecheck": "turbo run typecheck",
     "test": "turbo run test",
-    "test:e2e": "pnpm --filter @nafaiq/e2e test:e2e"
+    "test:e2e": "pnpm --filter @nafaiq/e2e test:e2e",
+    "test:e2e:live": "pnpm --filter @nafaiq/e2e test:e2e:live",
+    "test:e2e:replay": "pnpm --filter @nafaiq/e2e test:e2e:replay"
   },
   "devDependencies": {
     "prettier": "^3.7.3",

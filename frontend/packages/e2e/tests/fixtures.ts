@@ -84,9 +84,35 @@ export const test = base.extend<{ page: Page }>({
     const optedOut = test
       .info()
       .annotations.some((a) => a.type === "allow-console-errors");
-    if (!optedOut) {
-      expect(errors, "unexpected browser console errors").toEqual([]);
+
+    let consoleFailure: unknown;
+    try {
+      if (!optedOut) {
+        expect(errors, "unexpected browser console errors").toEqual([]);
+      }
+    } catch (error) {
+      consoleFailure = error;
     }
+
+    const info = test.info();
+    const bodyFailed = info.status !== info.expectedStatus;
+    if (
+      process.env.E2E_PAUSE_ON_FAILURE === "1" &&
+      (bodyFailed || consoleFailure)
+    ) {
+      // page.pause() keeps both the headed browser and Playwright Inspector open
+      // at the failure state. Resume/close it when the journey has been observed.
+      await page.pause();
+    } else if (!bodyFailed && !consoleFailure) {
+      const successDelay = Number(process.env.E2E_REPLAY_SUCCESS_DELAY_MS ?? 0);
+      if (Number.isFinite(successDelay) && successDelay > 0) {
+        // Keep the successful end state visible long enough for a person to
+        // observe it before the headed replay context closes automatically.
+        await page.waitForTimeout(successDelay);
+      }
+    }
+
+    if (consoleFailure) throw consoleFailure;
   },
 });
 
