@@ -125,9 +125,13 @@ jobs:
     name: e2e
     runs-on: ubuntu-latest
     timeout-minutes: 35
-    # TODO: flip to a hard gate once a week of runs has established the flake
-    # rate. Until then a red e2e must not block every merge.
-    continue-on-error: true
+    # HARD GATE. This job was continue-on-error while KAN-4 (router-core
+    # preload race, surfaced by the landing spec's console guard) red-lined
+    # runs at random. defaultPreload: "intent" in web/src/router.tsx removed
+    # the trigger; the remaining known flake sources are handled in-suite
+    # (retries: 2 for transients, the shared-session 403 allow-listed
+    # narrowly). If e2e starts blocking merges spuriously, diagnose the spec —
+    # do not reach for continue-on-error first.
     steps:
       - uses: actions/checkout@v4
 

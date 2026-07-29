@@ -22,7 +22,16 @@ export const getRouter = () => {
     routeTree,
     context: { queryClient },
     scrollRestoration: true,
-    defaultPreload: "viewport",
+    // "intent" (hover/focus), NOT "viewport" (KAN-4). Viewport preloading fired
+    // for every link the moment it scrolled into view, so dozens of speculative
+    // preloads ran concurrently; navigating away evicted their matches while
+    // still in flight, and router-core's loadRouteMatch dereferences an evicted
+    // match unguarded — "Cannot read properties of undefined (reading
+    // '_nonReactive')", ~12 console errors per landing-page visit. The library
+    // bug persists upstream (unguarded getMatch derefs are still in
+    // router-core 1.171.15); intent preloading avoids triggering it by only
+    // preloading the one link the user is about to click.
+    defaultPreload: "intent",
     defaultPreloadStaleTime: 0,
   });
 
