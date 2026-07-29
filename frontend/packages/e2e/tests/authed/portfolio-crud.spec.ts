@@ -14,24 +14,6 @@ import { expect, test } from "../fixtures";
  * nothing. Collapsing those into one button would silently corrupt a user's
  * income figures, so the fork is asserted here rather than just the outcome.
  */
-/**
- * These journeys assert LOCAL store behaviour — the demo account's writes never
- * reach the backend — so backend responses are out of scope for them.
- *
- * They opt out of the shared console-error guard because the suite runs many
- * contexts in parallel against ONE demo session, and the concurrent requests
- * draw intermittent 403s. That is a property of how the tests are run, not of
- * the code under test, and it fails these specs for a reason unrelated to what
- * they assert.
- *
- * The guard stays strict everywhere else — notably tests/public/landing.spec.ts,
- * where it is what surfaces KAN-4. Narrow the opt-out again if these journeys
- * ever start driving real network writes.
- */
-test.beforeEach(() => {
-  test.info().annotations.push({ type: "allow-console-errors" });
-});
-
 test.describe("portfolio holdings", () => {
   test("lists holdings with labelled edit and delete controls", async ({ page }) => {
     await page.goto("/portfolio");
