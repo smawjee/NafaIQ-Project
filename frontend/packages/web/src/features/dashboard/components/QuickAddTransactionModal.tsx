@@ -60,7 +60,12 @@ export function QuickAddTransactionModal({
   );
   const expenseCategories = categories.filter((c) => c !== "Income");
   const paymentMethods = useMemo(
-    () => uniqueLabels([...(vocabulary?.payment_methods ?? TX_ACCOUNTS), ...TX_ACCOUNTS, ...localPaymentMethods]),
+    () =>
+      uniqueLabels([
+        ...(vocabulary?.payment_methods ?? TX_ACCOUNTS),
+        ...TX_ACCOUNTS,
+        ...localPaymentMethods,
+      ]),
     [localPaymentMethods, vocabulary?.payment_methods],
   );
 

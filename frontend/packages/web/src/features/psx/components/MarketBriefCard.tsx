@@ -79,9 +79,7 @@ export function MarketBriefCard() {
                   <Sparkles className="h-4 w-4 text-ai" strokeWidth={1.75} />
                 </span>
                 <div className="leading-tight">
-                  <h2 className="text-sm font-semibold text-text-primary">
-                    {t("AI Analysis")}
-                  </h2>
+                  <h2 className="text-sm font-semibold text-text-primary">{t("AI Analysis")}</h2>
                   <span className="text-[10px] font-semibold uppercase tracking-wide text-ai/80">
                     {t("Data based")}
                   </span>
@@ -107,7 +105,9 @@ export function MarketBriefCard() {
               ) : error || !data ? (
                 <div className="py-4 text-sm text-text-secondary">
                   {isUnavailable
-                    ? t("This report is being wired to the verified pipeline. The backend is ready.")
+                    ? t(
+                        "This report is being wired to the verified pipeline. The backend is ready.",
+                      )
                     : t(reportErrorKey(error))}
                 </div>
               ) : (

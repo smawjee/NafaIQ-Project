@@ -36,9 +36,7 @@ export function MarketTicker() {
             {row.map((s, i) => (
               <span key={i} className="flex items-center gap-2 whitespace-nowrap text-[12px]">
                 <span className="market-strip-symbol font-semibold">{s.symbol}</span>
-                <span className="market-strip-muted font-mono tabular-nums">
-                  {fmtNum(s.price)}
-                </span>
+                <span className="market-strip-muted font-mono tabular-nums">{fmtNum(s.price)}</span>
                 <span
                   className={cn(
                     "font-mono tabular-nums",

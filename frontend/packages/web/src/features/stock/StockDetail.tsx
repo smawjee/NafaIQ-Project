@@ -51,11 +51,17 @@ export function StockDetail() {
   const { data: signal } = usePsxSignalV4(ticker);
   const setupRating = signal?.technical_setup?.rating ?? null;
   const setupSignal =
-    setupRating === "Strong Bullish" ? "STRONG BUY" :
-    setupRating === "Bullish" ? "BUY" :
-    setupRating === "Bearish" ? "SELL" :
-    setupRating === "Strong Bearish" ? "STRONG SELL" :
-    setupRating === "Neutral" ? "HOLD" : null;
+    setupRating === "Strong Bullish"
+      ? "STRONG BUY"
+      : setupRating === "Bullish"
+        ? "BUY"
+        : setupRating === "Bearish"
+          ? "SELL"
+          : setupRating === "Strong Bearish"
+            ? "STRONG SELL"
+            : setupRating === "Neutral"
+              ? "HOLD"
+              : null;
   const modelReady = signal?.technical_setup?.status === "available";
   const sig = modelReady ? setupSignal : isDemo ? (s?.signal ?? null) : null;
   const signalPending = !modelReady && !isDemo;
@@ -90,7 +96,6 @@ export function StockDetail() {
     quote?.change ??
     (price != null && changePct != null ? +(price * (changePct / 100)).toFixed(2) : null);
   const sector = profile?.sector ?? s?.sector ?? null;
-
 
   // Phase 0 / B4: derive a chart-ready series from the per-stock history
   // and merge the live tick into the latest candle so the chart and headline

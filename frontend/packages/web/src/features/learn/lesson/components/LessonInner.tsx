@@ -93,7 +93,6 @@ export function LessonInner({ lesson }: { lesson: LessonContent }) {
     if (!hash) return;
     const raf = requestAnimationFrame(() => scrollToSection(decodeURIComponent(hash)));
     return () => cancelAnimationFrame(raf);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   function onQuizFinish(correct: number) {

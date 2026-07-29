@@ -41,15 +41,17 @@ describe("streamAssistant", () => {
       missing: ["amount"],
       invalidate: ["finance-transactions"],
     };
-    const fetchMock = vi.fn().mockResolvedValue(
-      sseResponse([
-        data({ type: "token", text: "Please review this." }),
-        data({ type: "tool", name: "get_bills" }),
-        data(draft),
-        data({ type: "nav", to: "/finance" }),
-        data({ type: "done", usage: { used: 2, limit: 40 } }),
-      ]),
-    );
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(
+        sseResponse([
+          data({ type: "token", text: "Please review this." }),
+          data({ type: "tool", name: "get_bills" }),
+          data(draft),
+          data({ type: "nav", to: "/finance" }),
+          data({ type: "done", usage: { used: 2, limit: 40 } }),
+        ]),
+      );
     vi.stubGlobal("fetch", fetchMock);
 
     const seen: unknown[] = [];
@@ -89,9 +91,11 @@ describe("streamAssistant", () => {
     mockSessionToken("tok");
     vi.stubGlobal(
       "fetch",
-      vi.fn().mockResolvedValue(
-        sseResponse(["data: {broken\n\n", data({ type: "token", text: "Clean answer" })]),
-      ),
+      vi
+        .fn()
+        .mockResolvedValue(
+          sseResponse(["data: {broken\n\n", data({ type: "token", text: "Clean answer" })]),
+        ),
     );
     const tokens: string[] = [];
 

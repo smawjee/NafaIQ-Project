@@ -6,11 +6,7 @@ import {
   searchLearn,
   searchLearnGlossary,
 } from "@/lib/psx/client";
-import type {
-  ApiLearnRelated,
-  ApiLearnSearchResult,
-  ApiLearnStatus,
-} from "@/lib/psx/client";
+import type { ApiLearnRelated, ApiLearnSearchResult, ApiLearnStatus } from "@/lib/psx/client";
 import type { Lang } from "@/hooks/use-lang";
 
 /** Timer debounce — the Learn search hits the network, unlike the client-side
@@ -110,7 +106,11 @@ export function useRelatedLessons(lessonId: string, limit = 4): ApiLearnRelated[
  * so typing stays responsive and the network is spared — the API is what turns
  * "what do I call the thing where the market drops" into Bear Market.
  */
-export function useGlossarySearch(query: string, lang: Lang, active: boolean): {
+export function useGlossarySearch(
+  query: string,
+  lang: Lang,
+  active: boolean,
+): {
   results: ApiLearnSearchResult[];
   loading: boolean;
 } {

@@ -40,8 +40,7 @@ export function MacroWidget() {
 
   const pct = (v: number | null | undefined) =>
     v == null ? "—" : `${localizeDigits(v.toFixed(2))}%`;
-  const fx = (v: number | null | undefined) =>
-    v == null ? "—" : localizeDigits(v.toFixed(2));
+  const fx = (v: number | null | undefined) => (v == null ? "—" : localizeDigits(v.toFixed(2)));
   const pkr = (v: number | null | undefined) =>
     v == null ? "—" : `PKR ${localizeDigits(Math.round(v).toLocaleString("en-US"))}`;
 

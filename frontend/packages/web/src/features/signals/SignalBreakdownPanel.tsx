@@ -21,9 +21,7 @@ export function SignalBreakdownPanel({
       <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
         <div>
           <h3 className="text-sm font-semibold text-text-primary">Technical Setup</h3>
-          <p className="text-xs text-text-muted">
-            NafaIQ rating with risk controls
-          </p>
+          <p className="text-xs text-text-muted">NafaIQ rating with risk controls</p>
         </div>
         <div className="flex rounded-[7px] border border-border bg-surface-alt p-0.5">
           {(["5D", "20D", "60D"] as const).map((h) => (

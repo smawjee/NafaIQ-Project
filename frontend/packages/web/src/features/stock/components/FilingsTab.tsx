@@ -29,29 +29,35 @@ export function FilingsTab({ symbol }: { symbol: string }) {
   // never renders), so this detail fetch is the ONLY source of a filing's text.
   // A failure here must therefore surface as a failure — the old silent
   // fallback to the list row made a broken endpoint look like an empty filing.
-  const loadFiling = useCallback(async (announcementId: string) => {
-    setExpandedLoading(true);
-    setExpandedFailed(false);
-    try {
-      setExpandedFiling(await fetchFiling(symbol, announcementId));
-    } catch {
-      setExpandedFiling(null);
-      setExpandedFailed(true);
-    } finally {
-      setExpandedLoading(false);
-    }
-  }, [symbol]);
-
-  const handleToggle = useCallback(async (announcementId: string) => {
-    const willOpen = openId !== announcementId;
-    setOpenId((cur) => (cur === announcementId ? null : announcementId));
-    if (willOpen) {
-      await loadFiling(announcementId);
-    } else {
-      setExpandedFiling(null);
+  const loadFiling = useCallback(
+    async (announcementId: string) => {
+      setExpandedLoading(true);
       setExpandedFailed(false);
-    }
-  }, [openId, loadFiling]);
+      try {
+        setExpandedFiling(await fetchFiling(symbol, announcementId));
+      } catch {
+        setExpandedFiling(null);
+        setExpandedFailed(true);
+      } finally {
+        setExpandedLoading(false);
+      }
+    },
+    [symbol],
+  );
+
+  const handleToggle = useCallback(
+    async (announcementId: string) => {
+      const willOpen = openId !== announcementId;
+      setOpenId((cur) => (cur === announcementId ? null : announcementId));
+      if (willOpen) {
+        await loadFiling(announcementId);
+      } else {
+        setExpandedFiling(null);
+        setExpandedFailed(false);
+      }
+    },
+    [openId, loadFiling],
+  );
 
   if (isLoading) {
     return (

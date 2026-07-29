@@ -46,7 +46,9 @@ export function NewsFeed({ symbol, limit = 10 }: { symbol?: string; limit?: numb
                 href={getSafeUrl(n.url) || "#"}
                 target="_blank"
                 rel="noopener noreferrer"
-                onClick={(e) => { if (!getSafeUrl(n.url)) e.preventDefault(); }}
+                onClick={(e) => {
+                  if (!getSafeUrl(n.url)) e.preventDefault();
+                }}
                 className={cn(
                   "group flex items-start gap-2 rounded-[6px] px-1 py-1.5 transition-colors",
                   "hover:bg-hover",
@@ -78,4 +80,3 @@ export function NewsFeed({ symbol, limit = 10 }: { symbol?: string; limit?: numb
     </Card>
   );
 }
-

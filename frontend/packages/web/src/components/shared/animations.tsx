@@ -330,5 +330,13 @@ export const pressable = {
 } as const;
 
 /* re-export for convenience */
-export { AnimatePresence, motion, useScroll, useTransform, useSpring, useMotionValue, useReducedMotion };
+export {
+  AnimatePresence,
+  motion,
+  useScroll,
+  useTransform,
+  useSpring,
+  useMotionValue,
+  useReducedMotion,
+};
 export type { MotionValue };

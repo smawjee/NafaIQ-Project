@@ -28,9 +28,7 @@ export function PortfolioPerformanceCard({
     <Card>
       <div className="mb-3 flex items-center justify-between">
         <div>
-          <h3 className="text-sm font-semibold text-text-primary">
-            {t("Performance vs KSE-100")}
-          </h3>
+          <h3 className="text-sm font-semibold text-text-primary">{t("Performance vs KSE-100")}</h3>
           <span
             className={cn(
               "text-xs",
@@ -55,9 +53,7 @@ export function PortfolioPerformanceCard({
               onClick={() => onRangeChange(r)}
               className={cn(
                 "rounded-[6px] px-2.5 py-1 text-xs font-medium",
-                range === r
-                  ? "bg-bull text-bull-foreground"
-                  : "text-text-secondary hover:bg-hover",
+                range === r ? "bg-bull text-bull-foreground" : "text-text-secondary hover:bg-hover",
               )}
             >
               {r}

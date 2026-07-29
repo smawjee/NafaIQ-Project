@@ -15,8 +15,7 @@ export function Change({
   useLang();
   const up = pct >= 0;
   const text = localizeDigits(`${up ? "▲" : "▼"}${up ? "+" : ""}${pct.toFixed(2)}%`);
-  const displayValue =
-    typeof value === "string" ? localizeDigits(value) : value;
+  const displayValue = typeof value === "string" ? localizeDigits(value) : value;
   return (
     <span
       className={cn(

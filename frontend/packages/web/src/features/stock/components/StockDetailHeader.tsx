@@ -61,7 +61,9 @@ export function StockDetailHeader({
                   title={
                     isLive ? t("Live tick from PSX snapshot") : t("EOD close — live unavailable")
                   }
-                  aria-label={isLive ? t("Live tick from PSX snapshot") : t("EOD close — live unavailable")}
+                  aria-label={
+                    isLive ? t("Live tick from PSX snapshot") : t("EOD close — live unavailable")
+                  }
                 >
                   {isLive ? t("LIVE") : t("EOD")}
                 </span>
@@ -94,7 +96,9 @@ export function StockDetailHeader({
           {signalPending
             ? t("Technical setup pending")
             : sig
-              ? (confidence != null ? `${t("Setup strength")} ${confidence}%` : t("Technical setup"))
+              ? confidence != null
+                ? `${t("Setup strength")} ${confidence}%`
+                : t("Technical setup")
               : ""}
         </div>
       </div>

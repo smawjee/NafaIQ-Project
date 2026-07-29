@@ -77,8 +77,12 @@ export function useAllAlerts(enabled: boolean = true) {
 export function useCreateAlert() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (data: { type: AlertEventType; title: string; meta?: Record<string, unknown>; enabled?: boolean }) =>
-      userPost<AppAlert>("/api/alerts", data),
+    mutationFn: (data: {
+      type: AlertEventType;
+      title: string;
+      meta?: Record<string, unknown>;
+      enabled?: boolean;
+    }) => userPost<AppAlert>("/api/alerts", data),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["alerts"] });
     },
@@ -136,7 +140,13 @@ export function useCreatePriceAlert() {
 export function useEvaluateAlerts() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: () => userPost<{ price_alerts: number; bill_reminders: number; budget_alerts: number; goal_alerts: number }>("/api/alerts/evaluate", {}),
+    mutationFn: () =>
+      userPost<{
+        price_alerts: number;
+        bill_reminders: number;
+        budget_alerts: number;
+        goal_alerts: number;
+      }>("/api/alerts/evaluate", {}),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["alerts"] });
     },

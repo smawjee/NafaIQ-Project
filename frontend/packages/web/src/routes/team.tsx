@@ -263,9 +263,7 @@ function TeamPage() {
               key={member.name}
               variants={cardVariants}
               className={`group relative flex flex-col overflow-hidden rounded-[28px] border p-9 backdrop-blur-xl ${
-                isLight
-                  ? "border-[rgba(12,31,26,0.08)] bg-white"
-                  : "border-border bg-[#111827]/80"
+                isLight ? "border-[rgba(12,31,26,0.08)] bg-white" : "border-border bg-[#111827]/80"
               }`}
               style={{
                 boxShadow: isLight

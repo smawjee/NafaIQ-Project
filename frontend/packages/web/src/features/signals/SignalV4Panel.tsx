@@ -67,7 +67,8 @@ export function SignalV4Panel({ signal }: { signal?: ApiSignalV4 | null }) {
             <span className="rounded-[6px] border border-primary/40 bg-primary/10 px-2 py-1 font-medium text-primary">
               Top {Math.round(100 - ctx.relative_rank.composite_percentile)}% of PSX
               <span className="ml-1 text-text-muted">
-                ({Math.round(ctx.relative_rank.composite_percentile)}th pct · {ctx.relative_rank.universe_size})
+                ({Math.round(ctx.relative_rank.composite_percentile)}th pct ·{" "}
+                {ctx.relative_rank.universe_size})
               </span>
             </span>
           ) : null}
@@ -79,8 +80,8 @@ export function SignalV4Panel({ signal }: { signal?: ApiSignalV4 | null }) {
                   signal.quality.label === "High"
                     ? "text-bull"
                     : signal.quality.label === "Low"
-                    ? "text-bear"
-                    : "text-text-secondary"
+                      ? "text-bear"
+                      : "text-text-secondary"
                 }
               >
                 {signal.quality.label}
@@ -108,9 +109,20 @@ export function SignalV4Panel({ signal }: { signal?: ApiSignalV4 | null }) {
           </div>
           <div className="mt-3 text-xs text-text-muted">
             {setup.components.slice(0, 8).map((component) => (
-              <div key={component.name} className="flex justify-between border-b border-border/60 py-1.5">
+              <div
+                key={component.name}
+                className="flex justify-between border-b border-border/60 py-1.5"
+              >
                 <span>{component.name}</span>
-                <span className={component.vote > 0 ? "text-bull" : component.vote < 0 ? "text-bear" : "text-text-muted"}>
+                <span
+                  className={
+                    component.vote > 0
+                      ? "text-bull"
+                      : component.vote < 0
+                        ? "text-bear"
+                        : "text-text-muted"
+                  }
+                >
                   {component.vote > 0 ? "Bullish" : component.vote < 0 ? "Bearish" : "Neutral"}
                 </span>
               </div>
@@ -178,7 +190,8 @@ export function SignalV4Panel({ signal }: { signal?: ApiSignalV4 | null }) {
           </div>
           {ctx.risk_metrics.continuation && (ctx.risk_metrics.continuation.n ?? 0) >= 100 ? (
             <p className="mt-2 text-[11px] text-text-muted">
-              Historically on PSX, {Math.round((ctx.risk_metrics.continuation.p_negative_20d ?? 0) * 100)}% of such{" "}
+              Historically on PSX,{" "}
+              {Math.round((ctx.risk_metrics.continuation.p_negative_20d ?? 0) * 100)}% of such{" "}
               {(ctx.trend_state ?? "").toLowerCase()} setups fell over the next 20 sessions (median{" "}
               {((ctx.risk_metrics.continuation.median_20d_return ?? 0) * 100).toFixed(1)}%, n=
               {ctx.risk_metrics.continuation.n}). Base rate, not a prediction.
@@ -191,7 +204,8 @@ export function SignalV4Panel({ signal }: { signal?: ApiSignalV4 | null }) {
               {ctx.rating_base_rate.horizon ?? 20} sessions (median{" "}
               {((ctx.rating_base_rate.median_return ?? 0) * 100).toFixed(1)}%, range{" "}
               {((ctx.rating_base_rate.p10 ?? 0) * 100).toFixed(0)}% to{" "}
-              {((ctx.rating_base_rate.p90 ?? 0) * 100).toFixed(0)}%, n={ctx.rating_base_rate.n}). Measured, not a promise.
+              {((ctx.rating_base_rate.p90 ?? 0) * 100).toFixed(0)}%, n={ctx.rating_base_rate.n}).
+              Measured, not a promise.
             </p>
           ) : null}
         </div>
@@ -201,29 +215,43 @@ export function SignalV4Panel({ signal }: { signal?: ApiSignalV4 | null }) {
       {ctx?.earnings && ctx.earnings.eps_latest != null ? (
         <div className="mt-4 border-t border-border pt-3">
           <div className="flex items-center justify-between text-xs text-text-muted">
-            <span>Earnings {ctx.earnings.as_of_period ? `(${ctx.earnings.as_of_period})` : ""}</span>
-            <span className="font-mono text-text-secondary">EPS {ctx.earnings.eps_latest.toFixed(2)}</span>
+            <span>
+              Earnings {ctx.earnings.as_of_period ? `(${ctx.earnings.as_of_period})` : ""}
+            </span>
+            <span className="font-mono text-text-secondary">
+              EPS {ctx.earnings.eps_latest.toFixed(2)}
+            </span>
           </div>
           <div className="mt-2 grid grid-cols-3 gap-2 text-center text-xs">
             <div className="rounded-[7px] border border-border bg-surface-alt p-2">
               <div
                 className={`font-mono ${
-                  (ctx.earnings.eps_change ?? 0) > 0 ? "text-bull" : (ctx.earnings.eps_change ?? 0) < 0 ? "text-bear" : "text-text-muted"
+                  (ctx.earnings.eps_change ?? 0) > 0
+                    ? "text-bull"
+                    : (ctx.earnings.eps_change ?? 0) < 0
+                      ? "text-bear"
+                      : "text-text-muted"
                 }`}
               >
-                {ctx.earnings.eps_change != null ? `${(ctx.earnings.eps_change * 100).toFixed(0)}%` : "—"}
+                {ctx.earnings.eps_change != null
+                  ? `${(ctx.earnings.eps_change * 100).toFixed(0)}%`
+                  : "—"}
               </div>
               <div className="mt-1 text-text-muted">EPS YoY</div>
             </div>
             <div className="rounded-[7px] border border-border bg-surface-alt p-2">
               <div className="font-mono text-text-secondary">
-                {ctx.earnings.earnings_surprise != null ? `${ctx.earnings.earnings_surprise.toFixed(1)}σ` : "—"}
+                {ctx.earnings.earnings_surprise != null
+                  ? `${ctx.earnings.earnings_surprise.toFixed(1)}σ`
+                  : "—"}
               </div>
               <div className="mt-1 text-text-muted">Surprise</div>
             </div>
             <div className="rounded-[7px] border border-border bg-surface-alt p-2">
               <div className="font-mono text-text-secondary">
-                {ctx.earnings.profitability_quality != null ? `${(ctx.earnings.profitability_quality * 100).toFixed(0)}%` : "—"}
+                {ctx.earnings.profitability_quality != null
+                  ? `${(ctx.earnings.profitability_quality * 100).toFixed(0)}%`
+                  : "—"}
               </div>
               <div className="mt-1 text-text-muted">ROE</div>
             </div>
@@ -260,7 +288,7 @@ export function SignalV4Panel({ signal }: { signal?: ApiSignalV4 | null }) {
           <span className="font-medium text-text-primary">
             {signal?.forecast.status === "published"
               ? signal.forecast.direction
-              : signal?.forecast.headline ?? "No validated forecast yet"}
+              : (signal?.forecast.headline ?? "No validated forecast yet")}
           </span>
         </div>
       </div>

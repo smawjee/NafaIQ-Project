@@ -67,7 +67,11 @@ export function useCreateUserAlert() {
   const { user } = useAuth();
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (alert: { type: UserAlert["type"]; title: string; meta?: Record<string, unknown> }) => {
+    mutationFn: async (alert: {
+      type: UserAlert["type"];
+      title: string;
+      meta?: Record<string, unknown>;
+    }) => {
       if (!user) throw new Error("Not authenticated");
       const { data, error } = await supabase
         .from(userAlertsTable)

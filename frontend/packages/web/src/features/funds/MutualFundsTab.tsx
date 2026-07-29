@@ -50,7 +50,16 @@ function FundRow({
   onToggle,
   t,
 }: {
-  fund: { fund_code: string; name: string; category: string | null; amc: string | null; shariah: boolean; latest_nav: number | null; nav_date: string | null; aum: number | null };
+  fund: {
+    fund_code: string;
+    name: string;
+    category: string | null;
+    amc: string | null;
+    shariah: boolean;
+    latest_nav: number | null;
+    nav_date: string | null;
+    aum: number | null;
+  };
   isOpen: boolean;
   onToggle: () => void;
   t: (k: string) => string;
@@ -72,9 +81,7 @@ function FundRow({
         )}
         <Banknote className="mt-0.5 h-4 w-4 shrink-0 text-text-muted" />
         <div className="min-w-0 flex-1">
-          <div className="text-sm font-medium text-text-primary">
-            {fund.name}
-          </div>
+          <div className="text-sm font-medium text-text-primary">{fund.name}</div>
           <div className="mt-0.5 text-[11px] text-text-muted">
             {fund.category ?? "\u2014"} {"\u00b7"} {fund.amc ?? "\u2014"}
             {fund.shariah ? " \u00b7 Shariah" : ""}
@@ -84,9 +91,7 @@ function FundRow({
           <div className="text-sm font-semibold tabular-nums text-text-primary">
             {fund.latest_nav != null ? `PKR ${fund.latest_nav.toFixed(2)}` : "\u2014"}
           </div>
-          {fund.nav_date && (
-            <div className="text-[10px] text-text-muted">{fund.nav_date}</div>
-          )}
+          {fund.nav_date && <div className="text-[10px] text-text-muted">{fund.nav_date}</div>}
         </div>
       </button>
       {isOpen && <NavHistory fundCode={fund.fund_code} />}
@@ -125,14 +130,17 @@ function NavHistory({ fundCode }: { fundCode: string }) {
           </tr>
         </thead>
         <tbody>
-          {navData.slice().reverse().map((row) => (
-            <tr key={row.date} className="border-b border-border/50">
-              <td className="px-3 py-1.5 font-mono text-text-primary">{row.date}</td>
-              <td className="px-3 py-1.5 text-right font-mono tabular-nums text-text-secondary">
-                {row.nav != null ? `PKR ${row.nav.toFixed(2)}` : "\u2014"}
-              </td>
-            </tr>
-          ))}
+          {navData
+            .slice()
+            .reverse()
+            .map((row) => (
+              <tr key={row.date} className="border-b border-border/50">
+                <td className="px-3 py-1.5 font-mono text-text-primary">{row.date}</td>
+                <td className="px-3 py-1.5 text-right font-mono tabular-nums text-text-secondary">
+                  {row.nav != null ? `PKR ${row.nav.toFixed(2)}` : "\u2014"}
+                </td>
+              </tr>
+            ))}
         </tbody>
       </table>
     </div>

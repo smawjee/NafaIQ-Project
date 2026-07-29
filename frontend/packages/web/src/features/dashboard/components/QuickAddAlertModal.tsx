@@ -31,12 +31,17 @@ export function QuickAddAlertModal({ open, onClose }: { open: boolean; onClose: 
   const localBudgets = useAppSelector(selectBudgets);
   const localGoals = useAppSelector(selectGoals);
   const { bills: demoBills, budgets: demoBudgets, goals: demoGoals } = useFinanceData();
-  const billOptions = isLoggedIn ? (realBills ?? []).map((b: { name: string }) => b.name) : demoBills.map((b: { name: string }) => b.name);
+  const billOptions = isLoggedIn
+    ? (realBills ?? []).map((b: { name: string }) => b.name)
+    : demoBills.map((b: { name: string }) => b.name);
   const budgetOptions: { category: string }[] = isLoggedIn
     ? (realBudgets ?? []).map((b: { category: string }) => ({ category: b.category }))
     : demoBudgets;
   const goalOptions: { name: string; emoji: string }[] = isLoggedIn
-    ? (realGoals ?? []).map((g: { name: string; emoji: string | null }) => ({ name: g.name, emoji: g.emoji || "🎯" }))
+    ? (realGoals ?? []).map((g: { name: string; emoji: string | null }) => ({
+        name: g.name,
+        emoji: g.emoji || "🎯",
+      }))
     : demoGoals;
   const [type, setType] = useState("Stock Price");
   const [stock, setStock] = useState(ALERT_STOCKS[0]);
@@ -129,12 +134,7 @@ export function QuickAddAlertModal({ open, onClose }: { open: boolean; onClose: 
       } else {
         createUserAlert.mutate(
           {
-            type:
-              type === "Bill Reminder"
-                ? "bill"
-                : type === "Budget"
-                  ? "budget"
-                  : "goal",
+            type: type === "Bill Reminder" ? "bill" : type === "Budget" ? "budget" : "goal",
             title,
             meta: typeof meta === "object" ? meta : {},
           },

@@ -16,11 +16,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import { toast } from "sonner";
 import { useLang } from "@/hooks/use-lang";
-import {
-  type ActionDraft,
-  executeDraft,
-  streamAssistant,
-} from "@/lib/assistant/client";
+import { type ActionDraft, executeDraft, streamAssistant } from "@/lib/assistant/client";
 
 export interface AssistantMsg {
   role: "user" | "assistant";

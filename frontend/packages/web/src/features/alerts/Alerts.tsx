@@ -136,12 +136,7 @@ export function Alerts() {
         });
       } else {
         createUserAlert.mutate({
-          type:
-            type === "Bill Reminder"
-              ? "bill"
-              : type === "Budget"
-                ? "budget"
-                : "goal",
+          type: type === "Bill Reminder" ? "bill" : type === "Budget" ? "budget" : "goal",
           title,
           meta,
         });

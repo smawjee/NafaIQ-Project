@@ -65,7 +65,10 @@ export function MonetaryTool() {
   const [to, setTo] = useState(DEFAULT_TO);
   const [isLiveRefreshing, setIsLiveRefreshing] = useState(false);
 
-  const currencyOptions = useMemo(() => data?.currencies.map((currency) => currency.code) ?? [], [data]);
+  const currencyOptions = useMemo(
+    () => data?.currencies.map((currency) => currency.code) ?? [],
+    [data],
+  );
   const converted = useMemo(
     () => convertAmount(Number(amount), from, to, data?.rates ?? {}),
     [amount, data?.rates, from, to],
@@ -129,13 +132,23 @@ export function MonetaryTool() {
                 {t("Monetary Desk")}
               </h1>
               <p className="mt-2 max-w-2xl text-sm leading-6 text-text-muted md:text-base">
-                {t("Reference FX, dollar conversion, and Pakistan bullion prices with source checks.")}
+                {t(
+                  "Reference FX, dollar conversion, and Pakistan bullion prices with source checks.",
+                )}
               </p>
             </div>
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-              <SourcePill icon={Clock3} label={t("Updated")} value={formatDateTime(data.refreshed_at)} />
+              <SourcePill
+                icon={Clock3}
+                label={t("Updated")}
+                value={formatDateTime(data.refreshed_at)}
+              />
               <SourcePill icon={ShieldCheck} label={t("FX source")} value={data.source.name} />
-              <SourcePill icon={Coins} label={t("Metal source")} value={data.metal_source?.name ?? t("Spot fallback")} />
+              <SourcePill
+                icon={Coins}
+                label={t("Metal source")}
+                value={data.metal_source?.name ?? t("Spot fallback")}
+              />
               <SourcePill
                 icon={RefreshCw}
                 label={t("Quality")}
@@ -174,7 +187,9 @@ export function MonetaryTool() {
           <div className="flex items-center justify-between gap-3">
             <div>
               <h2 className="text-lg font-semibold text-text-primary">{t("Currency converter")}</h2>
-              <p className="mt-1 text-sm text-text-muted">{t("Convert popular currencies through live USD rates.")}</p>
+              <p className="mt-1 text-sm text-text-muted">
+                {t("Convert popular currencies through live USD rates.")}
+              </p>
             </div>
             <button
               type="button"
@@ -212,7 +227,9 @@ export function MonetaryTool() {
             disabled={isLiveRefreshing}
             className="mt-5 inline-flex items-center rounded-[8px] border border-border px-3 py-2 text-sm font-semibold text-text-secondary transition hover:bg-hover hover:text-bull"
           >
-            <RefreshCw className={`me-2 h-4 w-4 ${isFetching || isLiveRefreshing ? "animate-spin" : ""}`} />
+            <RefreshCw
+              className={`me-2 h-4 w-4 ${isFetching || isLiveRefreshing ? "animate-spin" : ""}`}
+            />
             {t("Refresh live rates")}
           </button>
         </div>
@@ -233,7 +250,9 @@ export function MonetaryTool() {
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h2 className="text-lg font-semibold text-text-primary">{t("Popular currencies")}</h2>
-            <p className="mt-1 text-sm text-text-muted">{t("Indicative value of one unit converted to Pakistani Rupees.")}</p>
+            <p className="mt-1 text-sm text-text-muted">
+              {t("Indicative value of one unit converted to Pakistani Rupees.")}
+            </p>
           </div>
           <span className="rounded-full border border-border px-3 py-1 text-xs font-semibold text-text-muted">
             {t("Base")}: {data.base}
@@ -304,9 +323,16 @@ function SourcePill({
   );
 }
 
-function CurrencyCard({ currency, usd }: { currency: ApiMonetaryCurrency; usd?: ApiMonetaryCurrency }) {
+function CurrencyCard({
+  currency,
+  usd,
+}: {
+  currency: ApiMonetaryCurrency;
+  usd?: ApiMonetaryCurrency;
+}) {
   const { t } = useLang();
-  const relative = usd && currency.code !== "USD" ? currency.one_unit_in_pkr / usd.one_unit_in_pkr : null;
+  const relative =
+    usd && currency.code !== "USD" ? currency.one_unit_in_pkr / usd.one_unit_in_pkr : null;
   return (
     <div className="rounded-[8px] border border-border bg-surface-alt p-4 transition hover:border-bull/30 hover:bg-hover">
       <div className="flex items-center justify-between gap-3">
@@ -320,7 +346,9 @@ function CurrencyCard({ currency, usd }: { currency: ApiMonetaryCurrency; usd?: 
         {formatPkr(currency.one_unit_in_pkr, 2)}
       </p>
       <p className="mt-1 text-xs text-text-muted">
-        {relative == null ? t("Base dollar rate") : `${formatNumber(relative, 4)} ${t("USD equivalent")}`}
+        {relative == null
+          ? t("Base dollar rate")
+          : `${formatNumber(relative, 4)} ${t("USD equivalent")}`}
       </p>
     </div>
   );
@@ -361,7 +389,9 @@ function MetalMetric({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex items-center justify-between gap-3 rounded-[8px] bg-surface-alt px-3 py-2">
       <span className="text-sm text-text-muted">{label}</span>
-      <span className="font-mono text-sm font-semibold tabular-nums text-text-primary">{value}</span>
+      <span className="font-mono text-sm font-semibold tabular-nums text-text-primary">
+        {value}
+      </span>
     </div>
   );
 }

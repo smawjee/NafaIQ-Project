@@ -114,9 +114,7 @@ function FinancialChart({
           <CartesianGrid strokeDasharray="3 3" stroke={ct.grid} />
           <XAxis dataKey="label" stroke={ct.tick} fontSize={11} tickLine={false} axisLine={false} />
           <YAxis stroke={ct.tick} fontSize={11} tickLine={false} axisLine={false} width={48} />
-          <Tooltip
-            contentStyle={ct.tooltip}
-          />
+          <Tooltip contentStyle={ct.tooltip} />
           <Legend wrapperStyle={{ fontSize: 11, color: ct.tick }} />
           <Line
             type="monotone"

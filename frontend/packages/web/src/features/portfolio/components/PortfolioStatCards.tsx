@@ -113,9 +113,7 @@ export function PortfolioStatCards({
         value={
           <CountUpNumber
             value={
-              !useDemoPortfolio
-                ? Math.round(networth?.today_pnl ?? 0)
-                : Math.round(local.todayPnl)
+              !useDemoPortfolio ? Math.round(networth?.today_pnl ?? 0) : Math.round(local.todayPnl)
             }
             prefix={
               (!useDemoPortfolio ? (networth?.today_pnl ?? 0) : local.todayPnl) >= 0

@@ -1,5 +1,12 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { BarChart3, BriefcaseBusiness, ChartCandlestick, Search, Sparkles, Wallet } from "lucide-react";
+import {
+  BarChart3,
+  BriefcaseBusiness,
+  ChartCandlestick,
+  Search,
+  Sparkles,
+  Wallet,
+} from "lucide-react";
 import { Card } from "@/components/shared/Card";
 import { ReportPanel } from "@/components/ai/ReportPanel";
 import { StockSearchBox } from "@/components/search/StockSearchBox";
@@ -117,7 +124,9 @@ function AiInsightsRoute() {
               <h2 className="text-lg font-semibold text-text-primary">{t("Stock AI Analysis")}</h2>
             </div>
             <p className="text-sm leading-relaxed text-text-secondary">
-              {t("Search any PSX symbol to open its dedicated AI analysis card and signal context.")}
+              {t(
+                "Search any PSX symbol to open its dedicated AI analysis card and signal context.",
+              )}
             </p>
             <StockSearchBox
               mode="navigate"
@@ -137,7 +146,9 @@ function AiInsightsRoute() {
             <div>
               <h2 className="text-base font-semibold text-text-primary">{t("Ask NafaIQ AI")}</h2>
               <p className="mt-1 text-sm leading-relaxed text-text-secondary">
-                {t("Use the sidebar AI button for conversational investing help and PSX education.")}
+                {t(
+                  "Use the sidebar AI button for conversational investing help and PSX education.",
+                )}
               </p>
             </div>
           </Card>

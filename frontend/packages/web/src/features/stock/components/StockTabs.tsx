@@ -50,9 +50,7 @@ export function StockTabs({
             className={cn(
               "rounded-[8px] px-3 py-1.5 text-xs font-semibold transition",
               Icon && "inline-flex items-center gap-1",
-              tab === key
-                ? "bg-bull text-bull-foreground"
-                : "text-text-secondary hover:bg-hover",
+              tab === key ? "bg-bull text-bull-foreground" : "text-text-secondary hover:bg-hover",
             )}
           >
             {Icon && <Icon className="h-3 w-3" />} {t(label)}

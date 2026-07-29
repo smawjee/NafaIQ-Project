@@ -33,9 +33,9 @@ export function SignalTrackRecordCard() {
 
       {data.matured_total === 0 ? (
         <div className="rounded-[7px] border border-border bg-surface-alt p-4 text-xs text-text-muted">
-          Signals are being recorded daily. The first outcomes appear once
-          published signals reach their horizon (about a week for 5D signals) —
-          results shown here will be the audited history, not a claim.
+          Signals are being recorded daily. The first outcomes appear once published signals reach
+          their horizon (about a week for 5D signals) — results shown here will be the audited
+          history, not a claim.
         </div>
       ) : (
         <div className="overflow-x-auto">
@@ -66,10 +66,7 @@ export function SignalTrackRecordCard() {
                     </td>
                     <td className="py-2 font-mono text-text-secondary">{e.n}</td>
                     <td
-                      className={cn(
-                        "py-2 font-mono",
-                        headline >= 0.5 ? "text-bull" : "text-bear",
-                      )}
+                      className={cn("py-2 font-mono", headline >= 0.5 ? "text-bull" : "text-bear")}
                     >
                       {pct(headline)}
                     </td>
@@ -81,9 +78,7 @@ export function SignalTrackRecordCard() {
                     >
                       {(e.avg_excess * 100).toFixed(1)}%
                     </td>
-                    <td className="py-2 font-mono text-text-secondary">
-                      {pct(e.large_loss_rate)}
-                    </td>
+                    <td className="py-2 font-mono text-text-secondary">{pct(e.large_loss_rate)}</td>
                   </tr>
                 );
               })}

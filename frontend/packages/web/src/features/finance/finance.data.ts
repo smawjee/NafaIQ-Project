@@ -20,4 +20,13 @@ export const CATEGORIES = [
   "Income",
 ];
 
-export const ACCOUNTS = ["HBL Current", "Meezan Debit", "Easypaisa", "Meezan Savings", "Allied Bank Card", "Cheque", "Cash", "Bank Transfer"];
+export const ACCOUNTS = [
+  "HBL Current",
+  "Meezan Debit",
+  "Easypaisa",
+  "Meezan Savings",
+  "Allied Bank Card",
+  "Cheque",
+  "Cash",
+  "Bank Transfer",
+];
