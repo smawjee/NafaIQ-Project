@@ -35,18 +35,7 @@ const ALLOWED_CONSOLE = [
   /\[vite\] connect(ing|ed)/i,
   /Third-party cookie/i,
   /React Router Future Flag/i,
-  // Hydration mismatch from PageTransition (src/routes/__root.tsx): the server
-  // cannot know the client's motion preference, so it always renders the
-  // animated branch while a reduced-motion client renders the plain one.
-  // Measured: this does NOT occur with reduced motion off, so the config option
-  // in playwright.config.ts is what surfaces it here. It is nonetheless a real
-  // (low-severity) issue for users with the OS accessibility setting enabled —
-  // tracked as KAN-3. React recovers by re-rendering on the client.
-  // REMOVE these three entries when KAN-3 is fixed, so the guard starts
-  // catching hydration regressions again.
-  /Hydration failed because the server rendered HTML didn't match the client/i,
-  /There was an error while hydrating/i,
-  /Text content does not match server-rendered HTML/i,
+  
   // Harness artifact, not an app fault: every spec shares ONE demo session
   // (tests/auth.setup.ts mints it once), and `fullyParallel` runs many contexts
   // against it at once. Some of those concurrent requests come back 403.

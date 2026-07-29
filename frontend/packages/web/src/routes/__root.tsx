@@ -11,7 +11,7 @@ import {
 } from "@tanstack/react-router";
 import { useEffect, type ReactNode } from "react";
 import { Provider } from "react-redux";
-import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
+import { AnimatePresence, motion, MotionConfig } from "framer-motion";
 import { Loader2 } from "lucide-react";
 
 import appCss from "../styles.css?url";
@@ -197,25 +197,28 @@ const PUBLIC_APP_ROUTES = new Set([
   "/help",
 ]);
 
+
+
 function PageTransition({ routeKey, children }: { routeKey: string; children: ReactNode }) {
-  const reduce = useReducedMotion();
   const isTarget = TARGET_PATHS.has(routeKey);
 
-  if (reduce || !isTarget) {
+  if (!isTarget) {
     return <>{children}</>;
   }
 
   return (
-    <AnimatePresence mode="wait" initial={false}>
-      <motion.div
-        key={routeKey}
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1, transition: { duration: 0.2, ease: "easeOut" } }}
-        exit={{ opacity: 0, transition: { duration: 0.15, ease: "easeOut" } }}
-      >
-        {children}
-      </motion.div>
-    </AnimatePresence>
+    <MotionConfig reducedMotion="user">
+      <AnimatePresence mode="wait" initial={false}>
+        <motion.div
+          key={routeKey}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1, transition: { duration: 0.2, ease: "easeOut" } }}
+          exit={{ opacity: 0, transition: { duration: 0.15, ease: "easeOut" } }}
+        >
+          {children}
+        </motion.div>
+      </AnimatePresence>
+    </MotionConfig>
   );
 }
 
