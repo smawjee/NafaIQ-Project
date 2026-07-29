@@ -17,7 +17,7 @@ below was verified against the repo as it stands unless explicitly marked
 | `web-unit` | `vitest run` in `frontend/packages/web` | Needs the three `VITE_SUPABASE_*` secrets |
 | `mobile-unit` | `jest --ci --runInBand` | No secrets |
 | `backend-tests` | `pytest -q` | **Runs with Supabase credentials empty** — see §2 |
-| `e2e` | Playwright, `public-chromium` + `authed-chromium` | `continue-on-error: true` for now — see §5 |
+| `e2e` | Playwright, `public-chromium` + `authed-chromium` | Hard gate since the KAN-4 fix |
 | `ci-required` | Aggregates all of the above | **The only check to require in branch protection** |
 
 `.github/workflows/nightly-e2e.yml` — scheduled 03:00 UTC weekdays, matrixed
@@ -256,8 +256,10 @@ Two caveats that matter:
    only `pull_request` — otherwise the gate silently no-ops on merge commits.
 2. Wait for CI waits for the **whole** suite, e2e included. That makes the
    anti-flake work in the e2e config load-bearing for deploys, not just for PRs.
-   This is why `e2e` currently carries `continue-on-error: true`: land it,
-   watch the flake rate for a week, then remove that line to make it a hard gate.
+   `e2e` became a hard gate once KAN-4 (the router-core preload race) was
+   fixed via `defaultPreload: "intent"`; the other known flake sources are
+   handled in-suite (retries for transients, the shared-session 403
+   allow-listed narrowly).
 
 ### Alternative — deploy from the Action
 
@@ -321,10 +323,13 @@ regardless of target, so authors get signal before opening against `dev`.
 3. Merge the workflows. Watch a few runs; `e2e` is non-blocking at this stage.
 4. Decide on the lint cleanup (§1) and add `lint` to `node-checks`.
 5. Enable branch protection on `main`, then `dev`.
-6. Remove `continue-on-error: true` from the `e2e` job once its flake rate is known.
+6. ~~Remove `continue-on-error: true` from the `e2e` job~~ — done alongside the KAN-4 fix.
 7. Enable Railway **Wait for CI** last, after CI has been green across several
    consecutive `main` pushes.
 
-Note that the `e2e` job still carries one known failure: the landing spec
-catches the KAN-4 router-preload errors. That is why `e2e` is
-`continue-on-error` at step 3 — fix KAN-4 before step 6.
+KAN-4 (the landing spec catching router-preload errors) was fixed by
+switching `defaultPreload` from `"viewport"` to `"intent"` in
+`web/src/router.tsx`, and `e2e` is a hard gate as of the same change. The
+underlying unguarded deref persists upstream in `@tanstack/router-core`
+(still present in 1.171.15) — worth an upstream issue, but no longer
+reachable through this app's preload pattern.
