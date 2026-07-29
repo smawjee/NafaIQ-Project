@@ -245,14 +245,14 @@ export function AdminSubscriptions() {
             </div>
           )}
 
-          <div className="grid gap-4">
-            <Panel title="Tier distribution">
+          <div className="grid gap-4 xl:grid-cols-3">
+            <Panel title="Tier distribution" className="xl:col-span-1">
               {overviewQ.isLoading ? (
                 <div className="h-[200px] animate-pulse rounded-lg bg-muted" />
               ) : !tiers?.available ? (
                 <EmptyBlock label="Tier data unavailable" />
               ) : (
-                <DonutChart data={segments} height={220} centerLabel="users" />
+                <DonutChart data={segments} centerLabel="users" />
               )}
             </Panel>
 
@@ -263,6 +263,7 @@ export function AdminSubscriptions() {
                   ? "Change a user's plan directly from this list."
                   : "You have read-only access to subscription data."
               }
+              className="xl:col-span-2"
               flush
             >
               {!can("users.read") ? (
