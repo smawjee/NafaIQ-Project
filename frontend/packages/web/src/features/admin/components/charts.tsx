@@ -209,7 +209,7 @@ export function DonutChart({
 }) {
   const total = data.reduce((s, d) => s + d.value, 0);
   return (
-    <div className="flex flex-wrap items-center gap-4">
+    <div className="flex flex-wrap items-center justify-center gap-5 lg:justify-start">
       <div className="relative shrink-0" style={{ width: height, height }}>
         <ChartFrame height={height} isEmpty={total === 0}>
           <PieChart>
@@ -241,19 +241,22 @@ export function DonutChart({
       </div>
 
       {total > 0 && (
-        <ul className="min-w-0 flex-1 space-y-1.5">
+        <ul className="grid min-w-56 flex-1 gap-1.5 sm:min-w-64">
           {data.map((d, i) => (
-            <li key={d.label} className="flex items-center gap-2 text-sm">
+            <li
+              key={d.label}
+              className="grid grid-cols-[auto_minmax(5rem,1fr)_auto_3rem] items-center gap-2 text-sm"
+            >
               <span
                 className="h-2.5 w-2.5 shrink-0 rounded-sm"
                 style={{ backgroundColor: CHART_COLORS[i % CHART_COLORS.length] }}
                 aria-hidden
               />
-              <span className="min-w-0 flex-1 truncate text-text-secondary">{d.label}</span>
+              <span className="min-w-0 text-text-secondary">{d.label}</span>
               <span className="tabular font-medium text-text-primary">
                 {d.value.toLocaleString()}
               </span>
-              <span className="tabular w-11 text-end text-xs text-text-muted">
+              <span className="tabular text-end text-xs text-text-muted">
                 {((d.value / total) * 100).toFixed(0)}%
               </span>
             </li>
