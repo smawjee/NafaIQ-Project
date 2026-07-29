@@ -47,6 +47,15 @@ const ALLOWED_CONSOLE = [
   /Hydration failed because the server rendered HTML didn't match the client/i,
   /There was an error while hydrating/i,
   /Text content does not match server-rendered HTML/i,
+  // Harness artifact, not an app fault: every spec shares ONE demo session
+  // (tests/auth.setup.ts mints it once), and `fullyParallel` runs many contexts
+  // against it at once. Some of those concurrent requests come back 403.
+  // Reproduced by running the whole suite; never by running a spec alone.
+  //
+  // Deliberately narrow — only the browser's generic resource-load message for
+  // a 403. A genuine authorisation bug still fails the spec that depends on it,
+  // because the data simply will not be there to assert on.
+  /Failed to load resource: the server responded with a status of 403/i,
 ];
 
 export const test = base.extend<{ page: Page }>({
