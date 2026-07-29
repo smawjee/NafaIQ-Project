@@ -96,15 +96,40 @@ async def get_bill_by_name(
     }
 
 
-async def recent_event_for_alert(conn: Executor, alert_id: int) -> bool:
-    """24h dedup for a specific user_alert (one notification per alert per day)."""
-    rows = await conn.execute(
-        text(
-            "SELECT id FROM alert_events "
-            "WHERE alert_id = :aid AND created_at > now() - INTERVAL '24 hours' LIMIT 1"
-        ),
-        {"aid": alert_id},
+async def recent_event_for_alert(
+    conn: Executor, alert_id: int, alert_type: str | None = None
+) -> bool:
+    """24h dedup for a specific user_alert (one notification per alert per day).
+
+    `alert_type` is not optional in spirit — it exists because `alert_events.alert_id`
+    is NOT a unique handle. Two different tables write it:
+
+        * `user_alerts.id`   (bill / budget / goal / legacy stock_price)
+        * `price_alerts.id`  (the stock-detail and alerts-screen path)
+
+    They are independent identity sequences and they already overlap in
+    production: `user_alerts` holds ids [1,2,3,4,5,16,31,...] and `price_alerts`
+    holds [1,2,4], so `alert_id = 2` refers to a row in each. Deduping on the
+    number alone therefore lets one alert silence an unrelated one — a fired
+    price alert would suppress the goal alert that happens to share its id for a
+    full 24 hours, and the user would simply never be told their goal was hit.
+
+    Filtering on the type as well removes every cross-type collision, which is
+    the whole of the observed problem (goal vs stock_price). It cannot separate a
+    legacy `user_alerts` stock_price row from a `price_alerts` row of the same
+    id; that pairing needs a source discriminator column on alert_events, and is
+    left alone deliberately — only two such legacy rows exist and nothing can
+    create more.
+    """
+    sql = (
+        "SELECT id FROM alert_events "
+        "WHERE alert_id = :aid AND created_at > now() - INTERVAL '24 hours'"
     )
+    params: dict[str, Any] = {"aid": alert_id}
+    if alert_type is not None:
+        sql += " AND alert_type = :atype"
+        params["atype"] = alert_type
+    rows = await conn.execute(text(sql + " LIMIT 1"), params)
     return rows.first() is not None
 
 

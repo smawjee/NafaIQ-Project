@@ -14,6 +14,32 @@ import {
 } from "framer-motion";
 import { cn } from "@/lib/utils";
 
+/**
+ * `useReducedMotion()`, but false until after hydration.
+ *
+ * The raw hook reads a media query, so it is a CLIENT-ONLY value. Any component
+ * that lets it change what gets RENDERED hydrates differently for users with
+ * "reduce motion" enabled — the server emits the motion element, their browser
+ * emits something else, React throws the tree away. That showed up in production
+ * telemetry as React #418/#423 and made the whole e2e console guard red.
+ *
+ * Returning false for the first client render makes that render identical to the
+ * server's, so hydration matches; the real preference applies immediately after.
+ *
+ * Why not just delete the branches and rely on <MotionConfig reducedMotion="user">?
+ * Tried it — it is worse. MotionConfig suppresses TRANSFORM animations but still
+ * runs opacity ones, so a reveal wrapper stays at `opacity: 0` until its
+ * IntersectionObserver fires. Content that never scrolls into view (or whose
+ * observer misses) simply stays invisible. Trading a hydration warning for
+ * blank panels is not a fix; reduced-motion users need the plain element.
+ */
+function useReducedMotionAfterMount(): boolean {
+  const reduce = useReducedMotion();
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+  return mounted && !!reduce;
+}
+
 /* ---------- animated count-up (fires when scrolled into view) ---------- */
 export function CountUp({
   to,
@@ -42,7 +68,12 @@ export function CountUp({
       maximumFractionDigits: decimals,
     }) +
     suffix;
-  const [display, setDisplay] = useState(fmt(reduce ? to : from));
+  // Always `from`, never `reduce ? to : from`: the preference is a client-only
+  // media query, so branching on it here made the server emit one number and a
+  // reduced-motion client emit another — a text-node mismatch, the same defect
+  // PanelCountUp had. The reduce case is handled in the effect below, which runs
+  // after hydration has already matched.
+  const [display, setDisplay] = useState(fmt(from));
 
   useEffect(() => {
     if (!inView) return;
@@ -161,9 +192,13 @@ export function Reveal({
   amount?: number;
   as?: keyof typeof motion;
 }) {
-  const reduce = useReducedMotion();
+  const reduce = useReducedMotionAfterMount();
   const { ref, inView } = useReveal(amount);
   const Comp = (motion[as] ?? motion.div) as React.ElementType;
+  // Reduced motion gets the PLAIN element (always visible, no observer needed).
+  // Gated on `useReducedMotionAfterMount` so the first client render still
+  // matches the server's — see that hook for why the naive version broke
+  // hydration, and why MotionConfig alone was not enough.
   if (reduce) return <Comp className={className}>{children}</Comp>;
   return (
     <Comp
@@ -193,8 +228,12 @@ export function RevealItem({
   amount?: number;
   y?: number;
 }) {
-  const reduce = useReducedMotion();
+  const reduce = useReducedMotionAfterMount();
   const { ref, inView } = useReveal(amount);
+  // Reduced motion gets the PLAIN element (always visible, no observer needed).
+  // Gated on `useReducedMotionAfterMount` so the first client render still
+  // matches the server's — see that hook for why the naive version broke
+  // hydration, and why MotionConfig alone was not enough.
   if (reduce) return <div className={className}>{children}</div>;
   return (
     <motion.div
@@ -219,8 +258,12 @@ export function RevealGroup({
   className?: string;
   amount?: number;
 }) {
-  const reduce = useReducedMotion();
+  const reduce = useReducedMotionAfterMount();
   const { ref, inView } = useReveal(amount);
+  // Reduced motion gets the PLAIN element (always visible, no observer needed).
+  // Gated on `useReducedMotionAfterMount` so the first client render still
+  // matches the server's — see that hook for why the naive version broke
+  // hydration, and why MotionConfig alone was not enough.
   if (reduce) return <div className={className}>{children}</div>;
   return (
     <motion.div
@@ -297,7 +340,11 @@ export function PageTransition({
   children: React.ReactNode;
   className?: string;
 }) {
-  const reduce = useReducedMotion();
+  const reduce = useReducedMotionAfterMount();
+  // Reduced motion gets the PLAIN element (always visible, no observer needed).
+  // Gated on `useReducedMotionAfterMount` so the first client render still
+  // matches the server's — see that hook for why the naive version broke
+  // hydration, and why MotionConfig alone was not enough.
   if (reduce) return <div className={className}>{children}</div>;
   return (
     <AnimatePresence mode="wait" initial={false}>

@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { userDelete, userGet, userPatch, userPost } from "@/lib/psx/client";
+import type { PriceCondition } from "@/features/alerts/alerts.data";
 
 export type AlertEventType = "stock_price" | "bill" | "budget" | "goal" | "system";
 
@@ -33,7 +34,7 @@ export interface PriceAlert {
   id: number;
   user_id: string;
   symbol: string;
-  condition: "above" | "below" | "cross_above" | "cross_below";
+  condition: PriceCondition;
   price: number;
   enabled: boolean;
   triggered_at: string | null;
@@ -124,7 +125,7 @@ export function useCreatePriceAlert() {
   return useMutation({
     mutationFn: (data: {
       symbol: string;
-      condition: "above" | "below" | "cross_above" | "cross_below";
+      condition: PriceCondition;
       price: number;
       one_time?: boolean;
       notify_push?: boolean;

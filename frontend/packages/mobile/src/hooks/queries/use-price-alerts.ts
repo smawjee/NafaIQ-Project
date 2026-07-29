@@ -3,9 +3,15 @@
 // condition + persisted notify_push/notify_email channels the backend honors.
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
+import type { PriceCondition } from "@nafaiq/shared";
+
 import { userDelete, userGet, userPost } from "@/lib/api";
 
-export type PriceAlertCondition = "above" | "below" | "cross_above" | "cross_below";
+// Re-exported from @nafaiq/shared rather than re-declared. The local union was
+// stale — it listed 4 of the backend's 9 conditions, so the four newer alert
+// types (pct_change_*, volume_spike, high_52w/low_52w) could not even be passed
+// through this hook, whatever the UI offered.
+export type PriceAlertCondition = PriceCondition;
 
 export interface PriceAlert {
   id: number;

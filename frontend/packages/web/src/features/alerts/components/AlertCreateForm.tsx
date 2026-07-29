@@ -3,7 +3,13 @@ import { Card } from "@/components/shared/Card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { cn } from "@/lib/utils";
 import { useLang } from "@/hooks/use-lang";
-import { TYPES, STOCKS } from "@/features/alerts/alerts.data";
+import { SymbolPicker } from "@/components/shared/SymbolPicker";
+import {
+  TYPES,
+  PRICE_CONDITIONS,
+  conditionSpec,
+  type PriceCondition,
+} from "@/features/alerts/alerts.data";
 
 export function AlertCreateForm({
   type,
@@ -40,8 +46,8 @@ export function AlertCreateForm({
   onTypeChange: (type: string) => void;
   stock: string;
   onStockChange: (stock: string) => void;
-  direction: string;
-  onDirectionChange: (direction: string) => void;
+  direction: PriceCondition;
+  onDirectionChange: (direction: PriceCondition) => void;
   price: string;
   onPriceChange: (price: string) => void;
   bill: string;
@@ -67,6 +73,7 @@ export function AlertCreateForm({
   billOptions: { name: string }[];
 }) {
   const { t } = useLang();
+  const spec = conditionSpec(direction);
   const [thresholdMode, setThresholdMode] = useState<string>("80");
   const [thresholdCustom, setThresholdCustom] = useState("");
   const [milestoneMode, setMilestoneMode] = useState<string>("50");
@@ -91,33 +98,44 @@ export function AlertCreateForm({
         ))}
       </div>
       {type === "Stock Price" ? (
-        <div className="grid gap-3 sm:grid-cols-2">
-          <select
-            value={stock}
-            onChange={(e) => onStockChange(e.target.value)}
-            className="rounded-[6px] border border-border bg-elevated px-3 py-2 text-sm text-text-primary"
-          >
-            {STOCKS.map((s) => (
-              <option key={s}>{s}</option>
-            ))}
-          </select>
-          <div className="flex gap-2">
-            <select
-              value={direction}
-              onChange={(e) => onDirectionChange(e.target.value)}
-              className="rounded-[6px] border border-border bg-elevated px-3 py-2 text-sm text-text-primary"
-            >
-              <option value="Above">{t("Above")}</option>
-              <option value="Below">{t("Below")}</option>
-            </select>
-            <input
-              value={price}
-              onChange={(e) => onPriceChange(e.target.value)}
-              inputMode="decimal"
-              placeholder={t("Price")}
-              className="w-full rounded-[6px] border border-border bg-elevated px-3 py-2 text-sm text-text-primary outline-none placeholder:text-text-muted"
-            />
+        <div className="space-y-3">
+          <div className="grid gap-3 sm:grid-cols-2">
+            <SymbolPicker id="alert-symbol" value={stock} onChange={onStockChange} />
+            <div className="flex gap-2">
+              <select
+                value={direction}
+                onChange={(e) => onDirectionChange(e.target.value as PriceCondition)}
+                aria-label={t("Alert condition")}
+                className="min-w-0 flex-1 rounded-[6px] border border-border bg-elevated px-3 py-2 text-sm text-text-primary"
+              >
+                {PRICE_CONDITIONS.map((c) => (
+                  <option key={c.value} value={c.value}>
+                    {t(c.label)}
+                  </option>
+                ))}
+              </select>
+              {/* 52-week conditions carry no threshold, so the input is hidden
+                  rather than shown empty — a disabled box labelled "PKR" next to
+                  "Hits a 52-week high" just invites the question of what to put
+                  in it. */}
+              {spec.unit !== "" && (
+                <div className="relative w-32 shrink-0">
+                  <input
+                    value={price}
+                    onChange={(e) => onPriceChange(e.target.value)}
+                    inputMode="decimal"
+                    aria-label={`${t("Threshold")} (${spec.unit})`}
+                    placeholder={spec.placeholder}
+                    className="w-full rounded-[6px] border border-border bg-elevated px-3 py-2 pe-11 text-sm text-text-primary outline-none placeholder:text-text-muted"
+                  />
+                  <span className="pointer-events-none absolute end-2.5 top-1/2 -translate-y-1/2 text-xs text-text-muted">
+                    {spec.unit}
+                  </span>
+                </div>
+              )}
+            </div>
           </div>
+          <p className="text-xs text-text-muted">{t(spec.hint)}</p>
         </div>
       ) : type === "Bill Reminder" ? (
         <div className="grid gap-3 sm:grid-cols-2">

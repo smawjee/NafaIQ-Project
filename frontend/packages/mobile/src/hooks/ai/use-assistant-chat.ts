@@ -36,6 +36,21 @@ export function draftStatusText(draft: ActionDraft, t: (value: string) => string
   return t("Working on that now.");
 }
 
+/** History as sent to POST /api/assistant/chat. Port of the web helper.
+ *
+ * Drops the leading UI greeting and any empty bubbles, then keeps the last 12
+ * turns. The empty filter is load-bearing: a turn that streamed no tokens
+ * (nav-only answers) used to leave an empty assistant message in state, and
+ * re-sending it tripped the API's min_length=1 validation — every message
+ * after that got HTTP 422 for the rest of the conversation.
+ */
+export function buildOutgoingMessages(history: AssistantMsg[]): AssistantMsg[] {
+  return history
+    .filter((m, i) => !(i === 0 && m.role === "assistant"))
+    .filter((m) => m.content.trim().length > 0)
+    .slice(-12);
+}
+
 export function useAssistantChat(
   greeting: string,
   options?: { onToast?: (message: string, kind: "success" | "error") => void },
@@ -158,8 +173,7 @@ export function useAssistantChat(
       void streamAssistant(
         {
           lang,
-          // Drop the leading UI greeting; send the last 12 real turns.
-          messages: history.filter((m, i) => !(i === 0 && m.role === "assistant")).slice(-12),
+          messages: buildOutgoingMessages(history),
           conversation_id: conversationIdRef.current,
         },
         {
@@ -176,12 +190,19 @@ export function useAssistantChat(
             }
           },
           onNav: (to) => {
+            // A nav-only answer carries no tokens; give the bubble a body so
+            // the turn doesn't read as ignored (and never persists as "").
+            replaceLastIfEmpty(t("Taking you there now."));
             const href = mapNavRoute(to);
             // Unmapped destinations are dropped, like the server drops
             // unresolved ones — never a crash on a web-only route.
             if (href) router.push(href as never);
           },
-          onDone: () => setLoading(false),
+          // Same guard on done: never leave an empty assistant bubble behind.
+          onDone: () => {
+            replaceLastIfEmpty(t("Done. Anything else I can help with?"));
+            setLoading(false);
+          },
           onError: (code, message) => {
             // "busy" is deliberately NOT treated as quota: the user's own
             // allowance is untouched, so the composer must stay enabled and

@@ -99,3 +99,46 @@ async def test_connect_error_raises_provider_error(monkeypatch):
     with pytest.raises(providers.ProviderError):
         async for _ in providers.stream_groq(MESSAGES, transport=httpx.MockTransport(boom)):
             pass
+
+
+@pytest.mark.asyncio
+async def test_double_tool_use_failed_raises_typed_unparseable(monkeypatch):
+    """Groq 400 `tool_use_failed` on both attempts (temp 0, then the bump) must
+    surface as ProviderToolCallUnparseable — the typed error the agent catches
+    to finish the turn in prose — not the generic ProviderError that used to
+    show "couldn't reach the assistant" in production.
+    """
+    from app.config import settings
+    from app.services.ai import providers
+
+    monkeypatch.setattr(settings, "groq_api_key", "test-key")
+
+    calls = {"n": 0}
+
+    def tool_use_failed(request):
+        calls["n"] += 1
+        return httpx.Response(
+            400,
+            json={
+                "error": {
+                    "message": "Failed to call a function. Please adjust your prompt.",
+                    "type": "invalid_request_error",
+                    "code": "tool_use_failed",
+                    "failed_generation": '<function=add_to_watchlist{"symbol": "OGDC"}</function>',
+                }
+            },
+        )
+
+    tools = [
+        {
+            "type": "function",
+            "function": {"name": "add_to_watchlist", "parameters": {"type": "object"}},
+        }
+    ]
+    with pytest.raises(providers.ProviderToolCallUnparseable):
+        await providers.complete_with_tools(
+            MESSAGES, tools, transport=httpx.MockTransport(tool_use_failed)
+        )
+    # Exactly two attempts on the one key: temperature 0, then the bump —
+    # no pointless rotation over a model fault.
+    assert calls["n"] == 2

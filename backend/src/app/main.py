@@ -198,9 +198,31 @@ app.add_middleware(BearerTokenMiddleware)
 # are configured.
 _cors_origins = [o.strip() for o in settings.cors_origins.split(",") if o.strip()]
 _cors_allow_all = not _cors_origins or _cors_origins == ["*"]
+
+# Loopback on ANY port is always allowed, even when CORS_ORIGINS is pinned.
+#
+# Learned the hard way: setting CORS_ORIGINS to the production origin plus
+# "http://localhost:5173" broke every local run against this backend, because
+#   * the e2e web server listens on 127.0.0.1:8080, and
+#   * "127.0.0.1" and "localhost" are DIFFERENT origins to a browser, so
+#     allow-listing one does nothing for the other.
+# The whole Playwright suite went red with 40+ "blocked by CORS policy" console
+# errors, which is also exactly what a developer running `pnpm dev` on any other
+# port would have hit.
+#
+# This is not a hole: the API takes its credentials from the Authorization
+# header, never a cookie, so a page on someone's own localhost cannot obtain a
+# victim's JWT — CORS is not what protects this API, the Bearer token is. Pinning
+# the PUBLIC origins still does the thing worth doing (keeping a random website
+# from using the app's shared PSX token from a user's browser).
+_LOOPBACK_ORIGIN_REGEX = r"^https?://(localhost|127\.0\.0\.1|\[::1\])(:\d+)?$"
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"] if _cors_allow_all else _cors_origins,
+    # Ignored by Starlette when allow_origins is ["*"], which is correct: the
+    # wildcard already covers loopback.
+    allow_origin_regex=None if _cors_allow_all else _LOOPBACK_ORIGIN_REGEX,
     allow_credentials=not _cors_allow_all,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -208,6 +230,29 @@ app.add_middleware(
 
 # Timing log for hot market endpoints, to compare before/after cache work.
 _HOT_PATH_PREFIXES = ("/api/market", "/api/quote", "/api/symbols", "/api/index", "/api/sectors", "/api/macro", "/api/news", "/api/filings", "/api/financials", "/api/funds")
+
+# Only log slow hot-path requests. Logging every one duplicated the uvicorn
+# access line and, during traffic bursts, pushed the replica past Railway's
+# 500 logs/sec ingest cap — at which point Railway silently DROPS log lines
+# ("Messages dropped: N"), i.e. the noise cost us the signal. Cached responses
+# on these paths serve in single-digit ms; anything over the threshold is the
+# interesting case the log exists to catch.
+_HOT_SLOW_MS = 400
+
+
+class _DropHealthAccessLog(logging.Filter):
+    """Suppress uvicorn access-log lines for the platform health probe.
+
+    Railway polls /api/health continuously; those lines were ~25% of access-log
+    volume and carry no information (a failing probe surfaces as a restart, and
+    the endpoint's own errors still log normally).
+    """
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        return "/api/health" not in record.getMessage()
+
+
+logging.getLogger("uvicorn.access").addFilter(_DropHealthAccessLog())
 
 
 @app.middleware("http")
@@ -217,12 +262,13 @@ async def _hot_endpoint_timing(request: Request, call_next):
     start = time.perf_counter()
     response = await call_next(request)
     elapsed_ms = round((time.perf_counter() - start) * 1000, 1)
-    log.info(
-        "hot_endpoint",
-        path=request.url.path,
-        ms=elapsed_ms,
-        status=response.status_code,
-    )
+    if elapsed_ms >= _HOT_SLOW_MS:
+        log.info(
+            "hot_endpoint",
+            path=request.url.path,
+            ms=elapsed_ms,
+            status=response.status_code,
+        )
     return response
 
 # Paths that must keep working while `maintenance_mode` is on: the health probe
@@ -250,6 +296,34 @@ async def _maintenance_mode(request: Request, call_next):
                 headers={"Retry-After": "300"},
             )
     return await call_next(request)
+
+
+@app.middleware("http")
+async def _security_headers(request: Request, call_next):
+    """Baseline response hardening.
+
+    The API answered with none of these. Individually small, but they are the
+    cheap half of the defence and cost one dict update per response.
+
+    - nosniff: the API returns JSON; a browser must never content-sniff a
+      response into executable script.
+    - DENY: nothing here is meant to be framed, and framing an authenticated
+      JSON API is only useful to someone else.
+    - HSTS: Railway already terminates TLS, so this only forbids a downgrade
+      that should never happen. Not sent over plain HTTP, per the RFC — a
+      local http:// dev run must not get itself pinned to HTTPS.
+    - no-referrer: request paths here carry symbols and user-scoped ids; they
+      have no business appearing in a third party's referer log.
+    """
+    response = await call_next(request)
+    response.headers.setdefault("X-Content-Type-Options", "nosniff")
+    response.headers.setdefault("X-Frame-Options", "DENY")
+    response.headers.setdefault("Referrer-Policy", "no-referrer")
+    if request.url.scheme == "https":
+        response.headers.setdefault(
+            "Strict-Transport-Security", "max-age=31536000; includeSubDomains"
+        )
+    return response
 
 
 @app.middleware("http")

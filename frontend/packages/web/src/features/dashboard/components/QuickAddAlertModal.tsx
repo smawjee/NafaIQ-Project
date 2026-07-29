@@ -14,7 +14,15 @@ import { useFinanceGoals } from "@/hooks/use-finance-goals";
 import { useFinanceData } from "@/hooks/use-demo-data";
 import { Modal } from "@/components/shared/Modal";
 import { Checkbox } from "@/components/ui/checkbox";
-import { ALERT_TYPES, ALERT_STOCKS } from "@/features/dashboard/dashboard.data";
+import {
+  PRICE_CONDITIONS,
+  THRESHOLDLESS_CONDITIONS,
+  conditionSpec,
+  describeCondition,
+  type PriceCondition,
+} from "@nafaiq/shared";
+import { SymbolPicker } from "@/components/shared/SymbolPicker";
+import { ALERT_TYPES } from "@/features/dashboard/dashboard.data";
 
 export function QuickAddAlertModal({ open, onClose }: { open: boolean; onClose: () => void }) {
   const { t } = useLang();
@@ -44,8 +52,9 @@ export function QuickAddAlertModal({ open, onClose }: { open: boolean; onClose: 
       }))
     : demoGoals;
   const [type, setType] = useState("Stock Price");
-  const [stock, setStock] = useState(ALERT_STOCKS[0]);
-  const [direction, setDirection] = useState("Above");
+  // No default symbol: ALERT_STOCKS[0] pre-filled a stock the user never chose.
+  const [stock, setStock] = useState("");
+  const [direction, setDirection] = useState<PriceCondition>("above");
   const [price, setPrice] = useState("");
   const [bill, setBill] = useState(billOptions[0] ?? "");
   const [timing, setTiming] = useState("1 day before");
@@ -67,13 +76,17 @@ export function QuickAddAlertModal({ open, onClose }: { open: boolean; onClose: 
 
     if (type === "Stock Price") {
       const num = Number(price);
-      if (!price || Number.isNaN(num) || num <= 0) {
-        setErr(t("Please enter a valid price."));
+      if (!stock) {
+        setErr(t("Please choose a stock."));
         return;
       }
-      title = `${stock} ${direction.toLowerCase()} PKR ${num}`;
+      if (!THRESHOLDLESS_CONDITIONS.has(direction) && (!price || Number.isNaN(num) || num <= 0)) {
+        setErr(t("Please enter a valid threshold."));
+        return;
+      }
+      title = describeCondition(stock, direction, num);
       meta = isLoggedIn
-        ? { symbol: stock, direction: direction.toLowerCase(), price: num }
+        ? { symbol: stock, condition: direction, price: num }
         : `Created ${new Date().toLocaleString("en-US", { month: "short", day: "numeric" })}`;
     } else if (type === "Bill Reminder") {
       if (!bill) {
@@ -123,8 +136,11 @@ export function QuickAddAlertModal({ open, onClose }: { open: boolean; onClose: 
         createPriceAlert.mutate(
           {
             symbol: stock,
-            condition: direction.toLowerCase() as "above" | "below",
-            price: Number(price),
+            // No cast: `direction` is a PriceCondition and the mutation accepts
+            // the full union. The old `as "above" | "below"` narrowed nine
+            // conditions to two and hid that from tsc.
+            condition: direction,
+            price: THRESHOLDLESS_CONDITIONS.has(direction) ? 0 : Number(price),
             one_time: true,
             notify_push: push,
             notify_email: email,
@@ -188,31 +204,38 @@ export function QuickAddAlertModal({ open, onClose }: { open: boolean; onClose: 
         </div>
         {type === "Stock Price" ? (
           <div className="grid gap-3 sm:grid-cols-2">
-            <select
-              value={stock}
-              onChange={(e) => setStock(e.target.value)}
-              className="rounded-[6px] border border-border bg-elevated px-3 py-2 text-sm text-text-primary"
-            >
-              {ALERT_STOCKS.map((s) => (
-                <option key={s}>{s}</option>
-              ))}
-            </select>
+            <SymbolPicker id="quick-alert-symbol" value={stock} onChange={setStock} />
             <div className="flex gap-2">
               <select
                 value={direction}
-                onChange={(e) => setDirection(e.target.value)}
-                className="rounded-[6px] border border-border bg-elevated px-3 py-2 text-sm text-text-primary"
+                onChange={(e) => setDirection(e.target.value as PriceCondition)}
+                aria-label={t("Alert condition")}
+                className="min-w-0 flex-1 rounded-[6px] border border-border bg-elevated px-3 py-2 text-sm text-text-primary"
               >
-                <option value="Above">{t("Above")}</option>
-                <option value="Below">{t("Below")}</option>
+                {PRICE_CONDITIONS.map((c) => (
+                  <option key={c.value} value={c.value}>
+                    {t(c.label)}
+                  </option>
+                ))}
               </select>
-              <input
-                value={price}
-                onChange={(e) => setPrice(e.target.value)}
-                inputMode="decimal"
-                placeholder={t("Price")}
-                className="w-full rounded-[6px] border border-border bg-elevated px-3 py-2 text-sm text-text-primary outline-none placeholder:text-text-muted"
-              />
+              {/* Unit follows the condition, and vanishes for the 52-week ones
+                  that have no threshold — same rule as the full alerts screen,
+                  so the two forms cannot disagree about what "3" means. */}
+              {conditionSpec(direction).unit !== "" && (
+                <div className="relative w-28 shrink-0">
+                  <input
+                    value={price}
+                    onChange={(e) => setPrice(e.target.value)}
+                    inputMode="decimal"
+                    aria-label={`${t("Threshold")} (${conditionSpec(direction).unit})`}
+                    placeholder={conditionSpec(direction).placeholder}
+                    className="w-full rounded-[6px] border border-border bg-elevated px-3 py-2 pe-10 text-sm text-text-primary outline-none placeholder:text-text-muted"
+                  />
+                  <span className="pointer-events-none absolute end-2.5 top-1/2 -translate-y-1/2 text-xs text-text-muted">
+                    {conditionSpec(direction).unit}
+                  </span>
+                </div>
+              )}
             </div>
           </div>
         ) : type === "Bill Reminder" ? (

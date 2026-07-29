@@ -269,12 +269,40 @@ async def test_create_price_alert_rejects_invalid_bodies(svc, body):
     assert "create_price_alert" not in svc
 
 
-async def test_price_alert_price_of_zero_is_allowed(svc):
-    # ge=0, not gt=0 — a zero threshold is a legitimate "any move" alert.
+async def test_price_alert_price_of_zero_is_rejected(svc):
+    """A zero threshold is a footgun, not an "any move" alert.
+
+    This test previously asserted the opposite, on the rationale that "a zero
+    threshold is a legitimate 'any move' alert". That rationale does not hold:
+    `above 0` is true for every share that has ever traded, so it fires on the
+    next 60s evaluator tick and — with one_time defaulting True — immediately
+    disables itself. `below 0` is the mirror image and can never fire. Neither
+    is an "any move" alert; both are alerts that look armed in the list and are
+    not.
+
+    Note the production data agrees: the only three price_alerts rows ever
+    created were `HBL above 1.0`, each triggering ~54s later. Thresholds that
+    can't fail are exactly what users reach for when the UI lets them.
+
+    "Any move" now has a real spelling — `pct_change_above` with a percent — so
+    nothing is lost by rejecting this.
+    """
     async with _client() as c:
         r = await c.post(
             "/api/alerts/price",
             json={"symbol": "HBL", "condition": "above", "price": 0},
+        )
+
+    assert r.status_code == 422
+    assert "create_price_alert" not in svc
+
+
+async def test_52_week_conditions_need_no_threshold(svc):
+    """high_52w/low_52w carry no threshold — the extreme itself is the trigger."""
+    async with _client() as c:
+        r = await c.post(
+            "/api/alerts/price",
+            json={"symbol": "HBL", "condition": "high_52w"},
         )
 
     assert r.status_code == 200

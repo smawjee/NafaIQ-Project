@@ -1,6 +1,7 @@
 import { Link, useRouterState, useNavigate } from "@tanstack/react-router";
 import { LogOut, X, Sparkles } from "lucide-react";
 import { useState } from "react";
+import { usePersistedBool } from "@/hooks/use-persisted-bool";
 import { motion, AnimatePresence, PageTransition } from "@/components/shared/animations";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/use-auth";
@@ -19,16 +20,7 @@ import { BottomNav } from "@/components/layout/BottomNav";
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const [drawer, setDrawer] = useState(false);
-  const [collapsed, setCollapsed] = useState(() => {
-    if (typeof window === "undefined") return false;
-    return window.localStorage.getItem("nafaiq-sidebar-collapsed") === "1";
-  });
-  function toggleCollapsed(next: boolean) {
-    setCollapsed(next);
-    if (typeof window !== "undefined") {
-      window.localStorage.setItem("nafaiq-sidebar-collapsed", next ? "1" : "0");
-    }
-  }
+  const [collapsed, toggleCollapsed] = usePersistedBool("nafaiq-sidebar-collapsed");
   const { profile, user, signOut } = useAuth();
   const { plan } = usePermissions();
   const cta = upgradeCta(plan);

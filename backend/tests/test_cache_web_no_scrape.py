@@ -100,3 +100,96 @@ async def test_background_refresh_is_noop_on_web(web_layer):
 
     web_layer._refresh_in_background("market_snapshot", _refresh)
     assert called["n"] == 0  # never even scheduled on the web process
+
+
+# --- staleness must never blank a row -----------------------------------
+#
+# Audit 2026-07-29: `get_fundamentals` had a 24h freshness window while its only
+# writer (job_refresh_fundamentals) runs WEEKLY, and on the web process there is
+# no live-scrape fallback. So six days out of seven it threw away a perfectly
+# good row and returned an empty FundamentalsData — every stock page on the site
+# rendered blank P/E, EPS and dividend yield while the real numbers sat in the
+# table. `get_profile` (7d window, weekly writer) and `get_announcements`
+# (15min window, 15min writer) had the same defect on a narrower margin.
+#
+# The invariant these lock in: max_age_seconds decides when to REFRESH, never
+# whether the caller gets data. Only a genuinely absent row is a miss.
+
+
+def _stale_layer(monkeypatch, row):
+    """A web-process layer whose DB returns exactly one very stale row."""
+
+    async def _one_row(_builder):
+        return SimpleNamespace(data=[row])
+
+    monkeypatch.setattr(cache_mod, "async_execute", _one_row)
+    layer = CacheLayer(_ExplodingDPS())
+    layer.live_scrape = False
+    return layer
+
+
+@pytest.mark.asyncio
+async def test_stale_fundamentals_are_served_not_nulled(monkeypatch):
+    layer = _stale_layer(monkeypatch, {
+        "symbol": "OGDC",
+        "eps": 39.50,
+        "pe": 7.99,
+        "pb": None,
+        "div_yield": 5.13,
+        "payout": 40.51,
+        "roe": None,
+        "refreshed_at": "2020-01-01T00:00:00+00:00",  # years stale
+    })
+
+    f = await layer.get_fundamentals("OGDC")
+    assert f.eps == 39.50, "a stale P/E is useful; a null one is not"
+    assert f.pe == 7.99
+    assert f.div_yield == 5.13
+
+
+@pytest.mark.asyncio
+async def test_stale_profile_is_served_not_404(monkeypatch):
+    layer = _stale_layer(monkeypatch, {
+        "symbol": "OGDC",
+        "name": "Oil & Gas Development Company",
+        "sector": "OIL & GAS EXPLORATION COMPANIES",
+        "listed_shares": 4300928400,
+        "free_float": 645139260,
+        "refreshed_at": "2020-01-01T00:00:00+00:00",
+    })
+
+    p = await layer.get_profile("OGDC")
+    assert p is not None, "a stale profile must not become a 404"
+    assert p.listed_shares == 4300928400
+
+
+@pytest.mark.asyncio
+async def test_stale_announcements_are_served_not_emptied(monkeypatch):
+    layer = _stale_layer(monkeypatch, {
+        "id": "1",
+        "symbol": "OGDC",
+        "posted_at": "2026-07-28T10:00:00+00:00",
+        "title": "Board meeting intimation",
+        "category": "Board Meeting",
+        "url": "https://example.invalid/a/1",
+        "refreshed_at": "2020-01-01T00:00:00+00:00",
+    })
+
+    items = await layer.get_announcements()
+    assert len(items) == 1 and items[0].title == "Board meeting intimation"
+
+
+@pytest.mark.asyncio
+async def test_missing_refreshed_at_still_serves_the_row(monkeypatch):
+    """A row with no usable timestamp counts as stale — and stale still serves.
+
+    The old code called `datetime.fromisoformat(r["refreshed_at"])` unguarded, so
+    a null/absent stamp raised, got swallowed by the outer except, and blanked
+    the response.
+    """
+    layer = _stale_layer(monkeypatch, {
+        "symbol": "OGDC", "eps": 39.50, "pe": 7.99, "pb": None,
+        "div_yield": None, "payout": None, "roe": None, "refreshed_at": None,
+    })
+
+    assert (await layer.get_fundamentals("OGDC")).eps == 39.50

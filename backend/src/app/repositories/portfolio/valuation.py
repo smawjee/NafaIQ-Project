@@ -11,29 +11,30 @@ Executor = Any
 
 
 async def fetch_priced_holdings(conn: Executor, portfolio_id: int) -> list[dict[str, Any]]:
-    """Holdings with resolved current price + previous close, for one portfolio."""
+    """Holdings with resolved current price + previous close, for one portfolio.
+
+    EOD closes are resolved per holding via LATERAL (index walk + LIMIT 1), not
+    a DISTINCT ON over all of psx_ohlcv — the latter scans ~1M rows to price a
+    handful of holdings and was taking 20s+ per request in production.
+    """
     result = await conn.execute(
         text(
             """
-            WITH prev_close AS (
-                SELECT DISTINCT ON (symbol) symbol, close AS previous_close
-                FROM psx_ohlcv
-                WHERE date < CURRENT_DATE
-                ORDER BY symbol, date DESC
-            ),
-            latest_close AS (
-                SELECT DISTINCT ON (symbol) symbol, close AS eod_close
-                FROM psx_ohlcv
-                ORDER BY symbol, date DESC
-            )
             SELECT
                 h.id, h.symbol, h.shares, h.avg_cost,
                 COALESCE(s.price, lc.eod_close) AS current_price,
                 pc.previous_close AS previous_close
             FROM psx_holdings h
             LEFT JOIN psx_market_snapshot s ON s.symbol = h.symbol
-            LEFT JOIN prev_close pc ON pc.symbol = h.symbol
-            LEFT JOIN latest_close lc ON lc.symbol = h.symbol
+            LEFT JOIN LATERAL (
+                SELECT close AS previous_close FROM psx_ohlcv
+                WHERE symbol = h.symbol AND date < CURRENT_DATE
+                ORDER BY date DESC LIMIT 1
+            ) pc ON TRUE
+            LEFT JOIN LATERAL (
+                SELECT close AS eod_close FROM psx_ohlcv
+                WHERE symbol = h.symbol ORDER BY date DESC LIMIT 1
+            ) lc ON TRUE
             WHERE h.portfolio_id = :pid
             ORDER BY h.symbol
             """
@@ -54,22 +55,15 @@ async def fetch_priced_holdings(conn: Executor, portfolio_id: int) -> list[dict[
 
 
 async def fetch_networth_holdings(conn: Executor, user_id: str) -> list[dict[str, Any]]:
-    """All of a user's holdings with price, previous close, and today's buy lots."""
+    """All of a user's holdings with price, previous close, and today's buy lots.
+
+    Same LATERAL-per-holding pattern as fetch_priced_holdings (see note there);
+    this backs /api/portfolio/networth, the hottest portfolio endpoint.
+    """
     result = await conn.execute(
         text(
             """
-            WITH prev_close AS (
-                SELECT DISTINCT ON (symbol) symbol, close AS previous_close
-                FROM psx_ohlcv
-                WHERE date < CURRENT_DATE
-                ORDER BY symbol, date DESC
-            ),
-            latest_close AS (
-                SELECT DISTINCT ON (symbol) symbol, close AS eod_close
-                FROM psx_ohlcv
-                ORDER BY symbol, date DESC
-            ),
-            today_buys AS (
+            WITH today_buys AS (
                 SELECT
                     st.portfolio_id,
                     st.symbol,
@@ -95,8 +89,15 @@ async def fetch_networth_holdings(conn: Executor, user_id: str) -> list[dict[str
             FROM psx_holdings h
             JOIN psx_portfolios p ON p.id = h.portfolio_id AND p.user_id = :uid
             LEFT JOIN psx_market_snapshot s ON s.symbol = h.symbol
-            LEFT JOIN prev_close pc ON pc.symbol = h.symbol
-            LEFT JOIN latest_close lc ON lc.symbol = h.symbol
+            LEFT JOIN LATERAL (
+                SELECT close AS previous_close FROM psx_ohlcv
+                WHERE symbol = h.symbol AND date < CURRENT_DATE
+                ORDER BY date DESC LIMIT 1
+            ) pc ON TRUE
+            LEFT JOIN LATERAL (
+                SELECT close AS eod_close FROM psx_ohlcv
+                WHERE symbol = h.symbol ORDER BY date DESC LIMIT 1
+            ) lc ON TRUE
             LEFT JOIN today_buys tb ON tb.portfolio_id = h.portfolio_id AND tb.symbol = h.symbol
             ORDER BY h.symbol
             """

@@ -1,3 +1,4 @@
+import { PRICE_CONDITIONS } from "@nafaiq/shared";
 // The confirmation step for a write the assistant proposed. Port of web
 // features/assistant/components/ActionDraftCard.tsx to the glass RN idiom.
 //
@@ -99,8 +100,16 @@ const FIELDS: Record<string, FieldDef[]> = {
   ],
   add_price_alert: [
     { name: "symbol", label: "Symbol", kind: "text" },
-    { name: "condition", label: "When price is", kind: "select", options: ["above", "below"] },
-    { name: "price", label: "Price (PKR)", kind: "number" },
+    // Every condition the backend accepts, from the shared list — this offered
+    // only above/below, so the assistant could draft a volume or 52-week alert
+    // that the user then could not confirm without changing it.
+    {
+      name: "condition",
+      label: "Alert when",
+      kind: "select",
+      options: PRICE_CONDITIONS.map((c) => c.value),
+    },
+    { name: "price", label: "Threshold", kind: "number" },
   ],
   add_to_watchlist: [{ name: "symbol", label: "Symbol", kind: "text" }],
   remove_from_watchlist: [{ name: "symbol", label: "Symbol", kind: "text" }],

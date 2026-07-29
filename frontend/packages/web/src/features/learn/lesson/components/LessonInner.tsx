@@ -1,5 +1,6 @@
 import { Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
+import { usePersistedBool } from "@/hooks/use-persisted-bool";
 import {
   ArrowLeft,
   Bookmark,
@@ -35,14 +36,8 @@ export function LessonInner({ lesson }: { lesson: LessonContent }) {
   const [activeSection, setActiveSection] = useState(lesson.sections[0]?.id);
   const [chatOpen, setChatOpen] = useState(false);
   const [showArticle, setShowArticle] = useState(true);
-  const [tocCollapsed, setTocCollapsed] = useState(() => {
-    if (typeof window === "undefined") return false;
-    return window.localStorage.getItem("nafaiq-lesson-toc") === "1";
-  });
-  const [chatCollapsed, setChatCollapsed] = useState(() => {
-    if (typeof window === "undefined") return false;
-    return window.localStorage.getItem("nafaiq-lesson-chat") === "1";
-  });
+  const [tocCollapsed, setTocCollapsed] = usePersistedBool("nafaiq-lesson-toc");
+  const [chatCollapsed, setChatCollapsed] = usePersistedBool("nafaiq-lesson-chat");
 
   const order = lessonOrder();
   const idx = order.indexOf(lesson.id);
@@ -156,7 +151,6 @@ export function LessonInner({ lesson }: { lesson: LessonContent }) {
             onToggle={setTocCollapsed}
             collapseButtonLabel={t("Table of contents")}
             expandButtonLabel={t("Show table of contents")}
-            persistKey="nafaiq-lesson-toc"
           >
             <div className="sticky top-[var(--sticky-panel)] rounded-card border border-border bg-surface p-4">
               <div className="flex items-center justify-between">
@@ -275,7 +269,6 @@ export function LessonInner({ lesson }: { lesson: LessonContent }) {
             onToggle={setChatCollapsed}
             collapseButtonLabel={t("AI Tutor panel")}
             expandButtonLabel={t("Open AI tutor")}
-            persistKey="nafaiq-lesson-chat"
           >
             <div className="sticky top-[var(--sticky-panel)] h-[calc(100dvh-var(--sticky-panel)-20px)]">
               <div className="relative h-full">
