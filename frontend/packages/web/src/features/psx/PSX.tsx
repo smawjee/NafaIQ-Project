@@ -293,15 +293,7 @@ export function PSX() {
       rsi: s.rsi as number | null,
       signal: s.signal as Signal | null,
     }));
-  }, [
-    snapshot,
-    symbolsData,
-    sectorFilter,
-    searchFilter,
-    batchSignals,
-    metricsMap,
-    isDemo,
-  ]);
+  }, [snapshot, symbolsData, sectorFilter, searchFilter, batchSignals, metricsMap, isDemo]);
 
   const movers = useMemo(() => {
     if (marketMovers.length > 0) {

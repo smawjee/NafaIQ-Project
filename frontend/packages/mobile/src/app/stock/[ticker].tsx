@@ -37,7 +37,14 @@ import { useStockAnalysisReport } from "@/hooks/ai/use-stock-analysis-report";
 import { useLang } from "@/hooks/use-lang";
 import { useTheme } from "@/hooks/use-theme";
 import { ExternalLink, FileText } from "@/lib/icons";
-import { fmtNum, type Signal } from "@nafaiq/shared";
+import {
+  PRICE_CONDITIONS,
+  THRESHOLDLESS_CONDITIONS,
+  conditionSpec,
+  fmtNum,
+  type PriceCondition,
+  type Signal,
+} from "@nafaiq/shared";
 
 /** Compact PKR (mirrors web formatCompactPKR), e.g. 2.15e11 -> "PKR 215B". */
 function compactPKR(value: number): string {
@@ -151,28 +158,32 @@ export default function StockDetailScreen() {
   // --- Set Price Alert sheet ---
   const createAlert = useCreatePriceAlert();
   const [alertOpen, setAlertOpen] = useState(false);
-  const [alertCond, setAlertCond] = useState<"Above" | "Below">("Above");
+  const [alertCond, setAlertCond] = useState<PriceCondition>("above");
   const [alertPrice, setAlertPrice] = useState("");
   const [alertErr, setAlertErr] = useState("");
 
   const openAlert = () => {
     setAlertErr("");
-    setAlertCond("Above");
+    setAlertCond("above");
     setAlertPrice(price != null ? String(price) : "");
     setAlertOpen(true);
   };
   const saveAlert = () => {
     setAlertErr("");
-    const target = Number(alertPrice);
-    if (!alertPrice || Number.isNaN(target) || target <= 0) {
-      setAlertErr(t("Please enter a valid target price."));
+    // 52-week conditions have no threshold, and price_alerts_price_positive
+    // requires exactly 0 for them — sending a typed price would be rejected by
+    // the database, not merely ignored.
+    const thresholdless = THRESHOLDLESS_CONDITIONS.has(alertCond);
+    const target = thresholdless ? 0 : Number(alertPrice);
+    if (!thresholdless && (!alertPrice || Number.isNaN(target) || target <= 0)) {
+      setAlertErr(t("Please enter a valid threshold."));
       return;
     }
     createAlert.mutate(
       {
         symbol: upper,
-        condition: alertCond === "Above" ? "above" : "below",
-        price: Math.round(target * 100) / 100,
+        condition: alertCond,
+        price: thresholdless ? 0 : Math.round(target * 100) / 100,
         one_time: false,
         notify_push: true,
         notify_email: false,
@@ -473,9 +484,11 @@ export default function StockDetailScreen() {
       <GlassSheet open={alertOpen} onClose={() => setAlertOpen(false)} title={`${t("Set Price Alert")} · ${upper}`}>
         <Text variant="secondary">{t("Condition")}</Text>
         <Segmented
-          options={["Above", "Below"]}
-          value={alertCond}
-          onChange={(v) => setAlertCond(v as typeof alertCond)}
+          options={PRICE_CONDITIONS.map((c) => c.label)}
+          value={conditionSpec(alertCond).label}
+          onChange={(v) =>
+            setAlertCond(PRICE_CONDITIONS.find((c) => c.label === v)?.value ?? "above")
+          }
         />
         <Field
           label={t("Target Price (PKR)")}

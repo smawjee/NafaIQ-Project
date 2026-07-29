@@ -35,7 +35,7 @@ export function PhoneMockup({ className, startDelay = 0 }: PhoneMockupProps) {
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
-    let start = performance.now();
+    const start = performance.now();
     let raf: number;
     const animate = (now: number) => {
       const t = (now - start) / 1000;

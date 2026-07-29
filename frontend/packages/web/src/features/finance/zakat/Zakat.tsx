@@ -95,7 +95,10 @@ export function Zakat() {
   };
   const useLivePortfolioValue = () => {
     setManual((m) => ({ ...m, stocks: false }));
-    setValues((v) => ({ ...v, stocks: zakatMoney(portfolioNetworth.data?.total_market_value ?? 0) }));
+    setValues((v) => ({
+      ...v,
+      stocks: zakatMoney(portfolioNetworth.data?.total_market_value ?? 0),
+    }));
   };
   const chooseNisab = (source: NisabSource) => {
     setNisabSource(source);
@@ -160,7 +163,9 @@ export function Zakat() {
       nisabLabel,
       metalNotes: [
         gold ? `Gold per tola: ${formatPKR(gold.pkr_per_tola, 0)}` : "Gold price unavailable",
-        silver ? `Silver per tola: ${formatPKR(silver.pkr_per_tola, 0)}` : "Silver price unavailable",
+        silver
+          ? `Silver per tola: ${formatPKR(silver.pkr_per_tola, 0)}`
+          : "Silver price unavailable",
         metalSourceLabel ? `Metal source: ${metalSourceLabel}` : "Metal source: spot fallback",
       ],
     });
@@ -181,7 +186,12 @@ export function Zakat() {
             disabled={refreshingMetals || monetary.isFetching}
             className="inline-flex items-center justify-center gap-1.5 rounded-[8px] border border-border bg-surface px-3 py-2 text-xs font-semibold text-text-secondary transition hover:border-primary/40 hover:text-text-primary disabled:opacity-60"
           >
-            <RefreshCw className={cn("h-3.5 w-3.5", (refreshingMetals || monetary.isFetching) && "animate-spin")} />
+            <RefreshCw
+              className={cn(
+                "h-3.5 w-3.5",
+                (refreshingMetals || monetary.isFetching) && "animate-spin",
+              )}
+            />
             {t("Refresh metal prices")}
           </button>
         </div>
@@ -189,15 +199,28 @@ export function Zakat() {
         <div className="mb-4 rounded-[8px] border border-border bg-surface-alt px-3 py-2 text-xs text-text-muted">
           {liveMetalsReady ? (
             <div className="flex flex-wrap gap-x-4 gap-y-1">
-              <span>{t("Gold per tola")}: {formatPKR(gold.pkr_per_tola, 0)}</span>
-              <span>{t("Silver per tola")}: {formatPKR(silver.pkr_per_tola, 0)}</span>
-              <span>{t("Metal source")}: {metalSourceLabel ?? t("Spot fallback")}</span>
-              <span>{t("Updated")}: {monetary.data?.refreshed_at ? new Date(monetary.data.refreshed_at).toLocaleString() : t("Live")}</span>
+              <span>
+                {t("Gold per tola")}: {formatPKR(gold.pkr_per_tola, 0)}
+              </span>
+              <span>
+                {t("Silver per tola")}: {formatPKR(silver.pkr_per_tola, 0)}
+              </span>
+              <span>
+                {t("Metal source")}: {metalSourceLabel ?? t("Spot fallback")}
+              </span>
+              <span>
+                {t("Updated")}:{" "}
+                {monetary.data?.refreshed_at
+                  ? new Date(monetary.data.refreshed_at).toLocaleString()
+                  : t("Live")}
+              </span>
             </div>
           ) : (
             <div className="flex items-start gap-2 text-bear">
               <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-              <span>{t("Live gold and silver prices are required before Zakat can be calculated.")}</span>
+              <span>
+                {t("Live gold and silver prices are required before Zakat can be calculated.")}
+              </span>
             </div>
           )}
         </div>
@@ -228,8 +251,12 @@ export function Zakat() {
                 line={line}
                 value={assetValues[line.key] || 0}
                 onChange={(n) => set(line.key, n)}
-                onUsePortfolio={line.key === "stocks" && realUser ? useLivePortfolioValue : undefined}
-                portfolioValue={line.key === "stocks" ? portfolioNetworth.data?.total_market_value : undefined}
+                onUsePortfolio={
+                  line.key === "stocks" && realUser ? useLivePortfolioValue : undefined
+                }
+                portfolioValue={
+                  line.key === "stocks" ? portfolioNetworth.data?.total_market_value : undefined
+                }
               />
             ),
           )}

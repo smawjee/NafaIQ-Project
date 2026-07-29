@@ -1,4 +1,10 @@
-import { ASSET_LINES, GOLD_NISAB_TOLA, LIABILITY_LINES, SILVER_NISAB_TOLA, ZAKAT_RATE } from "./zakat.data";
+import {
+  ASSET_LINES,
+  GOLD_NISAB_TOLA,
+  LIABILITY_LINES,
+  SILVER_NISAB_TOLA,
+  ZAKAT_RATE,
+} from "./zakat.data";
 
 export type NisabSource = "silver" | "gold";
 

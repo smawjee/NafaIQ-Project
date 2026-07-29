@@ -74,7 +74,13 @@ export function DonutChart({
     );
   };
 
-  const DonutTip = ({ active, payload }: { active?: boolean; payload?: any[] }) => {
+  const DonutTip = ({
+    active,
+    payload,
+  }: {
+    active?: boolean;
+    payload?: { payload: DonutDatum }[];
+  }) => {
     if (!active || !payload?.length) return null;
     const p = payload[0].payload as DonutDatum;
     return (

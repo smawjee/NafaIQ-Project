@@ -38,9 +38,7 @@ function Tile({
 }) {
   return (
     <div className="rounded-[7px] border border-border bg-surface-alt p-2.5">
-      <p className="text-[10px] font-semibold uppercase tracking-wide text-text-muted">
-        {label}
-      </p>
+      <p className="text-[10px] font-semibold uppercase tracking-wide text-text-muted">{label}</p>
       <p
         className={cn(
           "mt-0.5 text-xs font-semibold",
@@ -80,13 +78,7 @@ export function SignalContextTiles({ signal }: { signal: ApiSignalV2 }) {
           label="External check"
           value={agreementValue}
           detail="TradingView technicals"
-          tone={
-            agreement === "AGREES"
-              ? "bull"
-              : agreement === "DISAGREES"
-                ? "bear"
-                : "muted"
-          }
+          tone={agreement === "AGREES" ? "bull" : agreement === "DISAGREES" ? "bear" : "muted"}
         />
       ) : null}
       {trend ? (

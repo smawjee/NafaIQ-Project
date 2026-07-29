@@ -5,6 +5,7 @@ from typing import Any, Optional
 
 from app.repositories import alerts as repo
 from app.repositories.base import begin
+from app.schemas.alerts import PRICE_CONDITIONS, THRESHOLDLESS_CONDITIONS
 from app.services.permissions import check_count_limit
 
 
@@ -19,10 +20,17 @@ async def create_price_alert(
     notify_email: bool = True,
     notes: Optional[str] = None,
 ) -> dict[str, Any]:
-    if condition not in ("above", "below", "cross_above", "cross_below"):
+    # PRICE_CONDITIONS is the single source of truth (app.schemas.alerts) — this
+    # used to be a hand-copied tuple that had to be remembered alongside the
+    # API pattern, the assistant's Literal and the DB CHECK constraint.
+    if condition not in PRICE_CONDITIONS:
         raise ValueError("invalid condition")
     if price < 0:
         raise ValueError("price must be >= 0")
+    if condition in THRESHOLDLESS_CONDITIONS:
+        # 52-week extremes have no threshold; normalise so the idempotency
+        # lookup below can't be defeated by a client sending a stray value.
+        price = 0
     user_id = user["user_id"]
     async with begin() as conn:
         # Idempotent: re-arming an identical active alert returns the existing

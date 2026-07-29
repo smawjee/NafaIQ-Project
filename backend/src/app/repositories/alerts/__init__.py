@@ -34,6 +34,7 @@ from app.repositories.alerts.price_alerts import (  # noqa: F401
     count_price_alerts,
     delete_price_alert,
     fetch_enabled_price_alerts,
+    fetch_symbol_stats,
     find_active_price_alert,
     insert_price_alert,
     list_price_alerts,

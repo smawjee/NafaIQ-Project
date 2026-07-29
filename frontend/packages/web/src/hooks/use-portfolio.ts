@@ -75,7 +75,12 @@ export function useCreatePortfolio() {
 export function useAddHolding(portfolioId: number | null) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (data: { portfolioId?: number; symbol: string; shares: number; avg_cost: number }) => {
+    mutationFn: (data: {
+      portfolioId?: number;
+      symbol: string;
+      shares: number;
+      avg_cost: number;
+    }) => {
       const pid = data.portfolioId ?? portfolioId;
       if (!pid) throw new Error("No portfolio selected");
       return userPost<Holding>(`/api/portfolio/${pid}/holdings`, {
@@ -93,7 +98,15 @@ export function useAddHolding(portfolioId: number | null) {
 export function useUpdateHolding(portfolioId: number | null) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ holdingId, ...data }: { holdingId: number; shares?: number; avg_cost?: number; purchased_at?: string }) => {
+    mutationFn: ({
+      holdingId,
+      ...data
+    }: {
+      holdingId: number;
+      shares?: number;
+      avg_cost?: number;
+      purchased_at?: string;
+    }) => {
       if (!portfolioId) throw new Error("No portfolio selected");
       return userPatch<Holding>(`/api/portfolio/${portfolioId}/holdings/${holdingId}`, data);
     },

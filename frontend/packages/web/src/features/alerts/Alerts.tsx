@@ -22,7 +22,12 @@ import { useFinanceBudgets } from "@/hooks/use-finance-budgets";
 import { useFinanceGoals } from "@/hooks/use-finance-goals";
 import { useFinanceBills } from "@/hooks/use-finance-bills";
 import { selectBudgets, selectGoals, selectBills } from "@/store/finance";
-import { TYPES, STOCKS } from "@/features/alerts/alerts.data";
+import {
+  TYPES,
+  THRESHOLDLESS,
+  describeCondition,
+  type PriceCondition,
+} from "@/features/alerts/alerts.data";
 import { AlertsActiveList } from "@/features/alerts/components/AlertsActiveList";
 import { AlertsPriceList } from "@/features/alerts/components/AlertsPriceList";
 import { AlertCreateForm } from "@/features/alerts/components/AlertCreateForm";
@@ -73,8 +78,11 @@ export function Alerts() {
     ? (realBills ?? []).map((b) => ({ name: b.name }))
     : localBills.map((b) => ({ name: b.name }));
 
-  const [stock, setStock] = useState(STOCKS[0]);
-  const [direction, setDirection] = useState("Above");
+  // No default symbol: the old `STOCKS[0]` pre-filled "HBL", so a user who
+  // never touched the picker silently created an alert on a stock they had not
+  // chosen. Empty forces a deliberate pick (validated in handleCreate).
+  const [stock, setStock] = useState("");
+  const [direction, setDirection] = useState<PriceCondition>("above");
   const [price, setPrice] = useState("");
   const [bill, setBill] = useState(billOptions[0]?.name ?? "");
   const [timing, setTiming] = useState("1 day before");
@@ -94,13 +102,30 @@ export function Alerts() {
     let meta: Record<string, unknown> = {};
 
     if (type === "Stock Price") {
-      const num = Number(price);
-      if (!price || Number.isNaN(num) || num <= 0) {
-        setError(t("Please enter a valid price."));
+      if (!stock) {
+        setError(t("Please choose a stock."));
         return;
       }
-      title = `${stock} ${direction.toLowerCase()} PKR ${num}`;
-      meta = { symbol: stock, direction: direction.toLowerCase(), price: num };
+      const needsThreshold = !THRESHOLDLESS.has(direction);
+      const num = needsThreshold ? Number(price) : 0;
+      if (needsThreshold) {
+        if (!price || Number.isNaN(num) || num <= 0) {
+          setError(t("Please enter a valid threshold."));
+          return;
+        }
+        // Mirror the backend's guards (schemas/alerts.py) so the user is told
+        // here rather than by a 422 from the API.
+        if ((direction === "pct_change_above" || direction === "pct_change_below") && num > 100) {
+          setError(t("Percent threshold must be 100 or less."));
+          return;
+        }
+        if (direction === "volume_spike" && num < 1.5) {
+          setError(t("Volume multiple must be at least 1.5×."));
+          return;
+        }
+      }
+      title = describeCondition(stock, direction, num);
+      meta = { symbol: stock, condition: direction, price: num };
     } else if (type === "Bill Reminder") {
       if (!bill) {
         setError(t("Please select a bill."));
@@ -126,22 +151,20 @@ export function Alerts() {
 
     if (isLoggedIn) {
       if (type === "Stock Price") {
+        // No cast. `direction` is a PriceCondition and the mutation's type is
+        // the full union — the old `as "above" | "below"` narrowed a widening
+        // set of conditions down to two and hid exactly this bug from tsc.
         createPriceAlert.mutate({
           symbol: stock,
-          condition: direction.toLowerCase() as "above" | "below",
-          price: Number(price),
+          condition: direction,
+          price: THRESHOLDLESS.has(direction) ? 0 : Number(price),
           one_time: true,
           notify_push: push,
           notify_email: email,
         });
       } else {
         createUserAlert.mutate({
-          type:
-            type === "Bill Reminder"
-              ? "bill"
-              : type === "Budget"
-                ? "budget"
-                : "goal",
+          type: type === "Bill Reminder" ? "bill" : type === "Budget" ? "budget" : "goal",
           title,
           meta,
         });

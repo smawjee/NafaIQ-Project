@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { userDelete, userGet, userPatch, userPost } from "@/lib/psx/client";
+import type { PriceCondition } from "@/features/alerts/alerts.data";
 
 export type AlertEventType = "stock_price" | "bill" | "budget" | "goal" | "system";
 
@@ -33,7 +34,7 @@ export interface PriceAlert {
   id: number;
   user_id: string;
   symbol: string;
-  condition: "above" | "below" | "cross_above" | "cross_below";
+  condition: PriceCondition;
   price: number;
   enabled: boolean;
   triggered_at: string | null;
@@ -77,8 +78,12 @@ export function useAllAlerts(enabled: boolean = true) {
 export function useCreateAlert() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (data: { type: AlertEventType; title: string; meta?: Record<string, unknown>; enabled?: boolean }) =>
-      userPost<AppAlert>("/api/alerts", data),
+    mutationFn: (data: {
+      type: AlertEventType;
+      title: string;
+      meta?: Record<string, unknown>;
+      enabled?: boolean;
+    }) => userPost<AppAlert>("/api/alerts", data),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["alerts"] });
     },
@@ -120,7 +125,7 @@ export function useCreatePriceAlert() {
   return useMutation({
     mutationFn: (data: {
       symbol: string;
-      condition: "above" | "below" | "cross_above" | "cross_below";
+      condition: PriceCondition;
       price: number;
       one_time?: boolean;
       notify_push?: boolean;
@@ -136,7 +141,13 @@ export function useCreatePriceAlert() {
 export function useEvaluateAlerts() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: () => userPost<{ price_alerts: number; bill_reminders: number; budget_alerts: number; goal_alerts: number }>("/api/alerts/evaluate", {}),
+    mutationFn: () =>
+      userPost<{
+        price_alerts: number;
+        bill_reminders: number;
+        budget_alerts: number;
+        goal_alerts: number;
+      }>("/api/alerts/evaluate", {}),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["alerts"] });
     },

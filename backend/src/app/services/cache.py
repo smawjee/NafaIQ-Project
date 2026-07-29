@@ -84,6 +84,22 @@ class CacheLayer:
         except RuntimeError:
             self._refreshing.discard(key)
 
+    @staticmethod
+    def _is_stale(refreshed_at: object, max_age_seconds: int) -> bool:
+        """True when a row is older than the window, or carries no usable stamp.
+
+        An unparseable/absent `refreshed_at` counts as stale so it schedules a
+        refresh — but callers must still SERVE the row. Staleness selects when to
+        re-fetch, never whether the caller gets data.
+        """
+        if not isinstance(refreshed_at, str) or not refreshed_at:
+            return True
+        try:
+            last_refresh = datetime.fromisoformat(refreshed_at.replace("Z", "+00:00"))
+        except ValueError:
+            return True
+        return (datetime.now(timezone.utc) - last_refresh).total_seconds() >= max_age_seconds
+
     # ---------- market snapshot ----------
 
     async def get_market_snapshot(self, max_age_seconds: int = 5) -> list[MarketSnapshotItem]:
@@ -230,27 +246,37 @@ class CacheLayer:
     # ---------- profile ----------
 
     async def get_profile(self, symbol: str, max_age_seconds: int = 604800) -> Optional[CompanyProfile]:
+        """Company profile. Same rule as `get_fundamentals`: stale is still served.
+
+        The 7-day window used to sit against a weekly writer, so a run that
+        slipped by even an hour turned every profile into a 404 on the web
+        process. Only a genuinely absent row is a miss now.
+        """
         sym = symbol.upper()
         try:
             result = await async_execute(lambda c: c.table("psx_profile").select("*").eq("symbol", sym))
             rows = result.data or []
             if rows:
                 r = rows[0]
-                last_refresh = datetime.fromisoformat(r["refreshed_at"].replace("Z", "+00:00"))
-                age = (datetime.now(timezone.utc) - last_refresh).total_seconds()
-                if age < max_age_seconds:
-                    return CompanyProfile(
-                        symbol=r["symbol"],
-                        name=r.get("name", ""),
-                        sector=r.get("sector"),
-                        listed_shares=r.get("listed_shares"),
-                        free_float=r.get("free_float"),
+                if self._is_stale(r.get("refreshed_at"), max_age_seconds):
+                    self._refresh_in_background(
+                        f"profile:{sym}", lambda: self._scrape_profile(sym)
                     )
+                return CompanyProfile(
+                    symbol=r["symbol"],
+                    name=r.get("name", ""),
+                    sector=r.get("sector"),
+                    listed_shares=r.get("listed_shares"),
+                    free_float=r.get("free_float"),
+                )
         except Exception:
             log.warning("cache_profile_read_failed", symbol=sym, exc_info=True)
 
         if not self.live_scrape:
             return None
+        return await self._scrape_profile(sym)
+
+    async def _scrape_profile(self, sym: str) -> CompanyProfile:
         profile = await self.dps.fetch_profile(sym)
         try:
             await async_execute(lambda c: c.table("psx_profile").upsert({
@@ -262,35 +288,52 @@ class CacheLayer:
                 "refreshed_at": datetime.now(timezone.utc).isoformat(),
             }, on_conflict="symbol"))
         except Exception:
-            pass
+            log.warning("cache_profile_write_failed", symbol=sym, exc_info=True)
         return profile
 
     # ---------- fundamentals ----------
 
     async def get_fundamentals(self, symbol: str, max_age_seconds: int = 86400) -> FundamentalsData:
+        """Fundamentals for one symbol. A stale row is served, never discarded.
+
+        `max_age_seconds` schedules a background refresh; it does NOT decide
+        whether the caller gets data. Treating "stale" as "missing" is what broke
+        this endpoint: the only writer (`job_refresh_fundamentals`) runs WEEKLY,
+        the window here is one day, and on the web process `live_scrape` is False
+        — so for six days out of seven every symbol fell through to the empty
+        `FundamentalsData(symbol=sym)` below and the whole site rendered blank
+        P/E, EPS and dividend yield while the real values sat in the table.
+        `get_symbols`/`get_market_snapshot` already had it right; this now
+        matches them. A day-old P/E is useful; a null one is not.
+        """
         sym = symbol.upper()
         try:
             result = await async_execute(lambda c: c.table("psx_fundamentals").select("*").eq("symbol", sym))
             rows = result.data or []
             if rows:
                 r = rows[0]
-                last_refresh = datetime.fromisoformat(r["refreshed_at"].replace("Z", "+00:00"))
-                age = (datetime.now(timezone.utc) - last_refresh).total_seconds()
-                if age < max_age_seconds:
-                    return FundamentalsData(
-                        symbol=sym,
-                        eps=r.get("eps"),
-                        pe=r.get("pe"),
-                        pb=r.get("pb"),
-                        div_yield=r.get("div_yield"),
-                        payout=r.get("payout"),
-                        roe=r.get("roe"),
+                if self._is_stale(r.get("refreshed_at"), max_age_seconds):
+                    self._refresh_in_background(
+                        f"fundamentals:{sym}", lambda: self._scrape_fundamentals(sym)
                     )
+                return FundamentalsData(
+                    symbol=sym,
+                    eps=r.get("eps"),
+                    pe=r.get("pe"),
+                    pb=r.get("pb"),
+                    div_yield=r.get("div_yield"),
+                    payout=r.get("payout"),
+                    roe=r.get("roe"),
+                )
         except Exception:
             log.warning("cache_fundamentals_read_failed", symbol=sym, exc_info=True)
 
+        # Genuinely nothing cached for this symbol: only the worker scrapes.
         if not self.live_scrape:
             return FundamentalsData(symbol=sym)
+        return await self._scrape_fundamentals(sym)
+
+    async def _scrape_fundamentals(self, sym: str) -> FundamentalsData:
         fundamentals = await self.dps.fetch_fundamentals(sym)
         try:
             await async_execute(lambda c: c.table("psx_fundamentals").upsert({
@@ -304,7 +347,7 @@ class CacheLayer:
                 "refreshed_at": datetime.now(timezone.utc).isoformat(),
             }, on_conflict="symbol"))
         except Exception:
-            pass
+            log.warning("cache_fundamentals_write_failed", symbol=sym, exc_info=True)
         return fundamentals
 
     # ---------- batch helpers (screener) ----------
@@ -367,42 +410,51 @@ class CacheLayer:
     # ---------- announcements ----------
 
     async def get_announcements(self, symbol: str | None = None, limit: int = 50, max_age_seconds: int = 900) -> list[AnnouncementItem]:
+        """Latest announcements. Stale rows are served, not dropped.
+
+        Two fixes over the previous shape:
+
+        1. The 15-minute window was checked against a writer on a 15-minute
+           interval, so any run that slipped by a second made this return `[]`
+           on the web process — an empty feed rather than slightly old news.
+        2. It issued a separate "newest refreshed_at" probe query before the
+           real one, paying two DB round trips per request. The rows already
+           carry `refreshed_at`, so one query answers both questions.
+        """
         try:
-            result = await async_execute(
-                lambda c: (
-                    c.table("psx_announcements")
-                    .select("refreshed_at")
-                    .order("refreshed_at", desc=True)
-                    .limit(1)
-                )
-            )
+            def _q(c):
+                q = c.table("psx_announcements").select("*").order("posted_at", desc=True).limit(limit)
+                if symbol:
+                    q = q.eq("symbol", symbol.upper())
+                return q
+
+            result = await async_execute(_q)
             rows = result.data or []
             if rows:
-                last_refresh = datetime.fromisoformat(rows[0]["refreshed_at"].replace("Z", "+00:00"))
-                age = (datetime.now(timezone.utc) - last_refresh).total_seconds()
-                if age < max_age_seconds:
-                    def _q(c):
-                        q = c.table("psx_announcements").select("*").order("posted_at", desc=True).limit(limit)
-                        if symbol:
-                            q = q.eq("symbol", symbol.upper())
-                        return q
-                    result = await async_execute(_q)
-                    return [
-                        AnnouncementItem(
-                            id=r["id"],
-                            symbol=r.get("symbol"),
-                            posted_at=datetime.fromisoformat(r["posted_at"].replace("Z", "+00:00")),
-                            title=r.get("title", ""),
-                            category=r.get("category"),
-                            url=r.get("url"),
-                        )
-                        for r in (result.data or [])
-                    ]
+                newest = max((r.get("refreshed_at") or "" for r in rows), default="")
+                if self._is_stale(newest, max_age_seconds):
+                    self._refresh_in_background(
+                        "announcements", lambda: self._scrape_announcements(limit)
+                    )
+                return [
+                    AnnouncementItem(
+                        id=r["id"],
+                        symbol=r.get("symbol"),
+                        posted_at=datetime.fromisoformat(r["posted_at"].replace("Z", "+00:00")),
+                        title=r.get("title", ""),
+                        category=r.get("category"),
+                        url=r.get("url"),
+                    )
+                    for r in rows
+                ]
         except Exception:
             log.warning("cache_announcements_read_failed", exc_info=True)
 
         if not self.live_scrape:
             return []
+        return await self._scrape_announcements(limit)
+
+    async def _scrape_announcements(self, limit: int = 50) -> list[AnnouncementItem]:
         items = await self.dps.fetch_announcements(offset=0, count=limit)
         if items:
             rows = [
@@ -493,7 +545,7 @@ class CacheLayer:
             return []
         return await self._scrape_index_eod(c)
 
-    async def get_live_index_snapshot(self, max_age_seconds: int = 300) -> list[dict]:
+    async def get_live_index_snapshot(self, max_age_seconds: int = 900) -> list[dict]:
         """Read live index snapshot from DB; fall back to DPS scrape.
 
         The scheduler writes ``psx_index_live_snapshot`` every 5 min during
@@ -501,6 +553,14 @@ class CacheLayer:
         ``live_scrape=False``) returns the scheduler's latest snapshot from
         the DB. The worker process (``live_scrape=True``) falls back to a
         direct DPS homepage scrape when the DB row is stale or missing.
+
+        The cutoff is 900s, NOT the 300s that matches the cron interval. At 300s
+        a row written at T expires at exactly T+300 — the instant the next run
+        *starts*, before it has scraped DPS and written. That left a guaranteed
+        dead window every single cycle where every index card silently dropped
+        to the previous day's EOD close, held there for up to TTL_INDEX (60s) by
+        the in-process memo. 900s absorbs two missed beats and still surfaces a
+        genuinely dead scheduler within 15 minutes.
         """
         try:
             result = await async_execute(

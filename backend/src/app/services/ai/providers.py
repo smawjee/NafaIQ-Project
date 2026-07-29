@@ -140,6 +140,18 @@ class ProviderRateLimited(ProviderError):
         self.retry_after_s = retry_after_s
 
 
+class ProviderToolCallUnparseable(ProviderError):
+    """The model twice emitted its tool call as literal text.
+
+    Groq rejects such a generation with 400 `tool_use_failed`
+    ("<function=add_to_watchlist{...}</function>" in the content instead of a
+    native tool_call). The request and the keys are fine — the *generation* is
+    broken, and every key runs the same model. Split out from the generic error
+    so the agent can degrade to a no-tools prose answer instead of surfacing
+    "couldn't reach the assistant" for what is really a model hiccup.
+    """
+
+
 # ===========================================================================
 # Key pools — rotate to a spare key when one key (not the provider) is dead
 # ===========================================================================
@@ -1208,7 +1220,7 @@ async def _complete_with_tools_once(
                 )
             except (openai.OpenAIError, httpx.HTTPError) as e:
                 last = e
-                if _malformed_tool_call(e) and attempt == 0:
+                if _malformed_tool_call(e):
                     # Llama sometimes emits its tool call as literal text
                     # ("<function=add_goal_alert{...}</function>") and Groq
                     # rejects it with a 400 tool_use_failed. It is sampling
@@ -1217,12 +1229,20 @@ async def _complete_with_tools_once(
                     # a plain retry is deterministic and reproduces the exact
                     # same bad generation. A small temperature bump is what
                     # actually breaks out of it.
-                    log.warning(
-                        "assistant_tool_call_malformed_retrying",
-                        provider=provider,
-                        key_index=index,
-                    )
-                    continue
+                    if attempt == 0:
+                        log.warning(
+                            "assistant_tool_call_malformed_retrying",
+                            provider=provider,
+                            key_index=index,
+                        )
+                        continue
+                    # The bump didn't help either. Raise the typed error so the
+                    # agent can finish the turn with a no-tools prose answer —
+                    # this was the production "Sorry, I couldn't reach the
+                    # assistant" on questions as plain as a stock price.
+                    raise ProviderToolCallUnparseable(
+                        f"{base_url}: {_err_text(e)}"
+                    ) from e
                 if not _should_rotate(e):
                     raise ProviderError(f"{base_url}: {_err_text(e)}") from e
                 _cool_key(provider, index, e)  # skip this key until it recovers
@@ -1241,10 +1261,6 @@ async def _complete_with_tools_once(
             if not res.choices:
                 raise ProviderError(f"{base_url}: empty choices in assistant response")
             return res.choices[0].message
-        else:
-            # Both attempts on this key were malformed generations. Another key
-            # runs the same model and would produce the same thing, so stop.
-            raise ProviderError(f"{base_url}: {_err_text(last) if last else last}") from last
 
     raise _exhausted(provider, len(keys), last) from last
 

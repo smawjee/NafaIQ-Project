@@ -1,4 +1,5 @@
 import { TrendingUp } from "lucide-react";
+import { describeCondition, type PriceCondition } from "@nafaiq/shared";
 import { Card } from "@/components/shared/Card";
 import { cn } from "@/lib/utils";
 import { useLang } from "@/hooks/use-lang";
@@ -6,7 +7,7 @@ import { useLang } from "@/hooks/use-lang";
 interface PriceAlert {
   id: string | number;
   symbol: string;
-  condition: string;
+  condition: PriceCondition | string;
   price: number;
   enabled: boolean;
   triggered_at?: string | null;
@@ -25,8 +26,13 @@ export function AlertsPriceList({ priceAlerts }: { priceAlerts?: PriceAlert[] })
               <TrendingUp className="h-4 w-4 text-bull" />
             </span>
             <div className="flex-1">
+              {/* describeCondition, not `${condition} PKR ${price}`: the raw
+                  interpolation printed a volume alert as "HBL volume_spike PKR 3"
+                  — the enum name with the wrong unit — and a 52-week alert as
+                  "HBL high_52w PKR 0". A list that misreports what you armed is
+                  worse than no list. */}
               <div className="text-sm font-medium text-text-primary">
-                {pa.symbol} {pa.condition} PKR {pa.price}
+                {describeCondition(pa.symbol, pa.condition, pa.price)}
               </div>
               <div className="text-[11px] text-text-muted">
                 {pa.triggered_at ? t("Triggered") : pa.enabled ? t("Active") : t("Disabled")}

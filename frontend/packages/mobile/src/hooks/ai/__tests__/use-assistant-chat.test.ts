@@ -133,6 +133,37 @@ describe("useAssistantChat", () => {
     expect(mStream).toHaveBeenCalledTimes(2);
   });
 
+  it("a token-less (nav-only) turn never poisons later requests with an empty message", async () => {
+    // Regression: the agent can answer with ONLY a nav event — zero tokens.
+    // The placeholder bubble then stayed "", and because the API requires
+    // content min_length=1, re-sending it made EVERY later turn fail with
+    // HTTP 422 for the rest of the conversation.
+    mStream.mockImplementationOnce(async (_payload, handlers) => {
+      handlers.onNav("/portfolio");
+      handlers.onDone({ used: 1, limit: 40 });
+    });
+    const { result } = renderChat();
+    act(() => result.current.send("take me to my portfolio"));
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    // The bubble got a body instead of persisting as "".
+    const last = result.current.messages[result.current.messages.length - 1];
+    expect(last.role).toBe("assistant");
+    expect(last.content.trim().length).toBeGreaterThan(0);
+
+    // And the next request's history contains no empty-content messages.
+    mStream.mockImplementationOnce(async (_payload, handlers) =>
+      handlers.onDone({ used: 2, limit: 40 }),
+    );
+    act(() => result.current.send("hi"));
+    await waitFor(() => expect(mStream).toHaveBeenCalledTimes(2));
+    const payload = mStream.mock.calls[1][0];
+    expect(payload.messages.length).toBeGreaterThan(0);
+    for (const m of payload.messages) {
+      expect(m.content.trim().length).toBeGreaterThan(0);
+    }
+  });
+
   it("sends the last 12 turns without the greeting", async () => {
     mStream.mockImplementation(async (_payload, handlers) => handlers.onDone({ used: 1, limit: 40 }));
     const { result } = renderChat();

@@ -40,10 +40,15 @@ export function useNotifications(enabled?: boolean) {
       .channel(`user-notifications-${crypto.randomUUID()}`)
       .on(
         "postgres_changes",
-        { event: "INSERT", schema: "public", table: "in_app_notifications" as const, filter: `user_id=eq.${user!.id}` },
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "in_app_notifications" as const,
+          filter: `user_id=eq.${user!.id}`,
+        },
         () => {
           qc.invalidateQueries({ queryKey: ["notifications"] });
-        }
+        },
       )
       .subscribe();
     return () => {
@@ -57,7 +62,8 @@ export function useNotifications(enabled?: boolean) {
 export function useMarkNotificationRead() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (id: number) => userPatch<{ id: number; read: boolean }>(`/api/notifications/${id}/read`, {}),
+    mutationFn: (id: number) =>
+      userPatch<{ id: number; read: boolean }>(`/api/notifications/${id}/read`, {}),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["notifications"] });
     },

@@ -9,12 +9,10 @@ export function HeatmapEmptyState({ height = 560 }: { height?: number }) {
       style={{ height }}
     >
       <MapPin className="h-8 w-8 text-text-muted" />
-      <p className="text-sm font-semibold text-text-primary">
-        {t("Heatmap data unavailable")}
-      </p>
+      <p className="text-sm font-semibold text-text-primary">{t("Heatmap data unavailable")}</p>
       <p className="max-w-md text-xs text-text-muted">
         {t(
-          "Market snapshot updates every 5 seconds. If the market is closed, prices reflect the last close. Heatmap will repopulate when live data resumes."
+          "Market snapshot updates every 5 seconds. If the market is closed, prices reflect the last close. Heatmap will repopulate when live data resumes.",
         )}
       </p>
     </div>

@@ -28,7 +28,7 @@ from typing import Any, Literal, Optional, Type
 
 from pydantic import BaseModel, Field
 
-from app.schemas.alerts import AppAlertCreate, PriceAlertCreate
+from app.schemas.alerts import AppAlertCreate, PriceAlertCreate, PriceCondition
 from app.schemas.finance import BillCreate, GoalCreate, TransactionCreate
 from app.schemas.portfolio import HoldingCreate, StockTransactionCreate, WatchlistCreate
 from app.services.finance.categories import CANONICAL_CATEGORIES
@@ -94,8 +94,16 @@ class AddGoalAlertArgs(BaseModel):
 
 class AddPriceAlertArgs(BaseModel):
     symbol: Optional[str] = Field(None, description="PSX ticker.")
-    condition: Optional[Literal["above", "below", "cross_above", "cross_below"]] = None
-    price: Optional[float] = Field(None, description="Trigger price, PKR.")
+    # Imported, not re-spelled: this Literal is the model-facing copy of the
+    # same contract the API and the DB enforce, and a stale copy here means the
+    # assistant silently cannot offer alert types the product supports.
+    condition: Optional[PriceCondition] = None
+    # Terse on purpose: test_the_whole_tool_payload_stays_small caps ALL tool
+    # schemas at 7000 chars, because this blob is re-sent on every assistant
+    # turn. The condition names carry most of the meaning already.
+    price: Optional[float] = Field(
+        None, description="Threshold: PKR, or % for pct_change_*, or xAvg for volume_spike."
+    )
 
 
 class AddBillAlertArgs(BaseModel):
@@ -301,7 +309,7 @@ TOOLS: tuple[Tool, ...] = (
         name="add_price_alert",
         kind="write",
         tier="immediate",
-        description="Alert when a stock crosses a price.",
+        description="Alert on price, % day move, volume spike, or 52-week high/low.",
         params=AddPriceAlertArgs,
         request=PriceAlertCreate,
         invalidate=("price-alerts",),

@@ -28,7 +28,7 @@ from typing import Any, AsyncIterator, Optional
 from app.config import settings
 from app.services.ai.observability import observation_span, observe
 from app.services.ai.prompts import load_prompt, security_rules
-from app.services.ai.providers import complete_with_tools
+from app.services.ai.providers import ProviderToolCallUnparseable, complete_with_tools
 from app.services.ai.safety import (
     assert_safe_output,
     detect_assistant_out_of_scope,
@@ -207,7 +207,17 @@ async def run_turn(
     reads_done: list[str] = []
 
     for _ in range(max(1, settings.ai_assistant_max_tool_rounds)):
-        msg = await complete_with_tools(convo, tools, transport=transport)
+        try:
+            msg = await complete_with_tools(convo, tools, transport=transport)
+        except ProviderToolCallUnparseable:
+            # The model twice wrote its tool call as literal text and Groq
+            # 400'd the generation. Killing the turn here is what used to show
+            # "Sorry, I couldn't reach the assistant" for questions as plain as
+            # a stock price. The keys and the request are fine — so degrade,
+            # don't die: drop to the no-tools call below, which is prompted to
+            # answer in prose and has the fallback message behind it.
+            log.warning("assistant_tool_call_unparseable_prose_fallback")
+            break
         calls = list(msg.tool_calls or [])
 
         content = _text(msg)

@@ -7,4 +7,19 @@ export const TYPES = [
   { label: "Goal Milestone", icon: Target, emoji: "🎯" },
 ];
 
-export const STOCKS = ["HBL", "ENGRO", "LUCK", "OGDC"];
+// NOTE: the hardcoded `STOCKS = ["HBL","ENGRO","LUCK","OGDC"]` that used to live
+// here is gone. It limited alerts to 4 of the exchange's ~1,077 symbols, so
+// "alert me when MARI hits 500" was simply not expressible in the UI. The picker
+// now reads the live list via `usePsxSymbols()` — see components/shared/SymbolPicker.
+
+// Price-alert condition metadata now lives in @nafaiq/shared so the web app and
+// the Expo app cannot drift apart — it was duplicated across eight call sites,
+// most of which only offered "above"/"below". Re-exported here so existing
+// imports in this feature keep working.
+export type { PriceCondition, PriceConditionSpec } from "@nafaiq/shared";
+export {
+  PRICE_CONDITIONS,
+  THRESHOLDLESS_CONDITIONS as THRESHOLDLESS,
+  conditionSpec,
+  describeCondition,
+} from "@nafaiq/shared";

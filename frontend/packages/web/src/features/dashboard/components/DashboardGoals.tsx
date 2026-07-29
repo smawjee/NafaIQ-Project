@@ -5,13 +5,7 @@ import { fmtPKR } from "@/lib/data";
 import { useLang } from "@/hooks/use-lang";
 import type { DashboardGoal } from "@/features/dashboard/dashboard.utils";
 
-export function DashboardGoals({
-  hasUser,
-  goals,
-}: {
-  hasUser: boolean;
-  goals: DashboardGoal[];
-}) {
+export function DashboardGoals({ hasUser, goals }: { hasUser: boolean; goals: DashboardGoal[] }) {
   const { t } = useLang();
   return (
     <section>

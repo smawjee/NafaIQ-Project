@@ -251,14 +251,30 @@ class DPSScraper:
         soup = BeautifulSoup(html, "lxml")
         text = soup.get_text(" ", strip=True)
 
-        def find(label: str) -> Optional[float]:
-            m = re.search(rf"{label}[^0-9\-]*(-?\d+(?:\.\d+)?)", text, re.I)
+        def find(label: str, *, max_gap: int = 12) -> Optional[float]:
+            """First number that follows `label` WITHIN `max_gap` characters.
+
+            The gap bound is the whole point. The previous pattern was
+            `{label}[^0-9-]*(-?\\d+(\\.\\d+)?)` — unbounded — so when a metric was
+            absent from the page it did not fail, it kept scanning and returned
+            the next unrelated digit it found anywhere downstream. That is how
+            387 of 758 symbols (51% of the market) ended up stored with a P/E of
+            exactly 1.00: not a valuation, just the first stray "1" after a
+            label whose real value was blank. A wrong number rendered as fact is
+            worse than an empty cell, so an absent value must now return None.
+            """
+            m = re.search(rf"{label}[^0-9\-]{{0,{max_gap}}}(-?\d+(?:\.\d+)?)", text, re.I)
             return float(m.group(1)) if m else None
 
         # ── P/E ──
         pe = find(r"P/E\s*Ratio\s*\(TTM\)")
         if pe is None:
             pe = find(r"P\s*/\s*E")
+        # A P/E of exactly 0 or 1 is not a real valuation on this market — it is
+        # the fingerprint of the unbounded-scan bug above. Drop it rather than
+        # serve a stock as though it traded at one times earnings.
+        if pe is not None and pe <= 1:
+            pe = None
 
         # ── EPS (table first, then regex) ──
         eps = None

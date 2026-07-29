@@ -122,7 +122,9 @@ export function DashboardRecommendation({
               ) : error || !data ? (
                 <div className="py-4 text-sm text-text-secondary">
                   {isUnavailable
-                    ? t("This report is being wired to the verified pipeline. The backend is ready.")
+                    ? t(
+                        "This report is being wired to the verified pipeline. The backend is ready.",
+                      )
                     : t(reportErrorKey(error))}
                 </div>
               ) : (

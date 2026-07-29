@@ -36,7 +36,16 @@ export const TX_CATEGORIES = [
   "Savings",
   "Income",
 ];
-export const TX_ACCOUNTS = ["HBL Current", "Meezan Debit", "Easypaisa", "Meezan Savings", "Allied Bank Card", "Cheque", "Cash", "Bank Transfer"];
+export const TX_ACCOUNTS = [
+  "HBL Current",
+  "Meezan Debit",
+  "Easypaisa",
+  "Meezan Savings",
+  "Allied Bank Card",
+  "Cheque",
+  "Cash",
+  "Bank Transfer",
+];
 
 export const ALERT_TYPES = [
   { label: "Stock Price", icon: TrendingUp, emoji: "🔔" },

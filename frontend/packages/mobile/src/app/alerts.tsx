@@ -1,3 +1,10 @@
+import {
+  PRICE_CONDITIONS,
+  THRESHOLDLESS_CONDITIONS,
+  conditionSpec,
+  describeCondition,
+  type PriceCondition,
+} from "@nafaiq/shared";
 // Alerts (`/alerts`). Mirrors web /alerts backed by the live API:
 // active alerts with toggles + delete (GET/PATCH/DELETE /api/alerts),
 // add-alert form (4 types, conditional fields → POST /api/alerts),
@@ -121,7 +128,7 @@ export default function AlertsScreen() {
 
   const [type, setType] = useState("Stock Price");
   const [stock, setStock] = useState(STOCK_OPTIONS[0]);
-  const [dir, setDir] = useState("Above");
+  const [dir, setDir] = useState<PriceCondition>("above");
   const [price, setPrice] = useState("");
   const [bill, setBill] = useState("");
   const [timing, setTiming] = useState("3 days before");
@@ -147,16 +154,16 @@ export default function AlertsScreen() {
     let alertType: AlertEventType = "stock_price";
 
     if (type === "Stock Price") {
-      const num = Number(price);
-      if (!price || Number.isNaN(num) || num <= 0) {
-        setError("Please enter a valid price.");
+      const num = THRESHOLDLESS_CONDITIONS.has(dir) ? 0 : Number(price);
+      if (!THRESHOLDLESS_CONDITIONS.has(dir) && (!price || Number.isNaN(num) || num <= 0)) {
+        setError("Please enter a valid threshold.");
         return;
       }
       // Stock price → dedicated price_alerts (persists notify_push/notify_email).
       createPriceAlert.mutate(
         {
           symbol: stock,
-          condition: dir === "Above" ? "above" : "below",
+          condition: dir,
           price: num,
           one_time: false,
           notify_push: push,
@@ -223,7 +230,7 @@ export default function AlertsScreen() {
   }
 
   function confirmDeletePriceAlert(pa: PriceAlert) {
-    const label = `${pa.symbol} ${pa.condition.replace("_", " ")} PKR ${pa.price}`;
+    const label = describeCondition(pa.symbol, pa.condition, pa.price);
     RNAlert.alert("Delete Price Alert", `Delete "${label}"?`, [
       { text: "Cancel", style: "cancel" },
       { text: "Delete", style: "destructive", onPress: () => deletePriceAlert.mutate(pa.id) },
@@ -368,7 +375,7 @@ export default function AlertsScreen() {
               </View>
               <View style={{ flex: 1 }}>
                 <Text style={{ fontWeight: "600" }}>
-                  {pa.symbol} {pa.condition.replace("_", " ")} PKR {pa.price}
+                  {describeCondition(pa.symbol, pa.condition, pa.price)}
                 </Text>
                 <Text variant="muted">
                   {pa.one_time ? "One-time" : "Repeating"}
@@ -415,7 +422,15 @@ export default function AlertsScreen() {
         {type === "Stock Price" ? (
           <View style={{ gap: 10 }}>
             <ChipRow options={STOCK_OPTIONS} value={stock} onChange={setStock} />
-            <ChipRow options={["Above", "Below"]} value={dir} onChange={setDir} />
+            <ChipRow
+              options={PRICE_CONDITIONS.map((c) => c.label)}
+              value={conditionSpec(dir).label}
+              onChange={(label) =>
+                setDir(
+                  PRICE_CONDITIONS.find((c) => c.label === label)?.value ?? "above",
+                )
+              }
+            />
             <TextInput
               value={price}
               onChangeText={setPrice}

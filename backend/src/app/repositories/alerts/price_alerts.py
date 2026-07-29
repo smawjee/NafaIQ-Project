@@ -126,6 +126,50 @@ async def fetch_enabled_price_alerts(conn: Executor) -> list[dict[str, Any]]:
     return [dict(r) for r in rows.mappings().all()]
 
 
+async def fetch_symbol_stats(
+    conn: Executor, symbols: list[str], *, lookback_days: int = 365
+) -> dict[str, dict[str, Any]]:
+    """52-week high/low and average volume for many symbols in ONE query.
+
+    Serves the volume_spike and high_52w/low_52w conditions. Batched on purpose:
+    the evaluator runs every 60 seconds over every enabled alert, so a per-alert
+    query would be an N+1 firing 1,440 times a day per alert. One aggregate over
+    the (symbol, date DESC) index covers the whole tick.
+
+    `avg_volume` excludes today's own bar implicitly — psx_ohlcv is written by
+    the nightly backfill, so the newest row is yesterday's close. Comparing live
+    intraday volume against an average that already contains it would damp the
+    very spike we are looking for.
+    """
+    if not symbols:
+        return {}
+    rows = await conn.execute(
+        text(
+            """
+            SELECT symbol,
+                   MAX(high)        AS high_52w,
+                   MIN(low)         AS low_52w,
+                   AVG(volume)      AS avg_volume,
+                   COUNT(*)         AS bars
+            FROM psx_ohlcv
+            WHERE symbol = ANY(:syms)
+              AND date >= CURRENT_DATE - MAKE_INTERVAL(days => :days)
+            GROUP BY symbol
+            """
+        ),
+        {"syms": [s.upper() for s in symbols], "days": int(lookback_days)},
+    )
+    out: dict[str, dict[str, Any]] = {}
+    for r in rows.mappings().all():
+        out[r["symbol"]] = {
+            "high_52w": float(r["high_52w"]) if r["high_52w"] is not None else None,
+            "low_52w": float(r["low_52w"]) if r["low_52w"] is not None else None,
+            "avg_volume": float(r["avg_volume"]) if r["avg_volume"] is not None else None,
+            "bars": int(r["bars"] or 0),
+        }
+    return out
+
+
 async def mark_price_alert_triggered(
     conn: Executor, alert_id: int, disable: bool
 ) -> None:

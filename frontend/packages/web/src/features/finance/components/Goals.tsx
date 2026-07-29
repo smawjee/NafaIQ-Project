@@ -171,9 +171,7 @@ export function Goals() {
               </span>
               <span className="font-semibold text-text-primary">{t(g.name)}</span>
               <div className="ml-auto flex items-center gap-2">
-                <span className="font-mono text-sm font-bold tabular-nums text-bull">
-                  {pct}%
-                </span>
+                <span className="font-mono text-sm font-bold tabular-nums text-bull">{pct}%</span>
                 {(user || isDemo) && (
                   <button
                     onClick={() => handleDelete(g)}

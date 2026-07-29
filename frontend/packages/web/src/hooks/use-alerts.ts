@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
+import type { PriceCondition } from "@/features/alerts/alerts.data";
 
 export interface UserAlert {
   id: number;
@@ -17,7 +18,7 @@ export interface PriceAlert {
   id: number;
   user_id: string;
   symbol: string;
-  condition: "above" | "below" | "cross_above" | "cross_below";
+  condition: PriceCondition;
   price: number;
   enabled: boolean;
   triggered_at: string | null;
@@ -67,7 +68,11 @@ export function useCreateUserAlert() {
   const { user } = useAuth();
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (alert: { type: UserAlert["type"]; title: string; meta?: Record<string, unknown> }) => {
+    mutationFn: async (alert: {
+      type: UserAlert["type"];
+      title: string;
+      meta?: Record<string, unknown>;
+    }) => {
       if (!user) throw new Error("Not authenticated");
       const { data, error } = await supabase
         .from(userAlertsTable)

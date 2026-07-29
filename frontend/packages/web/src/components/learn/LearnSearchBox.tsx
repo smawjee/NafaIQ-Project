@@ -7,7 +7,10 @@ import { useLearnSearch } from "@/hooks/learn/use-learn-search";
 import type { ApiLearnSearchResult } from "@/lib/psx/client";
 
 /** Badge label + tokenized colors per result source. Labels go through t(). */
-const SOURCE_BADGE: Record<ApiLearnSearchResult["source_type"], { label: string; className: string }> = {
+const SOURCE_BADGE: Record<
+  ApiLearnSearchResult["source_type"],
+  { label: string; className: string }
+> = {
   lesson_section: { label: "Lesson", className: "bg-bull/10 text-bull" },
   lesson_overview: { label: "Lesson", className: "bg-bull/10 text-bull" },
   glossary_term: { label: "Glossary", className: "bg-ai/10 text-ai" },

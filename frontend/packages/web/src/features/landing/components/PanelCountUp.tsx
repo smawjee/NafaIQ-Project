@@ -1,5 +1,11 @@
-import { useEffect, useState } from "react";
+import { useEffect, useLayoutEffect, useState } from "react";
 import { useReducedMotion } from "framer-motion";
+
+// useLayoutEffect warns when it runs during SSR, where there is no layout to
+// read. Falling back to useEffect on the server keeps the console clean; on the
+// client we need the layout variant so the reset-to-zero below lands BEFORE the
+// browser paints (see the note in the component).
+const useIsomorphicLayoutEffect = typeof window !== "undefined" ? useLayoutEffect : useEffect;
 
 // Animated count-up used inside the scrolly panels (replays on step mount)
 export function PanelCountUp({
@@ -18,15 +24,22 @@ export function PanelCountUp({
   className?: string;
 }) {
   const reduce = useReducedMotion();
-  const [val, setVal] = useState(() => {
-    if (typeof window === "undefined") return to;
-    return reduce ? to : 0;
-  });
-  useEffect(() => {
+  // Always start at the final value so the server HTML and the first client
+  // render produce the SAME text node. The old initialiser returned `to` on the
+  // server and 0 on the client, so every landing-page load hydrated with
+  // "1,077" in the DOM and "0" from React — a text mismatch that made React
+  // throw away and re-render the tree (error #418, the most frequent client
+  // error in production telemetry).
+  const [val, setVal] = useState(to);
+  useIsomorphicLayoutEffect(() => {
     if (reduce) {
       setVal(to);
       return;
     }
+    // Rewind to zero and animate. This is a LAYOUT effect on purpose: it commits
+    // before the browser paints, so the user never sees the final number flash
+    // and snap back to 0. Hydration has already matched by this point.
+    setVal(0);
     let raf = 0;
     const start = performance.now();
     const tick = (now: number) => {

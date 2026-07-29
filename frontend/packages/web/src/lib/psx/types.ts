@@ -271,12 +271,7 @@ export interface ApiSignalV2 {
   flow_context?: ApiFlowContext | null;
 }
 
-export type ConsensusLabel =
-  | "STRONG_BUY"
-  | "BUY"
-  | "HOLD"
-  | "SELL"
-  | "STRONG_SELL";
+export type ConsensusLabel = "STRONG_BUY" | "BUY" | "HOLD" | "SELL" | "STRONG_SELL";
 
 export interface ApiSignalConsensus {
   rating: number;
