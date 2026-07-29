@@ -22,6 +22,11 @@ below was verified against the repo as it stands unless explicitly marked
 
 `.github/workflows/nightly-e2e.yml` — scheduled 03:00 UTC weekdays, matrixed
 over `public-chromium`, `authed-chromium`, `authed-mobile`. Off the merge path.
+**It checks out and tests `dev`, not `main`** (the schedule necessarily fires
+from main's copy of the file — GitHub only schedules the default branch — but
+the checkout is pinned to dev). Rationale: dev is the integration branch, so a
+green nightly means whatever gets merged dev → main is already QA-tested.
+Manual runs can target another branch via the `ref` dispatch input.
 
 ### Why one aggregate check
 

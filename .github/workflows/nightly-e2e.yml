@@ -13,6 +13,10 @@ on:
         description: "Point at a deployed backend instead of local uvicorn (e.g. the Railway URL)"
         required: false
         default: ""
+      ref:
+        description: "Branch/ref to test (defaults to dev — the integration branch)"
+        required: false
+        default: "dev"
 
 permissions:
   contents: read
@@ -31,7 +35,15 @@ jobs:
       matrix:
         project: [public-chromium, authed-chromium, authed-mobile]
     steps:
+      # ALWAYS tests dev, not main. GitHub runs scheduled workflows from the
+      # default branch's copy of this file, so the schedule cannot simply move
+      # to dev — instead the checkout is pinned. Rationale: dev is the
+      # integration branch, so a green nightly here means anything merged
+      # dev -> main is already QA-tested. Manual dispatches can override the
+      # ref via the input.
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.ref || 'dev' }}
 
       - uses: actions/setup-python@v5
         with:
