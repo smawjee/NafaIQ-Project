@@ -83,13 +83,24 @@ test.describe("dashboard", () => {
     const modal = page
       .locator("div.fixed.inset-0")
       .filter({ has: page.getByRole("heading", { name: /^add alert$/i }) });
-    await modal.locator("select").nth(0).selectOption("ENGRO");
-    await modal.getByPlaceholder(/^price$/i).fill("300");
+    // Since the extended-conditions rework the symbol is a SymbolPicker
+    // combobox and the threshold input is labelled. The picker chooses on
+    // mousedown; dispatching it on the exact row avoids both the click
+    // stability flake and Enter's follow-the-highlight surprise.
+    const symbolBox = modal.getByLabel(/search stock symbol/i);
+    await symbolBox.fill("ENGRO");
+    const engro = page.getByRole("option", { name: /^ENGRO\b/ }).first();
+    await expect(engro).toBeVisible();
+    await engro.dispatchEvent("mousedown");
+    await expect(symbolBox).toHaveValue("ENGRO");
+    await modal.getByLabel(/^threshold/i).fill("300");
     await modal.getByRole("button", { name: /^create alert$/i }).click();
 
     await page.goto("/alerts");
     await authSettled(page);
-    await expect(page.getByText(/ENGRO above PKR 300/).first()).toBeVisible();
+    await expect(
+      page.getByText(/ENGRO price rises above PKR 300/).first(),
+    ).toBeVisible();
   });
 
   test("shows the watchlist strip and the savings goals", async ({ page }) => {

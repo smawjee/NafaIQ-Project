@@ -33,29 +33,56 @@ const formCard = (page: import("@playwright/test").Page) =>
     .locator("section")
     .filter({ has: page.getByRole("heading", { name: /^add new alert$/i }) });
 
+/** Choose a symbol in the SymbolPicker combobox (options load from /api/symbols). */
+async function pickSymbol(
+  page: import("@playwright/test").Page,
+  scope: import("@playwright/test").Locator,
+  symbol: string,
+) {
+  const box = scope.getByLabel(/search stock symbol/i);
+  await box.fill(symbol);
+  // The picker chooses on MOUSEDOWN (SymbolPicker.tsx), so dispatch exactly
+  // that on the exact-match row. Not click(): its stability wait flakes while
+  // the list re-renders as symbols load. Not Enter: it commits the
+  // HIGHLIGHTED row, and a resting pointer's onMouseEnter can silently move
+  // the highlight to a different match (seen: HBL → HBLTFC2).
+  const option = page.getByRole("option", { name: new RegExp(`^${symbol}\\b`) }).first();
+  await expect(option).toBeVisible();
+  await option.dispatchEvent("mousedown");
+  await expect(box).toHaveValue(symbol);
+}
+
 test.describe("alerts", () => {
   test("creates a stock price alert that lands on top of Active Alerts", async ({ page }) => {
     await openAlerts(page);
     const form = formCard(page);
 
-    // Stock Price is the default type; pick condition + price explicitly.
+    // Stock Price is the default type. Since the extended-conditions rework
+    // the symbol is a SymbolPicker combobox and the threshold is a labelled
+    // input; the saved title comes from describeCondition() —
+    // "HBL price rises above PKR 175.5".
     await form.getByRole("button", { name: /^stock price$/i }).click();
-    await form.locator("select").nth(0).selectOption("HBL");
-    await form.locator("select").nth(1).selectOption("Above");
-    await form.getByPlaceholder(/^price$/i).fill("175.5");
+    await pickSymbol(page, form, "HBL");
+    await form.getByLabel(/^alert condition$/i).selectOption("above");
+    await form.getByLabel(/^threshold/i).fill("175.5");
     await form.getByRole("button", { name: /^create alert$/i }).click();
 
-    await expect(activeCard(page).getByText("HBL above PKR 175.5")).toBeVisible();
+    await expect(
+      activeCard(page).getByText("HBL price rises above PKR 175.5"),
+    ).toBeVisible();
   });
 
-  test("rejects a non-positive price instead of creating the alert", async ({ page }) => {
+  test("rejects a non-positive threshold instead of creating the alert", async ({ page }) => {
     await openAlerts(page);
     const form = formCard(page);
 
-    await form.getByPlaceholder(/^price$/i).fill("-10");
+    // The stock guard runs first, so a symbol must be chosen for the
+    // threshold validation to be the thing under test.
+    await pickSymbol(page, form, "HBL");
+    await form.getByLabel(/^threshold/i).fill("-10");
     await form.getByRole("button", { name: /^create alert$/i }).click();
 
-    await expect(form.getByText(/please enter a valid price/i)).toBeVisible();
+    await expect(form.getByText(/please enter a valid threshold/i)).toBeVisible();
     await expect(activeCard(page).getByText(/-10/)).toHaveCount(0);
   });
 
@@ -107,12 +134,15 @@ test.describe("alerts", () => {
     // channel choice is visible in the history entry the create writes.
     await form.getByRole("checkbox", { name: /^push$/i }).click();
     await form.getByRole("checkbox", { name: /^email$/i }).click();
-    await form.getByPlaceholder(/^price$/i).fill("150");
+    await pickSymbol(page, form, "HBL");
+    await form.getByLabel(/^threshold/i).fill("150");
     await form.getByRole("button", { name: /^create alert$/i }).click();
 
     // The entry renders in BOTH Notification History and Alert Events.
     await expect(
-      page.getByText(/New alert created: HBL above PKR 150 \(Email\)/).first(),
+      page
+        .getByText(/New alert created: HBL price rises above PKR 150 \(Email\)/)
+        .first(),
     ).toBeVisible();
   });
 

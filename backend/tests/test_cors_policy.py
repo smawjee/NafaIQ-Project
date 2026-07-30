@@ -13,30 +13,42 @@ the same access, which is the trap this pattern usually falls into.
 from __future__ import annotations
 
 import importlib
-import os
 
 import pytest
 
 
 @pytest.fixture
 def client(monkeypatch):
-    """An app instance with CORS_ORIGINS pinned, as in production."""
-    monkeypatch.setenv("CORS_ORIGINS", "https://nafaiq.vercel.app,http://localhost:5173")
+    """An app instance with CORS_ORIGINS pinned, as in production.
+
+    Two deliberate choices, both learned from CI:
+
+    1. The pinned origins are monkeypatched onto the EXISTING settings object,
+       never via `importlib.reload(config)`. A reload replaces the settings
+       singleton, and every module that did `from app.config import settings`
+       keeps the stale object — later tests then monkeypatch a settings the
+       code under test never reads (this broke test_provider_key_pool in CI).
+       Only `app.main` is reloaded, because it snapshots cors_origins at
+       import time.
+    2. No `with TestClient(...)`: entering the context runs the lifespan, and
+       main.py's lifespan calls ensure_reflected(), which needs a real
+       SUPABASE_DATABASE_PASSWORD. CI runs with Supabase env empty by design
+       (see ci.yml). CORS is middleware wired at app construction, so the
+       lifespan adds nothing to what these tests assert.
+    """
     from fastapi.testclient import TestClient
 
-    # config caches Settings, so both it and main have to be re-imported for the
-    # env var above to take effect.
-    from app import config as config_mod
+    from app.config import settings
 
-    importlib.reload(config_mod)
+    monkeypatch.setattr(
+        settings, "cors_origins", "https://nafaiq.vercel.app,http://localhost:5173"
+    )
     import app.main as main_mod
 
     importlib.reload(main_mod)
-    with TestClient(main_mod.app) as c:
-        yield c
-    # Leave the modules as the rest of the suite expects to find them.
-    os.environ.pop("CORS_ORIGINS", None)
-    importlib.reload(config_mod)
+    yield TestClient(main_mod.app)
+    # Rebuild main against the restored origins for the rest of the suite.
+    monkeypatch.undo()
     importlib.reload(main_mod)
 
 
