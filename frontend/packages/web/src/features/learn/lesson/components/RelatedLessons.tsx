@@ -25,7 +25,11 @@ export function RelatedLessons({ lessonId }: { lessonId: string }) {
   // is dropped rather than rendered as a dead link.
   const items = related
     .map((r) => ({ ...r, lesson: LESSON_CONTENT[r.lesson_id] }))
-    .filter((r) => Boolean(r.lesson));
+    .filter((r) => Boolean(r.lesson))
+    .filter(
+      (item, index, all) =>
+        all.findIndex((candidate) => candidate.lesson_id === item.lesson_id) === index,
+    );
 
   if (items.length === 0) return null;
 

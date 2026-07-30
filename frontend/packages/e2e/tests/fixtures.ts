@@ -72,12 +72,6 @@ const ALLOWED_CONSOLE = [
   /Text content does not match server-rendered HTML/i,
   // React 19 wording of the same KAN-3 mismatch.
   /A tree hydrated but some attributes of the server rendered HTML didn't match/i,
-  // REAL app defect, deliberately allow-listed so the rest of the guard stays
-  // useful: /learn/lesson/* logs "Encountered two children with the same key"
-  // ×6 on every load (duplicate React keys in the lesson renderer). Surfaced
-  // by the learn.spec.ts journeys on 2026-07-30; needs its own bug ticket.
-  // REMOVE this entry when the duplicate keys are fixed.
-  /Encountered two children with the same key/i,
   // Harness artifact, not an app fault: every spec shares ONE demo session
   // (tests/auth.setup.ts mints it once), and `fullyParallel` runs many contexts
   // against it at once. Some of those concurrent requests come back 403.
