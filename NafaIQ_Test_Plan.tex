@@ -1,0 +1,576 @@
+\documentclass[11pt,a4paper]{article}
+
+\usepackage[margin=2.4cm,headheight=14pt]{geometry}
+\usepackage{lmodern}
+\usepackage[T1]{fontenc}
+\usepackage{microtype}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{array}
+\usepackage{enumitem}
+\usepackage{xcolor}
+\usepackage{parskip}
+\usepackage{tikz}
+\usepackage{titlesec}
+\usepackage{fancyhdr}
+\usepackage[hidelinks]{hyperref}
+
+% ---------------------------------------------------------------- palette ---
+\definecolor{navy}{RGB}{13,27,42}       % deep night blue
+\definecolor{navy2}{RGB}{27,38,59}      % lifted panel blue
+\definecolor{emerald}{RGB}{16,185,129}  % bull green
+\definecolor{gold}{RGB}{212,175,55}     % accent gold
+\definecolor{mist}{RGB}{224,225,221}    % soft off-white
+
+% ------------------------------------------------------------- typography ---
+\newcolumntype{L}{>{\raggedright\arraybackslash}X}
+\setlist{nosep}
+
+\titleformat{\section}
+  {\Large\bfseries\color{navy}}{\thesection}{0.8em}{}
+  [{\color{emerald}\titlerule[1.4pt]}]
+\titleformat{\subsection}
+  {\large\bfseries\color{navy2}}{\thesubsection}{0.8em}{}
+
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{\small\color{navy2}NafaIQ --- QA Test Plan}
+\fancyhead[R]{\small\color{navy2}Team-H}
+\fancyfoot[C]{\small\color{navy2}\thepage}
+\renewcommand{\headrulewidth}{0.4pt}
+\renewcommand{\headrule}{\color{emerald}\hrule height 0.9pt width \headwidth}
+
+% cover stat block
+\newcommand{\coverstat}[2]{%
+  \begin{minipage}[t]{0.23\textwidth}\centering
+    {\color{gold}\bfseries\LARGE #1}\\[3pt]
+    {\color{mist}\footnotesize\scshape #2}
+  \end{minipage}}
+
+\begin{document}
+
+% ============================================================== COVER PAGE ==
+\begin{titlepage}
+\begin{tikzpicture}[remember picture, overlay]
+  % full-bleed background
+  \fill[navy] (current page.south west) rectangle (current page.north east);
+
+  % faint chart grid
+  \begin{scope}[opacity=0.06]
+    \foreach \y in {2,4,...,26}
+      \draw[mist, line width=0.4pt]
+        ([yshift=\y cm]current page.south west) -- ([yshift=\y cm]current page.south east);
+    \foreach \x in {2,4,...,20}
+      \draw[mist, line width=0.4pt]
+        ([xshift=\x cm]current page.south west) -- ([xshift=\x cm]current page.north west);
+  \end{scope}
+
+  % rising market sparkline across the lower third
+  \begin{scope}[shift={([yshift=6.2cm]current page.south west)}]
+    \draw[emerald, opacity=0.55, line width=2.4pt, line join=round]
+      (0,0.4) -- (2.6,1.5) -- (4.4,0.9) -- (7.0,2.6) -- (9.2,1.9)
+      -- (12.0,3.6) -- (14.2,2.9) -- (17.4,4.8) -- (21.0,5.6);
+    \fill[emerald, opacity=0.10]
+      (0,0.4) -- (2.6,1.5) -- (4.4,0.9) -- (7.0,2.6) -- (9.2,1.9)
+      -- (12.0,3.6) -- (14.2,2.9) -- (17.4,4.8) -- (21.0,5.6)
+      -- (21.0,-6.2) -- (0,-6.2) -- cycle;
+    \foreach \p in {(2.6,1.5),(7.0,2.6),(12.0,3.6),(17.4,4.8)}
+      \fill[gold] \p circle (2.6pt);
+  \end{scope}
+
+  % top rule + team tag
+  \draw[gold, line width=1.1pt]
+    ([xshift=2.4cm, yshift=-2.6cm]current page.north west) --
+    ([xshift=-2.4cm, yshift=-2.6cm]current page.north east);
+  \node[anchor=north west, text=mist]
+    at ([xshift=2.4cm, yshift=-3.2cm]current page.north west)
+    {\large\scshape\textls[220]{Team-H \,\textcolor{gold}{\textbullet}\, Quality Assurance}};
+  \node[anchor=north east, text=mist]
+    at ([xshift=-2.4cm, yshift=-3.2cm]current page.north east)
+    {\large\scshape\textls[220]{QA Week --- July 2026}};
+
+  % title block (anchored off the page's LEFT edge, vertically near the middle)
+  \node[anchor=west, text=white]
+    at ([xshift=2.4cm, yshift=3.4cm]current page.west)
+    {\fontsize{58}{58}\selectfont\bfseries NafaIQ};
+  \node[anchor=west, text=emerald]
+    at ([xshift=2.4cm, yshift=1.9cm]current page.west)
+    {\fontsize{25}{25}\selectfont\bfseries Software Test Plan};
+  \draw[gold, line width=2pt]
+    ([xshift=2.4cm, yshift=1.0cm]current page.west) --
+    ([xshift=8.6cm, yshift=1.0cm]current page.west);
+  \node[anchor=north west, text=mist, text width=15.2cm]
+    at ([xshift=2.4cm, yshift=0.5cm]current page.west)
+    {\large Test strategy, design and execution for the NafaIQ investing and
+     personal-finance platform --- web, mobile and API.};
+
+  % stat strip
+  \node[anchor=south, text=mist]
+    at ([yshift=3.4cm]current page.south)
+    {\begin{minipage}{0.86\paperwidth}\centering
+       \coverstat{654}{test cases}\hfill
+       \coverstat{228}{e2e journeys}\hfill
+       \coverstat{1{,}757}{unit \& component tests}\hfill
+       \coverstat{178}{api operations}
+     \end{minipage}};
+
+  % bottom rule + version
+  \draw[gold, line width=1.1pt]
+    ([xshift=2.4cm, yshift=2.2cm]current page.south west) --
+    ([xshift=-2.4cm, yshift=2.2cm]current page.south east);
+  \node[anchor=south, text=mist]
+    at ([yshift=1.35cm]current page.south)
+    {\small\scshape\textls[200]{Version 1.1 \,\textcolor{gold}{\textbullet}\, Jira Project KAN \,\textcolor{gold}{\textbullet}\, PSX / Supabase / FastAPI / React}};
+\end{tikzpicture}
+\end{titlepage}
+
+% ================================================================ CONTENTS ==
+\setcounter{page}{1}
+\thispagestyle{empty}
+{\hypersetup{linkcolor=navy}\tableofcontents}
+\vfill
+\begin{center}
+\begin{tabularx}{\textwidth}{lL}
+\toprule
+\textbf{Product} & NafaIQ --- PSX investing and personal-finance platform (web, mobile, API) \\
+\textbf{Prepared by} & Team-H (Quality Assurance) \\
+\textbf{Test basis} & Live application (dev branch), OpenAPI schema (178 operations), product feature set \\
+\textbf{Defect tracker} & Jira, project \texttt{KAN} \\
+\textbf{Companion artefacts} & \texttt{NafaIQ\_Test\_Cases\_.xlsx} (test cases and results), \texttt{postman/} (API collections), \texttt{frontend/packages/e2e/} (automated journeys), \texttt{.github/workflows/} (CI gates) \\
+\bottomrule
+\end{tabularx}
+\end{center}
+\newpage
+
+% ==================================================================== BODY ==
+\section{Introduction}
+
+\subsection{Purpose}
+This document is the master test plan for the NafaIQ platform. It defines what
+is tested, at which level, with which tools and data, in which environments,
+and how results and defects are recorded. It is the first of the five QA-week
+deliverables and the frame of reference for the other four:
+
+\begin{enumerate}
+  \item \textbf{Test plan} --- this document.
+  \item \textbf{Test cases covering all features} --- \texttt{NafaIQ\_Test\_Cases\_.xlsx}:
+        654 cases across 25 feature modules plus the automated-journey results sheet.
+  \item \textbf{Automated end-to-end test cases} --- the Playwright suite
+        (\texttt{@nafaiq/e2e}): 228 tests in 20 files across three browser projects,
+        wired into CI and a nightly run, with a live failure-replay harness
+        (Section~\ref{sec:e2e}).
+  \item \textbf{Bugs reported in Jira} --- defects filed to project \texttt{KAN}
+        under a fixed reporting convention (Section~\ref{sec:defects}).
+  \item \textbf{API tasks} --- two Postman collections: a complete 178-operation
+        API catalog and a 68-request scripted end-to-end QA suite
+        (Section~\ref{sec:api}).
+\end{enumerate}
+
+\subsection{Product overview}
+NafaIQ is a Pakistan-focused investing and personal-finance product covering
+live PSX market data and analysis (signals V4), portfolio tracking, personal
+finance (transactions, budgets, bills, goals, zakat), price/budget/goal alerts,
+notifications, an AI assistant and AI reports, a learning hub with quizzes and
+an AI tutor, and an admin subsystem. It ships as a React web app, an Expo
+(React Native) mobile app, and a FastAPI backend on a Supabase (PostgreSQL)
+database. The interface is bilingual (English and right-to-left Urdu).
+
+\section{Test items and scope}
+
+\subsection{Items under test}
+\begin{itemize}
+  \item \textbf{Web app} (\texttt{frontend/packages/web}) --- all user-facing routes,
+        public and authenticated.
+  \item \textbf{Backend API} (\texttt{backend/}) --- all 178 operations enumerated
+        from the live OpenAPI schema, including the 35-endpoint admin subsystem.
+  \item \textbf{Mobile app} (\texttt{frontend/packages/mobile}) --- screens, hooks
+        and API clients at unit/component level.
+  \item \textbf{Cross-cutting qualities} --- security and authorization, data
+        integrity, localization/RTL, accessibility, PWA behaviour and resilience,
+        performance and session handling, AI guardrails.
+\end{itemize}
+
+\subsection{Feature modules}
+Test cases are organised into 25 modules, each on its own workbook sheet with a
+stable ID prefix:
+
+\begin{center}
+\small
+\begin{tabularx}{\textwidth}{llL}
+\toprule
+\textbf{Module} & \textbf{ID prefix} & \textbf{Examples of coverage} \\
+\midrule
+Authentication & TC-AUTH & sign-up/sign-in, validation, session, demo account \\
+Dashboard & TC-DASH & greeting, KSE-100 strip, quick-add flows, AI recommendation \\
+Portfolio & TC-PORT & holdings CRUD, cost averaging, sell paths, oversell guard \\
+Finance & TC-FIN & transactions, budgets, bills, goals, summaries \\
+Alerts / Notifications & TC-ALERT, TC-NOTIF & all condition types, channels, history \\
+Watchlist & TC-WATCH & add/remove, duplicates, persistence \\
+Market / Stock Detail & TC-MKT, TC-STK & index, movers, symbol pages \\
+Market Data \& Macro & TC-MKTD & screener, sectors, macro data \\
+Market Analysis V4 & TC-MA & signals endpoints, caching, degradation \\
+AI Assistant / Reports & TC-AI, TC-REP & chat, streaming, quotas, report generation \\
+Learn Hub & TC-LEARN & lessons, quizzes, AI tutor \\
+User Profile & TC-PROF & settings, preferences, currency, theme \\
+Admin Dashboard & TC-ADM & RBAC, users, roles, audit, flags \\
+Security \& Authorization & TC-SEC & token handling, IDOR, credential scope \\
+Data Integrity & TC-DATA & zakat correctness, arithmetic reconciliation, bulk delete \\
+Cross-Module Flows & TC-FLOW & journeys that span portfolio, finance and alerts \\
+Localization \& RTL & TC-L10N & Urdu interface, RTL layout, translations \\
+Accessibility & TC-A11Y & WCAG checks, keyboard, labels, skip links \\
+PWA \& Resilience & TC-PWA & offline behaviour, install, recovery \\
+Performance \& Session & TC-PERF, TC-SESS & latency, caching, session expiry \\
+AI Guardrails & TC-AIG & write confirmation, cross-user leakage, prompt abuse \\
+Monetary Desk & TC-MON & monetary/macro desk views \\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+\subsection{Out of scope}
+\begin{itemize}
+  \item Load and stress testing beyond the light concurrency probes recorded in
+        Performance \& Session.
+  \item Native mobile end-to-end automation on physical devices (mobile is
+        covered at unit/component level plus a Pixel~7 mobile-viewport browser
+        project in the E2E suite).
+  \item Third-party systems themselves (Supabase, PSX data provider, AI model
+        providers, e-mail delivery) --- only NafaIQ's integration with them.
+  \item Subjective quality of AI-generated prose (factual/guardrail behaviour
+        \emph{is} in scope under AI Guardrails).
+\end{itemize}
+
+\section{Test strategy overview}
+
+Testing is layered so that each class of defect is caught by the cheapest layer
+able to catch it, and every layer is automated where determinism allows.
+Sections~\ref{sec:unit}--\ref{sec:manual} define each layer in detail.
+
+\begin{center}
+\small
+\begin{tabularx}{\textwidth}{lllL}
+\toprule
+\textbf{Layer} & \textbf{Tooling} & \textbf{Volume} & \textbf{Primary target} \\
+\midrule
+Unit \& component & pytest, Vitest, Jest & 1{,}757 tests & logic, components, hooks, stores \\
+Integration \& contract & pytest overrides, MSW & within the above & wiring, error taxonomy, schema drift \\
+End-to-end (automated) & Playwright & 228 executions & real user journeys in a real browser \\
+API (manual + scripted) & Postman & 178 + 68 requests & full API surface, hard journeys \\
+Manual \& adversarial & live probes & 319 executed cases & security, data integrity, judgement calls \\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+Every defect fix is re-verified at the level that found it, and the full
+backend suite plus the Playwright suite are re-run after each fix wave. CI
+(Section~\ref{sec:ci}) makes this automatic for every subsequent change.
+
+\section{Unit and component testing}\label{sec:unit}
+
+\begin{itemize}
+  \item \textbf{Backend} --- pytest: \textbf{1457 passed, 4 skipped} at plan time,
+        across 144 test files. API routes are exercised offline through
+        dependency overrides and fake repositories; live-database tests
+        auto-skip when credentials are absent so CI never depends on Supabase.
+  \item \textbf{Web} --- Vitest with Testing Library and MSW: \textbf{179 tests in
+        18 files} covering components, hooks, Redux slices and API contracts.
+  \item \textbf{Mobile} --- Jest (jest-expo) with React Native Testing Library:
+        \textbf{121 tests in 19 suites}; every screen test also asserts
+        accessibility roles/labels per the mobile conventions.
+\end{itemize}
+
+Coverage is risk-ranked rather than exhaustive: money paths (portfolio
+arithmetic, finance summaries, zakat), authentication and authorization, alert
+evaluation, and the AI quota/refresh invariants take precedence over cosmetic
+rendering.
+
+\section{Integration and contract testing}\label{sec:integration}
+
+Backend route$\rightarrow$service$\rightarrow$repository wiring is tested with the same
+offline override pattern used at unit level, extended to whole-request flows:
+
+\begin{itemize}
+  \item \textbf{Cross-user isolation} --- every owned resource is probed with
+        another user's identity; the expected result is a scoped 404, never a
+        403 that confirms existence.
+  \item \textbf{Error taxonomy} --- 401/403/404/422/429 contracts are asserted per
+        route family, including the exact 401 messages the client refresh flow
+        distinguishes.
+  \item \textbf{Pagination and boundary edges} --- empty datasets, last-page
+        behaviour, inclusive boundaries (e.g.\ the zakat nisab threshold).
+  \item \textbf{Frontend contracts} --- web and mobile API mocks are generated
+        from the real backend response schemas, so a backend field rename fails
+        a frontend test rather than production. This guard exists because the
+        finance-summary contract drifted once before QA week.
+  \item \textbf{Policy middleware} --- CORS is pinned by test: allowed production
+        and loopback origins, and anchored-regex rejection of
+        \texttt{localhost.evil.com}-style suffix attacks.
+\end{itemize}
+
+\section{Automated end-to-end testing (Playwright)}\label{sec:e2e}
+
+The \texttt{@nafaiq/e2e} package runs \textbf{228 tests in 20 files} against a real
+browser and the real application stack (Vite dev server plus a local uvicorn
+backend), across three projects:
+
+\begin{center}
+\begin{tabular}{lll}
+\toprule
+\textbf{Project} & \textbf{Browser} & \textbf{User} \\
+\midrule
+public-chromium & Desktop Chrome & Anonymous \\
+authed-chromium & Desktop Chrome & Demo user \\
+authed-mobile & Pixel 7 viewport & Demo user \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\subsection{Design rules}
+All of the following are load-bearing for determinism:
+\begin{itemize}
+  \item \textbf{Journeys only} --- every spec is a user journey (open, act,
+        observe on the destination page), asserted with web-first matchers on
+        structure rather than polled market values.
+  \item \textbf{One real login} --- a setup project signs in once with the demo
+        account and saves storage state; only the Supabase session keys are
+        persisted so no spec leaks app state into the next.
+  \item \textbf{Deterministic AI} --- AI, assistant, tutor and report endpoints
+        are stubbed with canned responses in the exact streaming (SSE) framing
+        the client parses.
+  \item \textbf{Console guard} --- any unexpected browser console error fails the
+        test; known product bugs are allow-listed with a
+        remove-when-fixed note tied to their Jira key.
+  \item \textbf{Auth-settle guard} --- no interaction starts until the
+        auth-resolution overlay has cleared, eliminating the swallowed-tap class
+        of mobile flake (root cause of an early Pixel~7 defect).
+  \item \textbf{Demo-account safety} --- demo-user writes live entirely in local
+        state; browser journeys therefore never mutate shared backend data.
+\end{itemize}
+
+\subsection{Live failure replay}
+A hard failure in the automated suite can be reproduced \emph{in front of the
+tester} without manual setup. \texttt{pnpm test:e2e:live} runs the full suite and,
+on the first hard failure, launches a headed Chromium, signs in through the
+visible NafaIQ form using the stored demo credentials, and re-executes the
+failing journey:
+
+\begin{itemize}
+  \item If the failure \textbf{reproduces}, Playwright pauses indefinitely with the
+        browser and Inspector open at the failure state for live debugging.
+  \item If it \textbf{passes} (a flake), the end state stays visible for five
+        seconds and the browser closes.
+\end{itemize}
+
+\texttt{pnpm test:e2e:replay} replays any chosen failure from the latest JSON
+report by index or by fingerprint. Replay mode disables traces and uses only
+the console reporter so the demo password never lands in an artefact, and the
+original suite report is not overwritten.
+
+\section{API testing (Postman)}\label{sec:api}
+
+Two collections, kept in \texttt{postman/} with Local and Dev environments:
+
+\begin{itemize}
+  \item \textbf{NafaIQ API --- Complete Catalog}: all \textbf{178} FastAPI operations,
+        generated from the live OpenAPI schema and organised by the 27 API
+        areas (finance, portfolio, signals-v4, admin, \ldots). Every request
+        carries an assertion script; write requests are prefixed
+        \emph{REVIEW BEFORE SEND}. This is the discovery and manual-inspection
+        surface.
+  \item \textbf{NafaIQ API --- End-to-End QA}: \textbf{68} scripted requests in nine
+        ordered journey folders (setup/authentication, public market, portfolio,
+        watchlist, personal finance, goals/budgets/bills, alerts and
+        notifications, negative and authorization tests, optional AI).
+        Requests chain dynamically captured IDs, assert on status and body, and
+        clean up created records where the API supports it, so the collection
+        is re-runnable and presentation-safe.
+\end{itemize}
+
+The catalog is also the coverage yardstick: it exposed that only ${\sim}40$ of 155
+user-facing endpoints had cases before the expansion pass, which drove the
+creation of the 13 newest workbook modules.
+
+\section{Manual, exploratory and adversarial testing}\label{sec:manual}
+
+Cases that automation cannot decide are executed manually against a live local
+backend with real JWTs, with observed evidence recorded in the workbook's
+\emph{Actual Result} column. The adversarial pass focused on:
+security and authorization (RBAC on all admin endpoints, IDOR across two real
+accounts, credential-scope confusion, token error hygiene), data integrity
+(zakat nisab authority, clamping and boundaries, portfolio arithmetic
+reconciliation, cost-averaging), input validation (impossible dates, negative
+quantities, oversell), and AI guardrails (write-confirmation, cross-user data
+requests, Roman-Urdu queries). Destructive probes were pointed at disposable
+records or deliberately blocked (e.g.\ the untested bulk-delete endpoint,
+TC-DATA-20, was not fired at the shared demo account).
+
+\section{Test design and documentation}
+
+All manual and API test cases live in \texttt{NafaIQ\_Test\_Cases\_.xlsx}:
+
+\begin{itemize}
+  \item \textbf{One sheet per module}, uniform columns: ID, module, scenario,
+        preconditions, steps, test data, expected result, actual result,
+        status, priority.
+  \item \textbf{Statuses}: Pass, Fail, Partial, Blocked. A \emph{Blocked} case is
+        never left bare --- its Actual Result states exactly what it needs
+        (device, admin account, market window, failure injection, seeded data,
+        human judgement). Nothing is marked Pass without recorded evidence.
+  \item \textbf{Priorities}: P1 (core money paths, security, data integrity) through
+        P4 (cosmetic). Current spread: 221 P1, 211 P2, 66 P3, 7 P4.
+  \item \textbf{E2E Journey Results sheet}: one row per automated journey execution
+        (149 rows = journeys $\times$ browser projects), carrying the automation
+        source file, evidence path, run commit and timestamp.
+  \item \textbf{Execution Summary sheet}: run metadata, defect focus, and the
+        audit trail of each execution pass.
+\end{itemize}
+
+Traceability is bidirectional: automated cases name their spec file in the
+workbook row, and defects name their test case in Jira.
+
+\section{Test environment and data}
+
+\begin{itemize}
+  \item \textbf{Local stack} --- Vite dev server (web) + uvicorn (backend) +
+        Supabase project; this is what Playwright boots and what manual API
+        execution targeted (\texttt{127.0.0.1:8000}).
+  \item \textbf{Deployed} --- backend on Railway, web on Vercel; the Postman Dev
+        environment and an \texttt{E2E\_API\_URL} escape hatch point automation at it.
+  \item \textbf{Test identities} --- the shared \textbf{demo account} (read-mostly by
+        design; its writes stay client-side), a \textbf{second real account} for
+        cross-user/IDOR checks, a purpose-made \textbf{QA super-admin} (role granted
+        in the database, proving roles are DB-resolved rather than
+        token-derived), and disposable targets for destructive operations. The
+        demo account is deliberately \emph{not} an admin, because several cases
+        assert it is refused.
+  \item \textbf{Data hygiene} --- every server-side write in manual execution went
+        to a throwaway record and was cleaned up; the demo baseline (net worth
+        164{,}467 across 3 holdings) was re-verified identical after the pass.
+\end{itemize}
+
+\section{Continuous integration and nightly runs}\label{sec:ci}
+
+\begin{itemize}
+  \item \textbf{\texttt{ci.yml}} --- on every pull request and push: lint/typecheck,
+        web unit, mobile unit, backend tests, and the two Chromium E2E
+        projects, converging on a single required check (\texttt{ci-required})
+        that branch protection and deploy gates key on.
+  \item \textbf{\texttt{nightly-e2e.yml}} --- weekdays 08:00 PKT (before PSX opens):
+        the full three-project matrix including the Pixel~7 mobile viewport,
+        which is deliberately off the merge path. The nightly \textbf{always checks
+        out the \texttt{dev} branch} (the integration branch), so a green nightly
+        means anything promoted \texttt{dev}$\rightarrow$\texttt{main} is already
+        QA-tested; a manual dispatch can override the ref.
+  \item \textbf{Branch flow} --- feature branches $\rightarrow$ \texttt{dev}
+        (integration) $\rightarrow$ \texttt{main} (production), with
+        \texttt{ci-required} green as the promotion condition.
+\end{itemize}
+
+\section{Defect management}\label{sec:defects}
+
+Defects are filed in Jira project \texttt{KAN} as they are found, under a fixed
+convention:
+
+\begin{itemize}
+  \item \textbf{Title}: plain words stating what is broken and where.
+  \item \textbf{Description}: exactly three parts --- \emph{Issue} (1--2 sentences),
+        \emph{Steps} (short reproduction bullets), \emph{Expected} (1--2 sentences).
+        Machine context (fingerprints, evidence paths, repro commands) goes in
+        labels or a comment, never the description.
+  \item \textbf{Severity} is judged by user impact and data/monetary risk;
+        religiously sensitive computation (zakat) is automatically high.
+  \item \textbf{Automated triage}: a runner parses the Playwright JSON report and
+        files hard failures to \texttt{KAN} with a stable fingerprint label per
+        failure, so re-occurrences comment on the existing ticket instead of
+        duplicating it; infrastructure failures collapse to a single ticket,
+        and a flood of new fingerprints halts for human confirmation.
+\end{itemize}
+
+Representative defects from this cycle (all found by planned cases, all but
+one fixed and re-verified within the week):
+
+\begin{center}
+\small
+\begin{tabularx}{\textwidth}{llLl}
+\toprule
+\textbf{Jira} & \textbf{Severity} & \textbf{Defect} & \textbf{State} \\
+\midrule
+KAN-52 & Highest & Zakat trusted a client-supplied nisab; \texttt{nisab=0} made PKR 1{,}000 of assets zakat-liable & Fixed \\
+KAN-51 & High & Stock screener returned 500 on every request (service module missing) & Fixed \\
+KAN-56 & High & Admin role history crashed for roles granted by a real admin & Fixed \\
+KAN-53 & Medium & Add-holding accepted future and impossible purchase dates & Fixed \\
+KAN-57 & Medium & Duplicate React keys on every lesson page (breadcrumb) & Fixed \\
+KAN-58 & Medium & Missing skip-to-content link; unlabelled form fields (WCAG) & Fixed \\
+KAN-55 & Medium & Market-analysis endpoint fully public --- gating is a product decision & Open \\
+KAN-54 & Low & Auth 401 leaked Python codec internals to unauthenticated callers & Fixed \\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+Verified-correct behaviour is recorded with the same rigour as defects (RBAC,
+IDOR scoping, oversell protection, cost averaging, injection safety, zakat
+clamping), so the presentation can state what is \emph{known good}, not only
+what broke.
+
+\section{Entry and exit criteria}
+
+\textbf{Entry} (per execution pass): the build under test runs locally end to end;
+test data baseline recorded; required identities available.
+
+\textbf{Exit} (met at plan time):
+\begin{itemize}
+  \item Every workbook case carries a real result or a specific blocking reason
+        --- no case left silently unexecuted.
+  \item All automated suites green: backend 1457 passed, web 179, mobile 121,
+        Playwright 228 executions across three projects (latest nightly:
+        all three projects passing).
+  \item No open Highest/High defect without a fix or an explicit product
+        decision pending (sole remaining Fail: KAN-55, awaiting a gating
+        decision).
+  \item CI and nightly gates active on the integration branch.
+\end{itemize}
+
+\textbf{Suspension}: execution against shared data suspends immediately if a probe
+mutates the shared demo baseline; the baseline is restored and verified before
+resuming (exercised once during the pass, restored to the exact prior state).
+
+\section{Risks and mitigations}
+
+\begin{center}
+\small
+\begin{tabularx}{\textwidth}{LL}
+\toprule
+\textbf{Risk} & \textbf{Mitigation} \\
+\midrule
+Live PSX market data makes assertions time-of-day dependent & Journeys assert structure, not values; market-hours recorded fixtures planned for the still-blocked chart cases \\
+Shared demo account could be polluted by test writes & Demo writes are client-side by design; server-side probes use throwaway records and a verified restore \\
+AI output is non-deterministic & AI endpoints stubbed in E2E; guardrail behaviour (not prose quality) tested live \\
+Flaky E2E failures erode trust in the gate & Retries in CI classify transients as flaky; live replay distinguishes real failures from flakes in one command; console guard keeps hidden errors visible \\
+Concurrent merges can turn two green branches red together & The push-triggered CI run on the integration branch tip is the verdict of record; nightly re-checks \texttt{dev} daily \\
+Blocked cases silently rot & Every Blocked row names its unblocking requirement, bucketed (device, admin, market window, failure injection, \ldots) for planned follow-up \\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+\section{Deliverables and results snapshot}
+
+\begin{center}
+\small
+\begin{tabularx}{\textwidth}{lLL}
+\toprule
+\textbf{Deliverable} & \textbf{Artefact} & \textbf{Status at plan time} \\
+\midrule
+Test plan & this document & Done \\
+Test cases, all features & \texttt{NafaIQ\_Test\_Cases\_.xlsx}: 654 cases, 25 modules + journey results & 412 Pass / 8 Partial / 1 Fail / 233 Blocked-with-reason; 319 executed live this week \\
+Automated E2E & \texttt{@nafaiq/e2e}: 228 tests, 20 files, 3 browser projects + live replay & Green locally, in CI and in the nightly (3/3 projects) \\
+Bugs in Jira & project \texttt{KAN} & Defects filed throughout; this pass: 8 filed, 7 fixed and re-verified, 1 awaiting product decision \\
+API tasks (Postman) & \texttt{postman/}: 178-operation catalog + 68-request scripted QA journeys, Local/Dev environments & Done; QA collection re-runnable with cleanup \\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+Supporting (beyond the asked deliverables): 1757 unit/component/integration
+tests across the three codebases, CI gating on every pull request, a nightly
+cross-viewport run pinned to the integration branch, and an automated
+Playwright-failure-to-Jira triage path.
+
+\end{document}
