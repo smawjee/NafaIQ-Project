@@ -2,6 +2,7 @@ import { useRef, useState, useEffect } from "react";
 import {
   motion,
   AnimatePresence,
+  MotionConfig,
   useScroll,
   useSpring,
   useTransform,
@@ -146,6 +147,8 @@ export function useReveal(amount = 0.2) {
 }
 
 /* ---------- generic scroll reveal wrapper ---------- */
+
+
 export function Reveal({
   children,
   className,
@@ -161,25 +164,27 @@ export function Reveal({
   amount?: number;
   as?: keyof typeof motion;
 }) {
-  const reduce = useReducedMotion();
   const { ref, inView } = useReveal(amount);
   const Comp = (motion[as] ?? motion.div) as React.ElementType;
-  if (reduce) return <Comp className={className}>{children}</Comp>;
   return (
-    <Comp
-      ref={ref}
-      className={className}
-      variants={variants}
-      initial="hidden"
-      animate={inView ? "show" : "hidden"}
-      transition={{ delay }}
-    >
-      {children}
-    </Comp>
+    <MotionConfig reducedMotion="user">
+      <Comp
+        ref={ref}
+        className={className}
+        variants={variants}
+        initial="hidden"
+        animate={inView ? "show" : "hidden"}
+        transition={{ delay }}
+      >
+        {children}
+      </Comp>
+    </MotionConfig>
   );
 }
 
 /* ---------- reveal a single item with a y-offset fade (controlled) ---------- */
+
+
 export function RevealItem({
   children,
   className,
@@ -193,23 +198,26 @@ export function RevealItem({
   amount?: number;
   y?: number;
 }) {
-  const reduce = useReducedMotion();
   const { ref, inView } = useReveal(amount);
-  if (reduce) return <div className={className}>{children}</div>;
   return (
-    <motion.div
-      ref={ref as React.RefObject<HTMLDivElement>}
-      className={className}
-      initial={{ opacity: 0, y }}
-      animate={inView ? { opacity: 1, y: 0 } : { opacity: 0, y }}
-      transition={{ ...SPRING_UI, delay }}
-    >
-      {children}
-    </motion.div>
+    <MotionConfig reducedMotion="user">
+      <motion.div
+        ref={ref as React.RefObject<HTMLDivElement>}
+        className={className}
+        initial={{ opacity: 0, y }}
+        animate={inView ? { opacity: 1, y: 0 } : { opacity: 0, y }}
+        transition={{ ...SPRING_UI, delay }}
+      >
+        {children}
+      </motion.div>
+    </MotionConfig>
   );
 }
 
+
 /* ---------- reveal a group with staggered children variants (controlled) ---------- */
+
+
 export function RevealGroup({
   children,
   className,
@@ -219,19 +227,19 @@ export function RevealGroup({
   className?: string;
   amount?: number;
 }) {
-  const reduce = useReducedMotion();
   const { ref, inView } = useReveal(amount);
-  if (reduce) return <div className={className}>{children}</div>;
   return (
-    <motion.div
-      ref={ref as React.RefObject<HTMLDivElement>}
-      className={className}
-      variants={staggerParent}
-      initial="hidden"
-      animate={inView ? "show" : "hidden"}
-    >
-      {children}
-    </motion.div>
+    <MotionConfig reducedMotion="user">
+      <motion.div
+        ref={ref as React.RefObject<HTMLDivElement>}
+        className={className}
+        variants={staggerParent}
+        initial="hidden"
+        animate={inView ? "show" : "hidden"}
+      >
+        {children}
+      </motion.div>
+    </MotionConfig>
   );
 }
 
