@@ -130,3 +130,6 @@ frontend/packages/e2e/playwright/.auth/
 /progress.md
 /project.md
 /week*-prep.md
+# Postman runtime output and private environment copies
+postman/reports/
+postman/environments/*.local.postman_environment.json

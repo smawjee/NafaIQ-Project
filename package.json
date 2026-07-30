@@ -8,11 +8,15 @@
     "format": "prettier --write .",
     "typecheck": "turbo run typecheck",
     "test": "turbo run test",
+    "postman:generate": "python3 postman/generate_collection.py",
+    "test:api": "bash postman/run-collection.sh full",
+    "test:api:public": "bash postman/run-collection.sh public",
     "test:e2e": "pnpm --filter @nafaiq/e2e test:e2e",
     "test:e2e:live": "pnpm --filter @nafaiq/e2e test:e2e:live",
     "test:e2e:replay": "pnpm --filter @nafaiq/e2e test:e2e:replay"
   },
   "devDependencies": {
+    "newman": "^6.2.1",
     "prettier": "^3.7.3",
     "turbo": "^2.5.0"
   },

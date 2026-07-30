@@ -1,0 +1,3647 @@
+{
+  "info": {
+    "_postman_id": "b7bc7c70-c3d5-4fa8-a679-4f54a72f5141",
+    "name": "NafaIQ API — End-to-End QA",
+    "description": "Ordered, presentation-ready user journeys for NafaIQ. Dynamic IDs are captured automatically and created records are removed where the API supports cleanup. The companion API Catalog contains all 178 OpenAPI operations.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "const now = new Date();",
+          "if (!pm.collectionVariables.get(\"run_id\")) {",
+          "  pm.collectionVariables.set(\"run_id\", String(now.getTime()));",
+          "}",
+          "pm.collectionVariables.set(\"today\", now.toISOString().slice(0, 10));",
+          "const due = new Date(now);",
+          "due.setUTCDate(due.getUTCDate() + 7);",
+          "pm.collectionVariables.set(\"due_date\", due.toISOString().slice(0, 10));"
+        ]
+      }
+    }
+  ],
+  "variable": [
+    {
+      "key": "symbol",
+      "value": "HBL",
+      "type": "string"
+    },
+    {
+      "key": "holding_symbol",
+      "value": "HBL",
+      "type": "string"
+    },
+    {
+      "key": "index_code",
+      "value": "KSE100",
+      "type": "string"
+    },
+    {
+      "key": "fund_code",
+      "value": "ABL-IF",
+      "type": "string"
+    },
+    {
+      "key": "qa_portfolio_name",
+      "value": "Postman QA",
+      "type": "string"
+    },
+    {
+      "key": "portfolio_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "holding_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "transaction_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "goal_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "budget_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "bill_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "alert_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "price_alert_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "event_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "notification_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "announcement_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "admin_user_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "role_slug",
+      "value": "support_agent",
+      "type": "string"
+    },
+    {
+      "key": "feature_flag_key",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "plan_name",
+      "value": "Free",
+      "type": "string"
+    },
+    {
+      "key": "error_fingerprint",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "bug_report_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "finance_entity",
+      "value": "transactions",
+      "type": "string"
+    },
+    {
+      "key": "run_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "today",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "due_date",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "response_time_limit_ms",
+      "value": "10000",
+      "type": "string"
+    },
+    {
+      "key": "run_optional_requests",
+      "value": "false",
+      "type": "string"
+    },
+    {
+      "key": "watchlist_preexisting",
+      "value": "false",
+      "type": "string"
+    },
+    {
+      "key": "portfolio_is_dedicated",
+      "value": "false",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "00 - Setup and Authentication",
+      "item": [
+        {
+          "name": "Initialize QA Run",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "noauth"
+            },
+            "url": "{{base_url}}/api/health",
+            "description": "Initializes run_id and date variables, then checks API readiness."
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.collectionVariables.set(\"run_id\", String(Date.now()));"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Expected status code\", function () {",
+                  "  pm.expect([200]).to.include(pm.response.code);",
+                  "});",
+                  "pm.test(\"Response time is within the QA limit\", function () {",
+                  "  const limit = Number(pm.environment.get(\"response_time_limit_ms\") || pm.collectionVariables.get(\"response_time_limit_ms\") || 10000);",
+                  "  pm.expect(pm.response.responseTime).to.be.below(limit);",
+                  "});",
+                  "pm.test(\"Response is JSON\", function () {",
+                  "  pm.expect(pm.response.headers.get(\"Content-Type\") || \"\").to.include(\"application/json\");",
+                  "  pm.expect(function () { pm.response.json(); }).not.to.throw();",
+                  "});",
+                  "const payload = pm.response.json();",
+                  "pm.test(\"API reports healthy\", function () {",
+                  "  pm.expect(payload.status).to.eql(\"ok\");",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Sign in with Supabase",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "apikey",
+                "value": "{{supabase_anon_key}}"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{supabase_anon_key}}"
+              }
+            ],
+            "auth": {
+              "type": "noauth"
+            },
+            "url": "{{supabase_url}}/auth/v1/token?grant_type=password",
+            "description": "Obtains a user JWT using the password grant and stores it as user_jwt. The pre-request script skips this request when a user_jwt was supplied directly and demo credentials were intentionally left blank.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{demo_email}}\",\n  \"password\": \"{{demo_password}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const directJwt = pm.environment.get(\"user_jwt\");",
+                  "const email = pm.environment.get(\"demo_email\");",
+                  "const password = pm.environment.get(\"demo_password\");",
+                  "if (directJwt && (!email || !password)) {",
+                  "  pm.execution.skipRequest();",
+                  "}"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Expected status code\", function () {",
+                  "  pm.expect([200]).to.include(pm.response.code);",
+                  "});",
+                  "pm.test(\"Response time is within the QA limit\", function () {",
+                  "  const limit = Number(pm.environment.get(\"response_time_limit_ms\") || pm.collectionVariables.get(\"response_time_limit_ms\") || 10000);",
+                  "  pm.expect(pm.response.responseTime).to.be.below(limit);",
+                  "});",
+                  "pm.test(\"Response is JSON\", function () {",
+                  "  pm.expect(pm.response.headers.get(\"Content-Type\") || \"\").to.include(\"application/json\");",
+                  "  pm.expect(function () { pm.response.json(); }).not.to.throw();",
+                  "});",
+                  "const authBody = pm.response.json();",
+                  "pm.test(\"Supabase returned an access token\", function () {",
+                  "  pm.expect(authBody.access_token).to.be.a('string').and.not.empty;",
+                  "});",
+                  "pm.environment.set(\"user_jwt\", authBody.access_token);",
+                  "if (authBody.refresh_token) pm.environment.set(\"refresh_token\", authBody.refresh_token);",
+                  "if (authBody.user?.id) pm.environment.set(\"authenticated_user_id\", authBody.user.id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Verify Authenticated Session",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{user_jwt}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": "{{base_url}}/api/portfolio/list",
+            "description": ""
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Expected status code\", function () {",
+                  "  pm.expect([200]).to.include(pm.response.code);",
+                  "});",
+                  "pm.test(\"Response time is within the QA limit\", function () {",
+                  "  const limit = Number(pm.environment.get(\"response_time_limit_ms\") || pm.collectionVariables.get(\"response_time_limit_ms\") || 10000);",
+                  "  pm.expect(pm.response.responseTime).to.be.below(limit);",
+                  "});",
+                  "pm.test(\"Response is JSON\", function () {",
+                  "  pm.expect(pm.response.headers.get(\"Content-Type\") || \"\").to.include(\"application/json\");",
+                  "  pm.expect(function () { pm.response.json(); }).not.to.throw();",
+                  "});",
+                  "pm.test(\"Portfolio list is an array\", function () {",
+                  "  pm.expect(pm.response.json()).to.be.an('array');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "01 - Platform and Public Market",
+      "item": [
+        {
+          "name": "Platform Flags",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "noauth"
+            },
+            "url": "{{base_url}}/api/platform/flags",
+            "description": ""
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Expected status code\", function () {",
+                  "  pm.expect([200]).to.include(pm.response.code);",
+                  "});",
+                  "pm.test(\"Response time is within the QA limit\", function () {",
+                  "  const limit = Number(pm.environment.get(\"response_time_limit_ms\") || pm.collectionVariables.get(\"response_time_limit_ms\") || 10000);",
+                  "  pm.expect(pm.response.responseTime).to.be.below(limit);",
+                  "});",
+                  "pm.test(\"Response is JSON\", function () {",
+                  "  pm.expect(pm.response.headers.get(\"Content-Type\") || \"\").to.include(\"application/json\");",
+                  "  pm.expect(function () { pm.response.json(); }).not.to.throw();",
+                  "});",
+                  "pm.test(\"Platform flags are an object\", function () {",
+                  "  pm.expect(pm.response.json()).to.be.an('object');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "API Health",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "noauth"
+            },
+            "url": "{{base_url}}/api/health",
+            "description": ""
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Expected status code\", function () {",
+                  "  pm.expect([200]).to.include(pm.response.code);",
+                  "});",
+                  "pm.test(\"Response time is within the QA limit\", function () {",
+                  "  const limit = Number(pm.environment.get(\"response_time_limit_ms\") || pm.collectionVariables.get(\"response_time_limit_ms\") || 10000);",
+                  "  pm.expect(pm.response.responseTime).to.be.below(limit);",
+                  "});",
+                  "pm.test(\"Response is JSON\", function () {",
+                  "  pm.expect(pm.response.headers.get(\"Content-Type\") || \"\").to.include(\"application/json\");",
+                  "  pm.expect(function () { pm.response.json(); }).not.to.throw();",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Database Health",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "noauth"
+            },
+            "url": "{{base_url}}/api/health/db",
+            "description": ""
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Expected status code\", function () {",
+                  "  pm.expect([200]).to.include(pm.response.code);",
+                  "});",
+                  "pm.test(\"Response time is within the QA limit\", function () {",
+                  "  const limit = Number(pm.environment.get(\"response_time_limit_ms\") || pm.collectionVariables.get(\"response_time_limit_ms\") || 10000);",
+                  "  pm.expect(pm.response.responseTime).to.be.below(limit);",
+                  "});",
+                  "pm.test(\"Response is JSON\", function () {",
+                  "  pm.expect(pm.response.headers.get(\"Content-Type\") || \"\").to.include(\"application/json\");",
+                  "  pm.expect(function () { pm.response.json(); }).not.to.throw();",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Market Snapshot",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "noauth"
+            },
+            "url": "{{base_url}}/api/market/snapshot",
+            "description": ""
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Expected status code\", function () {",
+                  "  pm.expect([200]).to.include(pm.response.code);",
+                  "});",
+                  "pm.test(\"Response time is within the QA limit\", function () {",
+                  "  const limit = Number(pm.environment.get(\"response_time_limit_ms\") || pm.collectionVariables.get(\"response_time_limit_ms\") || 10000);",
+                  "  pm.expect(pm.response.responseTime).to.be.below(limit);",
+                  "});",
+                  "pm.test(\"Response is JSON\", function () {",
+                  "  pm.expect(pm.response.headers.get(\"Content-Type\") || \"\").to.include(\"application/json\");",
+                  "  pm.expect(function () { pm.response.json(); }).not.to.throw();",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Symbol Directory",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "noauth"
+            },
+            "url": "{{base_url}}/api/symbols",
+            "description": ""
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Expected status code\", function () {",
+                  "  pm.expect([200]).to.include(pm.response.code);",
+                  "});",
+                  "pm.test(\"Response time is within the QA limit\", function () {",
+                  "  const limit = Number(pm.environment.get(\"response_time_limit_ms\") || pm.collectionVariables.get(\"response_time_limit_ms\") || 10000);",
+                  "  pm.expect(pm.response.responseTime).to.be.below(limit);",
+                  "});",
+                  "pm.test(\"Response is JSON\", function () {",
+                  "  pm.expect(pm.response.headers.get(\"Content-Type\") || \"\").to.include(\"application/json\");",
+                  "  pm.expect(function () { pm.response.json(); }).not.to.throw();",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Quote for QA Symbol",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "noauth"
+            },
+            "url": "{{base_url}}/api/quote/{{symbol}}",
+            "description": ""
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Expected status code\", function () {",
+                  "  pm.expect([200]).to.include(pm.response.code);",
+                  "});",
+                  "pm.test(\"Response time is within the QA limit\", function () {",
+                  "  const limit = Number(pm.environment.get(\"response_time_limit_ms\") || pm.collectionVariables.get(\"response_time_limit_ms\") || 10000);",
+                  "  pm.expect(pm.response.responseTime).to.be.below(limit);",
+                  "});",
+                  "pm.test(\"Response is JSON\", function () {",
+                  "  pm.expect(pm.response.headers.get(\"Content-Type\") || \"\").to.include(\"application/json\");",
+                  "  pm.expect(function () { pm.response.json(); }).not.to.throw();",
+                  "});",
+                  "const quote = pm.response.json();",
+                  "pm.test(\"Quote corresponds to requested symbol\", function () {",
+                  "  if (quote.symbol) pm.expect(String(quote.symbol).toUpperCase()).to.eql(pm.collectionVariables.get(\"symbol\"));",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Quote History",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "noauth"
+            },
+            "url": "{{base_url}}/api/quote/{{symbol}}/history?days=30",
+            "description": ""
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Expected status code\", function () {",
+                  "  pm.expect([200]).to.include(pm.response.code);",
+                  "});",
+                  "pm.test(\"Response time is within the QA limit\", function () {",
+                  "  const limit = Number(pm.environment.get(\"response_time_limit_ms\") || pm.collectionVariables.get(\"response_time_limit_ms\") || 10000);",
+                  "  pm.expect(pm.response.responseTime).to.be.below(limit);",
+                  "});",
+                  "pm.test(\"Response is JSON\", function () {",
+                  "  pm.expect(pm.response.headers.get(\"Content-Type\") || \"\").to.include(\"application/json\");",
+                  "  pm.expect(function () { pm.response.json(); }).not.to.throw();",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Index Cards",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "noauth"
+            },
+            "url": "{{base_url}}/api/index/cards",
+            "description": ""
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Expected status code\", function () {",
+                  "  pm.expect([200]).to.include(pm.response.code);",
+                  "});",
+                  "pm.test(\"Response time is within the QA limit\", function () {",
+                  "  const limit = Number(pm.environment.get(\"response_time_limit_ms\") || pm.collectionVariables.get(\"response_time_limit_ms\") || 10000);",
+                  "  pm.expect(pm.response.responseTime).to.be.below(limit);",
+                  "});",
+                  "pm.test(\"Response is JSON\", function () {",
+                  "  pm.expect(pm.response.headers.get(\"Content-Type\") || \"\").to.include(\"application/json\");",
+                  "  pm.expect(function () { pm.response.json(); }).not.to.throw();",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Sector List",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "noauth"
+            },
+            "url": "{{base_url}}/api/sectors",
+            "description": ""
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Expected status code\", function () {",
+                  "  pm.expect([200]).to.include(pm.response.code);",
+                  "});",
+                  "pm.test(\"Response time is within the QA limit\", function () {",
+                  "  const limit = Number(pm.environment.get(\"response_time_limit_ms\") || pm.collectionVariables.get(\"response_time_limit_ms\") || 10000);",
+                  "  pm.expect(pm.response.responseTime).to.be.below(limit);",
+                  "});",
+                  "pm.test(\"Response is JSON\", function () {",
+                  "  pm.expect(pm.response.headers.get(\"Content-Type\") || \"\").to.include(\"application/json\");",
+                  "  pm.expect(function () { pm.response.json(); }).not.to.throw();",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Macro Rates",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "noauth"
+            },
+            "url": "{{base_url}}/api/macro/rates",
+            "description": ""
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Expected status code\", function () {",
+                  "  pm.expect([200]).to.include(pm.response.code);",
+                  "});",
+                  "pm.test(\"Response time is within the QA limit\", function () {",
+                  "  const limit = Number(pm.environment.get(\"response_time_limit_ms\") || pm.collectionVariables.get(\"response_time_limit_ms\") || 10000);",
+                  "  pm.expect(pm.response.responseTime).to.be.below(limit);",
+                  "});",
+                  "pm.test(\"Response is JSON\", function () {",
+                  "  pm.expect(pm.response.headers.get(\"Content-Type\") || \"\").to.include(\"application/json\");",
+                  "  pm.expect(function () { pm.response.json(); }).not.to.throw();",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Latest News",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "noauth"
+            },
+            "url": "{{base_url}}/api/news/latest",
+            "description": ""
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Expected status code\", function () {",
+                  "  pm.expect([200]).to.include(pm.response.code);",
+                  "});",
+                  "pm.test(\"Response time is within the QA limit\", function () {",
+                  "  const limit = Number(pm.environment.get(\"response_time_limit_ms\") || pm.collectionVariables.get(\"response_time_limit_ms\") || 10000);",
+                  "  pm.expect(pm.response.responseTime).to.be.below(limit);",
+                  "});",
+                  "pm.test(\"Response is JSON\", function () {",
+                  "  pm.expect(pm.response.headers.get(\"Content-Type\") || \"\").to.include(\"application/json\");",
+                  "  pm.expect(function () { pm.response.json(); }).not.to.throw();",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Mutual Funds",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "noauth"
+            },
+            "url": "{{base_url}}/api/funds?limit=10&offset=0",
+            "description": ""
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Expected status code\", function () {",
+                  "  pm.expect([200]).to.include(pm.response.code);",
+                  "});",
+                  "pm.test(\"Response time is within the QA limit\", function () {",
+                  "  const limit = Number(pm.environment.get(\"response_time_limit_ms\") || pm.collectionVariables.get(\"response_time_limit_ms\") || 10000);",
+                  "  pm.expect(pm.response.responseTime).to.be.below(limit);",
+                  "});",
+                  "pm.test(\"Response is JSON\", function () {",
+                  "  pm.expect(pm.response.headers.get(\"Content-Type\") || \"\").to.include(\"application/json\");",
+                  "  pm.expect(function () { pm.response.json(); }).not.to.throw();",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "LearnHub Status",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "noauth"
+            },
+            "url": "{{base_url}}/api/learn/status",
+            "description": ""
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Expected status code\", function () {",
+                  "  pm.expect([200]).to.include(pm.response.code);",
+                  "});",
+                  "pm.test(\"Response time is within the QA limit\", function () {",
+                  "  const limit = Number(pm.environment.get(\"response_time_limit_ms\") || pm.collectionVariables.get(\"response_time_limit_ms\") || 10000);",
+                  "  pm.expect(pm.response.responseTime).to.be.below(limit);",
+                  "});",
+                  "pm.test(\"Response is JSON\", function () {",
+                  "  pm.expect(pm.response.headers.get(\"Content-Type\") || \"\").to.include(\"application/json\");",
+                  "  pm.expect(function () { pm.response.json(); }).not.to.throw();",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "LearnHub Search",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "noauth"
+            },
+            "url": "{{base_url}}/api/learn/search?q=diversification&lang=en&limit=5",
+            "description": ""
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Expected status code\", function () {",
+                  "  pm.expect([200]).to.include(pm.response.code);",
+                  "});",
+                  "pm.test(\"Response time is within the QA limit\", function () {",
+                  "  const limit = Number(pm.environment.get(\"response_time_limit_ms\") || pm.collectionVariables.get(\"response_time_limit_ms\") || 10000);",
+                  "  pm.expect(pm.response.responseTime).to.be.below(limit);",
+                  "});",
+                  "pm.test(\"Response is JSON\", function () {",
+                  "  pm.expect(pm.response.headers.get(\"Content-Type\") || \"\").to.include(\"application/json\");",
+                  "  pm.expect(function () { pm.response.json(); }).not.to.throw();",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ],
+      "description": "Read-only smoke coverage for anonymous platform, market, macro, funds, news, and learning APIs."
+    },
+    {
+      "name": "02 - Portfolio Journey",
+      "item": [
+        {
+          "name": "Resolve Reusable QA Portfolio",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{user_jwt}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": "{{base_url}}/api/portfolio/list",
+            "description": "Reuses the dedicated Postman QA portfolio when it exists. The backend currently has no portfolio-delete endpoint, so this prevents a new empty portfolio being created on every run."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Expected status code\", function () {",
+                  "  pm.expect([200]).to.include(pm.response.code);",
+                  "});",
+                  "pm.test(\"Response time is within the QA limit\", function () {",
+                  "  const limit = Number(pm.environment.get(\"response_time_limit_ms\") || pm.collectionVariables.get(\"response_time_limit_ms\") || 10000);",
+                  "  pm.expect(pm.response.responseTime).to.be.below(limit);",
+                  "});",
+                  "pm.test(\"Response is JSON\", function () {",
+                  "  pm.expect(pm.response.headers.get(\"Content-Type\") || \"\").to.include(\"application/json\");",
+                  "  pm.expect(function () { pm.response.json(); }).not.to.throw();",
+                  "});",
+                  "const portfolios = pm.response.json();",
+                  "pm.test(\"Portfolio list is an array\", function () { pm.expect(portfolios).to.be.an(\"array\"); });",
+                  "const qaName = pm.collectionVariables.get(\"qa_portfolio_name\");",
+                  "const existing = portfolios.find((item) => item.name === qaName);",
+                  "if (existing) {",
+                  "  pm.collectionVariables.set(\"portfolio_id\", String(existing.id));",
+                  "  pm.collectionVariables.set(\"portfolio_is_dedicated\", \"true\");",
+                  "  pm.execution.setNextRequest(\"Inspect QA Portfolio Holdings\");",
+                  "} else if (portfolios.length > 0) {",
+                  "  // Reuse an existing portfolio when the account is at its plan limit.",
+                  "  pm.collectionVariables.set(\"portfolio_id\", String(portfolios[0].id));",
+                  "  pm.collectionVariables.set(\"portfolio_is_dedicated\", \"false\");",
+                  "  pm.execution.setNextRequest(\"Inspect QA Portfolio Holdings\");",
+                  "} else {",
+                  "  pm.collectionVariables.set(\"portfolio_is_dedicated\", \"true\");",
+                  "  pm.execution.setNextRequest(\"Create QA Portfolio\");",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create QA Portfolio",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{user_jwt}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": "{{base_url}}/api/portfolio/create",
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"{{qa_portfolio_name}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Expected status code\", function () {",
+                  "  pm.expect([200]).to.include(pm.response.code);",
+                  "});",
+                  "pm.test(\"Response time is within the QA limit\", function () {",
+                  "  const limit = Number(pm.environment.get(\"response_time_limit_ms\") || pm.collectionVariables.get(\"response_time_limit_ms\") || 10000);",
+                  "  pm.expect(pm.response.responseTime).to.be.below(limit);",
+                  "});",
+                  "pm.test(\"Response is JSON\", function () {",
+                  "  pm.expect(pm.response.headers.get(\"Content-Type\") || \"\").to.include(\"application/json\");",
+                  "  pm.expect(function () { pm.response.json(); }).not.to.throw();",
+                  "});",
+                  "var createdPayload = pm.response.json();",
+                  "var createdEntityId = createdPayload.id ?? createdPayload.data?.id;",
+                  "pm.test(\"Portfolio ID was returned\", function () {",
+                  "  pm.expect(createdEntityId).to.exist;",
+                  "});",
+                  "pm.collectionVariables.set(\"portfolio_id\", String(createdEntityId));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Inspect QA Portfolio Holdings",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{user_jwt}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": "{{base_url}}/api/portfolio/{{portfolio_id}}/holdings",
+            "description": ""
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Expected status code\", function () {",
+                  "  pm.expect([200]).to.include(pm.response.code);",
+                  "});",
+                  "pm.test(\"Response time is within the QA limit\", function () {",
+                  "  const limit = Number(pm.environment.get(\"response_time_limit_ms\") || pm.collectionVariables.get(\"response_time_limit_ms\") || 10000);",
+                  "  pm.expect(pm.response.responseTime).to.be.below(limit);",
+                  "});",
+                  "pm.test(\"Response is JSON\", function () {",
+                  "  pm.expect(pm.response.headers.get(\"Content-Type\") || \"\").to.include(\"application/json\");",
+                  "  pm.expect(function () { pm.response.json(); }).not.to.throw();",
+                  "});",
+                  "const holdings = pm.response.json();",
+                  "pm.test(\"Holdings response is an array\", function () { pm.expect(holdings).to.be.an(\"array\"); });",
+                  "const dedicated = pm.collectionVariables.get(\"portfolio_is_dedicated\") === \"true\";",
+                  "const candidates = [\"HBL\", \"MCB\", \"UBL\", \"OGDC\", \"LUCK\", \"FFC\"];",
+                  "const used = new Set(holdings.map((item) => String(item.symbol).toUpperCase()));",
+                  "const selected = dedicated ? candidates[0] : candidates.find((symbol) => !used.has(symbol));",
+                  "pm.test(\"A safe QA holding symbol is available\", function () { pm.expect(selected).to.exist; });",
+                  "pm.collectionVariables.set(\"holding_symbol\", selected || candidates[0]);",
+                  "const stale = dedicated ? holdings.find((item) => String(item.symbol).toUpperCase() === selected) : null;",
+                  "if (stale) {",
+                  "  pm.collectionVariables.set(\"holding_id\", String(stale.id));",
+                  "  pm.execution.setNextRequest(\"Remove Stale QA Holding\");",
+                  "} else {",
+                  "  pm.execution.setNextRequest(\"Add QA Holding\");",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Remove Stale QA Holding",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{user_jwt}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": "{{base_url}}/api/portfolio/{{portfolio_id}}/holdings/{{holding_id}}",
+            "description": ""
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Expected status code\", function () {",
+                  "  pm.expect([200]).to.include(pm.response.code);",
+                  "});",
+                  "pm.test(\"Response time is within the QA limit\", function () {",
+                  "  const limit = Number(pm.environment.get(\"response_time_limit_ms\") || pm.collectionVariables.get(\"response_time_limit_ms\") || 10000);",
+                  "  pm.expect(pm.response.responseTime).to.be.below(limit);",
+                  "});",
+                  "pm.test(\"Response is JSON\", function () {",
+                  "  pm.expect(pm.response.headers.get(\"Content-Type\") || \"\").to.include(\"application/json\");",
+                  "  pm.expect(function () { pm.response.json(); }).not.to.throw();",
+                  "});",
+                  "pm.execution.setNextRequest(\"Add QA Holding\");"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Add QA Holding",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{user_jwt}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": "{{base_url}}/api/portfolio/{{portfolio_id}}/holdings",
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"symbol\": \"{{holding_symbol}}\",\n  \"shares\": 2,\n  \"avg_cost\": 100,\n  \"purchased_at\": \"{{today}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Expected status code\", function () {",
+                  "  pm.expect([200]).to.include(pm.response.code);",
+                  "});",
+                  "pm.test(\"Response time is within the QA limit\", function () {",
+                  "  const limit = Number(pm.environment.get(\"response_time_limit_ms\") || pm.collectionVariables.get(\"response_time_limit_ms\") || 10000);",
+                  "  pm.expect(pm.response.responseTime).to.be.below(limit);",
+                  "});",
+                  "pm.test(\"Response is JSON\", function () {",
+                  "  pm.expect(pm.response.headers.get(\"Content-Type\") || \"\").to.include(\"application/json\");",
+                  "  pm.expect(function () { pm.response.json(); }).not.to.throw();",
+                  "});",
+                  "var createdPayload = pm.response.json();",
+                  "var createdEntityId = createdPayload.id ?? createdPayload.data?.id;",
+                  "pm.test(\"Holding ID was returned\", function () {",
+                  "  pm.expect(createdEntityId).to.exist;",
+                  "});",
+                  "pm.collectionVariables.set(\"holding_id\", String(createdEntityId));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Update QA Holding",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{user_jwt}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": "{{base_url}}/api/portfolio/{{portfolio_id}}/holdings/{{holding_id}}",
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"shares\": 3,\n  \"avg_cost\": 105\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Expected status code\", function () {",
+                  "  pm.expect([200]).to.include(pm.response.code);",
+                  "});",
+                  "pm.test(\"Response time is within the QA limit\", function () {",
+                  "  const limit = Number(pm.environment.get(\"response_time_limit_ms\") || pm.collectionVariables.get(\"response_time_limit_ms\") || 10000);",
+                  "  pm.expect(pm.response.responseTime).to.be.below(limit);",
+                  "});",
+                  "pm.test(\"Response is JSON\", function () {",
+                  "  pm.expect(pm.response.headers.get(\"Content-Type\") || \"\").to.include(\"application/json\");",
+                  "  pm.expect(function () { pm.response.json(); }).not.to.throw();",
+                  "});",
+                  "const holding = pm.response.json();",
+                  "pm.test(\"Holding update is visible\", function () {",
+                  "  pm.expect(Number(holding.shares)).to.eql(3);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Verify Portfolio Holdings",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{user_jwt}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": "{{base_url}}/api/portfolio/{{portfolio_id}}/holdings",
+            "description": ""
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Expected status code\", function () {",
+                  "  pm.expect([200]).to.include(pm.response.code);",
+                  "});",
+                  "pm.test(\"Response time is within the QA limit\", function () {",
+                  "  const limit = Number(pm.environment.get(\"response_time_limit_ms\") || pm.collectionVariables.get(\"response_time_limit_ms\") || 10000);",
+                  "  pm.expect(pm.response.responseTime).to.be.below(limit);",
+                  "});",
+                  "pm.test(\"Response is JSON\", function () {",
+                  "  pm.expect(pm.response.headers.get(\"Content-Type\") || \"\").to.include(\"application/json\");",
+                  "  pm.expect(function () { pm.response.json(); }).not.to.throw();",
+                  "});",
+                  "const holdings = pm.response.json();",
+                  "const id = Number(pm.collectionVariables.get(\"holding_id\"));",
+                  "pm.test(\"Created holding appears in the portfolio\", function () {",
+                  "  pm.expect(holdings.some((item) => Number(item.id) === id)).to.eql(true);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Portfolio Value",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{user_jwt}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": "{{base_url}}/api/portfolio/{{portfolio_id}}/value",
+            "description": ""
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Expected status code\", function () {",
+                  "  pm.expect([200]).to.include(pm.response.code);",
+                  "});",
+                  "pm.test(\"Response time is within the QA limit\", function () {",
+                  "  const limit = Number(pm.environment.get(\"response_time_limit_ms\") || pm.collectionVariables.get(\"response_time_limit_ms\") || 10000);",
+                  "  pm.expect(pm.response.responseTime).to.be.below(limit);",
+                  "});",
+                  "pm.test(\"Response is JSON\", function () {",
+                  "  pm.expect(pm.response.headers.get(\"Content-Type\") || \"\").to.include(\"application/json\");",
+                  "  pm.expect(function () { pm.response.json(); }).not.to.throw();",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Portfolio Allocation",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{user_jwt}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": "{{base_url}}/api/portfolio/allocation?portfolio_id={{portfolio_id}}&by=stock",
+            "description": ""
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Expected status code\", function () {",
+                  "  pm.expect([200]).to.include(pm.response.code);",
+                  "});",
+                  "pm.test(\"Response time is within the QA limit\", function () {",
+                  "  const limit = Number(pm.environment.get(\"response_time_limit_ms\") || pm.collectionVariables.get(\"response_time_limit_ms\") || 10000);",
+                  "  pm.expect(pm.response.responseTime).to.be.below(limit);",
+                  "});",
+                  "pm.test(\"Response is JSON\", function () {",
+                  "  pm.expect(pm.response.headers.get(\"Content-Type\") || \"\").to.include(\"application/json\");",
+                  "  pm.expect(function () { pm.response.json(); }).not.to.throw();",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Delete QA Holding",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{user_jwt}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": "{{base_url}}/api/portfolio/{{portfolio_id}}/holdings/{{holding_id}}",
+            "description": ""
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Expected status code\", function () {",
+                  "  pm.expect([200]).to.include(pm.response.code);",
+                  "});",
+                  "pm.test(\"Response time is within the QA limit\", function () {",
+                  "  const limit = Number(pm.environment.get(\"response_time_limit_ms\") || pm.collectionVariables.get(\"response_time_limit_ms\") || 10000);",
+                  "  pm.expect(pm.response.responseTime).to.be.below(limit);",
+                  "});",
+                  "pm.test(\"Response is JSON\", function () {",
+                  "  pm.expect(pm.response.headers.get(\"Content-Type\") || \"\").to.include(\"application/json\");",
+                  "  pm.expect(function () { pm.response.json(); }).not.to.throw();",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Confirm Holding Cleanup",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{user_jwt}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": "{{base_url}}/api/portfolio/{{portfolio_id}}/holdings",
+            "description": ""
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Expected status code\", function () {",
+                  "  pm.expect([200]).to.include(pm.response.code);",
+                  "});",
+                  "pm.test(\"Response time is within the QA limit\", function () {",
+                  "  const limit = Number(pm.environment.get(\"response_time_limit_ms\") || pm.collectionVariables.get(\"response_time_limit_ms\") || 10000);",
+                  "  pm.expect(pm.response.responseTime).to.be.below(limit);",
+                  "});",
+                  "pm.test(\"Response is JSON\", function () {",
+                  "  pm.expect(pm.response.headers.get(\"Content-Type\") || \"\").to.include(\"application/json\");",
+                  "  pm.expect(function () { pm.response.json(); }).not.to.throw();",
+                  "});",
+                  "const holdings = pm.response.json();",
+                  "const id = Number(pm.collectionVariables.get(\"holding_id\"));",
+                  "pm.test(\"QA holding was removed\", function () {",
+                  "  pm.expect(holdings.some((item) => Number(item.id) === id)).to.eql(false);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ],
+      "description": "Creates, reads, updates, values, and removes a holding in one reusable QA portfolio."
+    },
+    {
+      "name": "03 - Watchlist Journey",
+      "item": [
+        {
+          "name": "Inspect Watchlist",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{user_jwt}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": "{{base_url}}/api/watchlist",
+            "description": ""
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Expected status code\", function () {",
+                  "  pm.expect([200]).to.include(pm.response.code);",
+                  "});",
+                  "pm.test(\"Response time is within the QA limit\", function () {",
+                  "  const limit = Number(pm.environment.get(\"response_time_limit_ms\") || pm.collectionVariables.get(\"response_time_limit_ms\") || 10000);",
+                  "  pm.expect(pm.response.responseTime).to.be.below(limit);",
+                  "});",
+                  "pm.test(\"Response is JSON\", function () {",
+                  "  pm.expect(pm.response.headers.get(\"Content-Type\") || \"\").to.include(\"application/json\");",
+                  "  pm.expect(function () { pm.response.json(); }).not.to.throw();",
+                  "});",
+                  "const rows = pm.response.json();",
+                  "const symbol = pm.collectionVariables.get(\"symbol\");",
+                  "const exists = rows.some((item) => String(item.symbol).toUpperCase() === symbol);",
+                  "pm.collectionVariables.set(\"watchlist_preexisting\", String(exists));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Add Symbol to Watchlist",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{user_jwt}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": "{{base_url}}/api/watchlist",
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"symbol\": \"{{symbol}}\",\n  \"notes\": \"Postman QA {{run_id}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.collectionVariables.get(\"watchlist_preexisting\") === \"true\") {",
+                  "  pm.execution.skipRequest();",
+                  "}"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Expected status code\", function () {",
+                  "  pm.expect([200]).to.include(pm.response.code);",
+                  "});",
+                  "pm.test(\"Response time is within the QA limit\", function () {",
+                  "  const limit = Number(pm.environment.get(\"response_time_limit_ms\") || pm.collectionVariables.get(\"response_time_limit_ms\") || 10000);",
+                  "  pm.expect(pm.response.responseTime).to.be.below(limit);",
+                  "});",
+                  "pm.test(\"Response is JSON\", function () {",
+                  "  pm.expect(pm.response.headers.get(\"Content-Type\") || \"\").to.include(\"application/json\");",
+                  "  pm.expect(function () { pm.response.json(); }).not.to.throw();",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Verify Watchlist",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{user_jwt}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": "{{base_url}}/api/watchlist",
+            "description": ""
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Expected status code\", function () {",
+                  "  pm.expect([200]).to.include(pm.response.code);",
+                  "});",
+                  "pm.test(\"Response time is within the QA limit\", function () {",
+                  "  const limit = Number(pm.environment.get(\"response_time_limit_ms\") || pm.collectionVariables.get(\"response_time_limit_ms\") || 10000);",
+                  "  pm.expect(pm.response.responseTime).to.be.below(limit);",
+                  "});",
+                  "pm.test(\"Response is JSON\", function () {",
+                  "  pm.expect(pm.response.headers.get(\"Content-Type\") || \"\").to.include(\"application/json\");",
+                  "  pm.expect(function () { pm.response.json(); }).not.to.throw();",
+                  "});",
+                  "const rows = pm.response.json();",
+                  "const symbol = pm.collectionVariables.get(\"symbol\");",
+                  "pm.test(\"QA symbol is present\", function () {",
+                  "  pm.expect(rows.some((item) => String(item.symbol).toUpperCase() === symbol)).to.eql(true);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Remove QA Watchlist Symbol",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{user_jwt}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": "{{base_url}}/api/watchlist/{{symbol}}",
+            "description": ""
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.collectionVariables.get(\"watchlist_preexisting\") === \"true\") {",
+                  "  pm.execution.skipRequest();",
+                  "}"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Expected status code\", function () {",
+                  "  pm.expect([200]).to.include(pm.response.code);",
+                  "});",
+                  "pm.test(\"Response time is within the QA limit\", function () {",
+                  "  const limit = Number(pm.environment.get(\"response_time_limit_ms\") || pm.collectionVariables.get(\"response_time_limit_ms\") || 10000);",
+                  "  pm.expect(pm.response.responseTime).to.be.below(limit);",
+                  "});",
+                  "pm.test(\"Response is JSON\", function () {",
+                  "  pm.expect(pm.response.headers.get(\"Content-Type\") || \"\").to.include(\"application/json\");",
+                  "  pm.expect(function () { pm.response.json(); }).not.to.throw();",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ],
+      "description": "Preserves a symbol that was already on the demo user's watchlist."
+    },
+    {
+      "name": "04 - Personal Finance Journey",
+      "item": [
+        {
+          "name": "Finance Vocabulary",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{user_jwt}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": "{{base_url}}/api/finance/vocabulary",
+            "description": ""
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Expected status code\", function () {",
+                  "  pm.expect([200]).to.include(pm.response.code);",
+                  "});",
+                  "pm.test(\"Response time is within the QA limit\", function () {",
+                  "  const limit = Number(pm.environment.get(\"response_time_limit_ms\") || pm.collectionVariables.get(\"response_time_limit_ms\") || 10000);",
+                  "  pm.expect(pm.response.responseTime).to.be.below(limit);",
+                  "});",
+                  "pm.test(\"Response is JSON\", function () {",
+                  "  pm.expect(pm.response.headers.get(\"Content-Type\") || \"\").to.include(\"application/json\");",
+                  "  pm.expect(function () { pm.response.json(); }).not.to.throw();",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create QA Transaction",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{user_jwt}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": "{{base_url}}/api/finance/transactions",
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"merchant\": \"Postman QA {{run_id}}\",\n  \"amount\": 1250,\n  \"transaction_type\": \"expense\",\n  \"category\": \"Groceries\",\n  \"transaction_date\": \"{{today}}\",\n  \"source\": \"manual\",\n  \"note\": \"Created by the API QA collection\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Expected status code\", function () {",
+                  "  pm.expect([200]).to.include(pm.response.code);",
+                  "});",
+                  "pm.test(\"Response time is within the QA limit\", function () {",
+                  "  const limit = Number(pm.environment.get(\"response_time_limit_ms\") || pm.collectionVariables.get(\"response_time_limit_ms\") || 10000);",
+                  "  pm.expect(pm.response.responseTime).to.be.below(limit);",
+                  "});",
+                  "pm.test(\"Response is JSON\", function () {",
+                  "  pm.expect(pm.response.headers.get(\"Content-Type\") || \"\").to.include(\"application/json\");",
+                  "  pm.expect(function () { pm.response.json(); }).not.to.throw();",
+                  "});",
+                  "var createdPayload = pm.response.json();",
+                  "var createdEntityId = createdPayload.id ?? createdPayload.data?.id;",
+                  "pm.test(\"Transaction ID was returned\", function () {",
+                  "  pm.expect(createdEntityId).to.exist;",
+                  "});",
+                  "pm.collectionVariables.set(\"transaction_id\", String(createdEntityId));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Update QA Transaction",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{user_jwt}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": "{{base_url}}/api/finance/transactions/{{transaction_id}}",
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"amount\": 1375,\n  \"note\": \"Updated by Postman QA\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Expected status code\", function () {",
+                  "  pm.expect([200]).to.include(pm.response.code);",
+                  "});",
+                  "pm.test(\"Response time is within the QA limit\", function () {",
+                  "  const limit = Number(pm.environment.get(\"response_time_limit_ms\") || pm.collectionVariables.get(\"response_time_limit_ms\") || 10000);",
+                  "  pm.expect(pm.response.responseTime).to.be.below(limit);",
+                  "});",
+                  "pm.test(\"Response is JSON\", function () {",
+                  "  pm.expect(pm.response.headers.get(\"Content-Type\") || \"\").to.include(\"application/json\");",
+                  "  pm.expect(function () { pm.response.json(); }).not.to.throw();",
+                  "});",
+                  "const transaction = pm.response.json();",
+                  "pm.test(\"Transaction amount was updated\", function () {",
+                  "  pm.expect(Number(transaction.amount)).to.eql(1375);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Verify Transaction List",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{user_jwt}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": "{{base_url}}/api/finance/transactions?limit=100",
+            "description": ""
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Expected status code\", function () {",
+                  "  pm.expect([200]).to.include(pm.response.code);",
+                  "});",
+                  "pm.test(\"Response time is within the QA limit\", function () {",
+                  "  const limit = Number(pm.environment.get(\"response_time_limit_ms\") || pm.collectionVariables.get(\"response_time_limit_ms\") || 10000);",
+                  "  pm.expect(pm.response.responseTime).to.be.below(limit);",
+                  "});",
+                  "pm.test(\"Response is JSON\", function () {",
+                  "  pm.expect(pm.response.headers.get(\"Content-Type\") || \"\").to.include(\"application/json\");",
+                  "  pm.expect(function () { pm.response.json(); }).not.to.throw();",
+                  "});",
+                  "const transactions = pm.response.json();",
+                  "const id = Number(pm.collectionVariables.get(\"transaction_id\"));",
+                  "pm.test(\"QA transaction appears in the list\", function () {",
+                  "  pm.expect(transactions.some((item) => Number(item.id) === id)).to.eql(true);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Finance Summary",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{user_jwt}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": "{{base_url}}/api/finance/summary",
+            "description": ""
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Expected status code\", function () {",
+                  "  pm.expect([200]).to.include(pm.response.code);",
+                  "});",
+                  "pm.test(\"Response time is within the QA limit\", function () {",
+                  "  const limit = Number(pm.environment.get(\"response_time_limit_ms\") || pm.collectionVariables.get(\"response_time_limit_ms\") || 10000);",
+                  "  pm.expect(pm.response.responseTime).to.be.below(limit);",
+                  "});",
+                  "pm.test(\"Response is JSON\", function () {",
+                  "  pm.expect(pm.response.headers.get(\"Content-Type\") || \"\").to.include(\"application/json\");",
+                  "  pm.expect(function () { pm.response.json(); }).not.to.throw();",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Spending by Category",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{user_jwt}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": "{{base_url}}/api/finance/spending-by-category?days=30",
+            "description": ""
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Expected status code\", function () {",
+                  "  pm.expect([200]).to.include(pm.response.code);",
+                  "});",
+                  "pm.test(\"Response time is within the QA limit\", function () {",
+                  "  const limit = Number(pm.environment.get(\"response_time_limit_ms\") || pm.collectionVariables.get(\"response_time_limit_ms\") || 10000);",
+                  "  pm.expect(pm.response.responseTime).to.be.below(limit);",
+                  "});",
+                  "pm.test(\"Response is JSON\", function () {",
+                  "  pm.expect(pm.response.headers.get(\"Content-Type\") || \"\").to.include(\"application/json\");",
+                  "  pm.expect(function () { pm.response.json(); }).not.to.throw();",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Delete QA Transaction",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{user_jwt}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": "{{base_url}}/api/finance/transactions/{{transaction_id}}",
+            "description": ""
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Expected status code\", function () {",
+                  "  pm.expect([200]).to.include(pm.response.code);",
+                  "});",
+                  "pm.test(\"Response time is within the QA limit\", function () {",
+                  "  const limit = Number(pm.environment.get(\"response_time_limit_ms\") || pm.collectionVariables.get(\"response_time_limit_ms\") || 10000);",
+                  "  pm.expect(pm.response.responseTime).to.be.below(limit);",
+                  "});",
+                  "pm.test(\"Response is JSON\", function () {",
+                  "  pm.expect(pm.response.headers.get(\"Content-Type\") || \"\").to.include(\"application/json\");",
+                  "  pm.expect(function () { pm.response.json(); }).not.to.throw();",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ],
+      "description": "Exercises transaction CRUD and verifies that finance summaries remain queryable."
+    },
+    {
+      "name": "05 - Goals, Budgets and Bills",
+      "item": [
+        {
+          "name": "Create QA Goal",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{user_jwt}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": "{{base_url}}/api/finance/goals",
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"emoji\": \"🎯\",\n  \"name\": \"Postman Goal {{run_id}}\",\n  \"target\": 100000,\n  \"saved\": 10000,\n  \"color\": \"bull\",\n  \"target_date\": \"{{due_date}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Expected status code\", function () {",
+                  "  pm.expect([200]).to.include(pm.response.code);",
+                  "});",
+                  "pm.test(\"Response time is within the QA limit\", function () {",
+                  "  const limit = Number(pm.environment.get(\"response_time_limit_ms\") || pm.collectionVariables.get(\"response_time_limit_ms\") || 10000);",
+                  "  pm.expect(pm.response.responseTime).to.be.below(limit);",
+                  "});",
+                  "pm.test(\"Response is JSON\", function () {",
+                  "  pm.expect(pm.response.headers.get(\"Content-Type\") || \"\").to.include(\"application/json\");",
+                  "  pm.expect(function () { pm.response.json(); }).not.to.throw();",
+                  "});",
+                  "var createdPayload = pm.response.json();",
+                  "var createdEntityId = createdPayload.id ?? createdPayload.data?.id;",
+                  "pm.test(\"Goal ID was returned\", function () {",
+                  "  pm.expect(createdEntityId).to.exist;",
+                  "});",
+                  "pm.collectionVariables.set(\"goal_id\", String(createdEntityId));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Contribute to QA Goal",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{user_jwt}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": "{{base_url}}/api/finance/goals/{{goal_id}}/contribute",
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"amount\": 2500\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Expected status code\", function () {",
+                  "  pm.expect([200]).to.include(pm.response.code);",
+                  "});",
+                  "pm.test(\"Response time is within the QA limit\", function () {",
+                  "  const limit = Number(pm.environment.get(\"response_time_limit_ms\") || pm.collectionVariables.get(\"response_time_limit_ms\") || 10000);",
+                  "  pm.expect(pm.response.responseTime).to.be.below(limit);",
+                  "});",
+                  "pm.test(\"Response is JSON\", function () {",
+                  "  pm.expect(pm.response.headers.get(\"Content-Type\") || \"\").to.include(\"application/json\");",
+                  "  pm.expect(function () { pm.response.json(); }).not.to.throw();",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "List Goals",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{user_jwt}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": "{{base_url}}/api/finance/goals",
+            "description": ""
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Expected status code\", function () {",
+                  "  pm.expect([200]).to.include(pm.response.code);",
+                  "});",
+                  "pm.test(\"Response time is within the QA limit\", function () {",
+                  "  const limit = Number(pm.environment.get(\"response_time_limit_ms\") || pm.collectionVariables.get(\"response_time_limit_ms\") || 10000);",
+                  "  pm.expect(pm.response.responseTime).to.be.below(limit);",
+                  "});",
+                  "pm.test(\"Response is JSON\", function () {",
+                  "  pm.expect(pm.response.headers.get(\"Content-Type\") || \"\").to.include(\"application/json\");",
+                  "  pm.expect(function () { pm.response.json(); }).not.to.throw();",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Delete QA Goal",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{user_jwt}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": "{{base_url}}/api/finance/goals/{{goal_id}}",
+            "description": ""
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Expected status code\", function () {",
+                  "  pm.expect([200]).to.include(pm.response.code);",
+                  "});",
+                  "pm.test(\"Response time is within the QA limit\", function () {",
+                  "  const limit = Number(pm.environment.get(\"response_time_limit_ms\") || pm.collectionVariables.get(\"response_time_limit_ms\") || 10000);",
+                  "  pm.expect(pm.response.responseTime).to.be.below(limit);",
+                  "});",
+                  "pm.test(\"Response is JSON\", function () {",
+                  "  pm.expect(pm.response.headers.get(\"Content-Type\") || \"\").to.include(\"application/json\");",
+                  "  pm.expect(function () { pm.response.json(); }).not.to.throw();",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create QA Budget",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{user_jwt}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": "{{base_url}}/api/finance/budgets",
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"category\": \"Other\",\n  \"limit_amount\": 25000,\n  \"period\": \"monthly\",\n  \"tip\": \"Postman QA budget\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Expected status code\", function () {",
+                  "  pm.expect([200]).to.include(pm.response.code);",
+                  "});",
+                  "pm.test(\"Response time is within the QA limit\", function () {",
+                  "  const limit = Number(pm.environment.get(\"response_time_limit_ms\") || pm.collectionVariables.get(\"response_time_limit_ms\") || 10000);",
+                  "  pm.expect(pm.response.responseTime).to.be.below(limit);",
+                  "});",
+                  "pm.test(\"Response is JSON\", function () {",
+                  "  pm.expect(pm.response.headers.get(\"Content-Type\") || \"\").to.include(\"application/json\");",
+                  "  pm.expect(function () { pm.response.json(); }).not.to.throw();",
+                  "});",
+                  "var createdPayload = pm.response.json();",
+                  "var createdEntityId = createdPayload.id ?? createdPayload.data?.id;",
+                  "pm.test(\"Budget ID was returned\", function () {",
+                  "  pm.expect(createdEntityId).to.exist;",
+                  "});",
+                  "pm.collectionVariables.set(\"budget_id\", String(createdEntityId));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Update QA Budget",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{user_jwt}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": "{{base_url}}/api/finance/budgets/{{budget_id}}",
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"limit_amount\": 30000,\n  \"tip\": \"Updated by Postman QA\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Expected status code\", function () {",
+                  "  pm.expect([200]).to.include(pm.response.code);",
+                  "});",
+                  "pm.test(\"Response time is within the QA limit\", function () {",
+                  "  const limit = Number(pm.environment.get(\"response_time_limit_ms\") || pm.collectionVariables.get(\"response_time_limit_ms\") || 10000);",
+                  "  pm.expect(pm.response.responseTime).to.be.below(limit);",
+                  "});",
+                  "pm.test(\"Response is JSON\", function () {",
+                  "  pm.expect(pm.response.headers.get(\"Content-Type\") || \"\").to.include(\"application/json\");",
+                  "  pm.expect(function () { pm.response.json(); }).not.to.throw();",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "List Budgets",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{user_jwt}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": "{{base_url}}/api/finance/budgets",
+            "description": ""
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Expected status code\", function () {",
+                  "  pm.expect([200]).to.include(pm.response.code);",
+                  "});",
+                  "pm.test(\"Response time is within the QA limit\", function () {",
+                  "  const limit = Number(pm.environment.get(\"response_time_limit_ms\") || pm.collectionVariables.get(\"response_time_limit_ms\") || 10000);",
+                  "  pm.expect(pm.response.responseTime).to.be.below(limit);",
+                  "});",
+                  "pm.test(\"Response is JSON\", function () {",
+                  "  pm.expect(pm.response.headers.get(\"Content-Type\") || \"\").to.include(\"application/json\");",
+                  "  pm.expect(function () { pm.response.json(); }).not.to.throw();",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Delete QA Budget",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{user_jwt}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": "{{base_url}}/api/finance/budgets/{{budget_id}}",
+            "description": ""
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Expected status code\", function () {",
+                  "  pm.expect([200]).to.include(pm.response.code);",
+                  "});",
+                  "pm.test(\"Response time is within the QA limit\", function () {",
+                  "  const limit = Number(pm.environment.get(\"response_time_limit_ms\") || pm.collectionVariables.get(\"response_time_limit_ms\") || 10000);",
+                  "  pm.expect(pm.response.responseTime).to.be.below(limit);",
+                  "});",
+                  "pm.test(\"Response is JSON\", function () {",
+                  "  pm.expect(pm.response.headers.get(\"Content-Type\") || \"\").to.include(\"application/json\");",
+                  "  pm.expect(function () { pm.response.json(); }).not.to.throw();",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create QA Bill",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{user_jwt}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": "{{base_url}}/api/finance/bills",
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Postman Bill {{run_id}}\",\n  \"amount\": 4500,\n  \"due_date\": \"{{due_date}}\",\n  \"status\": \"UPCOMING\",\n  \"recurring\": false\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Expected status code\", function () {",
+                  "  pm.expect([200]).to.include(pm.response.code);",
+                  "});",
+                  "pm.test(\"Response time is within the QA limit\", function () {",
+                  "  const limit = Number(pm.environment.get(\"response_time_limit_ms\") || pm.collectionVariables.get(\"response_time_limit_ms\") || 10000);",
+                  "  pm.expect(pm.response.responseTime).to.be.below(limit);",
+                  "});",
+                  "pm.test(\"Response is JSON\", function () {",
+                  "  pm.expect(pm.response.headers.get(\"Content-Type\") || \"\").to.include(\"application/json\");",
+                  "  pm.expect(function () { pm.response.json(); }).not.to.throw();",
+                  "});",
+                  "var createdPayload = pm.response.json();",
+                  "var createdEntityId = createdPayload.id ?? createdPayload.data?.id;",
+                  "pm.test(\"Bill ID was returned\", function () {",
+                  "  pm.expect(createdEntityId).to.exist;",
+                  "});",
+                  "pm.collectionVariables.set(\"bill_id\", String(createdEntityId));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Update QA Bill",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{user_jwt}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": "{{base_url}}/api/finance/bills/{{bill_id}}",
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"amount\": 4750\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Expected status code\", function () {",
+                  "  pm.expect([200]).to.include(pm.response.code);",
+                  "});",
+                  "pm.test(\"Response time is within the QA limit\", function () {",
+                  "  const limit = Number(pm.environment.get(\"response_time_limit_ms\") || pm.collectionVariables.get(\"response_time_limit_ms\") || 10000);",
+                  "  pm.expect(pm.response.responseTime).to.be.below(limit);",
+                  "});",
+                  "pm.test(\"Response is JSON\", function () {",
+                  "  pm.expect(pm.response.headers.get(\"Content-Type\") || \"\").to.include(\"application/json\");",
+                  "  pm.expect(function () { pm.response.json(); }).not.to.throw();",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Mark QA Bill Paid",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{user_jwt}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": "{{base_url}}/api/finance/bills/{{bill_id}}/paid",
+            "description": ""
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Expected status code\", function () {",
+                  "  pm.expect([200]).to.include(pm.response.code);",
+                  "});",
+                  "pm.test(\"Response time is within the QA limit\", function () {",
+                  "  const limit = Number(pm.environment.get(\"response_time_limit_ms\") || pm.collectionVariables.get(\"response_time_limit_ms\") || 10000);",
+                  "  pm.expect(pm.response.responseTime).to.be.below(limit);",
+                  "});",
+                  "pm.test(\"Response is JSON\", function () {",
+                  "  pm.expect(pm.response.headers.get(\"Content-Type\") || \"\").to.include(\"application/json\");",
+                  "  pm.expect(function () { pm.response.json(); }).not.to.throw();",
+                  "});",
+                  "const bill = pm.response.json();",
+                  "pm.test(\"Bill is marked paid\", function () {",
+                  "  pm.expect(String(bill.status).toUpperCase()).to.eql(\"PAID\");",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "List Bills",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{user_jwt}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": "{{base_url}}/api/finance/bills",
+            "description": ""
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Expected status code\", function () {",
+                  "  pm.expect([200]).to.include(pm.response.code);",
+                  "});",
+                  "pm.test(\"Response time is within the QA limit\", function () {",
+                  "  const limit = Number(pm.environment.get(\"response_time_limit_ms\") || pm.collectionVariables.get(\"response_time_limit_ms\") || 10000);",
+                  "  pm.expect(pm.response.responseTime).to.be.below(limit);",
+                  "});",
+                  "pm.test(\"Response is JSON\", function () {",
+                  "  pm.expect(pm.response.headers.get(\"Content-Type\") || \"\").to.include(\"application/json\");",
+                  "  pm.expect(function () { pm.response.json(); }).not.to.throw();",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Delete QA Bill",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{user_jwt}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": "{{base_url}}/api/finance/bills/{{bill_id}}",
+            "description": ""
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Expected status code\", function () {",
+                  "  pm.expect([200]).to.include(pm.response.code);",
+                  "});",
+                  "pm.test(\"Response time is within the QA limit\", function () {",
+                  "  const limit = Number(pm.environment.get(\"response_time_limit_ms\") || pm.collectionVariables.get(\"response_time_limit_ms\") || 10000);",
+                  "  pm.expect(pm.response.responseTime).to.be.below(limit);",
+                  "});",
+                  "pm.test(\"Response is JSON\", function () {",
+                  "  pm.expect(pm.response.headers.get(\"Content-Type\") || \"\").to.include(\"application/json\");",
+                  "  pm.expect(function () { pm.response.json(); }).not.to.throw();",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ],
+      "description": "Creates and cleans up one goal, budget, and bill. Demo accounts must have room under their plan limits."
+    },
+    {
+      "name": "06 - Alerts and Notifications",
+      "item": [
+        {
+          "name": "Create QA App Alert",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{user_jwt}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": "{{base_url}}/api/alerts",
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"type\": \"bill\",\n  \"title\": \"Postman QA {{run_id}}\",\n  \"meta\": {\"source\": \"postman\"},\n  \"enabled\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Expected status code\", function () {",
+                  "  pm.expect([200]).to.include(pm.response.code);",
+                  "});",
+                  "pm.test(\"Response time is within the QA limit\", function () {",
+                  "  const limit = Number(pm.environment.get(\"response_time_limit_ms\") || pm.collectionVariables.get(\"response_time_limit_ms\") || 10000);",
+                  "  pm.expect(pm.response.responseTime).to.be.below(limit);",
+                  "});",
+                  "pm.test(\"Response is JSON\", function () {",
+                  "  pm.expect(pm.response.headers.get(\"Content-Type\") || \"\").to.include(\"application/json\");",
+                  "  pm.expect(function () { pm.response.json(); }).not.to.throw();",
+                  "});",
+                  "var createdPayload = pm.response.json();",
+                  "var createdEntityId = createdPayload.id ?? createdPayload.data?.id;",
+                  "pm.test(\"Alert ID was returned\", function () {",
+                  "  pm.expect(createdEntityId).to.exist;",
+                  "});",
+                  "pm.collectionVariables.set(\"alert_id\", String(createdEntityId));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Disable QA App Alert",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{user_jwt}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": "{{base_url}}/api/alerts/{{alert_id}}",
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"enabled\": false\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Expected status code\", function () {",
+                  "  pm.expect([200]).to.include(pm.response.code);",
+                  "});",
+                  "pm.test(\"Response time is within the QA limit\", function () {",
+                  "  const limit = Number(pm.environment.get(\"response_time_limit_ms\") || pm.collectionVariables.get(\"response_time_limit_ms\") || 10000);",
+                  "  pm.expect(pm.response.responseTime).to.be.below(limit);",
+                  "});",
+                  "pm.test(\"Response is JSON\", function () {",
+                  "  pm.expect(pm.response.headers.get(\"Content-Type\") || \"\").to.include(\"application/json\");",
+                  "  pm.expect(function () { pm.response.json(); }).not.to.throw();",
+                  "});",
+                  "const alert = pm.response.json();",
+                  "pm.test(\"Alert was disabled\", function () { pm.expect(alert.enabled).to.eql(false); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "List Alerts",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{user_jwt}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": "{{base_url}}/api/alerts",
+            "description": ""
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Expected status code\", function () {",
+                  "  pm.expect([200]).to.include(pm.response.code);",
+                  "});",
+                  "pm.test(\"Response time is within the QA limit\", function () {",
+                  "  const limit = Number(pm.environment.get(\"response_time_limit_ms\") || pm.collectionVariables.get(\"response_time_limit_ms\") || 10000);",
+                  "  pm.expect(pm.response.responseTime).to.be.below(limit);",
+                  "});",
+                  "pm.test(\"Response is JSON\", function () {",
+                  "  pm.expect(pm.response.headers.get(\"Content-Type\") || \"\").to.include(\"application/json\");",
+                  "  pm.expect(function () { pm.response.json(); }).not.to.throw();",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Delete QA App Alert",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{user_jwt}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": "{{base_url}}/api/alerts/{{alert_id}}",
+            "description": ""
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Expected status code\", function () {",
+                  "  pm.expect([200]).to.include(pm.response.code);",
+                  "});",
+                  "pm.test(\"Response time is within the QA limit\", function () {",
+                  "  const limit = Number(pm.environment.get(\"response_time_limit_ms\") || pm.collectionVariables.get(\"response_time_limit_ms\") || 10000);",
+                  "  pm.expect(pm.response.responseTime).to.be.below(limit);",
+                  "});",
+                  "pm.test(\"Response is JSON\", function () {",
+                  "  pm.expect(pm.response.headers.get(\"Content-Type\") || \"\").to.include(\"application/json\");",
+                  "  pm.expect(function () { pm.response.json(); }).not.to.throw();",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create QA Price Alert",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{user_jwt}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": "{{base_url}}/api/alerts/price",
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"symbol\": \"{{symbol}}\",\n  \"condition\": \"above\",\n  \"price\": 999999,\n  \"one_time\": true,\n  \"notify_push\": false,\n  \"notify_email\": false,\n  \"notes\": \"Postman QA {{run_id}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Expected status code\", function () {",
+                  "  pm.expect([200]).to.include(pm.response.code);",
+                  "});",
+                  "pm.test(\"Response time is within the QA limit\", function () {",
+                  "  const limit = Number(pm.environment.get(\"response_time_limit_ms\") || pm.collectionVariables.get(\"response_time_limit_ms\") || 10000);",
+                  "  pm.expect(pm.response.responseTime).to.be.below(limit);",
+                  "});",
+                  "pm.test(\"Response is JSON\", function () {",
+                  "  pm.expect(pm.response.headers.get(\"Content-Type\") || \"\").to.include(\"application/json\");",
+                  "  pm.expect(function () { pm.response.json(); }).not.to.throw();",
+                  "});",
+                  "var createdPayload = pm.response.json();",
+                  "var createdEntityId = createdPayload.id ?? createdPayload.data?.id;",
+                  "pm.test(\"Price alert ID was returned\", function () {",
+                  "  pm.expect(createdEntityId).to.exist;",
+                  "});",
+                  "pm.collectionVariables.set(\"price_alert_id\", String(createdEntityId));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "List Price Alerts",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{user_jwt}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": "{{base_url}}/api/alerts/price",
+            "description": ""
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Expected status code\", function () {",
+                  "  pm.expect([200]).to.include(pm.response.code);",
+                  "});",
+                  "pm.test(\"Response time is within the QA limit\", function () {",
+                  "  const limit = Number(pm.environment.get(\"response_time_limit_ms\") || pm.collectionVariables.get(\"response_time_limit_ms\") || 10000);",
+                  "  pm.expect(pm.response.responseTime).to.be.below(limit);",
+                  "});",
+                  "pm.test(\"Response is JSON\", function () {",
+                  "  pm.expect(pm.response.headers.get(\"Content-Type\") || \"\").to.include(\"application/json\");",
+                  "  pm.expect(function () { pm.response.json(); }).not.to.throw();",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Delete QA Price Alert",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{user_jwt}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": "{{base_url}}/api/alerts/price/{{price_alert_id}}",
+            "description": ""
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Expected status code\", function () {",
+                  "  pm.expect([200]).to.include(pm.response.code);",
+                  "});",
+                  "pm.test(\"Response time is within the QA limit\", function () {",
+                  "  const limit = Number(pm.environment.get(\"response_time_limit_ms\") || pm.collectionVariables.get(\"response_time_limit_ms\") || 10000);",
+                  "  pm.expect(pm.response.responseTime).to.be.below(limit);",
+                  "});",
+                  "pm.test(\"Response is JSON\", function () {",
+                  "  pm.expect(pm.response.headers.get(\"Content-Type\") || \"\").to.include(\"application/json\");",
+                  "  pm.expect(function () { pm.response.json(); }).not.to.throw();",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Notification Preferences",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{user_jwt}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": "{{base_url}}/api/notifications/preferences",
+            "description": ""
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Expected status code\", function () {",
+                  "  pm.expect([200]).to.include(pm.response.code);",
+                  "});",
+                  "pm.test(\"Response time is within the QA limit\", function () {",
+                  "  const limit = Number(pm.environment.get(\"response_time_limit_ms\") || pm.collectionVariables.get(\"response_time_limit_ms\") || 10000);",
+                  "  pm.expect(pm.response.responseTime).to.be.below(limit);",
+                  "});",
+                  "pm.test(\"Response is JSON\", function () {",
+                  "  pm.expect(pm.response.headers.get(\"Content-Type\") || \"\").to.include(\"application/json\");",
+                  "  pm.expect(function () { pm.response.json(); }).not.to.throw();",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Notification Feed",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{user_jwt}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": "{{base_url}}/api/notifications/list?limit=20",
+            "description": ""
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Expected status code\", function () {",
+                  "  pm.expect([200]).to.include(pm.response.code);",
+                  "});",
+                  "pm.test(\"Response time is within the QA limit\", function () {",
+                  "  const limit = Number(pm.environment.get(\"response_time_limit_ms\") || pm.collectionVariables.get(\"response_time_limit_ms\") || 10000);",
+                  "  pm.expect(pm.response.responseTime).to.be.below(limit);",
+                  "});",
+                  "pm.test(\"Response is JSON\", function () {",
+                  "  pm.expect(pm.response.headers.get(\"Content-Type\") || \"\").to.include(\"application/json\");",
+                  "  pm.expect(function () { pm.response.json(); }).not.to.throw();",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ],
+      "description": "Covers alert CRUD without triggering evaluation or changing notification preferences."
+    },
+    {
+      "name": "07 - Negative and Authorization Tests",
+      "item": [
+        {
+          "name": "Reject Missing User Token",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "noauth"
+            },
+            "url": "{{base_url}}/api/portfolio/list",
+            "description": ""
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Expected status code\", function () {",
+                  "  pm.expect([401]).to.include(pm.response.code);",
+                  "});",
+                  "pm.test(\"Response time is within the QA limit\", function () {",
+                  "  const limit = Number(pm.environment.get(\"response_time_limit_ms\") || pm.collectionVariables.get(\"response_time_limit_ms\") || 10000);",
+                  "  pm.expect(pm.response.responseTime).to.be.below(limit);",
+                  "});",
+                  "pm.test(\"Response is JSON\", function () {",
+                  "  pm.expect(pm.response.headers.get(\"Content-Type\") || \"\").to.include(\"application/json\");",
+                  "  pm.expect(function () { pm.response.json(); }).not.to.throw();",
+                  "});",
+                  "const body = pm.response.json();",
+                  "pm.test(\"Error contains safe detail\", function () { pm.expect(body.detail).to.be.a(\"string\"); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Reject Invalid Transaction Amount",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{user_jwt}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": "{{base_url}}/api/finance/transactions",
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"merchant\": \"Invalid Postman QA\",\n  \"amount\": 0,\n  \"transaction_type\": \"expense\",\n  \"category\": \"Groceries\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Expected status code\", function () {",
+                  "  pm.expect([422]).to.include(pm.response.code);",
+                  "});",
+                  "pm.test(\"Response time is within the QA limit\", function () {",
+                  "  const limit = Number(pm.environment.get(\"response_time_limit_ms\") || pm.collectionVariables.get(\"response_time_limit_ms\") || 10000);",
+                  "  pm.expect(pm.response.responseTime).to.be.below(limit);",
+                  "});",
+                  "pm.test(\"Response is JSON\", function () {",
+                  "  pm.expect(pm.response.headers.get(\"Content-Type\") || \"\").to.include(\"application/json\");",
+                  "  pm.expect(function () { pm.response.json(); }).not.to.throw();",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Reject Invalid Price Alert Threshold",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{user_jwt}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": "{{base_url}}/api/alerts/price",
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"symbol\": \"HBL\",\n  \"condition\": \"volume_spike\",\n  \"price\": 1\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Expected status code\", function () {",
+                  "  pm.expect([422]).to.include(pm.response.code);",
+                  "});",
+                  "pm.test(\"Response time is within the QA limit\", function () {",
+                  "  const limit = Number(pm.environment.get(\"response_time_limit_ms\") || pm.collectionVariables.get(\"response_time_limit_ms\") || 10000);",
+                  "  pm.expect(pm.response.responseTime).to.be.below(limit);",
+                  "});",
+                  "pm.test(\"Response is JSON\", function () {",
+                  "  pm.expect(pm.response.headers.get(\"Content-Type\") || \"\").to.include(\"application/json\");",
+                  "  pm.expect(function () { pm.response.json(); }).not.to.throw();",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ],
+      "description": "Confirms authorization and schema validation fail safely without creating records."
+    },
+    {
+      "name": "90 - Optional AI and Integrations",
+      "item": [
+        {
+          "name": "AI Tutor Usage",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{user_jwt}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": "{{base_url}}/api/ai/tutor/usage",
+            "description": ""
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.collectionVariables.get(\"run_optional_requests\") !== \"true\") {",
+                  "  pm.execution.skipRequest();",
+                  "}"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Expected status code\", function () {",
+                  "  pm.expect([200]).to.include(pm.response.code);",
+                  "});",
+                  "pm.test(\"Response time is within the QA limit\", function () {",
+                  "  const limit = Number(pm.environment.get(\"response_time_limit_ms\") || pm.collectionVariables.get(\"response_time_limit_ms\") || 10000);",
+                  "  pm.expect(pm.response.responseTime).to.be.below(limit);",
+                  "});",
+                  "pm.test(\"Response is JSON\", function () {",
+                  "  pm.expect(pm.response.headers.get(\"Content-Type\") || \"\").to.include(\"application/json\");",
+                  "  pm.expect(function () { pm.response.json(); }).not.to.throw();",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Assistant Usage",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{user_jwt}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": "{{base_url}}/api/assistant/usage",
+            "description": ""
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.collectionVariables.get(\"run_optional_requests\") !== \"true\") {",
+                  "  pm.execution.skipRequest();",
+                  "}"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Expected status code\", function () {",
+                  "  pm.expect([200]).to.include(pm.response.code);",
+                  "});",
+                  "pm.test(\"Response time is within the QA limit\", function () {",
+                  "  const limit = Number(pm.environment.get(\"response_time_limit_ms\") || pm.collectionVariables.get(\"response_time_limit_ms\") || 10000);",
+                  "  pm.expect(pm.response.responseTime).to.be.below(limit);",
+                  "});",
+                  "pm.test(\"Response is JSON\", function () {",
+                  "  pm.expect(pm.response.headers.get(\"Content-Type\") || \"\").to.include(\"application/json\");",
+                  "  pm.expect(function () { pm.response.json(); }).not.to.throw();",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Market Brief Report",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{user_jwt}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": "{{base_url}}/api/ai/report/market-brief",
+            "description": ""
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.collectionVariables.get(\"run_optional_requests\") !== \"true\") {",
+                  "  pm.execution.skipRequest();",
+                  "}"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Expected status code\", function () {",
+                  "  pm.expect([200]).to.include(pm.response.code);",
+                  "});",
+                  "pm.test(\"Response time is within the QA limit\", function () {",
+                  "  const limit = Number(pm.environment.get(\"response_time_limit_ms\") || pm.collectionVariables.get(\"response_time_limit_ms\") || 10000);",
+                  "  pm.expect(pm.response.responseTime).to.be.below(limit);",
+                  "});",
+                  "pm.test(\"Response is JSON\", function () {",
+                  "  pm.expect(pm.response.headers.get(\"Content-Type\") || \"\").to.include(\"application/json\");",
+                  "  pm.expect(function () { pm.response.json(); }).not.to.throw();",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Email Integration Status",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{user_jwt}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": "{{base_url}}/api/integrations/email",
+            "description": ""
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.collectionVariables.get(\"run_optional_requests\") !== \"true\") {",
+                  "  pm.execution.skipRequest();",
+                  "}"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Expected status code\", function () {",
+                  "  pm.expect([200]).to.include(pm.response.code);",
+                  "});",
+                  "pm.test(\"Response time is within the QA limit\", function () {",
+                  "  const limit = Number(pm.environment.get(\"response_time_limit_ms\") || pm.collectionVariables.get(\"response_time_limit_ms\") || 10000);",
+                  "  pm.expect(pm.response.responseTime).to.be.below(limit);",
+                  "});",
+                  "pm.test(\"Response is JSON\", function () {",
+                  "  pm.expect(pm.response.headers.get(\"Content-Type\") || \"\").to.include(\"application/json\");",
+                  "  pm.expect(function () { pm.response.json(); }).not.to.throw();",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ],
+      "description": "Skipped by default because AI calls may consume quota and email setup requires OAuth. Set run_optional_requests=true to include them."
+    }
+  ]
+}
