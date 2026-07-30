@@ -37,7 +37,10 @@ export function Breadcrumbs() {
     <nav aria-label="Breadcrumb" className="border-b border-border px-3 py-2 sm:px-5 lg:px-6">
       <ol className="mx-auto flex max-w-7xl items-center gap-1.5 text-[12px]">
         {crumbs.map((c, i) => (
-          <li key={c.href} className="flex items-center gap-1.5">
+          // href alone is not unique: on a lesson page "Learn Hub" and the
+          // learning-path crumb both point at /learn, which made React warn
+          // about two children with the same key on every lesson load.
+          <li key={`${c.href}|${c.label}`} className="flex items-center gap-1.5">
             {i > 0 && <ChevronRight className="h-3 w-3 text-text-muted" />}
             {c.last ? (
               <span className="font-medium text-text-primary">{t(c.label)}</span>

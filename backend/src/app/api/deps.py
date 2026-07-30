@@ -1,10 +1,14 @@
 from __future__ import annotations
 
+import logging
+
 import jwt
 from fastapi import Depends, HTTPException
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
-from app.services.auth import resolve_supabase_user
+from app.services.auth import resolve_supabase_user, token_error_detail
+
+log = logging.getLogger(__name__)
 
 _bearer = HTTPBearer(auto_error=False)
 
@@ -26,7 +30,9 @@ async def require_user(
     try:
         return await resolve_supabase_user(credentials.credentials)
     except (jwt.PyJWTError, ValueError, KeyError) as e:
-        raise HTTPException(401, f"Invalid token: {e}")
+        # Fixed message: the exception text can carry implementation detail.
+        log.warning("bearer token rejected: %s", e)
+        raise HTTPException(401, token_error_detail(e))
 
 
 async def optional_user(
