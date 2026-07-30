@@ -56,10 +56,27 @@ async def estimate(
     else:
         rate = 0.0
 
+    # Nisab decides whether the user owes Zakat at all, so it must not be
+    # dictated per-request: a crafted body could set it to any value and drive
+    # the answer. The user's stored setting is authoritative whenever it exists;
+    # the request value is only a fallback for accounts that have not configured
+    # one yet.
+    stored_nisab = settings.get("nisab_value_pkr")
+    if stored_nisab and stored_nisab > 0:
+        resolved_nisab = float(stored_nisab)
+        nisab_source = settings.get("nisab_source") or "settings"
+    else:
+        resolved_nisab = nisab_value_pkr
+        nisab_source = "request"
+        log.info(
+            "zakat: user %s has no stored nisab; falling back to the request value",
+            user_id,
+        )
+
     computed = calc.zakat_estimate(
         total_assets=total_assets_pkr,
         total_deductions=total_deductions_pkr,
-        nisab_value=nisab_value_pkr,
+        nisab_value=resolved_nisab,
         rate_pct=rate,
     )
     if save and rate > 0:
@@ -67,7 +84,7 @@ async def estimate(
             user_id,
             islamic_year=islamic_year,
             method=resolved_method,
-            nisab_value_pkr=nisab_value_pkr,
+            nisab_value_pkr=resolved_nisab,
             total_assets_pkr=total_assets_pkr,
             total_deductions_pkr=total_deductions_pkr,
             rate_pct=rate,
@@ -77,6 +94,7 @@ async def estimate(
         "method": resolved_method,
         "rate_pct": rate,
         "islamic_year": islamic_year,
+        "nisab_source": nisab_source,
         **computed,
     }
 

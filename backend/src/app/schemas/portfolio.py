@@ -1,10 +1,29 @@
 """Portfolio / holdings / stock-transaction schemas."""
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import date, datetime
 from typing import Any, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
+
+
+def _validate_purchase_date(value: str | None) -> str | None:
+    """Reject impossible and future purchase dates.
+
+    A holding cannot have been bought tomorrow. Without this a mistyped year
+    (2027 for 2017) silently enters the position history and skews the
+    performance chart and cost basis. This mirrors the guard the sell path
+    already applies to `executed_at`.
+    """
+    if value is None or value == "":
+        return value
+    try:
+        parsed = date.fromisoformat(str(value)[:10])
+    except ValueError as exc:
+        raise ValueError("purchased_at must be a valid ISO date (YYYY-MM-DD)") from exc
+    if parsed > date.today():
+        raise ValueError("purchased_at cannot be in the future")
+    return value
 
 
 class PortfolioCreate(BaseModel):
@@ -19,11 +38,15 @@ class HoldingCreate(BaseModel):
     avg_cost: float = Field(..., gt=0)
     purchased_at: str | None = None
 
+    _check_purchased_at = field_validator("purchased_at")(_validate_purchase_date)
+
 
 class HoldingUpdate(BaseModel):
     shares: int | None = Field(None, gt=0)
     avg_cost: float | None = Field(None, gt=0)
     purchased_at: str | None = None
+
+    _check_purchased_at = field_validator("purchased_at")(_validate_purchase_date)
 
 
 class HoldingSell(BaseModel):

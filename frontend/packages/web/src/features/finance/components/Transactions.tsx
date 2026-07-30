@@ -451,6 +451,7 @@ export function Transactions() {
           />
           {kind === "expense" && (
             <select
+              aria-label={tr("Category")}
               value={category}
               onChange={(e) => setCategory(e.target.value)}
               className={fieldClass}
@@ -463,6 +464,7 @@ export function Transactions() {
             </select>
           )}
           <select
+            aria-label={tr("Payment method")}
             value={showNewPayment ? NEW_PAYMENT_VALUE : account}
             onChange={(e) => {
               if (e.target.value === NEW_PAYMENT_VALUE) {
