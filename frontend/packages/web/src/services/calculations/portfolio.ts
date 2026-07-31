@@ -1,12 +1,18 @@
 // Frontend mirror of backend app.services.calculations (portfolio).
 // Pure functions; no I/O.
 
-export function holdingValue(shares: number | null | undefined, latest: number | null | undefined): number {
+export function holdingValue(
+  shares: number | null | undefined,
+  latest: number | null | undefined,
+): number {
   if (shares == null || latest == null) return 0;
   return shares * latest;
 }
 
-export function costBasis(shares: number | null | undefined, avgCost: number | null | undefined): number {
+export function costBasis(
+  shares: number | null | undefined,
+  avgCost: number | null | undefined,
+): number {
   if (shares == null || avgCost == null) return 0;
   return shares * avgCost;
 }

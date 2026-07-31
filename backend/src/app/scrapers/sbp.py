@@ -85,41 +85,47 @@ class SBPScraper:
         log.warning("sbp_unreachable", urls=urls, err=str(last_exc) if last_exc else None)
         return ""
 
+    async def _try_parse(self, urls: list[str], parser, label: str) -> list[dict]:
+        """Try each URL until one PARSES, not merely until one responds.
+
+        `_try_fetch` stops at the first URL that returns a body — but SBP now
+        answers retired ecodata paths with its generic site shell (HTTP 200,
+        ~200KB of nav markup and no rate table). That body is "successful", so
+        the fallback URL was never tried and the feed silently yielded zero
+        rows. `fetch_policy_rate` was already fixed this way; KIBOR, PKRV and FX
+        were not.
+        """
+        for url in urls:
+            try:
+                html = await self._fetch(url)
+            except Exception:
+                continue
+            if not html:
+                continue
+            try:
+                rows = parser(html)
+            except Exception:
+                log.warning(f"sbp_{label}_parse_failed", url=url, exc_info=True)
+                continue
+            if rows:
+                return rows
+        log.warning(f"sbp_{label}_unparsed", urls=urls)
+        return []
+
     # ---------- KIBOR ----------
 
     async def fetch_kibor(self) -> list[dict]:
-        try:
-            html = await self._try_fetch(KIBOR_URLS)
-            if not html:
-                return []
-            return _parse_kibor_html(html)
-        except Exception:
-            log.warning("sbp_kibor_failed", exc_info=True)
-            return []
+        return await self._try_parse(KIBOR_URLS, _parse_kibor_html, "kibor")
 
     # ---------- PKRV ----------
 
     async def fetch_pkrv(self) -> list[dict]:
-        try:
-            html = await self._try_fetch(PKRV_URLS)
-            if not html:
-                return []
-            return _parse_pkrv_html(html)
-        except Exception:
-            log.warning("sbp_pkrv_failed", exc_info=True)
-            return []
+        return await self._try_parse(PKRV_URLS, _parse_pkrv_html, "pkrv")
 
     # ---------- FX ----------
 
     async def fetch_fx_rates(self) -> list[dict]:
-        try:
-            html = await self._try_fetch(FX_URLS)
-            if not html:
-                return []
-            return _parse_fx_html(html)
-        except Exception:
-            log.warning("sbp_fx_failed", exc_info=True)
-            return []
+        return await self._try_parse(FX_URLS, _parse_fx_html, "fx")
 
     # ---------- Policy rate ----------
 

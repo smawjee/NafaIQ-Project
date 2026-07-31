@@ -226,7 +226,9 @@ function Settings() {
           <h2 className="text-sm font-semibold text-text-primary">{t("Finance")}</h2>
         </div>
         <p className="mb-4 text-[13px] text-text-secondary">
-          {t("Set a fixed monthly income (e.g. your salary). It's counted as income for every month in your finance.")}
+          {t(
+            "Set a fixed monthly income (e.g. your salary). It's counted as income for every month in your finance.",
+          )}
         </p>
         {isLoggedIn ? (
           <div className="space-y-3">
@@ -242,7 +244,9 @@ function Settings() {
                 className="w-full rounded-[8px] border border-border bg-elevated px-3 py-2 text-sm text-text-primary"
               />
               <p className="mt-1 text-[11px] text-text-muted">
-                {t("A recurring salary added to your income every month. Leave 0 if your income varies.")}
+                {t(
+                  "A recurring salary added to your income every month. Leave 0 if your income varies.",
+                )}
               </p>
             </div>
             <button
@@ -350,13 +354,7 @@ function Settings() {
  * Read-only OAuth — we never see a password, and the user can revoke access
  * from their Google account at any time.
  */
-function BankEmailCard({
-  isLoggedIn,
-  t,
-}: {
-  isLoggedIn: boolean;
-  t: (s: string) => string;
-}) {
+function BankEmailCard({ isLoggedIn, t }: { isLoggedIn: boolean; t: (s: string) => string }) {
   const status = useEmailIntegration(isLoggedIn);
   const connect = useConnectGmail();
   const disconnect = useDisconnectEmail();
@@ -418,9 +416,7 @@ function BankEmailCard({
     <Card className="p-5">
       <div className="mb-4 flex items-center gap-2">
         <Inbox className="h-4 w-4 text-primary" strokeWidth={1.75} />
-        <h2 className="text-sm font-semibold text-text-primary">
-          {t("Bank email import")}
-        </h2>
+        <h2 className="text-sm font-semibold text-text-primary">{t("Bank email import")}</h2>
       </div>
       <p className="mb-4 text-[13px] text-text-secondary">
         {t(
@@ -429,9 +425,7 @@ function BankEmailCard({
       </p>
 
       {!isLoggedIn ? (
-        <p className="text-[13px] text-text-muted">
-          {t("Sign in to connect Gmail.")}
-        </p>
+        <p className="text-[13px] text-text-muted">{t("Sign in to connect Gmail.")}</p>
       ) : connected ? (
         <div className="space-y-3">
           <div className="rounded-[10px] border border-border bg-surface p-3">

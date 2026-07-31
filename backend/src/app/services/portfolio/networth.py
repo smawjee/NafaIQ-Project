@@ -2,6 +2,7 @@
 history, and performance vs KSE-100. Business logic over portfolio."""
 from __future__ import annotations
 
+import asyncio
 from datetime import datetime, timezone
 from typing import Any
 
@@ -47,10 +48,26 @@ async def networth(user_id: str) -> dict[str, Any]:
 
     Today P&L is lot-aware: shares bought today (from stock_transactions) are
     valued against their buy price, older shares against the previous close.
+
+    The two reads are independent, so they OVERLAP rather than run back to back.
+    A round trip to the Supabase pooler currently costs this service ~0.8s
+    (/api/health/db, a bare SELECT 1, measures 1.2-1.4s end to end), which made
+    the sequential version ~1.6s of pure waiting — and /api/portfolio/networth
+    is one of the two routes recording TimeoutError 500s in production, always
+    paired with /api/watchlist from the same page load. Overlapping halves the
+    wall clock for the same total connection-seconds, so it does not add pool
+    pressure. It is a mitigation, not the cure: the round trip is that slow
+    because the API and the database are in different regions.
     """
-    async with connect() as conn:
-        raw = await repo.fetch_networth_holdings(conn, user_id)
-        portfolio_count = await repo.count_user_portfolios(conn, user_id)
+    async def _holdings():
+        async with connect() as conn:
+            return await repo.fetch_networth_holdings(conn, user_id)
+
+    async def _count():
+        async with connect() as conn:
+            return await repo.count_user_portfolios(conn, user_id)
+
+    raw, portfolio_count = await asyncio.gather(_holdings(), _count())
     holdings = [
         calc.compute_holding_row(
             symbol=r["symbol"],

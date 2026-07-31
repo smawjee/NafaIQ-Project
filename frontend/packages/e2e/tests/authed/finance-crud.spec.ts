@@ -1,4 +1,4 @@
-import { expect, test } from "../fixtures";
+import { authSettled, expect, test } from "../fixtures";
 
 /**
  * J9 — the finance transaction lifecycle.
@@ -19,6 +19,9 @@ const AMOUNT = "1234";
 async function openFinance(page: import("@playwright/test").Page) {
   await page.goto("/finance");
   await expect(page).toHaveTitle(/Finance — NafaIQ/);
+  // Do not touch anything until the auth overlay clears — on the slower
+  // mobile project an early tap is swallowed by it (the KAN-6 failure mode).
+  await authSettled(page);
   // The tabs are the top-level nav within the feature; Transactions is where
   // the add affordance lives.
   const tab = page.getByRole("button", { name: /^transactions$/i }).first();

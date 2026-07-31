@@ -13,7 +13,12 @@ import { useLang } from "@/hooks/use-lang";
 import { useAuth } from "@/hooks/use-auth";
 import { useDemo } from "@/hooks/use-demo";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
-import { selectTransactions, addTransaction, editTransaction, removeTransaction } from "@/store/finance";
+import {
+  selectTransactions,
+  addTransaction,
+  editTransaction,
+  removeTransaction,
+} from "@/store/finance";
 import {
   type FinanceTransaction,
   useCreatePaymentMethod,
@@ -100,7 +105,11 @@ export function Transactions() {
     : apiTransactions;
 
   const categories = useMemo(
-    () => uniqueLabels([...(vocabulary?.categories ?? CATEGORIES), ...transactions.map((t) => t.category)]),
+    () =>
+      uniqueLabels([
+        ...(vocabulary?.categories ?? CATEGORIES),
+        ...transactions.map((t) => t.category),
+      ]),
     [transactions, vocabulary?.categories],
   );
   const expenseCategories = categories.filter((c) => c !== "Income");
@@ -154,7 +163,9 @@ export function Transactions() {
     setMerchant(txn.merchant ?? "");
     setAmount(String(Number(txn.amount) || ""));
     setKind(txn.transaction_type === "income" ? "income" : "expense");
-    setCategory(txn.transaction_type === "income" ? "Income" : txn.category || expenseCategories[0]);
+    setCategory(
+      txn.transaction_type === "income" ? "Income" : txn.category || expenseCategories[0],
+    );
     setAccount(source);
     setShowNewPayment(!paymentMethods.some((m) => m.toLowerCase() === source.toLowerCase()));
     setErr("");
@@ -440,6 +451,7 @@ export function Transactions() {
           />
           {kind === "expense" && (
             <select
+              aria-label={tr("Category")}
               value={category}
               onChange={(e) => setCategory(e.target.value)}
               className={fieldClass}
@@ -452,6 +464,7 @@ export function Transactions() {
             </select>
           )}
           <select
+            aria-label={tr("Payment method")}
             value={showNewPayment ? NEW_PAYMENT_VALUE : account}
             onChange={(e) => {
               if (e.target.value === NEW_PAYMENT_VALUE) {

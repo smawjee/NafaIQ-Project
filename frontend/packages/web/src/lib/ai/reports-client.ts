@@ -220,9 +220,7 @@ export function getDashboardRecommendation(
  * resource, not a per-user deep report.
  */
 export function getMarketBrief(lang?: string, refresh = false): Promise<ReportResponse> {
-  const path = refresh
-    ? "/api/ai/report/market-brief?refresh=true"
-    : "/api/ai/report/market-brief";
+  const path = refresh ? "/api/ai/report/market-brief?refresh=true" : "/api/ai/report/market-brief";
   return userGetReport(withLang(path, lang));
 }
 

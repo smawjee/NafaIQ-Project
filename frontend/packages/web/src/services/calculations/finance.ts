@@ -15,7 +15,10 @@ export function goalProgress(saved: number, target: number): number {
   return Math.min(100, Math.round((saved / target) * 10000) / 100);
 }
 
-export function compareToLastMonth(current: number, last: number): { absolute: number; pct: number | null } {
+export function compareToLastMonth(
+  current: number,
+  last: number,
+): { absolute: number; pct: number | null } {
   if (last === 0) return { absolute: Math.round((current - last) * 100) / 100, pct: null };
   return {
     absolute: Math.round((current - last) * 100) / 100,

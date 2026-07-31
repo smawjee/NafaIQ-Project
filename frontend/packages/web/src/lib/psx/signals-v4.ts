@@ -1,9 +1,5 @@
 export type TechnicalSetupRating =
-  | "Strong Bullish"
-  | "Bullish"
-  | "Neutral"
-  | "Bearish"
-  | "Strong Bearish";
+  "Strong Bullish" | "Bullish" | "Neutral" | "Bearish" | "Strong Bearish";
 
 export interface ApiTechnicalComponent {
   name: string;
@@ -30,7 +26,12 @@ export interface ApiForecastOutlook {
   status: "published" | "shadow" | "abstained" | "stale" | "unavailable";
   direction: "OUTPERFORM" | "UNDERPERFORM" | null;
   horizon_sessions: number;
-  event_source: { event_type?: string; title?: string; published_at?: string; source_url?: string } | null;
+  event_source: {
+    event_type?: string;
+    title?: string;
+    published_at?: string;
+    source_url?: string;
+  } | null;
   p_outperform: number | null;
   expected_excess_net: number | null;
   interval: { lower: number; upper: number } | null;

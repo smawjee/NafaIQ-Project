@@ -304,17 +304,35 @@ function RootComponent() {
   return (
     <Provider store={store}>
       <QueryClientProvider client={queryClient}>
-        {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
-        <AuthProvider>
-          <LearnProvider>
-            <LandingThemeProvider>
-              <ConfirmProvider>
-                <AuthGate />
-                <Toaster />
-              </ConfirmProvider>
-            </LandingThemeProvider>
-          </LearnProvider>
-        </AuthProvider>
+        {/*
+          reducedMotion="user" is how "prefers-reduced-motion" is honoured now.
+
+          It used to be honoured by each animation component branching on
+          `useReducedMotion()` and returning a PLAIN element instead of a motion
+          one. That is a hydration bug: the preference is a client-only media
+          query, so the server always rendered the motion element (with
+          `style="opacity:1;transform:none"`) while a reduced-motion client
+          rendered a bare div with no style. React discarded the tree and
+          re-rendered on every navigation — visible in production telemetry as
+          React #418/#423, and it broke the e2e console guard outright.
+
+          MotionConfig applies the preference inside framer-motion's ANIMATION
+          layer instead, so the rendered markup is identical server and client
+          and there is nothing to mismatch.
+        */}
+        <MotionConfig reducedMotion="user">
+          {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
+          <AuthProvider>
+            <LearnProvider>
+              <LandingThemeProvider>
+                <ConfirmProvider>
+                  <AuthGate />
+                  <Toaster />
+                </ConfirmProvider>
+              </LandingThemeProvider>
+            </LearnProvider>
+          </AuthProvider>
+        </MotionConfig>
       </QueryClientProvider>
     </Provider>
   );

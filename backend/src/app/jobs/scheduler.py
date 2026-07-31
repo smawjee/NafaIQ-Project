@@ -35,7 +35,7 @@ from app.scrapers.ahletrade import AhleTradePoller
 #   also catches sectors TV_SECTOR_MAP has no entry for and passes through raw.
 from app.scrapers.tradingview import TV_SECTOR_MAP, TradingViewScraper
 from app.scrapers.sbp import SBPScraper
-from app.scrapers.mufap import MUFAPScraper
+from app.scrapers.mufap import BotChallengeError, MUFAPScraper
 from app.scrapers.brecorder import BRecorderScraper
 from app.scrapers.pdf_fetcher import PDFFetcher
 from app.scrapers.financials_psx import FinancialsPSXScraper
@@ -52,6 +52,12 @@ from app.services.ai.providers import ProviderError
 from app.services.ai.specs import REPORT_SPECS
 
 log = structlog.get_logger()
+
+# Fraction of per-symbol failures `job_refresh_dividends` tolerates before it
+# reports the run as degraded. A 1077-symbol crawl always loses a few to
+# delisted/suspended tickers with no DPS payout page; ~66 (6%) is the observed
+# steady state, so 10% flags a real regression without crying wolf nightly.
+DIVIDENDS_MAX_FAILURE_RATIO = 0.10
 
 scheduler = AsyncIOScheduler()
 ahletrade = AhleTradePoller()
@@ -501,32 +507,82 @@ async def job_refresh_fundamentals():
         await _record_health("psx_fundamentals", success=False, error=str(e))
 
 
-async def job_refresh_index_eod():
+async def _ingest_index_eod(code: str) -> int:
+    """Fetch + upsert one index's EOD history. Returns rows written."""
+    bars = await dps.fetch_index_eod(code)
+    if not bars:
+        return 0
+    # Keyed by (code, date), not a list comprehension: DPS returns an exact
+    # duplicate bar for 2024-01-22 in 15 of the 18 indices (and 2021-10-29 for
+    # BKTI/OGTI), and Postgres rejects the whole batch with 21000 "ON CONFLICT
+    # DO UPDATE command cannot affect row a second time" when two proposed rows
+    # share the conflict target. One duplicated day cost the index its ENTIRE
+    # history: only the three duplicate-free codes ingested, while ALLSHR sat
+    # three weeks stale. Last one wins — the duplicates observed are identical
+    # bars, so which survives does not matter; failing the code does. Same bug
+    # class as job_refresh_dividends (fixed 2026-07-16).
+    rows_by_key = {
+        (b.code, b.date.isoformat()): {
+            "code": b.code,
+            "date": b.date.isoformat(),
+            "open": b.open or 0,
+            "high": b.high or 0,
+            "low": b.low or 0,
+            "close": b.close,
+            "volume": b.volume,
+        }
+        for b in bars
+    }
+    rows = list(rows_by_key.values())
+    await async_execute(
+        lambda c, r=rows: c.table("psx_index_eod").upsert(r, on_conflict="code,date")
+    )
+    return len(rows)
+
+
+async def job_refresh_index_eod(attempts: int = 3, backoff_seconds: float = 30.0):
+    """Ingest EOD bars for all 18 indices, retrying the ones that fail.
+
+    This job used to run exactly once a day at 01:00 PKT with no retry, so any
+    code that failed stayed stale for a FULL 24 hours — and if it failed again
+    the next night, indefinitely. That is how ALLSHR drifted three weeks behind
+    without anything downstream noticing.
+
+    Retrying failed codes in-run turns a transient DPS hiccup into a delay of
+    seconds instead of a day. Codes that already succeeded are never re-fetched.
+    """
     total_bars = 0
+    pending = list(ALL_PSX_INDICES)
     try:
-        log.info("job:refresh_index_eod:start")
-        for code in ALL_PSX_INDICES:
-            try:
-                bars = await dps.fetch_index_eod(code)
-                if bars:
-                    rows = [
-                        {
-                            "code": b.code,
-                            "date": b.date.isoformat(),
-                            "open": b.open or 0,
-                            "high": b.high or 0,
-                            "low": b.low or 0,
-                            "close": b.close,
-                            "volume": b.volume,
-                        }
-                        for b in bars
-                    ]
-                    await async_execute(lambda c: c.table("psx_index_eod").upsert(rows, on_conflict="code,date"))
-                    total_bars += len(bars)
-            except Exception as e:
-                log.warning("job:refresh_index_eod:failed", code=code, error=str(e))
-        log.info("job:refresh_index_eod:done", total_bars=total_bars)
-        await _record_health("index_eod", success=True, rows_updated=total_bars)
+        log.info("job:refresh_index_eod:start", indices=len(pending))
+        for attempt in range(1, attempts + 1):
+            failed: list[str] = []
+            for code in pending:
+                try:
+                    total_bars += await _ingest_index_eod(code)
+                except Exception as e:
+                    failed.append(code)
+                    log.warning(
+                        "job:refresh_index_eod:code_failed",
+                        code=code, attempt=attempt, error=str(e),
+                    )
+            pending = failed
+            if not pending or attempt == attempts:
+                break
+            log.info("job:refresh_index_eod:retrying", codes=pending, attempt=attempt)
+            await asyncio.sleep(backoff_seconds)
+
+        log.info("job:refresh_index_eod:done", total_bars=total_bars, errors=len(pending))
+        # A partial run is NOT a success. Counting only the codes that landed and
+        # always reporting green is how 15 broken indices looked identical to a
+        # clean night for weeks.
+        await _record_health(
+            "index_eod",
+            success=not pending,
+            rows_updated=total_bars,
+            error=None if not pending else
+            f"{len(pending)}/{len(ALL_PSX_INDICES)} indices failed after {attempts} attempts: {', '.join(pending)}",
+        )
     except Exception as e:
         log.exception("job:refresh_index_eod:failed")
         await _record_health("index_eod", success=False, error=str(e))
@@ -769,8 +825,17 @@ async def job_poll_inboxes():
         result = await sync_all()
         if result.get("imported") or result.get("scanned"):
             log.info("job:poll_inboxes:done", **result)
-    except Exception:
+        # allow_zero_rows: a poll that finds no new bank mail is the NORMAL
+        # outcome, not a failure.
+        await _record_health(
+            "email_import",
+            success=True,
+            rows_updated=int(result.get("imported") or 0),
+            allow_zero_rows=True,
+        )
+    except Exception as e:
         log.exception("job:poll_inboxes:failed")
+        await _record_health("email_import", success=False, error=str(e))
 
 
 async def job_keepalive():
@@ -789,9 +854,18 @@ async def job_keepalive():
 
         async with httpx.AsyncClient(timeout=10.0) as client:
             await client.get(f"{url.rstrip('/')}/api/health")
-    except Exception:
-        # A missed ping is harmless — the next tick tries again.
+        # Doubles as the WORKER'S OWN heartbeat. Every other source in
+        # psx_data_source_health reports on an upstream; this one reports that
+        # the process running all of them is still alive. Without it, a worker
+        # that dies outside market hours looks identical to a quiet market —
+        # every market-gated source simply stops updating, which is also what
+        # a healthy weekend looks like.
+        await _record_health("worker_heartbeat", success=True, allow_zero_rows=True)
+    except Exception as e:
+        # A missed ping is harmless — the next tick tries again — but it is still
+        # recorded, because a SUSTAINED gap is the signal worth having.
         log.debug("keepalive_ping_failed", exc_info=True)
+        await _record_health("worker_heartbeat", success=False, error=str(e))
 
 
 async def job_check_alerts():
@@ -807,8 +881,20 @@ async def job_check_alerts():
         result = await evaluate_all()
         if any(result.values()):
             log.info("job:check_alerts:done", **result)
-    except Exception:
+        # Alerts are a whole product pillar and were, until now, the ONLY
+        # unobserved thing in this file: every failure went to a log line that
+        # nothing reads, so a permanently-throwing evaluator would have looked
+        # exactly like a quiet market. allow_zero_rows because a tick where
+        # nothing crossed a threshold is the normal case, not a failure.
+        await _record_health(
+            "alerts_evaluator",
+            success=True,
+            rows_updated=sum(v for v in result.values() if isinstance(v, int)),
+            allow_zero_rows=True,
+        )
+    except Exception as e:
         log.exception("job:check_alerts:failed")
+        await _record_health("alerts_evaluator", success=False, error=str(e))
 
 
 def _context_hash(bundle: dict) -> str:
@@ -849,13 +935,68 @@ async def job_generate_market_brief():
             trading_date=trading_date,
             verified=gen.verification.verified,
         )
-    except (ReportUnavailable, ProviderError):
+        await _record_health("market_brief", success=True, rows_updated=1)
+    except (ReportUnavailable, ProviderError) as e:
+        # Fail-closed by design (an unverifiable brief must not ship), but it is
+        # still a day with no brief for users — record it rather than letting it
+        # vanish into a warning log.
         log.warning("job:generate_market_brief:unavailable")
-    except Exception:
+        await _record_health("market_brief", success=False, error=f"{type(e).__name__}: {e}")
+    except Exception as e:
         log.exception("job:generate_market_brief:failed")
+        await _record_health("market_brief", success=False, error=str(e))
 
 
 # ----- Workstream D: SBP / MUFAP / News / Filings / Volume spikes / Financials -----
+
+
+FX_CURRENCIES = ("USD", "EUR", "GBP")
+
+
+async def _fetch_fx_rows() -> list[dict]:
+    """FX rows for ``macro_rates``, with a fallback when SBP has none.
+
+    SBP retired the machine-readable FX page: both URLs in ``sbp.FX_URLS`` now
+    answer 200 with the ~202KB site shell (7 tables, no currency rows), so
+    ``_parse_fx_html`` has matched nothing since 2026-07-21 and `macro_rates`
+    contains no FX series AT ALL — /api/macro/fx has been returning `[]` to web
+    and mobile ever since. Their EasyData portal does expose an API but it is
+    credentialed (401), so it cannot be wired up unopposed here.
+
+    So: still try SBP first — if they restore the page this silently goes back
+    to the authoritative source — and otherwise derive from the SAME provider
+    chain that already backs /api/macro/monetary (ExchangeRate.fun → Fawaz →
+    MoneyConvert, refreshed every 10 minutes and green throughout). That data
+    is already fetched, already fallback-protected, and already trusted enough
+    to render on the monetary page.
+
+    Caveat, deliberately not papered over: these are MID-MARKET reference rates.
+    They carry no bid/ask, so BUY and SELL are written as the same number rather
+    than inventing a spread. A caller that needs a genuine interbank spread
+    needs SBP EasyData credentials.
+    """
+    rows = await sbp.fetch_fx_rates()
+    if rows:
+        return rows
+
+    from app.services.macro.monetary import get_monetary_snapshot
+
+    snapshot = await get_monetary_snapshot()
+    as_of = datetime.now(PTK_TZ).date().isoformat()
+    out: list[dict] = []
+    for entry in snapshot.get("currencies") or []:
+        code = entry.get("code")
+        if code not in FX_CURRENCIES:
+            continue
+        pkr = entry.get("one_unit_in_pkr")
+        if not pkr:
+            continue
+        value = round(float(pkr), 4)
+        out.append({"series": f"FX_{code}_BUY", "date": as_of, "value": value})
+        out.append({"series": f"FX_{code}_SELL", "date": as_of, "value": value})
+    if out:
+        log.info("job:refresh_sbp:fx_from_fallback", currencies=len(out) // 2)
+    return out
 
 
 async def job_refresh_sbp():
@@ -870,7 +1011,7 @@ async def job_refresh_sbp():
         for name, rows in (
             ("kibor", await sbp.fetch_kibor()),
             ("pkrv", await sbp.fetch_pkrv()),
-            ("fx", await sbp.fetch_fx_rates()),
+            ("fx", await _fetch_fx_rows()),
         ):
             counts[name] = len(rows)
             if rows:
@@ -896,15 +1037,26 @@ async def job_refresh_sbp():
         log.info("job:refresh_sbp:done", rows=total, **counts)
         if empty:
             log.warning("job:refresh_sbp:empty_feeds", feeds=empty)
-        await _record_health(
-            "sbp_macro",
-            success=not empty,
-            rows_updated=total,
-            error=None if not empty else f"no rows from: {', '.join(empty)}",
-        )
+        # One health row PER FEED, not one for the job.
+        #
+        # These four feeds fail independently — they are different SBP pages with
+        # different parsers. Collapsing them into a single `sbp_macro` boolean
+        # meant the dead `fx` feed (SBP moved FX rates behind client-side
+        # rendering, so the parser has matched nothing since 2026-07-21) marked
+        # the whole source red, hiding that KIBOR, PKRV and the policy rate were
+        # landing correctly the entire time. Red-for-everything is the same
+        # amount of information as green-for-everything: none.
+        for feed, rows_written in counts.items():
+            await _record_health(
+                f"sbp_{feed}",
+                success=rows_written > 0,
+                rows_updated=rows_written,
+                error=None if rows_written else "no rows parsed — upstream page format likely changed",
+            )
     except Exception as e:
         log.exception("job:refresh_sbp:failed")
-        await _record_health("sbp_macro", success=False, error=str(e))
+        for feed in ("kibor", "pkrv", "fx", "policy_rate"):
+            await _record_health(f"sbp_{feed}", success=False, error=str(e))
 
 
 async def job_refresh_monetary_rates():
@@ -943,6 +1095,14 @@ async def job_refresh_mufap():
             # (scripts/import_mufap_csv.py -> POST /api/funds/import).
         log.info("job:refresh_mufap:done", funds=len(funds))
         await _record_health("mufap_nav", success=True, rows_updated=len(funds))
+    except BotChallengeError as e:
+        # A known, understood blocker — not a crash. MUFAP put Cloudflare bot
+        # protection in front of every page, so there is nothing to retry and a
+        # stack trace every evening is noise. The health row carries the
+        # remediation (CSV import) instead of "page format changed", which is
+        # what it said for the eight days nobody noticed.
+        log.warning("job:refresh_mufap:blocked", error=str(e))
+        await _record_health("mufap_nav", success=False, error=str(e))
     except Exception as e:
         log.exception("job:refresh_mufap:failed")
         await _record_health("mufap_nav", success=False, error=str(e))
@@ -1141,6 +1301,7 @@ async def job_refresh_dividends():
             return
 
         counters = {"total": 0, "errors": 0}
+        failed: list[str] = []
 
         async def _per_symbol(sym: str) -> None:
             try:
@@ -1174,21 +1335,58 @@ async def job_refresh_dividends():
             except asyncio.CancelledError:
                 raise
             except Exception as e:
-                counters["errors"] += 1
+                failed.append(sym)
                 log.warning("job:refresh_dividends:symbol_failed", symbol=sym, error=str(e))
 
         await _run_concurrently(symbols, _per_symbol, max_concurrent=3)
 
+        # Retry the stragglers. A calm re-probe of failing symbols returns clean
+        # data, so the ~66/1077 failures seen nightly are transient timeouts from
+        # the concurrent crawl, not broken symbols — and without a retry they
+        # silently skipped a day's payouts and turned the whole run red.
+        for attempt in range(1, 3):
+            if not failed:
+                break
+            retry_syms, failed = failed, []
+            log.info("job:refresh_dividends:retrying", count=len(retry_syms), attempt=attempt)
+            await asyncio.sleep(5)
+            await _run_concurrently(retry_syms, _per_symbol, max_concurrent=2)
+
+        counters["errors"] = len(failed)
         log.info(
             "job:refresh_dividends:done",
             total=counters["total"],
             errors=counters["errors"],
+            # The failing symbols themselves, not just a count. The nightly
+            # failure count sat at exactly 66/1077 both before AND after the
+            # retry loop was added — identical, which is not what transient
+            # timeouts look like. These are almost certainly symbols with no DPS
+            # payout page (delisted / suspended / never paid a dividend), and
+            # without the names nobody could ever confirm that.
+            failed_symbols=sorted(failed)[:40],
         )
+        # Ratio, not zero-tolerance. Demanding 0/1077 failures over a 1077-symbol
+        # crawl meant one dead symbol turned a fully successful run red — and
+        # because a red run never advances last_success, `refresh_dividends`
+        # showed "8 days stale" on the health dashboard while it was in fact
+        # writing 421 rows every single night. A monitor that cries wolf nightly
+        # is a monitor nobody reads.
+        failure_ratio = counters["errors"] / len(symbols) if symbols else 1.0
+        degraded = failure_ratio > DIVIDENDS_MAX_FAILURE_RATIO
         await _record_health(
             "refresh_dividends",
-            success=counters["errors"] == 0,
+            success=not degraded,
             rows_updated=counters["total"],
-            error=None if counters["errors"] == 0 else f"{counters['errors']}/{len(symbols)} symbols failed",
+            error=(
+                None
+                if not degraded
+                else f"{counters['errors']}/{len(symbols)} symbols failed "
+                     f"({failure_ratio:.1%} > {DIVIDENDS_MAX_FAILURE_RATIO:.0%} tolerance)"
+            ),
+            # NOT allow_zero_rows: fetch_payouts returns each symbol's whole
+            # payout history, not a delta, so a healthy run always re-upserts
+            # hundreds of rows. Zero rows here means total upstream breakage,
+            # which is exactly what the zero-rows guard exists to catch.
         )
     except asyncio.CancelledError:
         raise
@@ -1217,6 +1415,11 @@ def init_scheduler():
     # is the only writer of psx_profile.listed_shares (the treemap's real
     # market-cap source), so its schedule is load-bearing.
     scheduler.add_job(job_refresh_fundamentals, CronTrigger(day_of_week="sat", hour=4, minute=0, timezone="Asia/Karachi"), id="refresh_fundamentals", replace_existing=True)
+    # EOD bars twice a day, not once. DPS publishes the day's close shortly after
+    # the 15:30 PKT session ends, so the 18:00 run puts it in the table the same
+    # evening instead of ~7 hours later. The 01:00 run stays as the safety net
+    # that also catches a late DPS publish. Both are idempotent upserts.
+    scheduler.add_job(job_refresh_index_eod, CronTrigger(day_of_week="mon-fri", hour=18, minute=0, timezone="Asia/Karachi"), id="refresh_index_eod_postclose", replace_existing=True)
     scheduler.add_job(job_refresh_index_eod, CronTrigger(hour=1, minute=0, timezone="Asia/Karachi"), id="refresh_index_eod", replace_existing=True)
     # Live index snapshot: every 5 min during market hours (Mon-Fri 09:00-17:00 PKT).
     # Runs during market hours + buffer so the last snapshot before EOD is captured.

@@ -36,7 +36,8 @@ export function useIncomeExpenseSeries(months: number = 6, enabled: boolean = tr
 export function useSpendingByCategory(days: number = 30, enabled: boolean = true) {
   return useQuery<SpendingByCategoryResponse>({
     queryKey: ["finance", "spending-by-category", days],
-    queryFn: () => userGet<SpendingByCategoryResponse>(`/api/finance/spending-by-category?days=${days}`),
+    queryFn: () =>
+      userGet<SpendingByCategoryResponse>(`/api/finance/spending-by-category?days=${days}`),
     enabled,
     staleTime: 60_000,
   });

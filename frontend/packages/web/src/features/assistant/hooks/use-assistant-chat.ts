@@ -16,11 +16,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import { toast } from "sonner";
 import { useLang } from "@/hooks/use-lang";
-import {
-  type ActionDraft,
-  executeDraft,
-  streamAssistant,
-} from "@/lib/assistant/client";
+import { type ActionDraft, executeDraft, streamAssistant } from "@/lib/assistant/client";
 
 export interface AssistantMsg {
   role: "user" | "assistant";
@@ -31,6 +27,21 @@ export function draftStatusText(draft: ActionDraft, t: (value: string) => string
   if (draft.missing.length > 0) return t("Please fill the highlighted details.");
   if (draft.tier === "confirm") return t("Please review this before I save it.");
   return t("Working on that now.");
+}
+
+/** History as sent to POST /api/assistant/chat.
+ *
+ * Drops the leading UI greeting and any empty bubbles, then keeps the last 12
+ * turns. The empty filter is load-bearing: a turn that streamed no tokens
+ * (nav-only answers) used to leave an empty assistant message in state, and
+ * re-sending it tripped the API's min_length=1 validation — every message
+ * after that got HTTP 422 for the rest of the conversation.
+ */
+export function buildOutgoingMessages(history: AssistantMsg[]): AssistantMsg[] {
+  return history
+    .filter((m, i) => !(i === 0 && m.role === "assistant"))
+    .filter((m) => m.content.trim().length > 0)
+    .slice(-12);
 }
 
 export function useAssistantChat(greeting: string) {
@@ -153,8 +164,7 @@ export function useAssistantChat(greeting: string) {
       void streamAssistant(
         {
           lang,
-          // Drop the leading UI greeting; send the last 12 real turns.
-          messages: history.filter((m, i) => !(i === 0 && m.role === "assistant")).slice(-12),
+          messages: buildOutgoingMessages(history),
           conversation_id: conversationIdRef.current,
         },
         {
@@ -170,8 +180,17 @@ export function useAssistantChat(greeting: string) {
               setPending(draft);
             }
           },
-          onNav: (to) => void navigate({ to }),
-          onDone: () => setLoading(false),
+          onNav: (to) => {
+            // A nav-only answer carries no tokens; give the bubble a body so
+            // the turn doesn't read as ignored (and never persists as "").
+            replaceLastIfEmpty(t("Taking you there now."));
+            void navigate({ to });
+          },
+          // Same guard on done: never leave an empty assistant bubble behind.
+          onDone: () => {
+            replaceLastIfEmpty(t("Done. Anything else I can help with?"));
+            setLoading(false);
+          },
           onError: (code, message) => {
             // "busy" is deliberately NOT treated as quota: the user's own
             // allowance is untouched, so the composer must stay enabled and

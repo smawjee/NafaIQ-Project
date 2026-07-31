@@ -38,6 +38,32 @@ HISTORY_URLS = [
 ]
 
 
+class BotChallengeError(RuntimeError):
+    """mufap.com.pk answered with a bot-protection interstitial, not content.
+
+    Raised so the caller can report "we are being blocked" rather than the
+    generic "0 rows / page format changed", which is what the health dashboard
+    said for the eight days this went unnoticed. Those are different problems
+    with different fixes and must not look the same.
+    """
+
+
+# Markers of a Cloudflare managed-challenge page. It answers 403 with a real
+# HTML body, so "we got bytes back" is not evidence that we got data.
+_CHALLENGE_MARKERS = (
+    "just a moment",
+    "challenges.cloudflare.com",
+    "cf-browser-verification",
+    "cf_chl_opt",
+    "enable javascript and cookies to continue",
+)
+
+
+def _is_bot_challenge(html: str) -> bool:
+    head = html[:4000].lower()
+    return any(marker in head for marker in _CHALLENGE_MARKERS)
+
+
 class MUFAPScraper:
     """Scrapes mufap.com.pk for mutual fund NAVs and history."""
 
@@ -50,24 +76,67 @@ class MUFAPScraper:
         await self._http.aclose()
 
     async def _try_fetch(self, urls: list[str]) -> str:
+        """First URL that yields a body, else "" — unless we are being blocked.
+
+        The bot check has to happen HERE, not at the parse site: the challenge
+        arrives as HTTP 403, `ResilientHTTP.raise_for_status()` turns that into
+        an `HTTPStatusError`, and the interstitial body would otherwise be
+        discarded with it — leaving the caller an empty string that is
+        indistinguishable from "the page had no funds on it".
+        """
         last_exc: Exception | None = None
+        challenged = False
         for url in urls:
             try:
                 return await self._http.get_text(url)
+            except httpx.HTTPStatusError as e:
+                last_exc = e
+                body = e.response.text if e.response is not None else ""
+                if _is_bot_challenge(body):
+                    challenged = True
+                continue
             except Exception as e:  # noqa: BLE001
                 last_exc = e
                 continue
+        if challenged:
+            raise BotChallengeError(
+                "mufap.com.pk served a bot-protection challenge (HTTP 403); its NAV "
+                "pages are no longer machine-readable. Seed psx_mutual_funds via "
+                "POST /api/funds/import (scripts/data/import_mufap_csv.py)."
+            )
         log.warning("mufap_unreachable", urls=urls, err=str(last_exc) if last_exc else None)
         return ""
 
     # ---------- catalog ----------
 
     async def fetch_funds(self) -> list[dict]:
+        """Fund catalog + latest NAV.
+
+        Raises `BotChallengeError` when MUFAP serves a bot interstitial instead
+        of the page. As of 2026-07-29 every mufap.com.pk path except robots.txt
+        answers HTTP 403 with a Cloudflare "Just a moment..." challenge, so this
+        returns no data at all and `psx_mutual_funds` sits empty.
+
+        We deliberately do NOT try to defeat that challenge. It is an access
+        control the site operator put up on purpose, and their robots.txt
+        additionally names ClaudeBot/GPTBot/CCBot under `Disallow: /`. Seed the
+        table through the sanctioned route instead —
+        `scripts/data/import_mufap_csv.py` -> `POST /api/funds/import` — or get
+        a data agreement with MUFAP.
+        """
         try:
             html = await self._try_fetch(FUNDS_URLS)
             if not html:
                 return []
+            if _is_bot_challenge(html):
+                raise BotChallengeError(
+                    "mufap.com.pk served a bot-protection challenge; the NAV pages "
+                    "are no longer machine-readable. Seed psx_mutual_funds via "
+                    "POST /api/funds/import (scripts/data/import_mufap_csv.py)."
+                )
             return _parse_funds_html(html)
+        except BotChallengeError:
+            raise
         except Exception:
             log.warning("mufap_funds_failed", exc_info=True)
             return []

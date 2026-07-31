@@ -37,7 +37,9 @@ export function AssistantPanel() {
     confirmPending,
     cancelPending,
   } = useAssistantChat(
-    t("Hi! I can add transactions, track bills and goals, manage your portfolio and watchlist, and answer questions about your money. Type or tap the mic."),
+    t(
+      "Hi! I can add transactions, track bills and goals, manage your portfolio and watchlist, and answer questions about your money. Type or tap the mic.",
+    ),
   );
 
   const [input, setInput] = useState("");

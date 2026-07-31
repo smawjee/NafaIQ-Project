@@ -37,10 +37,7 @@ export function TopMoversView({ movers }: { movers: TopMover[] }) {
           {movers.map((s, i) => {
             const isUp = s.change_pct >= 0;
             return (
-              <tr
-                key={s.symbol}
-                className="border-b border-border/50 hover:bg-hover"
-              >
+              <tr key={s.symbol} className="border-b border-border/50 hover:bg-hover">
                 <td className="px-3 py-1.5 text-text-muted">{i + 1}</td>
                 <td className="px-3 py-1.5 font-semibold">
                   <Link
@@ -59,7 +56,7 @@ export function TopMoversView({ movers }: { movers: TopMover[] }) {
                   <span
                     className={cn(
                       "inline-flex items-center gap-0.5 font-mono tabular-nums font-semibold",
-                      isUp ? "text-bull" : "text-bear"
+                      isUp ? "text-bull" : "text-bear",
                     )}
                   >
                     {isUp ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />}

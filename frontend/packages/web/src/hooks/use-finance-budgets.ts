@@ -24,8 +24,13 @@ export function useFinanceBudgets(enabled: boolean = true) {
 export function useCreateBudget() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (data: { category: string; spent?: number; limit_amount: number; period?: string; tip?: string }) =>
-      userPost<FinanceBudget>("/api/finance/budgets", data),
+    mutationFn: (data: {
+      category: string;
+      spent?: number;
+      limit_amount: number;
+      period?: string;
+      tip?: string;
+    }) => userPost<FinanceBudget>("/api/finance/budgets", data),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["finance", "budgets"] }),
   });
 }
@@ -33,8 +38,15 @@ export function useCreateBudget() {
 export function useUpdateBudget() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, ...data }: { id: number; spent?: number; limit_amount?: number; tip?: string }) =>
-      userPatch<FinanceBudget>(`/api/finance/budgets/${id}`, data),
+    mutationFn: ({
+      id,
+      ...data
+    }: {
+      id: number;
+      spent?: number;
+      limit_amount?: number;
+      tip?: string;
+    }) => userPatch<FinanceBudget>(`/api/finance/budgets/${id}`, data),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["finance", "budgets"] }),
   });
 }

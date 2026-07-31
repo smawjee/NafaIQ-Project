@@ -1,8 +1,14 @@
 import { motion } from "framer-motion";
 import { ChevronLeft, ChevronRight, Menu } from "lucide-react";
-import { useEffect, type ReactNode } from "react";
+import { type ReactNode } from "react";
 import { cn } from "@/lib/utils";
 
+// This component is presentational: the caller owns the collapsed state and its
+// persistence (see `usePersistedBool`). It used to ALSO write `persistKey` to
+// localStorage from a mount effect, which made two owners for one key — and
+// because child effects run before parent effects, that write fired with the
+// pre-hydration default and erased the user's stored preference before the
+// parent could read it back. One owner, no race.
 interface CollapsibleColumnProps {
   side: "left" | "right";
   width: number;
@@ -11,7 +17,6 @@ interface CollapsibleColumnProps {
   onToggle: (collapsed: boolean) => void;
   collapseButtonLabel: string;
   expandButtonLabel: string;
-  persistKey?: string;
   hideOverflow?: boolean;
   children: ReactNode;
 }
@@ -24,19 +29,12 @@ export function CollapsibleColumn({
   onToggle,
   collapseButtonLabel,
   expandButtonLabel,
-  persistKey,
   hideOverflow = true,
   children,
 }: CollapsibleColumnProps) {
   const isLeft = side === "left";
   const hiddenClass = breakpoint === "lg" ? "lg:block" : "xl:block";
   const panelId = `col-${side}`;
-
-  useEffect(() => {
-    if (persistKey && typeof window !== "undefined") {
-      window.localStorage.setItem(persistKey, collapsed ? "1" : "0");
-    }
-  }, [collapsed, persistKey]);
 
   const CollapseIcon = isLeft ? ChevronLeft : ChevronRight;
 

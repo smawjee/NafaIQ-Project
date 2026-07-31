@@ -1,3 +1,10 @@
+import {
+  PRICE_CONDITIONS,
+  THRESHOLDLESS_CONDITIONS,
+  conditionSpec,
+  describeCondition,
+  type PriceCondition,
+} from "@nafaiq/shared";
 // Quick-add glass sheets launched from the dashboard action row. Transaction
 // posts to the finance API (/api/finance/transactions); Alert posts to
 // /api/alerts (mirrors web QuickAddAlertModal, same type→meta mapping as
@@ -205,7 +212,7 @@ function AlertSheet({ open, onClose, onToast }: { open: boolean; onClose: () => 
   const createPriceAlert = useCreatePriceAlert();
   const [kind, setKind] = useState<AlertKind>("Stock Price");
   const [symbol, setSymbol] = useState(ALERT_STOCKS[0]);
-  const [direction, setDirection] = useState("Above");
+  const [direction, setDirection] = useState<PriceCondition>("above");
   const [price, setPrice] = useState("");
   const [bill, setBill] = useState("");
   const [timing, setTiming] = useState(BILL_TIMING[0]);
@@ -225,12 +232,13 @@ function AlertSheet({ open, onClose, onToast }: { open: boolean; onClose: () => 
   // Same title/type/meta mapping as src/app/alerts.tsx handleCreate (web parity).
   function build(): { title: string; type: AlertEventType; meta: Record<string, unknown> } | null {
     if (kind === "Stock Price") {
-      const p = Math.abs(Number(price.replace(/[^0-9.]/g, "")));
-      if (!p) { setErr("Enter a target price"); return null; }
+      const thresholdless = THRESHOLDLESS_CONDITIONS.has(direction);
+      const p = thresholdless ? 0 : Math.abs(Number(price.replace(/[^0-9.]/g, "")));
+      if (!thresholdless && !p) { setErr("Enter a threshold"); return null; }
       return {
-        title: `${symbol} ${direction.toLowerCase()} PKR ${p}`,
+        title: describeCondition(symbol, direction, p),
         type: "stock_price",
-        meta: { symbol, direction: direction.toLowerCase(), price: p },
+        meta: { symbol, condition: direction, price: p },
       };
     }
     if (kind === "Bill Reminder") {
@@ -266,12 +274,14 @@ function AlertSheet({ open, onClose, onToast }: { open: boolean; onClose: () => 
     // app-alert types (bill/budget/goal) have no channel field.
     if (kind === "Stock Price") {
       if (!push && !email) return setErr("Choose at least one channel");
-      const p = Math.abs(Number(price.replace(/[^0-9.]/g, "")));
-      if (!p) return setErr("Enter a target price");
+      // See price_alerts_price_positive: threshold-less conditions must send 0.
+      const thresholdless = THRESHOLDLESS_CONDITIONS.has(direction);
+      const p = thresholdless ? 0 : Math.abs(Number(price.replace(/[^0-9.]/g, "")));
+      if (!thresholdless && !p) return setErr("Enter a threshold");
       createPriceAlert.mutate(
         {
           symbol,
-          condition: direction === "Above" ? "above" : "below",
+          condition: direction,
           price: p,
           one_time: false,
           notify_push: push,
@@ -301,7 +311,13 @@ function AlertSheet({ open, onClose, onToast }: { open: boolean; onClose: () => 
       {kind === "Stock Price" && (
         <>
           <SelectRow label="Symbol"><ChipRow options={ALERT_STOCKS} value={symbol} onChange={setSymbol} /></SelectRow>
-          <SelectRow label="Condition"><Segmented options={["Above", "Below"]} value={direction} onChange={setDirection} /></SelectRow>
+          <SelectRow label="Condition"><Segmented
+              options={PRICE_CONDITIONS.map((c) => c.label)}
+              value={conditionSpec(direction).label}
+              onChange={(v) =>
+                setDirection(PRICE_CONDITIONS.find((c) => c.label === v)?.value ?? "above")
+              }
+            /></SelectRow>
           <Field label="Target price (PKR)" value={price} onChangeText={setPrice} placeholder="0" keyboardType="numeric" inputMode="numeric" />
         </>
       )}

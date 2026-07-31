@@ -594,6 +594,34 @@ async def sync_user(integration: dict) -> SyncResult:
 
     async with begin() as conn:
         await integrations_repo.update_watermark(conn, user_id, watermark)
+
+    # Imported spend has to land on the budgets too.
+    #
+    # Every OTHER writer of user_transactions calls this — the transactions
+    # service on add/edit/delete, the bulk importer, the budgets service — but
+    # this pipeline never did, so bank-alert emails silently inflated live spend
+    # while `user_budgets.spent` stayed where the last manual edit left it.
+    # Found on 2026-07-29 by test_budget_spent_consistency: two 'Food & Dining'
+    # budgets had stored=13731.26 vs live=19875.25 and stored=0.0 vs
+    # live=1860.60 — ~6k and ~1.8k of card spend a budget alert never counted.
+    #
+    # `merged` matters as well as `imported_transactions`: the reconcile pass
+    # collapses two legs into one transaction, which CHANGES a category total
+    # without importing anything new.
+    #
+    # Its OWN transaction, after the watermark, and non-fatal — same treatment
+    # as the reconcile pass above. The transactions were already committed by
+    # _process_message, so this is a derived-column refresh, not part of the
+    # import. Sharing the watermark's transaction would mean a failure here
+    # rolled the watermark back and re-imported the whole batch next poll:
+    # trading a stale `spent` for duplicate transactions is a bad trade, and
+    # the next poll that imports anything recomputes again anyway.
+    if result.imported_transactions or result.merged:
+        try:
+            async with begin() as conn:
+                await finance_repo.recompute_budget_spent(conn, user_id)
+        except Exception:
+            log.exception("budget recompute failed after import for %s", user_id)
     return result
 
 

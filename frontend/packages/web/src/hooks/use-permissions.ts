@@ -1,6 +1,12 @@
 import { useMemo } from "react";
 import { useAuth } from "@/hooks/use-auth";
-import { getPlanFeatures, hasPlan, normalizePlan, type Plan, type PlanFeatures } from "@/lib/plan-features";
+import {
+  getPlanFeatures,
+  hasPlan,
+  normalizePlan,
+  type Plan,
+  type PlanFeatures,
+} from "@/lib/plan-features";
 
 export type Feature =
   | "realtime_psx"

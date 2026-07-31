@@ -26,8 +26,15 @@ export function useFinanceGoals(enabled: boolean = true) {
 export function useCreateGoal() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (data: { emoji?: string; name: string; target: number; saved?: number; color?: string; ai_tip?: string; target_date?: string }) =>
-      userPost<FinanceGoal>("/api/finance/goals", data),
+    mutationFn: (data: {
+      emoji?: string;
+      name: string;
+      target: number;
+      saved?: number;
+      color?: string;
+      ai_tip?: string;
+      target_date?: string;
+    }) => userPost<FinanceGoal>("/api/finance/goals", data),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["finance", "goals"] }),
   });
 }

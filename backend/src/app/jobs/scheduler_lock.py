@@ -5,8 +5,9 @@ settings.process_role), both could in principle start the scheduler. A
 session-scoped `pg_try_advisory_lock` makes double-run impossible by
 construction: whichever process acquires the lock runs the jobs, the other stays
 idle. Because the lock is tied to the DB session, if the holder dies Postgres
-releases it and another worker acquires it on its next start — so the split can
-never silently end up with zero schedulers either.
+releases it and another worker acquires it — but only if something tries again,
+which is why `await_scheduler_lock` exists. A single boot-time attempt CAN
+silently end up with zero schedulers; see that function's docstring.
 
 The lock is held on a DEDICATED connection kept open for the process lifetime.
 A pooled connection returned to the pool would end its session and drop the
@@ -18,6 +19,9 @@ process could acquire it — a brief double-run window. Acceptable for this scal
 add a keepalive ping if two schedulers overlapping ever actually bites.
 """
 from __future__ import annotations
+
+import asyncio
+from typing import Callable
 
 import structlog
 from sqlalchemy import text
@@ -62,6 +66,38 @@ async def acquire_scheduler_lock() -> bool:
     await conn.close()
     log.info("scheduler_lock:already_held_elsewhere")
     return False
+
+
+async def await_scheduler_lock(
+    on_acquired: Callable[[], None], interval: float = 60.0
+) -> None:
+    """Keep retrying the lock until this process wins it, then call `on_acquired`.
+
+    ``acquire_scheduler_lock`` used to be called exactly ONCE, at boot. A process
+    that lost the race — or booted during a blip that made the DB briefly
+    unreachable, which the acquire path deliberately reports as False — logged
+    ``scheduler:skipped`` and never tried again. The deployment could therefore
+    sit with ZERO schedulers indefinitely, which is the failure the module
+    docstring above claims is impossible: "another worker acquires it on its next
+    start" only holds if there IS a next start.
+
+    That is exactly what happened on 2026-07-29: every ingestion job stopped at
+    08:49 UTC and never resumed, so nothing rewrote ``psx_index_live_snapshot``
+    and every index card silently fell back to days-old EOD closes.
+
+    Runs until cancelled at shutdown. Never raises: a failed attempt is logged
+    and retried on the next tick, because giving up here reintroduces the bug.
+    """
+    while True:
+        await asyncio.sleep(interval)
+        try:
+            if await acquire_scheduler_lock():
+                on_acquired()
+                return
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            log.warning("scheduler_lock:retry_failed", exc_info=True)
 
 
 async def release_scheduler_lock() -> None:

@@ -19,6 +19,7 @@ from app.repositories import alerts as repo
 from app.repositories.base import begin, connect
 from app.services import calculations as calc
 from app.services.alerts.events import record_event
+from app.schemas.alerts import PRICE_CONDITIONS
 from app.services.psx.prices import get_latest_price
 
 log = logging.getLogger(__name__)
@@ -45,10 +46,127 @@ def _timing_days(timing: str) -> int:
     return 3
 
 
+#: Conditions that need 52-week / average-volume aggregates from psx_ohlcv.
+_STATS_CONDITIONS = frozenset({"volume_spike", "high_52w", "low_52w"})
+
+#: How close to the 52-week extreme counts as "at" it. Requiring an exact match
+#: would almost never fire: the stored extreme comes from psx_ohlcv (yesterday's
+#: bar at the newest), while `latest` is a live intraday price, so the two are
+#: measured at different moments and rarely land on the same paisa.
+_EXTREME_TOLERANCE = 0.001  # 0.1%
+
+
+def _evaluate_condition(
+    cond: str,
+    threshold: float,
+    price_data: dict,
+    stats: dict | None,
+) -> tuple[bool, str, str, dict] | None:
+    """Decide whether one alert fires, and describe it if so.
+
+    Split out of the loop so each condition can be unit-tested against a plain
+    dict instead of a live database, and so adding a tenth condition is a local
+    change rather than another branch in a growing for-loop.
+
+    Returns (fired, title_suffix, body, extra_payload) or None when the data
+    needed for this condition is unavailable.
+    """
+    latest = price_data.get("price")
+    if latest is None:
+        return None
+    latest = float(latest)
+
+    if cond == "above":
+        return (latest >= threshold, f"above PKR {threshold:,.2f}",
+                f"now PKR {latest:,.2f}", {})
+    if cond == "below":
+        return (latest <= threshold, f"below PKR {threshold:,.2f}",
+                f"now PKR {latest:,.2f}", {})
+
+    if cond in ("cross_above", "cross_below"):
+        prev = price_data.get("previous_close")
+        if prev is None:
+            return None
+        prev = float(prev)
+        if cond == "cross_above":
+            return (prev < threshold <= latest, f"crossed above PKR {threshold:,.2f}",
+                    f"moved from PKR {prev:,.2f} to PKR {latest:,.2f}", {"previous_close": prev})
+        return (prev > threshold >= latest, f"crossed below PKR {threshold:,.2f}",
+                f"moved from PKR {prev:,.2f} to PKR {latest:,.2f}", {"previous_close": prev})
+
+    if cond in ("pct_change_above", "pct_change_below"):
+        change_pct = price_data.get("change_pct")
+        if change_pct is None:
+            return None
+        change_pct = float(change_pct)
+        if cond == "pct_change_above":
+            # "Moved up by at least N%". Signed, not absolute: a user asking to
+            # be told about a +5% move does not want to hear about a -6% one.
+            return (change_pct >= threshold, f"up {threshold:g}% or more",
+                    f"is {change_pct:+.2f}% today at PKR {latest:,.2f}",
+                    {"change_pct": change_pct})
+        return (change_pct <= -abs(threshold), f"down {abs(threshold):g}% or more",
+                f"is {change_pct:+.2f}% today at PKR {latest:,.2f}",
+                {"change_pct": change_pct})
+
+    if cond == "volume_spike":
+        volume = price_data.get("volume")
+        avg = (stats or {}).get("avg_volume")
+        if volume is None or not avg:
+            return None
+        volume = float(volume)
+        multiple = volume / avg
+        return (multiple >= threshold, f"volume {threshold:g}x average",
+                f"traded {volume:,.0f} shares — {multiple:.1f}x its "
+                f"{avg:,.0f} average", {"volume": volume, "avg_volume": avg,
+                                        "multiple": round(multiple, 2)})
+
+    if cond in ("high_52w", "low_52w"):
+        if not stats:
+            return None
+        # Guard against a thin history: a symbol with 12 bars trivially sits at
+        # its own "52-week" extreme, which would fire on day one and every day
+        # after. Require a meaningful window before claiming an extreme.
+        if stats.get("bars", 0) < 60:
+            return None
+        if cond == "high_52w":
+            high = stats.get("high_52w")
+            if high is None:
+                return None
+            return (latest >= high * (1 - _EXTREME_TOLERANCE), "at a 52-week high",
+                    f"hit PKR {latest:,.2f}, its highest in 52 weeks "
+                    f"(prior high PKR {high:,.2f})", {"high_52w": high})
+        low = stats.get("low_52w")
+        if low is None:
+            return None
+        return (latest <= low * (1 + _EXTREME_TOLERANCE), "at a 52-week low",
+                f"fell to PKR {latest:,.2f}, its lowest in 52 weeks "
+                f"(prior low PKR {low:,.2f})", {"low_52w": low})
+
+    return None
+
+
 async def evaluate_price_alerts() -> int:
     """Check all enabled price_alerts rows (stock-detail page). Returns count fired."""
     async with connect() as conn:
         alerts = await repo.fetch_enabled_price_alerts(conn)
+    if not alerts:
+        return 0
+
+    # One aggregate query per tick, not one per alert. Only the symbols that
+    # actually have a stats-backed alert are fetched.
+    stats_symbols = sorted({
+        a["symbol"].upper() for a in alerts if a["condition"] in _STATS_CONDITIONS
+    })
+    symbol_stats: dict[str, dict] = {}
+    if stats_symbols:
+        try:
+            async with connect() as conn:
+                symbol_stats = await repo.fetch_symbol_stats(conn, stats_symbols)
+        except Exception:
+            # Degrade to evaluating the price-only conditions rather than
+            # skipping the whole tick.
+            log.exception("symbol stats lookup failed in evaluator")
 
     triggered = 0
     for a in alerts:
@@ -59,26 +177,24 @@ async def evaluate_price_alerts() -> int:
             continue
         if not price_data or price_data.get("price") is None:
             continue
-        latest = float(price_data["price"])
-        threshold = float(a["price"])
+
         cond = a["condition"]
-        fired = False
-        if cond == "above" and latest >= threshold:
-            fired = True
-        elif cond == "below" and latest <= threshold:
-            fired = True
-        elif cond == "cross_above":
-            prev = price_data.get("previous_close")
-            if prev is not None and prev < threshold <= latest:
-                fired = True
-        elif cond == "cross_below":
-            prev = price_data.get("previous_close")
-            if prev is not None and prev > threshold >= latest:
-                fired = True
+        threshold = float(a["price"])
+        try:
+            outcome = _evaluate_condition(
+                cond, threshold, price_data, symbol_stats.get(a["symbol"].upper())
+            )
+        except Exception:
+            log.exception("condition evaluation failed for alert %s", a.get("id"))
+            continue
+        if outcome is None:
+            continue
+        fired, phrase, detail, extra = outcome
         if not fired:
             continue
-        title = f"{a['symbol']} {cond.replace('_', ' ')} PKR {threshold:.2f}"
-        body = f"{a['symbol']} is now PKR {latest:.2f} (threshold PKR {threshold:.2f})."
+
+        title = f"{a['symbol']} {phrase}"
+        body = f"{a['symbol']} {detail}."
         await record_event(
             a["user_id"],
             alert_id=a["id"],
@@ -86,7 +202,12 @@ async def evaluate_price_alerts() -> int:
             symbol=a["symbol"],
             title=title,
             body=body,
-            payload={"price": latest, "threshold": threshold, "condition": cond},
+            payload={
+                "price": float(price_data["price"]),
+                "threshold": threshold,
+                "condition": cond,
+                **extra,
+            },
         )
         async with begin() as conn:
             await repo.mark_price_alert_triggered(conn, a["id"], disable=bool(a.get("one_time")))
@@ -101,10 +222,30 @@ async def evaluate_price_alerts() -> int:
 
 
 async def _eval_stock_price(uid: str, meta: dict) -> Optional[tuple]:
+    """LEGACY meta-driven stock alert (`user_alerts` rows with type='stock_price').
+
+    The product has two ways a stock alert can exist: the `price_alerts` table
+    (what the UI and the assistant write today, all nine conditions) and these
+    meta rows. Nothing has created a meta row since the alerts screen was moved
+    onto `price_alerts`; two remain in production, both `HBL above`.
+
+    This used to carry its OWN comparison logic supporting only above/below, so
+    the same user intent behaved differently depending on which path created it.
+    It now delegates to `_evaluate_condition` — one implementation, one set of
+    semantics — and reads `condition` with a fall back to the older `direction`
+    key so the surviving rows keep working.
+
+    Aggregate-backed conditions (volume_spike, high_52w, low_52w) are not offered
+    here: they need `fetch_symbol_stats`, this path evaluates one alert at a time
+    with no batching, and nothing can create such a row anyway. They return None
+    (treated as "unavailable"), not a wrong answer.
+    """
     symbol = str(meta.get("symbol", "")).upper()
     target = _num(meta.get("price"))
-    direction = str(meta.get("direction", "")).lower()
-    if not symbol or target is None or direction not in ("above", "below"):
+    # `condition` is the current spelling; `direction` is what the pre-existing
+    # rows use.
+    cond = str(meta.get("condition") or meta.get("direction") or "").lower()
+    if not symbol or target is None or cond not in PRICE_CONDITIONS:
         return None
     try:
         pd = await get_latest_price(symbol, allow_external=False)
@@ -112,12 +253,24 @@ async def _eval_stock_price(uid: str, meta: dict) -> Optional[tuple]:
         return None
     if not pd or pd.get("price") is None:
         return None
-    latest = float(pd["price"])
-    if not ((direction == "above" and latest >= target) or (direction == "below" and latest <= target)):
+
+    outcome = _evaluate_condition(cond, float(target), pd, None)
+    if outcome is None:
         return None
-    title = f"{symbol} {direction} PKR {target:.2f}"
-    body = f"{symbol} is now PKR {latest:.2f} ({direction} your PKR {target:.2f} alert)."
-    return title, body, {"symbol": symbol, "price": latest, "target": target, "direction": direction}, symbol
+    fired, phrase, detail, extra = outcome
+    if not fired:
+        return None
+
+    title = f"{symbol} {phrase}"
+    body = f"{symbol} {detail}."
+    payload = {
+        "symbol": symbol,
+        "price": float(pd["price"]),
+        "target": float(target),
+        "condition": cond,
+        **extra,
+    }
+    return title, body, payload, symbol
 
 
 async def _eval_budget(uid: str, meta: dict) -> Optional[tuple]:
@@ -209,7 +362,9 @@ async def evaluate_user_alerts() -> int:
                 continue
             # One notification per alert per 24h window.
             async with connect() as conn:
-                if await repo.recent_event_for_alert(conn, a["id"]):
+                # Pass the type: alert_id alone is ambiguous across user_alerts
+                # and price_alerts (see recent_event_for_alert).
+                if await repo.recent_event_for_alert(conn, a["id"], a["type"]):
                     continue
             title, body, payload, symbol = result
             await record_event(

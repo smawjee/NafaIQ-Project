@@ -1,4 +1,4 @@
-import { expect, test } from "../fixtures";
+import { authSettled, expect, test } from "../fixtures";
 
 /**
  * J6 + J7 — the dashboard, and a sweep across every primary destination.
@@ -46,6 +46,9 @@ test.describe("navigation sweep", () => {
   test("moves between routes without a full reload", async ({ page }) => {
     await page.goto("/app");
     await expect(page).toHaveTitle(/Dashboard — NafaIQ/);
+    // The auth overlay (z-[60]) swallows clicks until the session resolves —
+    // on the mobile project that window is long enough to eat this tap.
+    await authSettled(page);
 
     await page.getByRole("link", { name: /finance/i }).first().click();
 

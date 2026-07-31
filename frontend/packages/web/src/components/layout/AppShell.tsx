@@ -1,6 +1,7 @@
 import { Link, useRouterState, useNavigate } from "@tanstack/react-router";
 import { LogOut, X, Sparkles } from "lucide-react";
 import { useState } from "react";
+import { usePersistedBool } from "@/hooks/use-persisted-bool";
 import { motion, AnimatePresence, PageTransition } from "@/components/shared/animations";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/use-auth";
@@ -19,16 +20,7 @@ import { BottomNav } from "@/components/layout/BottomNav";
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const [drawer, setDrawer] = useState(false);
-  const [collapsed, setCollapsed] = useState(() => {
-    if (typeof window === "undefined") return false;
-    return window.localStorage.getItem("nafaiq-sidebar-collapsed") === "1";
-  });
-  function toggleCollapsed(next: boolean) {
-    setCollapsed(next);
-    if (typeof window !== "undefined") {
-      window.localStorage.setItem("nafaiq-sidebar-collapsed", next ? "1" : "0");
-    }
-  }
+  const [collapsed, toggleCollapsed] = usePersistedBool("nafaiq-sidebar-collapsed");
   const { profile, user, signOut } = useAuth();
   const { plan } = usePermissions();
   const cta = upgradeCta(plan);
@@ -50,6 +42,16 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         isUrdu && "font-urdu",
       )}
     >
+      {/* WCAG 2.4.1 (Bypass Blocks): must be the FIRST focusable element in the
+          document, ahead of the sidebar, or a keyboard user still tabs through
+          the whole primary nav before reaching content. Hidden until focused. */}
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:absolute focus:left-3 focus:top-3 focus:z-[100] focus:rounded-md focus:bg-primary focus:px-4 focus:py-2 focus:text-sm focus:font-medium focus:text-primary-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+      >
+        Skip to main content
+      </a>
+
       {/* ambient depth — very subtle brand wash */}
       <div className="ambient-glow -top-40 right-[-12%] h-[420px] w-[420px] bg-primary/[0.03]" />
 
@@ -64,6 +66,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         <MaintenanceBanner />
         <DemoBanner />
         <main
+          id="main-content"
+          tabIndex={-1}
           className={cn(
             "pt-4 pb-24 lg:pb-8",
             pathname.startsWith("/learn/lesson") ? "px-0" : "px-3 sm:px-5 lg:px-6",

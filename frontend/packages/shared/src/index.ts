@@ -24,3 +24,12 @@ export * from "./data";
 export * from "./finance-data";
 export * from "./learn-data";
 export * from "./lesson-content";
+
+// Price-alert condition metadata — shared so web and mobile cannot drift.
+export type { PriceCondition, PriceConditionSpec } from "./alerts";
+export {
+  PRICE_CONDITIONS,
+  THRESHOLDLESS_CONDITIONS,
+  conditionSpec,
+  describeCondition,
+} from "./alerts";

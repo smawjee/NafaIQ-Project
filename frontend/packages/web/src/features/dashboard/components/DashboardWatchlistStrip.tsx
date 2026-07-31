@@ -97,11 +97,7 @@ export function DashboardWatchlistStrip({
                 >
                   <div className="flex items-center justify-between">
                     <span className="flex items-center gap-1.5 font-semibold text-text-primary">
-                      <StockLogo
-                        symbol={item.symbol}
-                        logoUrl={logoUrlFor(item.logoid)}
-                        size={18}
-                      />
+                      <StockLogo symbol={item.symbol} logoUrl={logoUrlFor(item.logoid)} size={18} />
                       {item.symbol}
                     </span>
                     {hasPrice && <Change pct={changePct} pill />}

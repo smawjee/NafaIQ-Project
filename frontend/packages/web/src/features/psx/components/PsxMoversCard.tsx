@@ -48,9 +48,7 @@ export function PsxMoversCard({
                 old fixed 6-column grid was wider than the panel and clipped the
                 volume column. */}
             <div className="flex items-center gap-2">
-              <span className="w-4 shrink-0 text-right tabular-nums text-text-muted">
-                {i + 1}
-              </span>
+              <span className="w-4 shrink-0 text-right tabular-nums text-text-muted">{i + 1}</span>
               <span className="min-w-0 flex-1 truncate font-semibold text-text-primary">
                 {s.ticker}
               </span>

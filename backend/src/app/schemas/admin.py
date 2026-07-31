@@ -3,8 +3,21 @@ from __future__ import annotations
 
 from datetime import datetime
 from typing import Any, Generic, Optional, TypeVar
+from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
+
+
+def _uuid_to_str(value: Any) -> Any:
+    """Coerce a uuid column into the str these DTOs declare.
+
+    asyncpg hands back `UUID` objects for uuid columns, which pydantic v2 will
+    not accept for a `str` field. Every actor id on an admin row comes from such
+    a column, so without this a populated `granted_by`/`revoked_by` 500s the
+    endpoint. Nulls (e.g. system bootstrap grants) pass through untouched, which
+    is why this only shows up once a role has been granted by a real admin.
+    """
+    return str(value) if isinstance(value, UUID) else value
 
 T = TypeVar("T")
 
@@ -65,6 +78,10 @@ class RoleAssignmentInfo(BaseModel):
     revoked_at: Optional[datetime] = None
     revoked_by: Optional[str] = None
     reason: Optional[str] = None
+
+    _coerce_actor_ids = field_validator(
+        "granted_by", "revoked_by", mode="before"
+    )(_uuid_to_str)
 
 
 class UserDetail(BaseModel):

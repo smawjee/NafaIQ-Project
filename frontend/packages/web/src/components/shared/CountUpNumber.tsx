@@ -14,8 +14,6 @@ function resolveCountUp(mod: unknown): typeof import("react-countup").default {
 }
 const CountUp = resolveCountUp(CountUpModule);
 
-
-
 /**
  * Smooth count-up for financial figures.
  * Counts from 0 -> value on mount over ~1s with an ease-out curve — kept fast
@@ -116,10 +114,7 @@ export function AnimatedBar({
   return (
     <div
       ref={ref}
-      className={cn(
-        "relative h-full rounded-full transition-[width] ease-out",
-        className,
-      )}
+      className={cn("relative h-full rounded-full transition-[width] ease-out", className)}
       style={{
         width: `${w}%`,
         transitionDuration: `${duration}ms`,
@@ -132,5 +127,3 @@ export function AnimatedBar({
     </div>
   );
 }
-
-

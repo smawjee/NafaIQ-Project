@@ -96,28 +96,22 @@ async def fetch_watchlist_enriched(conn: Executor, user_id: str) -> list[dict[st
     # When falling back to EOD, change/change_pct are derived from the two most
     # recent closes. Mirrors the COALESCE(s.price, eod_close) pattern used by
     # the portfolio valuation queries.
+    #
+    # The EOD lookup MUST stay a per-symbol LATERAL with LIMIT 2. Ranking all of
+    # psx_ohlcv up front (WITH ranked_close AS (... ROW_NUMBER() OVER (PARTITION
+    # BY symbol ...) FROM psx_ohlcv)) and filtering to rn <= 2 afterwards makes
+    # Postgres materialise and sort ~1M rows to serve a handful of watched
+    # symbols — that took ~15s per request and blew the 45s asyncpg
+    # command_timeout under concurrency. The LATERAL lets the planner walk
+    # psx_ohlcv_symbol_date_key backwards and stop after 2 index tuples.
+    #
+    # Likewise, only the (tiny) user_watchlist side is wrapped in upper(trim()).
+    # Wrapping the big-table side too (upper(trim(p.symbol)) = ...) makes the
+    # join predicate non-sargable and forfeits psx_profile_pkey /
+    # psx_market_snapshot_symbol_key, forcing a seq scan of each.
     result = await conn.execute(
         text(
             """
-            WITH ranked_close AS (
-                SELECT
-                    symbol,
-                    close,
-                    date,
-                    ROW_NUMBER() OVER (PARTITION BY symbol ORDER BY date DESC) AS rn
-                FROM psx_ohlcv
-            ),
-            eod AS (
-                SELECT
-                    latest.symbol,
-                    latest.close AS eod_close,
-                    latest.date  AS eod_date,
-                    prev.close   AS prev_close
-                FROM ranked_close latest
-                LEFT JOIN ranked_close prev
-                    ON prev.symbol = latest.symbol AND prev.rn = 2
-                WHERE latest.rn = 1
-            )
             SELECT
                 w.symbol,
                 COALESCE(p.name, w.symbol) AS company_name,
@@ -138,11 +132,23 @@ async def fetch_watchlist_enriched(conn: Executor, user_id: str) -> list[dict[st
                 s.volume,
                 COALESCE(s.refreshed_at, e.eod_date::timestamptz) AS last_updated
             FROM user_watchlist w
-            LEFT JOIN psx_profile p ON upper(trim(p.symbol)) = upper(trim(w.symbol))
-            LEFT JOIN psx_market_snapshot s ON upper(trim(s.symbol)) = upper(trim(w.symbol))
-            LEFT JOIN eod e ON upper(trim(e.symbol)) = upper(trim(w.symbol))
+            LEFT JOIN psx_profile p ON p.symbol = upper(trim(w.symbol))
+            LEFT JOIN psx_market_snapshot s ON s.symbol = upper(trim(w.symbol))
+            LEFT JOIN LATERAL (
+                SELECT
+                    (array_agg(t.close ORDER BY t.date DESC))[1] AS eod_close,
+                    (array_agg(t.date  ORDER BY t.date DESC))[1] AS eod_date,
+                    (array_agg(t.close ORDER BY t.date DESC))[2] AS prev_close
+                FROM (
+                    SELECT o.close, o.date
+                    FROM psx_ohlcv o
+                    WHERE o.symbol = upper(trim(w.symbol))
+                    ORDER BY o.date DESC
+                    LIMIT 2
+                ) t
+            ) e ON TRUE
             WHERE w.user_id = :uid
-            ORDER BY w.added_at DESC
+            ORDER BY w.added_at DESC, w.id DESC
             """
         ),
         {"uid": user_id},

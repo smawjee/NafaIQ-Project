@@ -12,6 +12,24 @@ from app.services.users import get_user_plan_features
 
 log = logging.getLogger(__name__)
 
+# Fixed client-facing messages. The raw decoder exception is never echoed back:
+# it can carry library internals (codec errors, key material, header bytes).
+#
+# Expiry is the one distinction worth keeping. It is not sensitive - the client
+# already knows when its own token expires - and the frontend needs it to tell a
+# refreshable session apart from a genuinely bad credential.
+INVALID_TOKEN_DETAIL = "Invalid token: verification failed"
+EXPIRED_TOKEN_DETAIL = "Invalid token: expired"
+
+
+def token_error_detail(exc: BaseException) -> str:
+    """Map a decode failure onto a safe, fixed client message."""
+    return (
+        EXPIRED_TOKEN_DETAIL
+        if isinstance(exc, jwt.ExpiredSignatureError)
+        else INVALID_TOKEN_DETAIL
+    )
+
 
 _jwks_client: "jwt.PyJWKClient | None" = None
 
@@ -51,7 +69,11 @@ async def resolve_supabase_user(token: str) -> dict[str, Any]:
                 options={"verify_aud": False},
             )
     except Exception as e:
-        raise HTTPException(401, f"Invalid token: {e}") from e
+        # The decoder's own message can carry implementation detail (codec
+        # errors, key material, library internals). Log it for operators and
+        # return a fixed string to the caller.
+        log.warning("JWT verification failed: %s", e)
+        raise HTTPException(401, token_error_detail(e)) from e
     user_id = payload["sub"]
     db_plan, features, account_status = await get_user_plan_features(user_id)
     # Suspended accounts are rejected at the identity boundary, so every

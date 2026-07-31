@@ -79,6 +79,39 @@ def _supabase_client_without_credentials(monkeypatch):
 
 
 @pytest.fixture(autouse=True)
+def recorded_health(monkeypatch):
+    """Stop the test suite writing to the PRODUCTION health table.
+
+    `_record_health` upserts into `psx_data_source_health` through the real
+    Supabase client. On a developer machine with real credentials in .env that
+    is a live write — so simply running `pytest` planted a fake `market_brief`
+    row, error message and all, in the table that backs the public
+    /api/health/sources widget.
+
+    Five tests already stubbed this by hand, which is the right instinct but the
+    wrong default: any test that forgets silently mutates production. Autouse
+    inverts it — nothing reaches the table unless a test deliberately re-patches
+    it. Tests that want to assert on health can take this fixture and read the
+    recorded calls.
+    """
+    from app.jobs import scheduler as sched
+
+    calls: list[dict] = []
+
+    async def _fake_record_health(source, success, rows_updated=0, error=None, **kwargs):
+        calls.append({
+            "source": source,
+            "success": success,
+            "rows_updated": rows_updated,
+            "error": error,
+            **kwargs,
+        })
+
+    monkeypatch.setattr(sched, "_record_health", _fake_record_health)
+    return calls
+
+
+@pytest.fixture(autouse=True)
 def _isolate_key_cooldowns():
     """The provider key-cooldown map is process-global by design (it must persist
     across requests in production). Isolate it per test so a simulated 429 in one

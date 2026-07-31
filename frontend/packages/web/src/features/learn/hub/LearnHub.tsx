@@ -285,10 +285,7 @@ export function LearnHub() {
           <div className="space-y-2">
             <p className="text-xs text-text-muted">{t("Closest matches")}</p>
             {semanticTerms.map((r) => (
-              <div
-                key={r.title}
-                className="rounded-btn border border-border bg-surface px-3 py-2"
-              >
+              <div key={r.title} className="rounded-btn border border-border bg-surface px-3 py-2">
                 <div className="text-sm font-medium text-text-primary">{t(r.title)}</div>
                 <p
                   className="mt-0.5 text-xs leading-relaxed text-text-secondary"
@@ -376,7 +373,8 @@ function LearnHubHero({
     LESSONS.map((l) => lessonId(l.title)).find((id) => statusOf(id) !== "complete") ??
     lessonId(LESSONS[0].title);
   const nextLesson = LESSON_CONTENT[nextLessonId];
-  const activePath = LEARNING_PATHS.find((p) => p.lessonIds.includes(nextLessonId)) ?? LEARNING_PATHS[0];
+  const activePath =
+    LEARNING_PATHS.find((p) => p.lessonIds.includes(nextLessonId)) ?? LEARNING_PATHS[0];
   const activePathProgress = pathProgress(activePath.lessonIds);
 
   return (
@@ -476,7 +474,10 @@ function LearnHubHero({
                   <span className="font-mono tabular-nums">{activePathProgress}%</span>
                 </div>
                 <div className="mt-2 h-2 overflow-hidden rounded-full bg-elevated">
-                  <AnimatedBar value={activePathProgress} style={{ background: activePath.accent }} />
+                  <AnimatedBar
+                    value={activePathProgress}
+                    style={{ background: activePath.accent }}
+                  />
                 </div>
                 <Link
                   to="/learn/lesson/$id"
@@ -500,7 +501,9 @@ function LearnHubHero({
                 <AnimatedBar value={xpPct} className="bg-bull" />
               </div>
               <div className="mt-3 rounded-[12px] border border-border bg-surface px-3 py-2 text-xs leading-relaxed text-text-secondary">
-                {t("Complete quizzes to unlock deeper investing tracks and keep your streak alive.")}
+                {t(
+                  "Complete quizzes to unlock deeper investing tracks and keep your streak alive.",
+                )}
               </div>
             </div>
           </div>

@@ -7,7 +7,8 @@ export const Route = createFileRoute("/monetary")({
       { title: "Monetary Desk - NafaIQ" },
       {
         name: "description",
-        content: "Live USD to PKR conversion, popular currency rates, and Pakistan gold and silver reference prices with source checks.",
+        content:
+          "Live USD to PKR conversion, popular currency rates, and Pakistan gold and silver reference prices with source checks.",
       },
     ],
   }),

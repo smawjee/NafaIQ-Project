@@ -395,6 +395,36 @@ async def test_hallucinated_tool_name_leaves_no_orphaned_tool_calls(monkeypatch)
     assert not any(m.get("tool_calls") for m in final["messages"])
 
 
+async def test_unparseable_tool_generation_degrades_to_prose(monkeypatch):
+    """Live regression: Groq 400 tool_use_failed twice, turn died with
+    "Sorry, I couldn't reach the assistant" — on "whats the price of OGDC?".
+
+    Llama writes its tool call as literal text ("<function=add_to_watchlist
+    {...}</function>"), Groq rejects the generation, and the temperature-bump
+    retry reproduces it. That surfaces as ProviderToolCallUnparseable, and the
+    agent must fall through to the no-tools prose call — degrade, not die.
+    """
+    from app.services.ai.providers import ProviderToolCallUnparseable
+
+    class UnparseableThenProse(FakeProvider):
+        async def __call__(self, messages, tools, *, tool_choice="auto", transport=None):
+            self.seen.append({"messages": list(messages), "tool_choice": tool_choice})
+            if tool_choice != "none":
+                raise ProviderToolCallUnparseable("groq: tool_use_failed")
+            return _msg("I couldn't look that up right now — try the PSX page.")
+
+    provider = UnparseableThenProse()
+    monkeypatch.setattr(agent, "complete_with_tools", provider)
+
+    events = await _drain()
+
+    # The user gets prose, not a dead turn.
+    assert [e["type"] for e in events] == ["token"]
+    assert "look that up" in events[0]["text"]
+    # And the recovery went through the no-tools call.
+    assert provider.seen[-1]["tool_choice"] == "none"
+
+
 async def test_an_empty_reply_after_a_read_still_answers(monkeypatch):
     """Live regression: get_goals ran, then the model said nothing.
 

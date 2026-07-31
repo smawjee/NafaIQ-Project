@@ -1,6 +1,6 @@
 import { DonutBreakdownCard, type DonutBreakdownSlice } from "@/components/charts/charts";
 
-interface AllocSlice extends DonutBreakdownSlice {}
+type AllocSlice = DonutBreakdownSlice;
 
 export function PortfolioAllocationCards({
   useDemoPortfolio,

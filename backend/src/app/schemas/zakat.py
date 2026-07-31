@@ -21,7 +21,10 @@ class ZakatCalculateRequest(BaseModel):
     islamic_year: str = Field(..., min_length=1, max_length=10)
     total_assets_pkr: float = Field(..., ge=0)
     total_deductions_pkr: float = Field(0, ge=0)
-    nisab_value_pkr: float = Field(..., ge=0)
+    # A nisab of zero would make every user liable on any amount, so it is never
+    # a legitimate input. The server still prefers the user's stored nisab over
+    # whatever the client sends (see services.finance.zakat.estimate).
+    nisab_value_pkr: float = Field(..., gt=0)
     rate_pct: float = Field(2.5, ge=0, le=100)
     method: Optional[str] = None
     breakdown: Optional[dict[str, Any]] = None

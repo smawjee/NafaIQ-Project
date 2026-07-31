@@ -156,8 +156,7 @@ export function Overview() {
           </div>
           {fixedIncomeVal > 0 && (
             <div dir="ltr" className="mt-1 text-[10px] text-text-muted sm:text-[11px]">
-              {formatPKR(variableIncome)} {t("earned")} + {formatPKR(fixedIncomeVal)}{" "}
-              {t("salary")}
+              {formatPKR(variableIncome)} {t("earned")} + {formatPKR(fixedIncomeVal)} {t("salary")}
             </div>
           )}
           <div className="mt-3 h-1 w-full overflow-hidden rounded-full bg-white/5">
