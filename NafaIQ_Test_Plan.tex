@@ -427,6 +427,71 @@ All manual and API test cases live in \texttt{NafaIQ\_Test\_Cases\_.xlsx}:
 Traceability is bidirectional: automated cases name their spec file in the
 workbook row, and defects name their test case in Jira.
 
+\section{Estimation and prioritisation}\label{sec:estimation}
+
+\subsection{Effort estimation}
+QA week is a fixed five-day timebox with a two-person test team, giving a hard
+budget of \textbf{10 person-days}. Effort was estimated bottom-up from the
+module work-breakdown (Section~2.2) and allocated as follows:
+
+\begin{center}
+\small
+\begin{tabularx}{\textwidth}{Llll}
+\toprule
+\textbf{Activity} & \textbf{Estimate} & \textbf{Share} & \textbf{Days} \\
+\midrule
+Test analysis and case design (workbook, 25 modules) & 2.5 pd & 25\% & Mon--Tue \\
+Automation: E2E harness, then journey specs & 3.0 pd & 30\% & Mon--Wed \\
+Test execution (manual + API waves, incl.\ re-tests) & 2.5 pd & 25\% & Wed--Fri \\
+Environment, test identities and data setup & 0.5 pd & 5\% & Mon \\
+Defect filing, fix verification and reporting & 1.0 pd & 10\% & continuous \\
+Contingency (flake hunts, blocked-case triage) & 0.5 pd & 5\% & --- \\
+\midrule
+\textbf{Total} & \textbf{10 pd} & 100\% & 5 days \\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+Estimation assumptions: the dev environment stays available all week; developer
+capacity exists to fix Highest/High defects within the week (held --- 7 of 8
+were fixed and re-verified); scope is frozen to the feature modules in
+Section~2.2. Harness work is estimated separately from spec-writing because the
+first automated journey carries the whole setup cost (authentication state,
+deterministic stubs, anti-flake guards) while each subsequent journey is
+marginal --- which is why automation was front-loaded into the first half of
+the week.
+
+Measured velocity, recorded for the next cycle's estimates: \textbf{319 live
+case executions in the week} ($\approx$64 per day) alongside \textbf{228
+automated journey executions} per suite run.
+
+\subsection{Prioritisation under the five-day timebox}
+A five-day box inverts the usual estimation question: not \emph{how long will
+full coverage take}, but \emph{how much coverage fits, in what order}. The
+answer is risk-first, encoded in every workbook row as a priority:
+
+\begin{center}
+\small
+\begin{tabularx}{\textwidth}{clLl}
+\toprule
+\textbf{Priority} & \textbf{Cases} & \textbf{Definition} & \textbf{Timebox rule} \\
+\midrule
+P1 & 221 & Money paths, security, authorization, data integrity (zakat, portfolio arithmetic) & executed first, never cut \\
+P2 & 211 & Core feature behaviour and validation & executed after P1 \\
+P3 & 66 & Secondary flows, cosmetic states & as time allows \\
+P4 & 7 & Nice-to-have polish & only if idle \\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+Two consequences of this ordering are visible in the results: every filed
+defect (Section~\ref{sec:defects}) came out of a P1/P2 case, and the cases that
+ran out of runway are concentrated in the lower priorities and in the
+resource-blocked bucket. The 233 Blocked cases --- each annotated with the
+exact resource it needs (device, admin window, market hours, failure
+injection) --- are deliberately retained as the costed input for the next
+cycle's estimate rather than being dropped from scope.
+
 \section{Test environment and data}
 
 \begin{itemize}
