@@ -39,7 +39,7 @@ from app.scrapers.mufap import BotChallengeError, MUFAPScraper
 from app.scrapers.brecorder import BRecorderScraper
 from app.scrapers.pdf_fetcher import PDFFetcher
 from app.scrapers.financials_psx import FinancialsPSXScraper
-from app.services.signals.volume_spikes import VolumeSpikeDetector
+from app.services.market.volume_spikes import VolumeSpikeDetector
 import os
 from app.services.market._base import get_cache, ALL_PSX_INDICES
 from app.api.health import set_market_refresh_time
@@ -216,8 +216,8 @@ async def job_refresh_announcements():
 
 
 async def job_precompute_cross_section():
-    """Daily cross-sectional factor ranks for the liquid universe (V4 analytics)."""
-    from app.services.signals_v4.cross_section_job import precompute_cross_section
+    """Daily cross-sectional factor ranks for the liquid universe (cross-sectional analytics)."""
+    from app.services.signals.cross_section_job import precompute_cross_section
 
     try:
         log.info("job:cross_section:start")
@@ -237,7 +237,7 @@ async def job_ingest_signal_events():
     event id, so it is idempotent and never touches the technical/context
     serving path. Foundation for the (still dormant) event-forecast track.
     """
-    from app.services.signals_v4.ingest import ingest_events
+    from app.services.signals.ingest import ingest_events
 
     try:
         log.info("job:ingest_signal_events:start")
@@ -710,32 +710,6 @@ async def job_purge_error_events():
     except Exception as e:
         log.exception("job:purge_error_events:failed")
         await _record_health("error_retention", success=False, error=str(e))
-
-
-async def job_snapshot_signals():
-    """Immutable daily snapshot of current technical signals (track-record input)."""
-    from app.services.signals_v2.outcomes import snapshot_current_signals
-
-    try:
-        result = await snapshot_current_signals()
-        await _record_health("signal_snapshot", success=True,
-                             rows_updated=int(result.get("rows") or 0))
-    except Exception as e:
-        log.warning("job_snapshot_signals_failed", exc_info=True)
-        await _record_health("signal_snapshot", success=False, error=str(e))
-
-
-async def job_signal_outcomes():
-    """Mature snapshotted signals whose horizon elapsed; insert-only outcomes."""
-    from app.services.signals_v2.outcomes import evaluate_pending_outcomes
-
-    try:
-        result = await evaluate_pending_outcomes()
-        await _record_health("signal_outcomes", success=True,
-                             rows_updated=int(result.get("outcomes_inserted") or 0))
-    except Exception as e:
-        log.warning("job_signal_outcomes_failed", exc_info=True)
-        await _record_health("signal_outcomes", success=False, error=str(e))
 
 
 async def job_refresh_fipi():
@@ -1455,23 +1429,6 @@ def init_scheduler():
         id="refresh_fipi",
         replace_existing=True,
     )
-    # DISABLED 2026-07-24: legacy V2 track-record jobs. Serving moved to Signals
-    # V4 (/api/signal -> signals_v4), so the psx_signals_v2 cache these snapshot is
-    # no longer populated and the old track-record card is unmounted in the UI.
-    # Kept as code (not deleted) pending the deliberate v2->v4 backend migration;
-    # re-enable by uncommenting if the legacy track record is ever needed again.
-    # scheduler.add_job(
-    #     job_snapshot_signals,
-    #     CronTrigger(day_of_week="mon-fri", hour=17, minute=45, timezone="Asia/Karachi"),
-    #     id="snapshot_signals",
-    #     replace_existing=True,
-    # )
-    # scheduler.add_job(
-    #     job_signal_outcomes,
-    #     CronTrigger(day_of_week="mon-fri", hour=19, minute=30, timezone="Asia/Karachi"),
-    #     id="signal_outcomes",
-    #     replace_existing=True,
-    # )
     # Shared, once-per-trading-day Market Brief — weekdays ~09:45 PKT, after the
     # morning market data refresh (§11). Runs in Asia/Karachi (PSX) time.
     scheduler.add_job(

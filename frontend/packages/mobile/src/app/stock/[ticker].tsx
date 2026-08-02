@@ -20,7 +20,7 @@ import {
   usePsxFundamentals,
   usePsxHistory,
   usePsxQuote,
-  usePsxSignalV2,
+  usePsxSignalDetail,
   usePsxSymbols,
 } from "@/hooks/queries/use-market";
 import { useWatchlist } from "@/hooks/queries/use-watchlist";
@@ -34,6 +34,7 @@ import { useSymbolDividends } from "@/hooks/queries/use-dividends";
 import { useAnnualFinancials, useQuarterlyFinancials } from "@/hooks/queries/use-financials";
 import { useFilings } from "@/hooks/queries/use-filings";
 import { useStockAnalysisReport } from "@/hooks/ai/use-stock-analysis-report";
+import { ratingToLegacySignal } from "@/lib/signals";
 import { useLang } from "@/hooks/use-lang";
 import { useTheme } from "@/hooks/use-theme";
 import { ExternalLink, FileText } from "@/lib/icons";
@@ -88,7 +89,7 @@ export default function StockDetailScreen() {
   const { data: profile } = usePsxCompanyProfile(upper);
   const { data: fundamentals } = usePsxFundamentals(upper);
   const { data: announcements, isPending: newsPending } = usePsxAnnouncements(upper, 5);
-  const { data: signal } = usePsxSignalV2(upper);
+  const { data: signal } = usePsxSignalDetail(upper);
   const { data: symbolsData } = usePsxSymbols();
   const wl = useWatchlist();
   const [wlBusy, setWlBusy] = useState(false);
@@ -107,15 +108,23 @@ export default function StockDetailScreen() {
   const price = quote?.price ?? null;
   const changePct = quote?.change_pct ?? null;
 
-  // Signal (v2 engine): the engine declines with "NO SIGNAL" rather than
-  // guessing — show no fake call in that case (same rule as web).
-  const modelReady = !!signal && signal.signal !== "NO SIGNAL";
-  const confidence = signal?.confidence ?? 0;
-  const keyDrivers =
-    signal?.indicator_votes
-      ?.slice(0, 3)
-      .map((v) => v.name)
-      .join(", ") ?? "";
+  // The engine declines rather than guessing, so a setup is only shown when it
+  // reports status "available" — no fabricated call (same rule as web).
+  const setup = signal?.technical_setup;
+  const modelReady = setup?.status === "available";
+  const ratingLabel = ratingToLegacySignal(setup?.rating ?? null);
+  // V4 replaced the invented confidence % with measurement quality, which is
+  // an honest statement about the data rather than about the direction.
+  const qualityLabel = signal?.quality?.label ?? null;
+  const components = setup?.components ?? [];
+  const keyDrivers = components
+    .slice(0, 3)
+    .map((c) => c.name)
+    .join(", ");
+  const setupReasons = components
+    .filter((c) => c.vote !== 0 && c.reason)
+    .slice(0, 3)
+    .map((c) => c.reason);
 
   const marketCap =
     profile?.listed_shares && price != null ? compactPKR(profile.listed_shares * price) : "—";
@@ -262,7 +271,7 @@ export default function StockDetailScreen() {
         </View>
         <View style={styles.between}>
           {modelReady ? (
-            <SignalBadge signal={signal!.signal as Signal} />
+            <SignalBadge signal={ratingLabel as Signal} />
           ) : (
             <Text variant="muted">{t("Signal unavailable")}</Text>
           )}
@@ -307,17 +316,18 @@ export default function StockDetailScreen() {
           <>
             <View style={[styles.verdict, { borderColor: colors.ai + "44" }]}>
               <Text style={{ color: colors.ai, fontWeight: "700" }}>
-                {t("Overall")}: {t(signal!.signal)} · {t("Setup strength")} {Math.round(confidence)}%
+                {t("Overall")}: {t(setup!.rating ?? "")}
+                {qualityLabel ? ` · ${t("Signal quality")} ${t(qualityLabel)}` : ""}
               </Text>
               <Text variant="secondary">
-                {`${upper} — ${t("NafaIQ rates this technical setup")} ${t(signal!.signal)}. ${t("Key drivers")}: ${
+                {`${upper} — ${t("NafaIQ rates this technical setup")} ${t(setup!.rating ?? "")}. ${t("Key drivers")}: ${
                   keyDrivers || t("technical indicators")
                 }.`}
               </Text>
             </View>
-            {signal!.reasons?.length ? (
+            {setupReasons.length ? (
               <View style={{ gap: 4 }}>
-                {signal!.reasons.slice(0, 3).map((reason) => (
+                {setupReasons.map((reason) => (
                   <Text key={reason} variant="muted" numberOfLines={2}>
                     · {reason}
                   </Text>
@@ -341,7 +351,7 @@ export default function StockDetailScreen() {
         {signal ? <SignalContextTiles signal={signal} /> : null}
       </Card>
 
-      {/* Audited hit rates of published signals — new v2 outcomes store */}
+      {/* Audited hit rates of published forecasts */}
       <SignalTrackRecordCard />
 
       {/* LLM deep-dive report — verified & cited, separate from the technical setup above */}

@@ -1,7 +1,7 @@
 import { chipClass, freshnessTone, riskTone } from "@/features/signals/signal.utils";
-import type { ApiSignalV2 } from "@/lib/psx/types";
+import type { ApiSignalBreakdown } from "@/lib/psx/types";
 
-export function SignalRiskChips({ signal }: { signal: ApiSignalV2 }) {
+export function SignalRiskChips({ signal }: { signal: ApiSignalBreakdown }) {
   return (
     <div className="flex flex-wrap gap-1.5">
       <span className={chipClass(riskTone(signal.risk_level))}>{signal.risk_level}</span>

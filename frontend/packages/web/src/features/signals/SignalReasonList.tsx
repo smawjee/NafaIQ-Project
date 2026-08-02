@@ -1,11 +1,11 @@
 import { AlertTriangle, CheckCircle2 } from "lucide-react";
-import type { ApiSignalV2 } from "@/lib/psx/types";
+import type { ApiSignalBreakdown } from "@/lib/psx/types";
 
 export function SignalReasonList({
   signal,
   compact = false,
 }: {
-  signal: ApiSignalV2;
+  signal: ApiSignalBreakdown;
   compact?: boolean;
 }) {
   const reasons = compact ? signal.reasons.slice(0, 3) : signal.reasons;

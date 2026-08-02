@@ -1,13 +1,7 @@
 import { useEffect, useMemo, useRef } from "react";
 import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { Candle } from "@/lib/data";
-import type {
-  ApiMarketSnapshotItem,
-  SignalHorizon,
-  UiTicker,
-  UiIndex,
-  UiSector,
-} from "@/lib/psx/types";
+import type { ApiMarketSnapshotItem, UiTicker, UiIndex, UiSector } from "@/lib/psx/types";
 import { supabase } from "@/integrations/supabase/client";
 import {
   fetchMarketSnapshot,
@@ -22,11 +16,7 @@ import {
   fetchScreenerMetrics,
   fetchTreemap,
   fetchSignal,
-  fetchSignalV4,
   fetchBatchSignals,
-  fetchSignalV2,
-  fetchBatchSignalsV2,
-  fetchSignalTrackRecord,
 } from "@/lib/psx/client";
 
 export function usePsxLiveMarket() {
@@ -359,46 +349,10 @@ export function usePsxSignal(symbol: string | undefined) {
   });
 }
 
-export function usePsxSignalV4(symbol: string | undefined) {
-  const sym = symbol?.toUpperCase();
-  return useQuery({
-    queryKey: ["psx", "signal", "v4", sym],
-    queryFn: () => fetchSignalV4(sym!),
-    enabled: !!symbol,
-    staleTime: 300_000,
-  });
-}
-
-export function usePsxSignalV2(symbol: string | undefined, horizon: SignalHorizon = "20D") {
-  const sym = symbol?.toUpperCase();
-  return useQuery({
-    queryKey: ["psx", "signal", "v2", sym, horizon],
-    queryFn: () => fetchSignalV2(sym!, horizon),
-    enabled: !!symbol,
-    staleTime: 300_000,
-  });
-}
-
 export function usePsxBatchSignals(limit = 50) {
   return useQuery({
     queryKey: ["psx", "signals", "batch", limit],
     queryFn: () => fetchBatchSignals(limit),
-    staleTime: 300_000,
-  });
-}
-
-export function usePsxSignalTrackRecord() {
-  return useQuery({
-    queryKey: ["psx", "signals", "v2", "track-record"],
-    queryFn: () => fetchSignalTrackRecord(),
-    staleTime: 3_600_000, // outcomes change once a day at most
-  });
-}
-
-export function usePsxBatchSignalsV2(limit = 50, horizon: SignalHorizon = "20D") {
-  return useQuery({
-    queryKey: ["psx", "signals", "v2", "batch", limit, horizon],
-    queryFn: () => fetchBatchSignalsV2(limit, horizon),
     staleTime: 300_000,
   });
 }

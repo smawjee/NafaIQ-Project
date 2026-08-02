@@ -22,7 +22,7 @@
       "env": {
         "EXPO_PUBLIC_SUPABASE_URL": "https://gmonfgxmjgzipnbhgimv.supabase.co",
         "EXPO_PUBLIC_SUPABASE_ANON_KEY": "sb_publishable_aJUwvjC4anq5dmtlbMcTjA_4y_pvfE1",
-        "EXPO_PUBLIC_API_URL": "https://illustrious-vitality-production-fb80.up.railway.app"
+        "EXPO_PUBLIC_API_URL": "https://nafaiq-api-production.up.railway.app"
       }
     },
     "production": {
@@ -31,7 +31,7 @@
       "env": {
         "EXPO_PUBLIC_SUPABASE_URL": "https://gmonfgxmjgzipnbhgimv.supabase.co",
         "EXPO_PUBLIC_SUPABASE_ANON_KEY": "sb_publishable_aJUwvjC4anq5dmtlbMcTjA_4y_pvfE1",
-        "EXPO_PUBLIC_API_URL": "https://illustrious-vitality-production-fb80.up.railway.app"
+        "EXPO_PUBLIC_API_URL": "https://nafaiq-api-production.up.railway.app"
       }
     }
   },

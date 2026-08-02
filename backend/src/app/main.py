@@ -18,7 +18,6 @@ from app.api import (
     health,
     market,
     signals,
-    signals_v4,
     portfolio,
     notifications,
     finance,
@@ -420,7 +419,6 @@ _reports_gate = flags.require_flag(
 app.include_router(health.router, prefix="/api")
 app.include_router(market.router, prefix="/api")
 app.include_router(signals.router, prefix="/api", dependencies=[_signals_gate])
-app.include_router(signals_v4.router, prefix="/api", dependencies=[_signals_gate])
 app.include_router(portfolio.router, prefix="/api")
 app.include_router(notifications.router, prefix="/api")
 app.include_router(finance.router, prefix="/api")

@@ -180,12 +180,12 @@ export interface BatchSignalsResponse {
   count: number;
 }
 
-/* ── Signals v2 (backend api/signals.py /signals/v2/*) ──────────────────── */
+/* ── Signal breakdown (optional detail fields on list rows) ─────────────── */
 
 export type SignalHorizon = "5D" | "20D" | "60D";
 
 /** v2 can decline to call a setup; the 5-value `Signal` stays badge-safe. */
-export type SignalV2Label = Signal | "NO SIGNAL";
+export type SignalLabel = Signal | "NO SIGNAL";
 
 export interface ApiIndicatorVote {
   name: string;
@@ -228,13 +228,13 @@ export interface ApiFlowContext {
   source: string;
 }
 
-export interface ApiSignalV2 {
+export interface ApiSignalBreakdown {
   symbol: string;
   horizon: SignalHorizon;
-  signal: SignalV2Label;
+  signal: SignalLabel;
   confidence: number;
   rank_score: number;
-  technical_signal: SignalV2Label;
+  technical_signal: SignalLabel;
   technical_score: number;
   ml_signal: Signal | null;
   ml_confidence: number | null;
@@ -257,7 +257,7 @@ export interface ApiSignalV2 {
   predicted_at: string;
 }
 
-/* ── Signal track record (/signals/v2/track-record) ─────────────────────── */
+/* ── Signal track record (/api/signals/track-record) ────────────────────── */
 
 export interface ApiTrackRecordEntry {
   n: number;

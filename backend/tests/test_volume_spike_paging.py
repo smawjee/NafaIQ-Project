@@ -17,7 +17,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from app.services.signals import volume_spikes as vs_mod
+from app.services.market import volume_spikes as vs_mod
 
 _DAYS = 30
 # 60 symbols x 30 bars = 1,800 rows, comfortably past the 1,000-row cap.

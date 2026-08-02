@@ -11,7 +11,7 @@ import { SignalReasonList } from "@/features/signals/SignalReasonList";
 import { SignalRiskChips } from "@/features/signals/SignalRiskChips";
 import { STOCKS, fmtNum, type Signal } from "@/lib/data";
 import { useLang } from "@/hooks/use-lang";
-import type { ApiSignalV2 } from "@/lib/psx/types";
+import type { ApiSignalBreakdown } from "@/lib/psx/types";
 
 export function PsxWatchlistCard({
   symbols,
@@ -79,7 +79,7 @@ export function PsxWatchlistCard({
             null;
           const signalDetails = batchSignals?.signals?.find(
             (s: { symbol: string }) => s.symbol === tk,
-          ) as ApiSignalV2 | undefined;
+          ) as ApiSignalBreakdown | undefined;
           return (
             <div
               key={tk}

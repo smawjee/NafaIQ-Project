@@ -242,7 +242,7 @@ export interface ApiIndicatorVote {
   reason: string;
 }
 
-export interface ApiSignalV2 {
+export interface ApiSignalBreakdown {
   symbol: string;
   horizon: SignalHorizon;
   signal: Signal;
@@ -304,8 +304,8 @@ export interface ApiFlowContext {
   source: string;
 }
 
-export interface BatchSignalsV2Response {
-  signals: ApiSignalV2[];
+export interface BatchSignalsBreakdownResponse {
+  signals: ApiSignalBreakdown[];
   count: number;
 }
 

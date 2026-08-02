@@ -5,11 +5,11 @@ export type {
   ApiIndicatorVote,
   ApiSignalConsensus,
   ApiSignalRiskMetrics,
-  ApiSignalV2,
+  ApiSignalBreakdown,
   ApiTrackRecord,
   ApiTrackRecordEntry,
   SignalHorizon,
-  SignalV2Label,
+  SignalLabel,
 } from "./api";
 export type { ApiSymbolInfo, ApiCompanyProfile, ApiFundamentalsData } from "./api";
 export type { ApiAnnouncementItem, ApiDividendEvent, ApiIndexBar, ApiIndexCard } from "./api";

@@ -22,10 +22,8 @@ import type {
   ApiHeatmapResponse,
   ApiIndicatorPayload,
   ApiSignal,
-  ApiSignalV2,
   ApiTrackRecord,
   BatchSignalsResponse,
-  SignalHorizon,
   ScreenerRequest,
   ScreenerResponse,
   BacktestRequest,
@@ -33,8 +31,8 @@ import type {
 } from "@nafaiq/shared";
 
 import { supabase } from "./supabase";
-import type { ApiSignalV4 } from "./signals-v4";
-import { toLegacySignal } from "./signals-v4";
+import type { ApiSignalDetail } from "./signals";
+import { toLegacySignal } from "./signals";
 
 const EXPLICIT_URL = process.env.EXPO_PUBLIC_API_URL;
 const PSX_TOKEN = process.env.EXPO_PUBLIC_PSX_API_TOKEN || "";
@@ -210,18 +208,20 @@ export function runBacktest(params: BacktestRequest): Promise<ApiBacktestResult>
   return post<ApiBacktestResult>("/api/backtest", params);
 }
 
+/** Compact row shape for list surfaces (screener, watchlist). */
 export function fetchSignal(symbol: string): Promise<ApiSignal> {
-  return get<ApiSignalV4>(`/api/signal/${symbol}`).then(toLegacySignal);
+  return get<ApiSignalDetail>(`/api/signals/${symbol}`).then(toLegacySignal);
 }
 
 export function fetchBatchSignals(limit = 50): Promise<BatchSignalsResponse> {
-  return post<{ signals: ApiSignalV4[]; count: number }>("/api/signals/batch", { limit }).then((response) => ({ signals: response.signals.map(toLegacySignal), count: response.count }));
+  return post<{ signals: ApiSignalDetail[]; count: number }>("/api/signals/batch", { limit }).then((response) => ({ signals: response.signals.map(toLegacySignal), count: response.count }));
 }
 
-export function fetchSignalV2(symbol: string, horizon: SignalHorizon = "20D"): Promise<ApiSignalV2> {
-  return get<ApiSignalV2>(`/api/signals/v2/${symbol}?horizon=${horizon}`);
+/** Full engine response — technical setup, measurement quality and context. */
+export function fetchSignalDetail(symbol: string): Promise<ApiSignalDetail> {
+  return get<ApiSignalDetail>(`/api/signals/${symbol}`);
 }
 
 export function fetchSignalTrackRecord(): Promise<ApiTrackRecord> {
-  return get<ApiTrackRecord>("/api/signals/v2/track-record");
+  return get<ApiTrackRecord>("/api/signals/track-record");
 }

@@ -1,7 +1,6 @@
 import { API_BASE_URL } from "@/lib/api";
 
 import type {
-  ApiTrackRecord,
   ApiMarketSnapshotItem,
   ApiOHLCVBar,
   ApiSymbolInfo,
@@ -15,11 +14,7 @@ import type {
   ApiSectorDataItem,
   ApiTreemap,
   ApiIndicatorPayload,
-  ApiSignal,
-  ApiSignalV2,
   BatchSignalsResponse,
-  BatchSignalsV2Response,
-  SignalHorizon,
   ScreenerRequest,
   ScreenerResponse,
   BacktestRequest,
@@ -27,8 +22,8 @@ import type {
   ApiMutualFund,
   ApiFundNavHistory,
 } from "./types";
-import type { ApiSignalV4, BatchSignalsV4Response } from "./signals-v4";
-import { toLegacyBatch, toLegacySignal } from "./signals-v4-adapter";
+import type { ApiSignalDetail, BatchSignalsDetailResponse } from "./signals";
+import { toLegacyBatch } from "./signals-adapter";
 
 // Re-export mutual fund types for use in hooks
 export type { ApiMutualFund, ApiFundNavHistory, ApiDividendEvent };
@@ -213,47 +208,13 @@ export function runBacktest(params: BacktestRequest): Promise<ApiBacktestResult>
   return post<ApiBacktestResult>("/api/backtest", params);
 }
 
-export function fetchSignal(symbol: string): Promise<ApiSignal> {
-  return get<ApiSignalV4>(`/api/signal/${symbol}`).then(toLegacySignal);
+export function fetchSignal(symbol: string): Promise<ApiSignalDetail> {
+  return get<ApiSignalDetail>(`/api/signals/${symbol}`);
 }
 
-export function fetchSignalV4(symbol: string): Promise<ApiSignalV4> {
-  return get<ApiSignalV4>(`/api/signals/v3/${symbol}`);
-}
-
-export function fetchBatchSignalsV4(limit = 50): Promise<BatchSignalsV4Response> {
-  return post<BatchSignalsV4Response>("/api/signals/v3/batch", { limit });
-}
-
+/** Batch still maps to the legacy row shape the screener and watchlist render. */
 export function fetchBatchSignals(limit = 50): Promise<BatchSignalsResponse> {
-  return post<BatchSignalsV4Response>("/api/signals/batch", { limit }).then(toLegacyBatch);
-}
-
-export function fetchSignalV2(
-  symbol: string,
-  horizon: SignalHorizon = "20D",
-): Promise<ApiSignalV2> {
-  return get<ApiSignalV2>(`/api/signals/v2/${symbol}?horizon=${horizon}`);
-}
-
-export function fetchBatchSignalsV2(
-  limit = 50,
-  horizon: SignalHorizon = "20D",
-): Promise<BatchSignalsV2Response> {
-  return post<BatchSignalsV2Response>("/api/signals/v2/batch", { limit, horizon });
-}
-
-export function fetchSignalTrackRecord(): Promise<ApiTrackRecord> {
-  return get<ApiTrackRecord>("/api/signals/v2/track-record");
-}
-
-export function fetchSignalLeaderboardV2(
-  limit = 50,
-  horizon: SignalHorizon = "20D",
-): Promise<BatchSignalsV2Response> {
-  return get<BatchSignalsV2Response>(
-    `/api/signals/v2/leaderboard?horizon=${horizon}&limit=${limit}`,
-  );
+  return post<BatchSignalsDetailResponse>("/api/signals/batch", { limit }).then(toLegacyBatch);
 }
 
 // === User-authenticated request exports ===

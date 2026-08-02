@@ -8,7 +8,6 @@ import type {
   ApiMarketSnapshotItem,
   ApiSymbolInfo,
   Candle,
-  SignalHorizon,
 } from "@nafaiq/shared";
 
 import {
@@ -26,7 +25,7 @@ import {
   fetchScreenerMetrics,
   fetchSignal,
   fetchSignalTrackRecord,
-  fetchSignalV2,
+  fetchSignalDetail,
   fetchSymbols,
   publicGet,
 } from "@/lib/api";
@@ -303,7 +302,7 @@ export function usePsxScreenerMetrics() {
   });
 }
 
-/* ── ML signals ── */
+/* ── Signals ── */
 
 export function usePsxSignal(symbol: string | undefined) {
   return useQuery({
@@ -322,10 +321,11 @@ export function usePsxBatchSignals(limit = 50) {
   });
 }
 
-export function usePsxSignalV2(symbol: string | undefined, horizon: SignalHorizon = "20D") {
+/** Full engine response for the stock-detail screen. */
+export function usePsxSignalDetail(symbol: string | undefined) {
   return useQuery({
-    queryKey: ["psx", "signals", "v2", symbol, horizon],
-    queryFn: () => fetchSignalV2(symbol!, horizon),
+    queryKey: ["psx", "signal", "detail", symbol],
+    queryFn: () => fetchSignalDetail(symbol!),
     enabled: !!symbol,
     staleTime: 300_000,
   });
@@ -333,7 +333,7 @@ export function usePsxSignalV2(symbol: string | undefined, horizon: SignalHorizo
 
 export function usePsxSignalTrackRecord() {
   return useQuery({
-    queryKey: ["psx", "signals", "v2", "track-record"],
+    queryKey: ["psx", "signals", "track-record"],
     queryFn: () => fetchSignalTrackRecord(),
     staleTime: 3_600_000, // outcomes change once a day at most (same as web)
   });
