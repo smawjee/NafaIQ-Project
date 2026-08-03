@@ -119,7 +119,9 @@ test("QA execution pass - browser cases", async ({ page }) => {
     await authSettled(page);
     const h1 = await page.locator("h1").count();
     const levels = await page.evaluate(() =>
-      [...document.querySelectorAll("h1,h2,h3,h4,h5,h6")].map((h) => Number(h.tagName[1])),
+      Array.from(document.querySelectorAll("h1,h2,h3,h4,h5,h6")).map((h) =>
+        Number(h.tagName[1]),
+      ),
     );
     let skips = 0;
     for (let i = 1; i < levels.length; i++) if (levels[i] - levels[i - 1] > 1) skips++;
@@ -166,7 +168,10 @@ test("QA execution pass - browser cases", async ({ page }) => {
     await page.waitForTimeout(2000);
     expect(dialog, "an injected script executed").toBe(false);
     const scripts = await page.evaluate(
-      () => [...document.querySelectorAll("script")].filter((s) => s.textContent?.includes("alert(1)")).length,
+      () =>
+        Array.from(document.querySelectorAll("script")).filter((s) =>
+          s.textContent?.includes("alert(1)"),
+        ).length,
     );
     expect(scripts, "injected markup became a live script tag").toBe(0);
     return `Symbol "<script>alert(1)</script>" rendered inert: no dialog fired and no injected script tag entered the DOM. React escaping holds even though the API echoes the raw symbol back.`;
