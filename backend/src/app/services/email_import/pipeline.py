@@ -38,7 +38,11 @@ from app.services import notifier
 from app.services import broker_imports
 from app.services.crypto import CryptoError, decrypt
 from app.services.email_import import correlate, llm, reconcile, rules, senders
-from app.services.email_import.attachments import extract_pdf_text
+from app.services.email_import.attachments import (
+    MAX_BILL_PDF_BYTES,
+    MAX_BILL_PDF_PAGES,
+    extract_pdf_text,
+)
 from app.services.finance.categories import canonical_category
 from app.services.email_import.gmail_client import (
     GmailError,
@@ -160,15 +164,36 @@ async def _parse_message(msg: RawMessage, llm_budget: list[int]) -> ParsedEmailI
 async def _with_bill_attachment_text(
     msg: RawMessage, access_token: str
 ) -> RawMessage:
-    """Append PDF invoice text for bill parsing, without retaining the PDF."""
+    """Append PDF invoice text for bill parsing, without retaining the PDF.
+
+    Every early return here is a silent "no bill will be found", because the
+    covering email of an attached invoice carries no amount and no due date —
+    all of that lives in the PDF. Two Optix invoices were filed as
+    `not_transaction` with no error while the attached PDF parsed perfectly
+    offline (Rs 3,686 due 2026-08-10), and nothing in the logs said which of
+    these branches had swallowed it. Each exit is now recorded at INFO with the
+    message id, so one poll is enough to tell them apart.
+    """
     if not msg.attachments:
+        log.info("bill pdf: message %s has no attachments", msg.message_id)
         return msg
     if not senders.looks_like_bill(msg.subject, msg.body):
+        log.info(
+            "bill pdf: message %s has %d attachment(s) but the subject/body did "
+            "not look like a bill, so the PDF was never opened",
+            msg.message_id,
+            len(msg.attachments),
+        )
         return msg
     snippets: list[str] = []
     for attachment in msg.attachments:
         filename = (attachment.filename or "").lower()
         if not filename.endswith(".pdf"):
+            log.info(
+                "bill pdf: skipping non-PDF attachment %r on %s",
+                attachment.filename,
+                msg.message_id,
+            )
             continue
         try:
             data = await download_attachment(
@@ -180,9 +205,36 @@ async def _with_bill_attachment_text(
         text = extract_pdf_text(data)
         if text:
             snippets.append(text)
+        else:
+            # extract_pdf_text swallows its own failures, so distinguish the
+            # reasons it can legitimately return "" from a genuine parse error.
+            log.info(
+                "bill pdf: no text extracted from %r (%d bytes) on %s — "
+                "image-only scan, over %d bytes, or over %d pages",
+                attachment.filename,
+                len(data),
+                msg.message_id,
+                MAX_BILL_PDF_BYTES,
+                MAX_BILL_PDF_PAGES,
+            )
     if not snippets:
+        log.info("bill pdf: no usable PDF text for %s", msg.message_id)
         return msg
-    body = f"{msg.body}\n\n" + "\n\n".join(snippets)
+    # Attachment text goes FIRST, ahead of the covering email.
+    #
+    # Both parsers run the body through `strip_boilerplate`, which truncates at
+    # the first footer phrase past a minimum keep length. Optix wraps its
+    # invoice mail in ~3KB of payment-channel marketing, so with the PDF text
+    # appended the combined 5,110-char body was cut to 1,214 — the covering
+    # note survived and the entire invoice was thrown away. Every field that
+    # matters (Due Date, Total Service Charges) sits in the first few lines of
+    # the PDF, so leading with it keeps them on the near side of any cut.
+    body = "\n\n".join(snippets) + f"\n\n{msg.body}"
+    log.info(
+        "bill pdf: prepended %d chars of PDF text to %s",
+        sum(len(s) for s in snippets),
+        msg.message_id,
+    )
     return replace(msg, body=body[:80_000])
 
 

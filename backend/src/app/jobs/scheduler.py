@@ -59,7 +59,23 @@ log = structlog.get_logger()
 # steady state, so 10% flags a real regression without crying wolf nightly.
 DIVIDENDS_MAX_FAILURE_RATIO = 0.10
 
-scheduler = AsyncIOScheduler()
+# APScheduler's built-in default is `misfire_grace_time=1` — a job whose trigger
+# time is reached while the event loop is busy for even one second is dropped
+# silently, not run late. Most daily jobs below pass an explicit grace, but any
+# that forgot inherited the 1s default: that is how the 18:00 PKT
+# `refresh_index_eod_postclose` run vanished on 2026-08-05 with no error and no
+# health row, leaving 17 of 18 index cards showing the previous day's close.
+# A floor of 300s here means a missed beat is served late instead of skipped;
+# `coalesce` collapses a backlog into a single catch-up run so a stalled loop
+# can't stampede on recovery, and `max_instances=1` keeps a slow job from
+# overlapping itself. Jobs needing a wider window still override per-job.
+scheduler = AsyncIOScheduler(
+    job_defaults={
+        "misfire_grace_time": 300,
+        "coalesce": True,
+        "max_instances": 1,
+    }
+)
 ahletrade = AhleTradePoller()
 dps = DPSScraper()
 tv = TradingViewScraper()
@@ -1437,8 +1453,24 @@ def init_scheduler():
     # the 15:30 PKT session ends, so the 18:00 run puts it in the table the same
     # evening instead of ~7 hours later. The 01:00 run stays as the safety net
     # that also catches a late DPS publish. Both are idempotent upserts.
-    scheduler.add_job(job_refresh_index_eod, CronTrigger(day_of_week="mon-fri", hour=18, minute=0, timezone="Asia/Karachi"), id="refresh_index_eod_postclose", replace_existing=True)
-    scheduler.add_job(job_refresh_index_eod, CronTrigger(hour=1, minute=0, timezone="Asia/Karachi"), id="refresh_index_eod", replace_existing=True)
+    # Both runs carry an hour of grace, matching every other daily job. Without
+    # it they inherited APScheduler's 1s default and a momentarily busy loop
+    # dropped the run outright — the table then sat a full day stale, which is
+    # exactly the failure the twice-daily schedule exists to prevent.
+    scheduler.add_job(
+        job_refresh_index_eod,
+        CronTrigger(day_of_week="mon-fri", hour=18, minute=0, timezone="Asia/Karachi"),
+        id="refresh_index_eod_postclose",
+        replace_existing=True,
+        misfire_grace_time=3600,
+    )
+    scheduler.add_job(
+        job_refresh_index_eod,
+        CronTrigger(hour=1, minute=0, timezone="Asia/Karachi"),
+        id="refresh_index_eod",
+        replace_existing=True,
+        misfire_grace_time=3600,
+    )
     # Live index snapshot: every 5 min during market hours (Mon-Fri 09:00-17:00 PKT).
     # Runs during market hours + buffer so the last snapshot before EOD is captured.
     scheduler.add_job(
@@ -1446,7 +1478,12 @@ def init_scheduler():
         CronTrigger(day_of_week="mon-fri", hour="9-16", minute="*/5", timezone="Asia/Karachi"),
         id="refresh_index_snapshot",
         replace_existing=True,
-        misfire_grace_time=120,
+        # 120s covered a single missed beat but nothing worse: on 2026-08-05 the
+        # last eight slots of the day (16:20–16:55 PKT) were all dropped, so the
+        # final snapshot of the session — the one the cards fall back on after
+        # close — was never taken. 600s survives a longer stall, and coalesce
+        # keeps the catch-up to one run.
+        misfire_grace_time=600,
     )
     scheduler.add_job(job_check_alerts, IntervalTrigger(seconds=60), id="check_alerts", replace_existing=True)
     # Keep-alive: the always-on worker pings the API so Railway can't cold-start

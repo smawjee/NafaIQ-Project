@@ -28,7 +28,7 @@ import {
   useFinanceVocabulary,
   useUpdateTransaction,
 } from "@/hooks/use-finance-transactions";
-import { CAT_COLOR, CATEGORIES, ACCOUNTS } from "@/features/finance/finance.data";
+import { CAT_COLOR, CATEGORIES, ACCOUNTS, sourceLabel } from "@/features/finance/finance.data";
 
 const NEW_PAYMENT_VALUE = "__new_payment_method__";
 
@@ -131,7 +131,10 @@ export function Transactions() {
       t.merchant?.toLowerCase().includes(q) ||
       t.category?.toLowerCase().includes(q) ||
       t.transaction_type?.toLowerCase().includes(q) ||
-      t.source?.toLowerCase().includes(q)
+      t.source?.toLowerCase().includes(q) ||
+      // Match what the row actually shows ("Stock trade"), not only the stored
+      // machine value ("stock_trade") — searching for either finds the row.
+      sourceLabel(t.source).toLowerCase().includes(q)
     );
   });
 
@@ -366,7 +369,7 @@ export function Transactions() {
                     <span className="rounded-[4px] bg-elevated px-1.5 py-0.5">
                       {tr(t.category)}
                     </span>
-                    <span>{t.source ?? "manual"}</span>
+                    <span>{tr(sourceLabel(t.source))}</span>
                   </div>
                 </div>
                 <span
@@ -477,9 +480,13 @@ export function Transactions() {
             }}
             className={fieldClass}
           >
+            {/* Value stays the stored string — relabelling only. A system
+                source must round-trip untouched: the finance summaries key off
+                `source = 'stock_trade'` to keep share purchases out of the
+                expense totals, so rewriting it on edit would corrupt them. */}
             {paymentMethods.map((a) => (
               <option key={a} value={a}>
-                {a}
+                {tr(sourceLabel(a))}
               </option>
             ))}
             <option value={NEW_PAYMENT_VALUE}>{tr("Add new payment method")}</option>

@@ -113,28 +113,36 @@ async def index_cards() -> list[dict[str, Any]]:
     async def load() -> list[dict[str, Any]]:
         out: list[dict[str, Any]] = []
         live = await _live_index_by_code()
+        # Same rows as `live`, but unfiltered by age. Used only to date-compare
+        # against the EOD bar below: after the session ends the live tier goes
+        # empty, and the day's final snapshot is still newer than the EOD table
+        # until the 18:00 PKT ingest lands.
+        recent = await _index_snapshot_by_code()
         for code in INDEX_CARD_CODES:
-            live_row = live.get(code)
-            if live_row is not None:
-                close = live_row.get("close")
-                change = live_row.get("change")
-                change_pct = live_row.get("change_pct")
-                if close is not None:
-                    out.append(
-                        {
-                            "code": code,
-                            "date": live_row.get("date"),
-                            "close": close,
-                            "prev_close": live_row.get("prev_close"),
-                            "change": round(change or 0.0, 2),
-                            "change_pct": round(change_pct or 0.0, 2),
-                        }
-                    )
-                    continue
+            card = _card_from_snapshot(code, live.get(code))
+            if card is not None:
+                out.append(card)
+                continue
             bars = await get_cache().get_index_latest(code, bars=2)
+            snapshot = recent.get(code)
             if not bars:
+                # No EOD history at all — a snapshot of any age beats no card.
+                card = _card_from_snapshot(code, snapshot)
+                if card is not None:
+                    out.append(card)
                 continue
             latest = bars[0]
+            # Prefer the snapshot only when it is strictly *newer* than the
+            # newest EOD bar. Never the other way round: a stale snapshot must
+            # not override a fresher official close.
+            snapshot_date = _parse_date((snapshot or {}).get("date"))
+            if snapshot_date is not None and (
+                latest.date is None or snapshot_date > latest.date
+            ):
+                card = _card_from_snapshot(code, snapshot)
+                if card is not None:
+                    out.append(card)
+                    continue
             prev = bars[1] if len(bars) > 1 else None
             change = (latest.close - prev.close) if prev else 0.0
             change_pct = (change / prev.close * 100) if prev and prev.close else 0.0
@@ -153,9 +161,41 @@ async def index_cards() -> list[dict[str, Any]]:
     return await mem_cache.get_or_load("index_cards", TTL_INDEX, load)
 
 
+def _card_from_snapshot(
+    code: str, row: dict[str, Any] | None
+) -> dict[str, Any] | None:
+    """Shape one `psx_index_live_snapshot` row as an index card.
+
+    Returns None when there is no row or it carries no close, so callers can
+    treat "unusable" and "absent" identically and fall through to EOD.
+    """
+    if not row:
+        return None
+    close = row.get("close")
+    if close is None:
+        return None
+    return {
+        "code": code,
+        "date": row.get("date"),
+        "close": close,
+        "prev_close": row.get("prev_close"),
+        "change": round(row.get("change") or 0.0, 2),
+        "change_pct": round(row.get("change_pct") or 0.0, 2),
+    }
+
+
 async def _live_index_by_code() -> dict[str, dict[str, Any]]:
     try:
         rows = await get_cache().get_live_index_snapshot()
+    except Exception:
+        return {}
+    return {str(r.get("code", "")).upper(): r for r in rows if r.get("code")}
+
+
+async def _index_snapshot_by_code() -> dict[str, dict[str, Any]]:
+    """Snapshot rows regardless of age — for date comparison only."""
+    try:
+        rows = await get_cache().get_index_snapshot_any_age()
     except Exception:
         return {}
     return {str(r.get("code", "")).upper(): r for r in rows if r.get("code")}

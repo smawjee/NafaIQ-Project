@@ -112,6 +112,84 @@ async def stage_import(
     total_net_amount: float | None = None,
     diagnostics: dict[str, Any] | None = None,
 ) -> tuple[dict[str, Any], bool]:
+    # Dedup on the attachment's CONTENT hash, not its Gmail id.
+    #
+    # Gmail mints a fresh `attachmentId` every time a message is fetched, so the
+    # table's UNIQUE (user_id, gmail_message_id, gmail_attachment_id) never
+    # matched on a re-scan: one mailbox re-poll turned four real confirmations
+    # into fifteen import rows. Holdings survived only because the per-line
+    # idempotency key caught the trades; the import list did not.
+    #
+    # `attachment_sha256` is stable for the same bytes, so it is the real
+    # natural key. The INSERT below keeps the old ON CONFLICT clause as a
+    # backstop for a genuinely concurrent insert.
+    existing = (
+        await conn.execute(
+            text(
+                "SELECT * FROM broker_email_imports "
+                "WHERE user_id = :uid AND gmail_message_id = :mid "
+                "  AND attachment_sha256 = :sha "
+                "ORDER BY id LIMIT 1"
+            ),
+            {"uid": user_id, "mid": gmail_message_id, "sha": attachment_sha256},
+        )
+    ).mappings().first()
+    if existing is not None:
+        has_items = (
+            await conn.execute(
+                text(
+                    "SELECT 1 FROM broker_email_import_items "
+                    "WHERE import_id = :id LIMIT 1"
+                ),
+                {"id": existing["id"]},
+            )
+        ).first() is not None
+        if has_items:
+            # Already carries its lines — refresh only the volatile id. Never
+            # re-write the lines: they hold the stock_transaction_id links that
+            # stop an approved trade being booked twice.
+            await conn.execute(
+                text(
+                    "UPDATE broker_email_imports "
+                    "SET gmail_attachment_id = :aid, updated_at = now() WHERE id = :id"
+                ),
+                {"aid": gmail_attachment_id, "id": existing["id"]},
+            )
+            return dict(existing), False
+        # No lines yet, so an earlier parse failed on these exact bytes. Re-stage
+        # in place and report it as new, letting a fixed parser heal the row
+        # rather than stranding it as a permanent failure beside a good copy.
+        refreshed = (
+            await conn.execute(
+                text(
+                    "UPDATE broker_email_imports SET "
+                    " gmail_attachment_id = :aid, attachment_filename = :filename, "
+                    " account_id = :account_id, account_fingerprint = :fp, "
+                    " adapter_version = :ver, status = :status, trade_date = :trade_date, "
+                    " settlement_date = :settlement_date, total_quantity = :total_quantity, "
+                    " total_fees = :total_fees, total_net_amount = :total_net_amount, "
+                    " diagnostics = CAST(:diagnostics AS jsonb), updated_at = now() "
+                    "WHERE id = :id RETURNING *"
+                ),
+                {
+                    "id": existing["id"],
+                    "aid": gmail_attachment_id,
+                    "filename": attachment_filename[:255],
+                    "account_id": account_id,
+                    "fp": account_fingerprint,
+                    "ver": adapter_version,
+                    "status": status,
+                    "trade_date": trade_date,
+                    "settlement_date": settlement_date,
+                    "total_quantity": total_quantity,
+                    "total_fees": total_fees,
+                    "total_net_amount": total_net_amount,
+                    "diagnostics": _json(diagnostics),
+                },
+            )
+        ).mappings().first()
+        return dict(refreshed), True
+
     result = await conn.execute(
         text(
             "INSERT INTO broker_email_imports "

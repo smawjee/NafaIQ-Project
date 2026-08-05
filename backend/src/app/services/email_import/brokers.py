@@ -47,6 +47,18 @@ def _money(value: str) -> float:
     return float(value.replace(",", ""))
 
 
+def _qty(value: str) -> int:
+    """Share counts carry thousands separators once they reach four digits.
+
+    JS Global prints `Grand Total : 1,915` exactly as it prints `Grand Total :
+    -96`, so a pattern that only accepted bare digits rejected every
+    confirmation totalling 1,000 shares or more — the whole note was filed as
+    "missing grand total" and every trade on it was lost, including the PRL
+    purchase that a later sale then had nothing to sell against.
+    """
+    return int(value.replace(",", ""))
+
+
 def _parse_js_date(value: str) -> date:
     if "/" in value:
         day, month, year = value.split("/")
@@ -82,13 +94,13 @@ class JsGlobalAdapter:
 
     _row_re = re.compile(
         r"^(?P<contract>\d{6,})\s+Ready\s+(?P<settle>\d{2}-\d{2}-\d{2})\s+"
-        r"(?P<symbol>[A-Z0-9.]+)\s+(?P<qty>\d+)\s+(?P<rate>[\d,]+\.\d+)\s+"
+        r"(?P<symbol>[A-Z0-9.]+)\s+(?P<qty>[\d,]+)\s+(?P<rate>[\d,]+\.\d+)\s+"
         r"(?P<brok_rate>[\d,]+\.\d+)\s+(?P<brok>[\d,]+\.\d+)\s+"
         r"(?P<net_rate>[\d,]+\.\d+)\s+(?P<sst>[\d,]+\.\d+)\s+"
         r"(?P<levies>[\d,]+\.\d+)\s+(?P<net>-?[\d,]+\.\d+)$"
     )
     _grand_re = re.compile(
-        r"Grand Total\s*:\s*(?P<qty>-?\d+)\s+(?P<brok>[\d,]+\.\d+)\s+"
+        r"Grand Total\s*:\s*(?P<qty>-?[\d,]+)\s+(?P<brok>[\d,]+\.\d+)\s+"
         r"(?P<sst>[\d,]+\.\d+)\s+(?P<levies>[\d,]+\.\d+)\s+"
         r"(?P<net>-?[\d,]+\.\d+)",
         re.IGNORECASE,
@@ -129,7 +141,7 @@ class JsGlobalAdapter:
             match = self._row_re.match(line)
             if not match:
                 continue
-            qty = int(match.group("qty"))
+            qty = _qty(match.group("qty"))
             price = _money(match.group("rate"))
             brok = _money(match.group("brok"))
             sst = _money(match.group("sst"))
@@ -174,7 +186,7 @@ class JsGlobalAdapter:
             _money(grand.group("brok")) + _money(grand.group("sst")) + _money(grand.group("levies")),
             2,
         )
-        if abs(total_qty - int(grand.group("qty"))) > 0:
+        if abs(total_qty - _qty(grand.group("qty"))) > 0:
             raise BrokerParseError("Grand total quantity mismatch")
         if abs(total_fees - reported_fees) > TOLERANCE:
             raise BrokerParseError("Grand total fees mismatch")

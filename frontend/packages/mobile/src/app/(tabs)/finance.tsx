@@ -105,6 +105,26 @@ const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "
 const CATEGORIES = ["Food & Dining", "Utilities", "Transport", "Groceries", "Shopping", "Subscriptions", "Savings"];
 const ACCOUNTS = ["HBL Current", "Meezan Debit", "Easypaisa", "Meezan Savings"];
 
+/**
+ * `transactions.source` doubles as the payment method for user-entered rows,
+ * but the backend also writes three machine values there
+ * (`services/finance/payment_methods.py::SYSTEM_SOURCES`) to mark rows it
+ * generated itself. Printing those raw showed a share purchase as
+ * "stock_trade". Mirrors web's `features/finance/finance.data.ts`.
+ */
+const SYSTEM_SOURCES: Record<string, string> = {
+  manual: "Manual",
+  bank_email: "Bank email",
+  stock_trade: "Stock trade",
+};
+
+/** Display label for a transaction source; user-entered values pass through. */
+function sourceLabel(source: string | null | undefined): string {
+  const clean = source?.trim();
+  if (!clean) return SYSTEM_SOURCES.manual;
+  return SYSTEM_SOURCES[clean.toLowerCase()] ?? clean;
+}
+
 /** Case-insensitive dedupe preserving first spelling (mirrors web uniqueLabels). */
 function uniqueLabels(labels: (string | null | undefined)[]): string[] {
   const seen = new Set<string>();
@@ -439,7 +459,7 @@ const TxnGroupCard = memo(function TxnGroupCard({
               </View>
               <View style={{ flex: 1 }}>
                 <Text variant="body">{tx.merchant}</Text>
-                <Text variant="muted">{tx.category} · {tx.source ?? "manual"}</Text>
+                <Text variant="muted">{tx.category} · {sourceLabel(tx.source)}</Text>
               </View>
               <Text style={{ color: isIncome ? colors.bull : colors.bear, fontFamily: fonts.mono, fontSize: 13 }}>
                 {isIncome ? "+" : "-"}
@@ -528,7 +548,10 @@ function Transactions() {
         tx.merchant?.toLowerCase().includes(ql) ||
         tx.category?.toLowerCase().includes(ql) ||
         tx.transaction_type?.toLowerCase().includes(ql) ||
-        (tx.source ?? "").toLowerCase().includes(ql),
+        (tx.source ?? "").toLowerCase().includes(ql) ||
+        // Match the label the row actually shows ("Stock trade"), not only the
+        // stored machine value ("stock_trade") — either search finds the row.
+        sourceLabel(tx.source).toLowerCase().includes(ql),
     );
     const map = new Map<string, FinanceTransaction[]>();
     for (const tx of filtered) {
@@ -690,6 +713,7 @@ function Transactions() {
         {kind === "expense" ? <ChipRow options={categories} value={category} onChange={setCategory} /> : null}
         <PaymentMethodPicker
           options={paymentMethods}
+          formatLabel={sourceLabel}
           value={account}
           onChange={setAccount}
           onCreate={addPaymentMethod}

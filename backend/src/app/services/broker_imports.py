@@ -210,6 +210,45 @@ async def update_account(user_id: str, account_id: int, values: dict[str, Any]) 
     return row
 
 
+async def _blocking_reason(
+    conn, *, user: dict, portfolio_id: int, item: dict[str, Any]
+) -> str | None:
+    """Why this line cannot be applied, or None when it can.
+
+    Returns the reason rather than raising so the caller can skip one line and
+    still apply the rest. The checks themselves are unchanged — an unknown
+    ticker, a plan holdings limit, or a sell larger than the tracked position.
+    """
+    try:
+        await require_known_symbol(conn, item["symbol"])
+        if item["side"] == "buy":
+            current = await portfolio_repo.count_holdings(conn, portfolio_id, item["symbol"])
+            check_count_limit(
+                user,
+                feature_key="max_holdings_per_portfolio",
+                current=current,
+                label="Holdings",
+            )
+        else:
+            holding = await portfolio_repo.get_holding_by_symbol(conn, portfolio_id, item["symbol"])
+            held = int(holding["shares"]) if holding else 0
+            if held < int(item["quantity"]):
+                return (
+                    f"Insufficient shares to sell: you hold {held} {item['symbol']}, "
+                    f"confirmation sells {int(item['quantity'])}."
+                )
+    except HTTPException as exc:
+        return str(exc.detail)
+    return None
+
+
+def _skip_summary(skipped: list[dict[str, Any]]) -> str:
+    """One sentence naming every line that could not be applied."""
+    if not skipped:
+        return "No lines could be applied."
+    return " ".join(f"{s['symbol']}: {s['reason']}" for s in skipped)[:500]
+
+
 async def approve_import(
     *,
     user: dict,
@@ -231,26 +270,36 @@ async def approve_import(
             raise HTTPException(404, "Portfolio not found")
 
         try:
+            # Per line, not all-or-nothing. One confirmation can mix a line we
+            # can apply with one we cannot: a JS Global note listed a MEHT sell
+            # of 6 (166 held) beside a PRL sell of 90 against a position the app
+            # had never seen, and the whole import 400'd — the good line was
+            # stranded by the bad one, with no way to take it. Lines that cannot
+            # be applied are reported and left for a later approve; the import
+            # stays `approved` (not `imported`) until every line has landed.
+            applied = 0
+            skipped: list[dict[str, Any]] = []
             for item in detail["items"]:
-                await require_known_symbol(conn, item["symbol"])
-                if item["side"] == "buy":
-                    current = await portfolio_repo.count_holdings(conn, portfolio_id, item["symbol"])
-                    check_count_limit(
-                        user,
-                        feature_key="max_holdings_per_portfolio",
-                        current=current,
-                        label="Holdings",
+                if item.get("stock_transaction_id"):
+                    # Landed in an earlier partial approve — approving again
+                    # must not double-book it.
+                    applied += 1
+                    continue
+                reason = await _blocking_reason(
+                    conn, user=user, portfolio_id=portfolio_id, item=item
+                )
+                if reason is not None:
+                    skipped.append(
+                        {
+                            "row_index": item.get("row_index"),
+                            "symbol": item["symbol"],
+                            "side": item["side"],
+                            "quantity": int(item["quantity"]),
+                            "contract_number": item["contract_number"],
+                            "reason": reason,
+                        }
                     )
-                else:
-                    holding = await portfolio_repo.get_holding_by_symbol(conn, portfolio_id, item["symbol"])
-                    held = int(holding["shares"]) if holding else 0
-                    if held < int(item["quantity"]):
-                        raise HTTPException(
-                            400,
-                            f"Insufficient shares to sell: you hold {held} {item['symbol']}, "
-                            f"confirmation sells {int(item['quantity'])}.",
-                        )
-            for item in detail["items"]:
+                    continue
                 executed = datetime.combine(detail["trade_date"], time.min, tzinfo=timezone.utc)
                 trade = StockTransactionCreate(
                     portfolio_id=portfolio_id,
@@ -273,7 +322,27 @@ async def approve_import(
                     broker_import_item_id=item["id"],
                 )
                 await repo.link_item_transaction(conn, item["id"], row["id"])
-            await repo.set_import_status(conn, user_id, import_id, "imported", diagnostics={})
+                applied += 1
+
+            if applied == 0 and skipped:
+                # Nothing usable at all: unchanged behaviour, so a confirmation
+                # that is entirely unapplicable still fails loudly. Guarded on
+                # `skipped` because an import can legitimately have NO items —
+                # the broker re-sends the same confirmation from a second
+                # address and every line is deduped away by its idempotency
+                # key. That is already-imported, not a validation failure.
+                raise HTTPException(400, _skip_summary(skipped))
+
+            await repo.set_import_status(
+                conn,
+                user_id,
+                import_id,
+                "imported" if not skipped else "approved",
+                diagnostics={} if not skipped else {
+                    "message": _skip_summary(skipped),
+                    "skipped": skipped,
+                },
+            )
             if detail.get("account_id"):
                 await repo.patch_account(
                     conn,
@@ -299,8 +368,10 @@ async def approve_import(
         notify_activity(
             user_id,
             "trade",
-            "Broker confirmation imported",
-            "Your broker email confirmation was added to Portfolio and Finance.",
+            "Broker confirmation imported" if not skipped else "Broker confirmation partly imported",
+            "Your broker email confirmation was added to Portfolio and Finance."
+            if not skipped
+            else f"{applied} line(s) added. {_skip_summary(skipped)}",
         )
     )
     return await get_import(user_id, import_id)

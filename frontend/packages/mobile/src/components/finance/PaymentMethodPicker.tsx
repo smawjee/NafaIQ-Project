@@ -17,6 +17,7 @@ export function PaymentMethodPicker({
   onChange,
   onCreate,
   creating,
+  formatLabel,
 }: {
   options: string[];
   value: string;
@@ -24,6 +25,14 @@ export function PaymentMethodPicker({
   /** Persist + select a brand-new method; the parent owns the mutation. */
   onCreate: (label: string) => void;
   creating?: boolean;
+  /**
+   * Display-only relabelling; the option's stored value is what gets selected.
+   * Backend-generated sources ("stock_trade") share this field with real
+   * payment methods and must round-trip untouched — the finance summaries key
+   * off `source = 'stock_trade'` to keep share purchases out of expense
+   * totals — so only the chip text changes.
+   */
+  formatLabel?: (value: string) => string;
 }) {
   const { t } = useLang();
   const [adding, setAdding] = useState(false);
@@ -46,7 +55,7 @@ export function PaymentMethodPicker({
         {options.map((o) => (
           <Chip
             key={o}
-            label={o}
+            label={formatLabel ? formatLabel(o) : o}
             active={!adding && o === value}
             onPress={() => {
               setAdding(false);

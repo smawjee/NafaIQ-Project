@@ -593,6 +593,31 @@ class CacheLayer:
             return []
         return await self.dps.fetch_index_snapshot()
 
+    async def get_index_snapshot_any_age(self) -> list[dict]:
+        """Every ``psx_index_live_snapshot`` row, with no freshness filter.
+
+        ``get_live_index_snapshot`` discards rows past its cutoff on purpose: an
+        intraday card must never present a stale tick as a live one. That rule
+        stops being right once the session is over. The scheduler's last write
+        of the day *is* that day's close, and after 17:10 PKT the 900s cutoff
+        throws it away and the cards fall back to ``psx_index_eod`` — which,
+        until the 18:00 PKT ingest lands, still holds the *previous* day. The
+        result is a card that is confidently a full day wrong while the correct
+        number sits unused in the database.
+
+        Callers use this only to compare dates against an EOD bar and pick the
+        later one. It never asserts liveness, so it does not fall back to a DPS
+        scrape — an empty result simply means "nothing to compare against".
+        """
+        try:
+            result = await async_execute(
+                lambda c: c.table("psx_index_live_snapshot").select("*")
+            )
+            return result.data or []
+        except Exception:
+            log.warning("cache_index_snapshot_any_age_read_failed", exc_info=True)
+            return []
+
     async def _scrape_index_eod(self, code: str) -> list[IndexBar]:
         bars = await self.dps.fetch_index_eod(code)
         if bars:
