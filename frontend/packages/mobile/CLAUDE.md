@@ -106,34 +106,7 @@ dependencies, native modules, or build steps. iOS is built via Expo
   raw emoji in UI).
 - `react-native-url-polyfill` is imported once at entry for supabase-js.
 
-## Architecture / Folder Structure
-
-```
-src/
-  app/                 # expo-router routes (file-based)
-    _layout.tsx        # root: providers + auth gate + theme
-    index.tsx          # landing OR redirect to (tabs)
-    auth.tsx           # sign in / sign up
-    plans.tsx          # pricing (public)
-    (tabs)/            # auth-gated bottom-tab group
-      _layout.tsx      # Tabs: Home, Markets, Portfolio, Finance, Learn
-      app.tsx          # Dashboard
-      psx.tsx          # PSX market terminal
-      portfolio.tsx
-      finance.tsx
-      learn/
-        index.tsx      # Learn hub
-        lesson/[id].tsx
-    alerts.tsx
-    stock/[ticker].tsx
-  components/          # shared UI: Card, StatCard, Change, SignalBadge,
-                       # charts/, icons, primitives (Button, Sheet, Tabs…)
-  hooks/               # useAuth, useLearn, useColorScheme…
-    queries/           # React Query hooks per domain (live backend data)
-  lib/                 # api.ts (FastAPI client), supabase.ts,
-                       # database.types.ts, plan-features.ts, theme
-  constants/theme.ts   # design tokens
-```
+## Architecture
 
 - **Auth gate:** root `_layout` redirects unauthenticated users to `/auth`
   (preserving return path). Public routes: `/`, `/auth`, `/plans`.
@@ -219,34 +192,10 @@ search [ ] budgets + month nav + AI tips [ ] bills + mark-paid [ ] goals.
 [ ] 5-state SignalBadge [ ] emoji→lucide icon map [ ] learn progress
 (AsyncStorage) [ ] toasts [ ] dark tokens + Urdu font [ ] AI tutor Edge Function.
 
-## Implemented so far
+## Remaining polish (nice-to-have)
 
-All primary screens are built against the web app's structure:
-
-- **Auth** — email/password + Google-OAuth plumbing.
-- **Dashboard** — greeting/CTAs, dismissible AI rec, net-worth stats, portfolio
-  area chart + ranges, spending donut, watchlist, savings goals.
-- **PSX** — index cards, candlestick (symbol/timeframe/MA), AI bar, virtualized
-  screener + signal filters, sector heatmap.
-- **Stock detail** — candlestick, stats grid, AI analysis table, news, actions.
-- **Portfolio** — computed stats, perf-vs-KSE-100, Haqeeqi Daulat™, allocation
-  donut, holdings.
-- **Finance** — tabbed Overview (KPIs + income/expense chart) / Transactions
-  (search) / Budgets (month nav) / Bills / Goals.
-- **Alerts** — toggles + delete, add-alert form, notification history.
-- **Learn hub** — XP/paths/lessons grid/glossary/flashcards + AI tutor sheet.
-- **Lesson detail** — reading (blocks/video), quiz (timer/feedback), results
-  (score ring/XP), tutor, prev/next.
-- **Plans** — billing toggle, 3 tiers, comparison table.
-- **Charts (`react-native-svg`):** Sparkline, Candlestick (+MA/volume), Donut,
-  Area (+benchmark), IncomeExpense.
-- **AI tutor:** `supabase/functions/ask-tutor` Edge Function + `src/lib/ai-tutor.ts`
-  client (deploy + set `LOVABLE_API_KEY` secret to activate).
-
-- **Live data (2026-07-13):** all domain screens wired to the real backend —
-  see §Data Layer. Mock AsyncStorage stores removed.
-
-*Remaining polish (nice-to-have):* movers tabs & candle/line toggle on PSX
+All primary screens are built and wired to the live backend (see §Data Layer).
+Still open: movers tabs & candle/line toggle on PSX
 (useMarketMovers hook is ready), AI report modal on Portfolio, KSE-100 candles
 on the PSX chart, price-alert wiring on stock detail, count-up/flip
 animations, component tests for rewired screens, Higgsfield-generated
