@@ -54,14 +54,15 @@ async def insert_stock_transaction(
     executed_at: Any,
     notes: Optional[str],
     source: str,
+    broker_import_item_id: Optional[int] = None,
 ) -> dict[str, Any]:
     result = await conn.execute(
         text(
             "INSERT INTO stock_transactions "
             "(user_id, portfolio_id, symbol, side, quantity, price, fees, "
-            "executed_at, notes, source) "
+            "executed_at, notes, source, broker_import_item_id) "
             "VALUES (:uid, :pid, :sym, :side, :qty, :price, :fees, "
-            "        :executed, :notes, :src) "
+            "        :executed, :notes, :src, :broker_item_id) "
             "RETURNING id, user_id, portfolio_id, symbol, side, quantity, "
             "          price, fees, executed_at, notes, source, created_at"
         ),
@@ -76,6 +77,7 @@ async def insert_stock_transaction(
             "executed": executed_at,
             "notes": notes,
             "src": source,
+            "broker_item_id": broker_import_item_id,
         },
     )
     return _stock_txn_dict(result.mappings().first())

@@ -19,6 +19,12 @@ export interface EmailIntegrationStatus {
   last_polled_at?: string | null;
   /** Set when the Google grant expired or was revoked — prompt a reconnect. */
   last_error?: string | null;
+  broker_confirmations?: {
+    pending: number;
+    imported: number;
+    unsupported: number;
+    failed: number;
+  };
 }
 
 export interface EmailSyncResult {
@@ -27,6 +33,10 @@ export interface EmailSyncResult {
   imported: number;
   duplicates: number;
   skipped: number;
+  broker_pending: number;
+  broker_imported: number;
+  broker_unsupported: number;
+  broker_failed: number;
 }
 
 export function useEmailIntegration(enabled: boolean = true) {
@@ -86,7 +96,10 @@ export function useSyncEmail() {
     onSuccess: () => {
       // A sync can create transactions — refresh finance and the status row.
       qc.invalidateQueries({ queryKey: ["email_integration"] });
+      qc.invalidateQueries({ queryKey: ["broker_imports"] });
+      qc.invalidateQueries({ queryKey: ["broker_accounts"] });
       qc.invalidateQueries({ queryKey: ["finance"] });
+      qc.invalidateQueries({ queryKey: ["portfolio"] });
     },
   });
 }

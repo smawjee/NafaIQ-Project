@@ -1,0 +1,1055 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#07110f">
+  <meta name="description" content="NafaIQ brings PSX market intelligence, personal finance, and AI insight into one terminal built for Pakistan.">
+  <title>NafaIQ — PSX, Finance & AI in One Terminal</title>
+  <script>
+    (() => { try { const saved = localStorage.getItem('nafaiq-landing-theme'); document.documentElement.dataset.theme = saved === 'light' ? 'light' : 'dark'; } catch { document.documentElement.dataset.theme = 'dark'; } })();
+  </script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&amp;family=Manrope:wght@500;600;700;800&amp;display=swap" rel="stylesheet">
+  <style>
+    :root {
+      color-scheme: dark;
+      --ink: #f6fbf9;
+      --muted: #9aacaa;
+      --subtle: #6f817e;
+      --bg: #07110f;
+      --bg-deep: #050a09;
+      --panel: #0c1815;
+      --panel-2: #10211d;
+      --line: rgba(218, 255, 244, .11);
+      --line-strong: rgba(218, 255, 244, .2);
+      --mint: #20e3b2;
+      --mint-soft: #95f6da;
+      --amber: #f6b94a;
+      --red: #ff7a7a;
+      --shadow: 0 30px 80px rgba(0, 0, 0, .36);
+      --radius: 24px;
+      --max: 1180px;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; }
+    html { scroll-behavior: smooth; scroll-padding-top: 88px; }
+    body {
+      margin: 0;
+      overflow-x: hidden;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at 15% -10%, rgba(32, 227, 178, .12), transparent 28rem),
+        var(--bg);
+      font-family: "DM Sans", system-ui, sans-serif;
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+    }
+    body::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      z-index: -1;
+      pointer-events: none;
+      opacity: .25;
+      background-image: radial-gradient(rgba(255,255,255,.12) .7px, transparent .7px);
+      background-size: 18px 18px;
+      mask-image: linear-gradient(to bottom, #000, transparent 70%);
+    }
+    img, svg { display: block; max-width: 100%; }
+    a { color: inherit; text-decoration: none; }
+    button, input { font: inherit; }
+    button { color: inherit; }
+    :focus-visible { outline: 3px solid var(--mint); outline-offset: 4px; }
+    ::selection { color: #04100d; background: var(--mint-soft); }
+
+    .skip-link {
+      position: fixed; top: 12px; left: 12px; z-index: 100;
+      padding: 10px 14px; border-radius: 10px; color: #04100d; background: var(--mint);
+      transform: translateY(-150%); transition: transform .2s ease;
+    }
+    .skip-link:focus { transform: translateY(0); }
+    .container { width: min(calc(100% - 40px), var(--max)); margin-inline: auto; }
+    .section { padding: 112px 0; }
+    .section-kicker {
+      display: inline-flex; align-items: center; gap: 8px; margin: 0 0 16px;
+      color: var(--mint-soft); font: 700 .76rem/1 "Manrope", sans-serif;
+      letter-spacing: .13em; text-transform: uppercase;
+    }
+    .section-kicker::before { content: ""; width: 20px; height: 1px; background: var(--mint); }
+    h1, h2, h3 { margin: 0; font-family: "Manrope", sans-serif; letter-spacing: -.04em; line-height: 1.08; }
+    h1 { max-width: 740px; font-size: clamp(3rem, 7vw, 6.6rem); font-weight: 800; }
+    h2 { max-width: 720px; font-size: clamp(2.2rem, 4.6vw, 4.5rem); font-weight: 700; }
+    h3 { font-size: 1.24rem; font-weight: 700; letter-spacing: -.025em; }
+    .lead { max-width: 660px; margin: 22px 0 0; color: var(--muted); font-size: clamp(1rem, 1.5vw, 1.16rem); }
+    .text-gradient { color: var(--mint); text-shadow: 0 0 45px rgba(32,227,178,.24); }
+    .button {
+      display: inline-flex; min-height: 52px; align-items: center; justify-content: center; gap: 10px;
+      padding: 0 20px; border: 1px solid transparent; border-radius: 14px;
+      font-weight: 700; line-height: 1; transition: transform .2s ease, box-shadow .2s ease, border-color .2s ease, background .2s ease;
+    }
+    .button:hover { transform: translateY(-2px); }
+    .button-primary { color: #04110d; background: var(--mint); box-shadow: 0 12px 34px rgba(32,227,178,.2); }
+    .button-primary:hover { background: #54ebc5; box-shadow: 0 16px 42px rgba(32,227,178,.3); }
+    .button-secondary { border-color: var(--line-strong); background: rgba(255,255,255,.035); }
+    .button-secondary:hover { border-color: rgba(32,227,178,.5); background: rgba(32,227,178,.07); }
+    .arrow { width: 17px; transition: transform .2s ease; }
+    .button:hover .arrow { transform: translateX(3px); }
+
+    .site-header {
+      position: fixed; inset: 0 0 auto; z-index: 50; border-bottom: 1px solid transparent;
+      transition: background .25s ease, border-color .25s ease, box-shadow .25s ease;
+    }
+    .site-header.scrolled { border-color: var(--line); background: rgba(5,10,9,.82); box-shadow: 0 10px 40px rgba(0,0,0,.24); backdrop-filter: blur(18px); }
+    .nav { display: flex; min-height: 76px; align-items: center; justify-content: space-between; gap: 28px; }
+    .brand { display: inline-flex; align-items: center; gap: 10px; font: 800 1.12rem "Manrope", sans-serif; letter-spacing: -.04em; }
+    .brand img { width: 30px; height: 30px; border-radius: 8px; }
+    .brand em { color: var(--mint); font-style: normal; }
+    .nav-links { display: flex; align-items: center; gap: 30px; color: #c4d1ce; font-size: .92rem; }
+    .nav-links a:not(.button) { transition: color .2s ease; }
+    .nav-links a:not(.button):hover { color: var(--mint-soft); }
+    .nav-actions { display: flex; align-items: center; gap: 10px; }
+    .nav-actions .button { min-height: 42px; padding-inline: 16px; border-radius: 12px; font-size: .88rem; }
+    .menu-toggle { display: none; width: 44px; height: 44px; place-items: center; border: 1px solid var(--line); border-radius: 12px; background: var(--panel); }
+
+    .hero { position: relative; min-height: 860px; padding: 152px 0 82px; overflow: hidden; }
+    .hero::after {
+      content: ""; position: absolute; top: 80px; right: -18%; width: 70%; aspect-ratio: 1;
+      border-radius: 50%; background: radial-gradient(circle, rgba(32,227,178,.15), transparent 65%); filter: blur(12px); pointer-events: none;
+    }
+    .hero-grid { position: relative; z-index: 1; display: grid; grid-template-columns: 1.04fr .96fr; align-items: center; gap: 46px; }
+    .eyebrow {
+      display: inline-flex; align-items: center; gap: 9px; margin-bottom: 24px; padding: 7px 12px;
+      border: 1px solid rgba(32,227,178,.22); border-radius: 999px; color: #c8fcee; background: rgba(32,227,178,.07);
+      font: 700 .73rem "Manrope", sans-serif; letter-spacing: .08em; text-transform: uppercase;
+    }
+    .flag { display: grid; width: 22px; height: 22px; place-items: center; border-radius: 50%; color: #fff; background: #075f42; font-size: .64rem; }
+    .hero-copy p { max-width: 620px; margin: 26px 0 0; color: #aabbb7; font-size: clamp(1.06rem, 1.55vw, 1.24rem); }
+    .hero-actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 34px; }
+    .micro-proof { display: flex; flex-wrap: wrap; gap: 18px; margin-top: 20px; color: var(--subtle); font-size: .83rem; }
+    .micro-proof span { display: inline-flex; align-items: center; gap: 7px; }
+    .micro-proof svg { width: 15px; color: var(--mint); }
+
+    .terminal-wrap { position: relative; }
+    .terminal-wrap::before { content: ""; position: absolute; inset: 12% 0 0 8%; border-radius: 40px; background: rgba(32,227,178,.16); filter: blur(60px); }
+    .terminal {
+      position: relative; padding: 12px; border: 1px solid rgba(196,255,239,.18); border-radius: 28px;
+      background: linear-gradient(145deg, rgba(255,255,255,.09), rgba(255,255,255,.025)); box-shadow: var(--shadow); transform: perspective(1400px) rotateY(-5deg) rotateX(2deg);
+    }
+    .terminal-inner { overflow: hidden; border: 1px solid rgba(255,255,255,.07); border-radius: 19px; background: #091310; }
+    .terminal-bar { display: flex; align-items: center; justify-content: space-between; padding: 14px 16px; border-bottom: 1px solid var(--line); background: rgba(255,255,255,.025); }
+    .dots { display: flex; gap: 6px; }
+    .dots i { width: 7px; height: 7px; border-radius: 50%; background: #41524e; }
+    .terminal-status { display: flex; align-items: center; gap: 7px; color: #8be9cd; font-size: .67rem; font-weight: 700; letter-spacing: .08em; }
+    .terminal-status::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--mint); box-shadow: 0 0 12px var(--mint); }
+    .dash { display: grid; grid-template-columns: 132px 1fr; min-height: 430px; }
+    .dash-nav { padding: 18px 12px; border-right: 1px solid var(--line); color: #71827e; font-size: .7rem; }
+    .dash-logo { display: flex; align-items: center; gap: 7px; margin: 0 5px 20px; color: #d8e4e1; font: 700 .72rem "Manrope", sans-serif; }
+    .dash-logo img { width: 20px; height: 20px; border-radius: 5px; }
+    .dash-nav span { display: flex; align-items: center; gap: 8px; margin-top: 5px; padding: 9px 10px; border-radius: 8px; }
+    .dash-nav span.active { color: #dbfff5; background: rgba(32,227,178,.1); }
+    .dash-main { padding: 20px; }
+    .dash-heading { display: flex; align-items: end; justify-content: space-between; gap: 12px; }
+    .dash-heading small { display: block; color: #70827e; font-size: .65rem; }
+    .dash-heading strong { display: block; margin-top: 3px; font: 700 1.05rem "Manrope", sans-serif; }
+    .market-pill { padding: 6px 9px; border-radius: 99px; color: var(--mint-soft); background: rgba(32,227,178,.08); font-size: .6rem; font-weight: 700; }
+    .stat-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 9px; margin-top: 18px; }
+    .stat { padding: 13px; border: 1px solid var(--line); border-radius: 12px; background: rgba(255,255,255,.025); }
+    .stat span { color: #71827e; font-size: .6rem; }
+    .stat strong { display: block; margin-top: 4px; font: 700 .82rem "Manrope", sans-serif; }
+    .stat b { display: block; margin-top: 3px; color: var(--mint); font-size: .58rem; }
+    .chart-card { margin-top: 10px; padding: 15px; border: 1px solid var(--line); border-radius: 14px; background: linear-gradient(180deg, rgba(32,227,178,.035), transparent); }
+    .chart-head { display: flex; align-items: center; justify-content: space-between; font-size: .65rem; }
+    .chart-head strong { font-size: .76rem; }
+    .chart-head span { color: var(--mint); }
+    .chart { width: 100%; height: 106px; margin-top: 10px; overflow: visible; }
+    .chart-line { fill: none; stroke: var(--mint); stroke-width: 2.4; filter: drop-shadow(0 0 6px rgba(32,227,178,.4)); }
+    .chart-fill { fill: url(#chartFill); }
+    .holdings { display: grid; grid-template-columns: repeat(3,1fr); gap: 8px; margin-top: 10px; }
+    .holding { padding: 10px; border: 1px solid var(--line); border-radius: 10px; font-size: .58rem; }
+    .holding b { display: block; color: #dce8e5; font-size: .65rem; }
+    .holding span { color: var(--mint); }
+    .floating-chip { position: absolute; z-index: 2; padding: 10px 13px; border: 1px solid var(--line-strong); border-radius: 12px; background: rgba(10,23,20,.9); box-shadow: 0 18px 44px rgba(0,0,0,.32); backdrop-filter: blur(12px); font-size: .7rem; }
+    .floating-chip.one { top: 12%; right: -8%; animation: float 5s ease-in-out infinite; }
+    .floating-chip.two { bottom: 10%; left: -8%; animation: float 5s ease-in-out 1s infinite; }
+    .floating-chip b { color: var(--mint); }
+
+    .ticker { overflow: hidden; border-block: 1px solid var(--line); background: rgba(2,8,7,.7); }
+    .ticker-track { display: flex; width: max-content; animation: ticker 32s linear infinite; }
+    .ticker-group { display: flex; flex: none; }
+    .ticker-item { display: flex; align-items: center; gap: 8px; min-width: 165px; padding: 15px 22px; border-right: 1px solid var(--line); font: 600 .72rem "Manrope", sans-serif; }
+    .ticker-item span { color: var(--subtle); }
+    .up { color: var(--mint); } .down { color: var(--red); }
+
+    .trust { border-bottom: 1px solid var(--line); }
+    .trust-grid { display: grid; grid-template-columns: repeat(4,1fr); }
+    .trust-item { display: flex; align-items: center; gap: 12px; padding: 30px 24px; border-right: 1px solid var(--line); }
+    .trust-item:last-child { border-right: 0; }
+    .icon-box { display: grid; flex: 0 0 auto; width: 38px; height: 38px; place-items: center; border: 1px solid rgba(32,227,178,.22); border-radius: 11px; color: var(--mint); background: rgba(32,227,178,.055); }
+    .icon-box svg { width: 18px; }
+    .trust-item strong { display: block; font: 700 .82rem "Manrope", sans-serif; }
+    .trust-item span { display: block; margin-top: 2px; color: var(--subtle); font-size: .7rem; }
+
+    .section-head { display: flex; align-items: end; justify-content: space-between; gap: 40px; margin-bottom: 54px; }
+    .section-head .lead { max-width: 450px; margin: 0; }
+    .audience-switch { display: grid; grid-template-columns: repeat(3,1fr); gap: 8px; margin-bottom: 24px; padding: 7px; border: 1px solid var(--line); border-radius: 16px; background: rgba(255,255,255,.025); }
+    .audience-switch button { min-height: 48px; padding: 8px 14px; border: 0; border-radius: 11px; color: var(--muted); background: transparent; cursor: pointer; font-weight: 700; transition: .2s ease; }
+    .audience-switch button[aria-selected="true"] { color: #06100e; background: var(--mint); }
+    .audience-panel { display: none; grid-template-columns: .9fr 1.1fr; gap: 24px; align-items: stretch; }
+    .audience-panel.active { display: grid; }
+    .audience-copy, .audience-visual { min-height: 430px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--panel); }
+    .audience-copy { display: flex; flex-direction: column; justify-content: center; padding: clamp(28px,5vw,58px); }
+    .audience-copy h3 { font-size: clamp(1.8rem,3.4vw,3.3rem); }
+    .audience-copy p { margin: 18px 0 26px; color: var(--muted); }
+    .check-list { display: grid; gap: 12px; padding: 0; margin: 0; list-style: none; }
+    .check-list li { display: flex; align-items: start; gap: 10px; color: #c2d0cd; font-size: .92rem; }
+    .check-list svg { flex: 0 0 auto; width: 17px; margin-top: 3px; color: var(--mint); }
+    .audience-visual { position: relative; overflow: hidden; padding: 34px; background: radial-gradient(circle at 100% 0, rgba(32,227,178,.13), transparent 45%), #0b1714; }
+    .visual-label { color: var(--subtle); font: 700 .69rem "Manrope", sans-serif; letter-spacing: .1em; text-transform: uppercase; }
+    .visual-total { margin-top: 9px; font: 700 clamp(2rem,4vw,3.6rem) "Manrope", sans-serif; letter-spacing: -.05em; }
+    .visual-total small { color: var(--subtle); font-size: .9rem; letter-spacing: 0; }
+    .visual-card { margin-top: 26px; padding: 22px; border: 1px solid var(--line); border-radius: 17px; background: rgba(255,255,255,.035); }
+    .bar-row { display: grid; grid-template-columns: 72px 1fr 48px; align-items: center; gap: 10px; margin-top: 15px; color: var(--muted); font-size: .72rem; }
+    .bar { height: 7px; overflow: hidden; border-radius: 99px; background: rgba(255,255,255,.07); }
+    .bar i { display: block; height: 100%; border-radius: inherit; background: var(--mint); }
+    .visual-note { position: absolute; right: 22px; bottom: 22px; padding: 12px 14px; border: 1px solid rgba(246,185,74,.25); border-radius: 12px; color: #f7d693; background: rgba(246,185,74,.08); font-size: .72rem; }
+
+    .bento { display: grid; grid-template-columns: repeat(12,1fr); gap: 18px; }
+    .feature-card { position: relative; min-height: 300px; overflow: hidden; padding: 30px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--panel); transition: transform .25s ease, border-color .25s ease, background .25s ease; }
+    .feature-card:hover { transform: translateY(-4px); border-color: rgba(32,227,178,.3); background: #0e1d19; }
+    .feature-card.large { grid-column: span 7; min-height: 410px; }
+    .feature-card.medium { grid-column: span 5; min-height: 410px; }
+    .feature-card.third { grid-column: span 4; }
+    .feature-card p { max-width: 440px; margin: 12px 0 0; color: var(--muted); font-size: .92rem; }
+    .feature-card .icon-box { margin-bottom: 46px; }
+    .market-stack { position: absolute; right: 28px; bottom: 24px; width: 48%; }
+    .market-row { display: grid; grid-template-columns: 1fr auto auto; gap: 14px; margin-top: 8px; padding: 11px 13px; border: 1px solid var(--line); border-radius: 10px; background: rgba(0,0,0,.16); font-size: .7rem; }
+    .market-row b { font-family: "Manrope", sans-serif; }
+    .ring { position: absolute; right: 30px; bottom: 26px; display: grid; width: 154px; height: 154px; place-items: center; border-radius: 50%; background: conic-gradient(var(--mint) 0 73%, rgba(255,255,255,.07) 73%); }
+    .ring::after { content: ""; position: absolute; inset: 14px; border-radius: 50%; background: var(--panel); }
+    .ring-content { position: relative; z-index: 1; text-align: center; }
+    .ring-content strong { display: block; font: 700 1.6rem "Manrope", sans-serif; }
+    .ring-content span { color: var(--subtle); font-size: .65rem; }
+    .feature-tag { display: inline-flex; margin-top: 18px; padding: 6px 9px; border-radius: 7px; color: var(--mint-soft); background: rgba(32,227,178,.08); font-size: .68rem; font-weight: 700; }
+
+    .wealth { position: relative; overflow: hidden; border-block: 1px solid var(--line); background: #091310; }
+    .wealth::before { content: ""; position: absolute; inset: 0 50% 0 0; background: radial-gradient(circle at 0 50%, rgba(246,185,74,.12), transparent 62%); }
+    .wealth-grid { position: relative; display: grid; grid-template-columns: 1fr 1fr; align-items: center; gap: 70px; }
+    .wealth-copy .lead { margin-bottom: 28px; }
+    .wealth-card { padding: 12px; border: 1px solid rgba(255,255,255,.13); border-radius: 28px; background: linear-gradient(145deg, rgba(255,255,255,.07), rgba(255,255,255,.02)); box-shadow: var(--shadow); }
+    .wealth-inner { padding: 30px; border-radius: 19px; background: #0b1613; }
+    .wealth-inner header { display: flex; align-items: center; justify-content: space-between; gap: 20px; }
+    .wealth-inner header span { color: var(--subtle); font-size: .7rem; }
+    .currency { padding: 5px 8px; border: 1px solid var(--line); border-radius: 7px; color: #d6e2df !important; }
+    .return-grid { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 14px; margin-top: 28px; }
+    .return-box { padding: 20px; border: 1px solid var(--line); border-radius: 16px; }
+    .return-box span { color: var(--subtle); font-size: .68rem; }
+    .return-box strong { display: block; margin-top: 5px; font: 700 1.9rem "Manrope", sans-serif; }
+    .return-box.real strong { color: var(--red); }
+    .return-arrow { color: var(--subtle); }
+    .erosion { margin-top: 18px; padding: 13px 15px; border: 1px solid rgba(246,185,74,.2); border-radius: 11px; color: #f0d59a; background: rgba(246,185,74,.07); font-size: .75rem; }
+
+    .steps { display: grid; grid-template-columns: repeat(3,1fr); gap: 18px; counter-reset: steps; }
+    .step { position: relative; padding: 34px 28px; border-top: 1px solid var(--line-strong); counter-increment: steps; }
+    .step::before { content: "0" counter(steps); display: block; margin-bottom: 48px; color: var(--mint); font: 700 .74rem "Manrope", sans-serif; letter-spacing: .1em; }
+    .step:not(:last-child)::after { content: ""; position: absolute; top: -4px; right: -13px; width: 8px; height: 8px; border-radius: 50%; background: var(--mint); box-shadow: 0 0 16px var(--mint); }
+    .step p { margin: 12px 0 0; color: var(--muted); font-size: .9rem; }
+
+    .proof-section { background: linear-gradient(180deg, transparent, rgba(255,255,255,.015), transparent); }
+    .quote { display: grid; grid-template-columns: .72fr 1.28fr; overflow: hidden; border: 1px solid var(--line); border-radius: 30px; background: var(--panel); }
+    .quote-meta { padding: 46px; border-right: 1px solid var(--line); background: radial-gradient(circle at 20% 20%, rgba(32,227,178,.11), transparent 65%); }
+    .avatar { display: grid; width: 54px; height: 54px; place-items: center; border-radius: 50%; color: #04110d; background: var(--mint); font-weight: 800; }
+    .quote-meta strong { display: block; margin-top: 18px; font-family: "Manrope", sans-serif; }
+    .quote-meta span { display: block; margin-top: 4px; color: var(--subtle); font-size: .78rem; }
+    .quote-body { padding: clamp(38px,6vw,72px); }
+    .quote-mark { color: var(--mint); font: 700 3.5rem/.6 Georgia, serif; }
+    blockquote { margin: 22px 0 0; font: 600 clamp(1.45rem,2.7vw,2.45rem)/1.35 "Manrope", sans-serif; letter-spacing: -.03em; }
+    .quote-foot { display: flex; align-items: center; gap: 12px; margin-top: 28px; color: var(--subtle); font-size: .78rem; }
+    .quote-foot::before { content: ""; width: 32px; height: 1px; background: var(--mint); }
+
+    .faq-grid { display: grid; grid-template-columns: .75fr 1.25fr; gap: 80px; align-items: start; }
+    .faq-list { border-top: 1px solid var(--line); }
+    details { border-bottom: 1px solid var(--line); }
+    summary { display: flex; min-height: 82px; align-items: center; justify-content: space-between; gap: 18px; cursor: pointer; list-style: none; font: 700 1rem "Manrope", sans-serif; }
+    summary::-webkit-details-marker { display: none; }
+    summary::after { content: "+"; display: grid; flex: 0 0 auto; width: 30px; height: 30px; place-items: center; border: 1px solid var(--line); border-radius: 50%; color: var(--mint); font-size: 1.2rem; }
+    details[open] summary::after { content: "−"; }
+    details p { max-width: 620px; margin: -8px 46px 26px 0; color: var(--muted); font-size: .9rem; }
+
+    .final-cta { padding-top: 40px; }
+    .cta-card { position: relative; overflow: hidden; padding: clamp(44px,8vw,92px); border: 1px solid rgba(32,227,178,.24); border-radius: 34px; background: linear-gradient(125deg, #10251f, #08120f); text-align: center; }
+    .cta-card::before, .cta-card::after { content: ""; position: absolute; border-radius: 50%; background: var(--mint); filter: blur(80px); opacity: .1; }
+    .cta-card::before { width: 300px; height: 300px; top: -180px; left: -80px; }
+    .cta-card::after { width: 360px; height: 360px; right: -180px; bottom: -260px; }
+    .cta-card h2, .cta-card p, .cta-card .hero-actions, .cta-card .micro-proof { position: relative; z-index: 1; margin-inline: auto; justify-content: center; }
+    .cta-card p { max-width: 560px; margin-top: 18px; color: var(--muted); }
+
+    footer { margin-top: 112px; border-top: 1px solid var(--line); background: var(--bg-deep); }
+    .footer-grid { display: grid; grid-template-columns: 1.5fr repeat(3,1fr); gap: 40px; padding: 62px 0 44px; }
+    .footer-brand p { max-width: 310px; margin: 16px 0 0; color: var(--subtle); font-size: .84rem; }
+    .footer-col h3 { font-size: .75rem; letter-spacing: .08em; text-transform: uppercase; }
+    .footer-col a { display: block; margin-top: 14px; color: var(--subtle); font-size: .82rem; transition: color .2s ease; }
+    .footer-col a:hover { color: var(--mint-soft); }
+    .footer-bottom { display: flex; align-items: center; justify-content: space-between; gap: 20px; padding: 22px 0 32px; border-top: 1px solid var(--line); color: #5e6e6a; font-size: .74rem; }
+
+    [data-reveal] { opacity: 0; transform: translateY(22px); transition: opacity .7s ease, transform .7s cubic-bezier(.2,.7,.2,1); }
+    [data-reveal].visible { opacity: 1; transform: none; }
+    @keyframes float { 50% { transform: translateY(-9px); } }
+    @keyframes ticker { to { transform: translateX(-50%); } }
+
+    @media (max-width: 980px) {
+      .nav-links { display: none; position: absolute; top: 68px; left: 20px; right: 20px; flex-direction: column; align-items: stretch; gap: 0; padding: 14px; border: 1px solid var(--line); border-radius: 16px; background: rgba(5,10,9,.98); box-shadow: var(--shadow); }
+      .nav-links.open { display: flex; }
+      .nav-links a { padding: 12px; }
+      .menu-toggle { display: grid; }
+      .nav-actions .login { display: none; }
+      .hero { min-height: auto; padding-top: 132px; }
+      .hero-grid, .wealth-grid, .faq-grid { grid-template-columns: 1fr; }
+      .hero-copy { text-align: center; }
+      .hero-copy h1, .hero-copy p { margin-inline: auto; }
+      .eyebrow { margin-inline: auto; }
+      .hero-actions, .micro-proof { justify-content: center; }
+      .terminal-wrap { width: min(100%, 680px); margin: 42px auto 0; }
+      .terminal { transform: none; }
+      .trust-grid { grid-template-columns: repeat(2,1fr); }
+      .trust-item:nth-child(2) { border-right: 0; }
+      .trust-item:nth-child(-n+2) { border-bottom: 1px solid var(--line); }
+      .section-head { display: block; }
+      .section-head .lead { margin-top: 20px; }
+      .feature-card.large, .feature-card.medium, .feature-card.third { grid-column: span 6; }
+      .wealth-grid { gap: 46px; }
+      .quote { grid-template-columns: 1fr; }
+      .quote-meta { border-right: 0; border-bottom: 1px solid var(--line); }
+      .faq-grid { gap: 42px; }
+      .footer-grid { grid-template-columns: 2fr 1fr 1fr; }
+      .footer-brand { grid-column: 1 / -1; }
+    }
+
+    @media (max-width: 680px) {
+      .container { width: min(calc(100% - 28px), var(--max)); }
+      .section { padding: 78px 0; }
+      .nav { min-height: 68px; }
+      .nav-actions .button { display: none; }
+      h1 { font-size: clamp(2.65rem, 14vw, 4.2rem); }
+      .hero { padding: 112px 0 58px; }
+      .hero-actions { flex-direction: column; }
+      .button { width: 100%; }
+      .micro-proof { display: grid; justify-items: start; max-width: 310px; margin-inline: auto; }
+      .floating-chip { display: none; }
+      .terminal { padding: 6px; border-radius: 19px; }
+      .terminal-inner { border-radius: 14px; }
+      .dash { grid-template-columns: 1fr; min-height: 390px; }
+      .dash-nav { display: none; }
+      .dash-main { padding: 14px; }
+      .stat-grid { grid-template-columns: 1fr 1fr; }
+      .stat:last-child { display: none; }
+      .holdings { grid-template-columns: 1fr 1fr; }
+      .holding:last-child { display: none; }
+      .trust-grid { grid-template-columns: 1fr; }
+      .trust-item { border-right: 0; border-bottom: 1px solid var(--line); }
+      .trust-item:last-child { border-bottom: 0; }
+      .audience-switch { grid-template-columns: 1fr; }
+      .audience-panel.active { grid-template-columns: 1fr; }
+      .audience-copy, .audience-visual { min-height: auto; }
+      .audience-visual { min-height: 380px; padding: 26px; }
+      .bento { display: block; }
+      .feature-card { min-height: 320px !important; margin-top: 14px; }
+      .market-stack { right: 20px; width: calc(100% - 40px); }
+      .ring { width: 130px; height: 130px; }
+      .return-grid { grid-template-columns: 1fr; }
+      .return-arrow { transform: rotate(90deg); margin: auto; }
+      .steps { grid-template-columns: 1fr; }
+      .step:not(:last-child)::after { display: none; }
+      .step::before { margin-bottom: 22px; }
+      .quote-meta, .quote-body { padding: 30px; }
+      .footer-grid { grid-template-columns: 1fr 1fr; }
+      .footer-brand { grid-column: 1 / -1; }
+      .footer-bottom { align-items: start; flex-direction: column; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      html { scroll-behavior: auto; }
+      *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
+      [data-reveal] { opacity: 1; transform: none; }
+    }
+
+    /* Preserved live hero: structure and motion mirror the React implementation. */
+    .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
+    .original-hero { --hero-progress: 0; position: relative; min-height: 780px; overflow: hidden; background: #0a0a0f; }
+    .hero-base-gradient { position: absolute; inset: 0; z-index: 0; height: 130%; transform: translateY(calc(var(--hero-progress) * 30%)); background: radial-gradient(ellipse 80% 60% at 50% 0%, rgba(8,55,55,.92) 0%, #0a0a0f 60%); }
+    .hero-cursor-glow { position: absolute; z-index: 0; width: 480px; height: 480px; border-radius: 50%; pointer-events: none; transform: translate(-50%,-50%); }
+    .hero-cursor-glow-one { left: var(--g1x,10%); top: var(--g1y,0%); background: radial-gradient(circle, rgba(0,212,170,.18), transparent 70%); }
+    .hero-cursor-glow-two { left: var(--g2x,70%); top: var(--g2y,50%); width: 420px; height: 420px; background: radial-gradient(circle, rgba(139,92,246,.14), transparent 70%); }
+    .scattered-tickers, .hero-particles, .hero-depth-orbs { position: absolute; inset: 0; z-index: 0; overflow: hidden; pointer-events: none; }
+    .scattered-tickers span { position: absolute; left: var(--x); top: var(--y); color: #fff; font: 500 var(--size)/1 ui-monospace, SFMono-Regular, Consolas, monospace; letter-spacing: .05em; opacity: calc(var(--opacity) * (1 - var(--hero-progress))); transform: translateY(calc(var(--hero-progress) * var(--depth) * -180px)); }
+    .hero-particles i { position: absolute; left: var(--px); top: var(--py); width: var(--ps); height: var(--ps); border-radius: 50%; background: var(--pc); box-shadow: 0 0 calc(var(--ps) * 3) var(--pc); animation: particle-drift var(--pd) ease-in-out var(--pdelay) infinite; }
+    .hero-depth-orbs span { position: absolute; border-radius: 50%; }
+    .hero-depth-orbs span:nth-child(1) { width: 600px; height: 600px; top: -100px; left: -100px; background: radial-gradient(circle,rgba(0,212,170,.1),transparent 70%); animation: hero-orb-one 8s ease-in-out infinite alternate; }
+    .hero-depth-orbs span:nth-child(2) { width: 500px; height: 500px; top: 200px; right: -50px; background: radial-gradient(circle,rgba(99,102,241,.08),transparent 70%); animation: hero-orb-two 10s ease-in-out infinite alternate; }
+    .hero-depth-orbs span:nth-child(3) { width: 400px; height: 400px; bottom: -80px; left: 50%; background: radial-gradient(circle,rgba(245,158,11,.06),transparent 70%); animation: hero-orb-three 12s ease-in-out infinite alternate; }
+    .original-hero-grid { position: relative; z-index: 10; display: grid; grid-template-columns: 3fr 2fr; align-items: center; gap: 48px; width: min(calc(100% - 48px),1200px); margin: 0 auto; padding: 144px 0 96px; opacity: calc(1 - var(--hero-progress) * 1.25); transform: translateY(calc(var(--hero-progress) * 80px)); }
+    .original-hero-copy { animation: hero-copy-in .65s ease-out both; }
+    .original-hero-badge { display: inline-flex; align-items: center; gap: 8px; padding: 6px 16px; border: 1px solid rgba(32,227,178,.2); border-radius: 999px; color: var(--mint); background: rgba(32,227,178,.06); font-size: 12px; letter-spacing: .08em; }
+    .original-hero-badge .flag { display: grid; width: 21px; height: 21px; place-items: center; border-radius: 50%; background: #075f42; color: #fff; font-size: 9px; }
+    .original-hero-copy h1 { margin-top: 24px; max-width: 680px; font-size: clamp(42px,5.3vw,68px); font-weight: 800; line-height: 1.05; letter-spacing: -.02em; }
+    .original-hero-copy h1 span { color: #00d4aa; text-shadow: 0 0 60px rgba(0,212,170,.3); }
+    .original-hero-copy > p:not(.original-micro-proof) { max-width: 480px; margin: 20px 0 0; color: #a9bfb8; font-size: 18px; }
+    .original-store-buttons { display: flex; flex-direction: column; align-items: flex-start; gap: 10px; margin-top: 32px; }
+    .original-primary-cta { display: inline-flex; align-items: center; gap: 8px; padding: 10px 20px; border-radius: 12px; color: #02110d; background: #00d4aa; font-size: 14px; font-weight: 700; box-shadow: 0 0 24px rgba(0,212,170,.2); transition: transform .2s, background .2s, box-shadow .2s; }
+    .original-primary-cta:hover { transform: scale(1.03); background: #00efc0; box-shadow: 0 0 30px rgba(0,212,170,.4); }
+    .original-primary-cta svg { width: 16px; }
+    .native-store-row { display: flex; flex-wrap: wrap; gap: 8px; }
+    .native-store { display: flex; align-items: center; gap: 8px; padding: 6px 12px; border: 1px solid rgba(255,255,255,.1); border-radius: 10px; color: #a9bfb8; background: rgba(20,20,30,.5); opacity: .8; }
+    .native-store b { color: #dce7e4; font-size: 13px; }
+    .native-store span { display: flex; flex-direction: column; font-size: 12px; line-height: 1.1; }
+    .native-store small { color: #71847f; font-size: 9px; letter-spacing: .04em; text-transform: uppercase; }
+    .launch-form { display: flex; width: min(100%,320px); gap: 6px; }
+    .launch-form input, .launch-form button { height: 32px; border: 1px solid rgba(255,255,255,.1); border-radius: 8px; background: transparent; color: #a9bfb8; font-size: 12px; }
+    .launch-form input { min-width: 0; flex: 1; padding: 0 10px; }
+    .launch-form button { padding: 0 12px; cursor: pointer; }
+    .original-micro-proof { display: flex; flex-wrap: wrap; gap: 4px 16px; margin: 16px 0 0 !important; color: #7d938c !important; font-size: 12px !important; }
+    .original-micro-proof span::first-letter { color: #00d4aa; }
+    .original-phone-stage { display: flex; justify-content: center; perspective: 1200px; animation: phone-enter .6s ease-out .35s both; }
+    .phone-float { position: relative; width: 280px; height: 580px; overflow: hidden; margin: 0 auto; border: 1px solid rgba(50,50,70,.3); border-radius: 44px; background: linear-gradient(160deg,#24243a,#1a1a2e 40%,#14142a); box-shadow: 0 0 50px rgba(20,184,148,.1),0 0 100px rgba(20,184,148,.04),0 30px 80px rgba(0,0,0,.6); will-change: transform; }
+    .phone-screen { position: absolute; inset: 3px; display: flex; overflow: hidden; flex-direction: column; border: 1px solid rgba(30,30,45,.5); border-radius: 40px; color: #e8e8f0; background: #0d0d14; font-family: Arial,sans-serif; }
+    .phone-status { display: flex; height: 24px; flex: 0 0 auto; align-items: center; justify-content: space-between; padding: 0 20px; color: rgba(255,255,255,.55); font: 600 10px ui-monospace,monospace; }
+    .phone-status div { display: flex; align-items: center; gap: 4px; }
+    .phone-status i { width: 5px; height: 5px; border-radius: 50%; background: rgba(255,255,255,.25); }.phone-status i:nth-child(2){background:rgba(255,255,255,.4)}.phone-status i:nth-child(3){background:#14b894}
+    .phone-header { display: flex; height: 38px; flex: 0 0 auto; align-items: center; justify-content: space-between; padding: 0 16px; background: #11111a; }.phone-header b{color:#14b894;font-size:13px}
+    .phone-summary { display: flex; flex: 1; flex-direction: column; justify-content: center; padding: 16px; background: #11111a; }.phone-summary>b{font-size:13px;color:#fff}.phone-summary small{margin-top:4px;color:rgba(255,255,255,.4);font-size:10px}.phone-summary em{color:#14b894;font-style:normal}.phone-summary>span{margin-top:14px;color:rgba(255,255,255,.4);font-size:10px}.phone-summary>strong{margin-top:2px;color:#fff;font:700 22px ui-monospace,monospace;letter-spacing:-1px}.phone-summary svg{width:248px;height:30px;margin-top:8px}
+    .phone-portfolio { flex: 0 0 auto; margin: 0 8px; padding: 12px; border: 1px solid rgba(255,255,255,.03); border-radius: 12px; background:#16161f}.phone-portfolio span{display:block;color:rgba(255,255,255,.4);font-size:10px;text-transform:uppercase;letter-spacing:.5px}.phone-portfolio strong{display:block;margin-top:4px;color:#14b894;font:700 18px ui-monospace,monospace}.phone-portfolio b{display:block;margin-top:2px;color:#14b894;font-size:11px}
+    .phone-mini-grid { display:flex;flex:0 0 auto;gap:8px;padding:8px 8px 0}.phone-mini-grid>div{flex:1;padding:10px 12px;border:1px solid rgba(255,255,255,.03);border-radius:12px;background:#16161f}.phone-mini-grid span{display:block;color:rgba(255,255,255,.4);font-size:10px}.phone-mini-grid strong{display:block;margin-top:4px;color:#fff;font:700 15px ui-monospace,monospace}.phone-mini-grid b{display:block;margin-top:2px;color:#14b894;font-size:11px}
+    .positive{color:#14b894!important}.negative{color:#ef4444!important}.phone-holdings{flex:0 0 auto;padding:8px 16px}.phone-holdings div{display:flex;justify-content:space-between;padding:5px 0;border-top:1px solid rgba(255,255,255,.04);font-size:11px}.phone-holdings div:first-child{border-top:0}.phone-holdings span{font-family:ui-monospace,monospace;color:#14b894}.phone-holdings em{font-style:normal}
+    .phone-ticker{display:flex;height:28px;flex:0 0 auto;align-items:center;overflow:hidden;border-top:1px solid rgba(42,42,58,.3);background:#08080c}.phone-ticker-track{display:flex;width:max-content;gap:24px;padding-left:12px;white-space:nowrap;animation:phone-ticker-marquee 20s linear infinite}.phone-ticker-track span{color:#14b894;font:9px ui-monospace,monospace}
+    .phone-shine{position:absolute;top:0;left:-30%;width:60%;height:100%;border-radius:44px;background:linear-gradient(135deg,rgba(255,255,255,.03),transparent 50%);transform:skewX(-20deg);pointer-events:none}
+    .hero-scroll-cue{position:absolute;z-index:2;bottom:24px;left:50%;color:#a9bfb8;transform:translateX(-50%);transition:opacity .3s;animation:scroll-cue-bob 1.5s ease-in-out infinite}.scroll-dot{animation:scroll-dot 1s ease-in-out infinite}.hero-bottom-fade{position:absolute;z-index:1;right:0;bottom:0;left:0;height:200px;background:linear-gradient(to bottom,transparent,#0a0a0f);pointer-events:none}
+    @keyframes hero-copy-in{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:none}}@keyframes phone-enter{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:none}}@keyframes phone-ticker-marquee{to{transform:translateX(-50%)}}@keyframes scroll-cue-bob{50%{transform:translate(-50%,6px)}}@keyframes scroll-dot{50%{transform:translateY(4px)}}@keyframes hero-orb-one{to{transform:translate(40px,30px)}}@keyframes hero-orb-two{to{transform:translate(-30px,20px)}}@keyframes hero-orb-three{from{transform:translateX(-50%)}to{transform:translate(-50%,-25px)}}@keyframes particle-drift{0%,100%{opacity:0;transform:translate(0,0) scale(.6)}25%{opacity:.9;transform:translate(var(--pdx),calc(var(--pdy) * -1)) scale(1)}65%{opacity:.6;transform:translate(calc(var(--pdx) * -.65),calc(var(--pdy) * .5)) scale(.8)}}
+    @media(max-width:980px){.original-hero-grid{grid-template-columns:1fr;padding-top:128px;text-align:center}.original-hero-copy h1,.original-hero-copy>p{margin-left:auto;margin-right:auto}.original-store-buttons{align-items:center}.original-micro-proof{justify-content:center}.original-phone-stage{margin-top:12px}.original-hero{min-height:1260px}}
+    @media(max-width:560px){.original-hero{min-height:1160px}.original-hero-grid{width:min(calc(100% - 32px),1200px);gap:40px;padding:112px 0 90px}.original-hero-copy h1{font-size:38px}.original-hero-copy>p:not(.original-micro-proof){font-size:16px}.original-micro-proof{flex-direction:column;align-items:center}.phone-float{transform-origin:top center}.hero-scroll-cue{display:none}}
+    @media(prefers-reduced-motion:reduce){.hero-particles{display:none}.phone-ticker-track,.hero-depth-orbs span,.hero-scroll-cue,.scroll-dot{animation:none!important}.phone-float{transform:rotate(8deg)!important}.original-hero-grid{opacity:1!important;transform:none!important}.hero-base-gradient,.scattered-tickers span{transform:none!important}}
+
+    /* Preserve the live floating navigation treatment above the hero. */
+    .site-header { top: 12px; right: auto; bottom: auto; left: 50%; width: min(calc(100% - 32px),1120px); border: 0; background: transparent; transform: translateX(-50%); }
+    .site-header.scrolled { border: 0; background: transparent; box-shadow: none; backdrop-filter: none; }
+    .site-header .nav { width: 100%; min-height: 56px; padding: 0 12px 0 14px; border: 1px solid rgba(255,255,255,.06); border-radius: 999px; background: rgba(10,18,17,.6); backdrop-filter: blur(16px) saturate(150%); transition: background .3s,border-color .3s,box-shadow .3s; }
+    .site-header.scrolled .nav { border-color: rgba(255,255,255,.08); background: rgba(7,17,15,.92); box-shadow: 0 8px 40px rgba(0,0,0,.45); }
+    .site-header .brand img { width: 26px; height: 26px; border-radius: 7px; box-shadow: 0 0 0 1px rgba(32,227,178,.28); }
+    .site-header .nav-links { gap: 2px; padding: 4px; border: 1px solid rgba(255,255,255,.06); border-radius: 999px; background: rgba(255,255,255,.03); }
+    .site-header .nav-links a { padding: 6px 10px; border-radius: 999px; font-size: 13px; white-space: nowrap; }
+    .site-header .nav-links a:hover { color: var(--ink); background: rgba(255,255,255,.06); }
+    .site-header .nav-actions { gap: 8px; }
+    .nav-status { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); font-size: 11px; white-space: nowrap; }.nav-status i{width:6px;height:6px;border-radius:50%;background:#f6b94a;box-shadow:0 0 8px rgba(246,185,74,.5)}
+    .nav-icon { display: grid; width: 32px; height: 32px; flex: 0 0 auto; place-items: center; padding: 0; border: 1px solid rgba(255,255,255,.08); border-radius: 50%; color: var(--muted); background: rgba(255,255,255,.02); cursor: pointer; }.nav-icon svg{width:15px}.nav-icon:hover{color:var(--ink);border-color:rgba(255,255,255,.18)}
+    .site-header .login { padding-left: 8px; border-left: 1px solid rgba(255,255,255,.08); font-size: 13px; }
+    .site-header .button { min-height: 38px; padding: 0 15px; border-radius: 999px; font-size: 13px; }
+    .nav-demo { padding: 8px 13px; border: 1px solid rgba(255,255,255,.12); border-radius: 999px; color: var(--muted); background: rgba(255,255,255,.025); font-size: 13px; white-space: nowrap; }.nav-demo:hover{color:var(--ink);border-color:rgba(255,255,255,.22)}
+    @media(max-width:1100px){.nav-status,.nav-aux{display:none}.site-header .nav-links{margin-left:auto}.site-header .nav-actions{margin-left:0}}
+    @media(max-width:980px){.site-header .nav-links{top:64px;left:0;right:0;border-radius:16px;background:rgba(5,10,9,.98)}.site-header .nav-links a{padding:12px;border-radius:10px}.site-header .nav-actions .login{display:none}}
+    /* --- Approved redesign: unified themes, product story, proof and PWA states --- */
+    .sr-only { position:absolute!important; width:1px!important; height:1px!important; padding:0!important; margin:-1px!important; overflow:hidden!important; clip:rect(0,0,0,0)!important; white-space:nowrap!important; border:0!important; }
+    .nav-icon { display:grid; width:44px; height:44px; place-items:center; border:1px solid var(--line); border-radius:12px; color:var(--muted); background:rgba(255,255,255,.035); cursor:pointer; transition:.2s ease; }
+    .nav-icon:hover { color:var(--ink); border-color:var(--line-strong); background:rgba(255,255,255,.07); }
+    .nav-icon svg { width:19px; }
+    .theme-sun { display:none; }
+    .launch-form { width:min(100%,370px); }
+    .launch-form input,.launch-form button { height:44px; }
+    .launch-form button { min-width:72px; }
+
+    html[data-theme="light"] {
+      color-scheme: light;
+      --ink:#172b26; --muted:#52645f; --subtle:#72817d; --bg:#faf8f3; --bg-deep:#f2eee5;
+      --panel:#fff; --panel-2:#f5f1e8; --line:rgba(12,31,26,.12); --line-strong:rgba(12,31,26,.22);
+      --mint:#0a7c6e; --mint-soft:#075f55; --amber:#a86b0c; --red:#b64040;
+      --shadow:0 28px 70px rgba(27,49,42,.13);
+    }
+    html[data-theme="light"] body { background:radial-gradient(circle at 15% -10%,rgba(10,124,110,.10),transparent 28rem),var(--bg); }
+    html[data-theme="light"] body::before { background-image:radial-gradient(rgba(12,31,26,.16) .7px,transparent .7px); }
+    html[data-theme="light"] .theme-moon { display:none; }
+    html[data-theme="light"] .theme-sun { display:block; }
+    html[data-theme="light"] .site-header.scrolled { background:rgba(250,248,243,.88); }
+    html[data-theme="light"] .site-header .nav { border-color:rgba(12,31,26,.13); background:rgba(255,255,255,.78); box-shadow:0 12px 38px rgba(27,49,42,.09); }
+    html[data-theme="light"] .site-header.scrolled .nav { border-color:rgba(12,31,26,.16); background:rgba(255,255,255,.94); box-shadow:0 12px 38px rgba(27,49,42,.14); }
+    html[data-theme="light"] .nav-links { color:#40534d; }
+    html[data-theme="light"] .site-header .nav-links { border-color:rgba(12,31,26,.10); background:rgba(12,31,26,.035); }
+    html[data-theme="light"] .site-header .nav-links a:hover { background:rgba(10,124,110,.08); }
+    html[data-theme="light"] .site-header .login { border-color:rgba(12,31,26,.12); }
+    html[data-theme="light"] .nav-demo { border-color:rgba(12,31,26,.14); background:rgba(255,255,255,.64); }
+    html[data-theme="light"] .button-secondary,
+    html[data-theme="light"] .nav-icon { background:rgba(255,255,255,.72); }
+    html[data-theme="light"] .original-hero { background:#faf8f3; }
+    html[data-theme="light"] .hero-base-gradient { background:radial-gradient(ellipse 80% 60% at 50% 0%,rgba(10,124,110,.14) 0%,#f0ece2 50%,#faf8f3 75%); }
+    html[data-theme="light"] .hero-bottom-fade { background:linear-gradient(to bottom,transparent,#faf8f3); }
+    html[data-theme="light"] .original-hero-copy h1 { color:#172b26; }
+    html[data-theme="light"] .original-hero-copy>p:not(.original-micro-proof),
+    html[data-theme="light"] .original-micro-proof,
+    html[data-theme="light"] .hero-scroll-cue { color:#52645f!important; }
+    html[data-theme="light"] .scattered-tickers span { color:#173b32; }
+    html[data-theme="light"] .launch-form input,
+    html[data-theme="light"] .launch-form button { color:#40534d; border-color:rgba(12,31,26,.16); background:rgba(255,255,255,.56); }
+    html[data-theme="light"] .launch-form input::placeholder { color:#72817d; }
+    html[data-theme="light"] .trust,.wealth { background-color:var(--panel-2); }
+    html[data-theme="light"] .audience-visual { background:radial-gradient(circle at 100% 0,rgba(10,124,110,.12),transparent 45%),#f7f4ed; }
+    html[data-theme="light"] .check-list li { color:#40534d; }
+    html[data-theme="light"] .market-row,
+    html[data-theme="light"] .visual-card,
+    html[data-theme="light"] .button-secondary { background:rgba(12,31,26,.025); }
+    html[data-theme="light"] .feature-card:hover { background:#fff; }
+    html[data-theme="light"] .ring::after { background:#fff; }
+    html[data-theme="light"] .wealth-inner { background:#fff; }
+    html[data-theme="light"] .story-preview,
+    html[data-theme="light"] .review-card,
+    html[data-theme="light"] .trust-card { background:#fff; }
+    html[data-theme="light"] .story-screen { background:#f7f4ed; }
+    html[data-theme="light"] .story-step[aria-current="step"] { background:rgba(10,124,110,.07); }
+    html[data-theme="light"] .quote-metric { background:#f4f0e8; }
+    html[data-theme="light"] .cta-card { background:linear-gradient(125deg,#e6f2ed,#fff); }
+    html[data-theme="light"] footer { background:#f2eee5; }
+
+    .story-section { position:relative; padding:112px 0; border-block:1px solid var(--line); background:linear-gradient(180deg,transparent,rgba(32,227,178,.025),transparent); }
+    .story-intro { max-width:760px; margin:0 auto 64px; text-align:center; }
+    .story-intro h2 { margin-inline:auto; }
+    .story-intro .lead { margin-inline:auto; }
+    .story-layout { display:grid; grid-template-columns:minmax(300px,.76fr) minmax(500px,1.24fr); gap:64px; align-items:start; }
+    .story-steps { position:relative; display:grid; gap:10px; }
+    .story-progress { position:absolute; top:28px; bottom:28px; left:23px; width:2px; overflow:hidden; background:var(--line); }
+    .story-progress i { display:block; width:100%; height:var(--story-progress,0%); background:linear-gradient(var(--mint),#8b5cf6); transition:height .35s ease; }
+    .story-step { position:relative; z-index:1; min-height:176px; padding:26px 24px 26px 70px; border:1px solid transparent; border-radius:20px; color:var(--muted); background:transparent; cursor:pointer; text-align:left; transition:.3s ease; }
+    .story-step:hover { border-color:var(--line); }
+    .story-step[aria-current="step"] { color:var(--ink); border-color:rgba(32,227,178,.22); background:rgba(32,227,178,.055); box-shadow:0 18px 50px rgba(0,0,0,.12); }
+    .story-number { position:absolute; top:25px; left:10px; display:grid; width:28px; height:28px; place-items:center; border:1px solid var(--line-strong); border-radius:50%; color:var(--subtle); background:var(--bg); font:700 .68rem "Manrope"; }
+    .story-step[aria-current="step"] .story-number { color:#04110d; border-color:var(--mint); background:var(--mint); box-shadow:0 0 0 6px rgba(32,227,178,.10); }
+    .story-step h3 { font-size:1.45rem; }
+    .story-step p { margin:10px 0 0; font-size:.9rem; }
+    .story-link { display:inline-flex; min-height:44px; align-items:center; gap:8px; margin-top:14px; color:var(--mint); font-weight:700; font-size:.84rem; }
+    .story-preview { position:sticky; top:112px; min-height:570px; padding:12px; border:1px solid var(--line-strong); border-radius:30px; background:linear-gradient(145deg,rgba(255,255,255,.075),rgba(255,255,255,.018)); box-shadow:var(--shadow); }
+    .story-screen { position:relative; min-height:544px; overflow:hidden; border:1px solid var(--line); border-radius:20px; background:#091310; }
+    .story-toolbar { display:flex; height:56px; align-items:center; justify-content:space-between; padding:0 20px; border-bottom:1px solid var(--line); }
+    .story-toolbar strong { font-size:.8rem; }
+    .live-pill { display:inline-flex; align-items:center; gap:7px; color:var(--mint); font-size:.65rem; font-weight:700; letter-spacing:.08em; text-transform:uppercase; }
+    .live-pill::before { content:""; width:7px; height:7px; border-radius:50%; background:var(--mint); box-shadow:0 0 12px var(--mint); }
+    .story-scenes { position:relative; min-height:488px; }
+    .story-scene { position:absolute; inset:0; padding:28px; opacity:0; transform:translateY(14px) scale(.985); pointer-events:none; transition:opacity .4s ease,transform .4s cubic-bezier(.2,.8,.2,1); }
+    .story-scene.active { opacity:1; transform:none; pointer-events:auto; }
+    .scene-label { color:var(--subtle); font-size:.68rem; font-weight:700; letter-spacing:.1em; text-transform:uppercase; }
+    .scene-value { display:flex; align-items:baseline; gap:10px; margin-top:8px; font:700 clamp(2rem,4vw,3.5rem) "Manrope"; letter-spacing:-.06em; }
+    .scene-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; margin-top:24px; }
+    .scene-card { padding:16px; border:1px solid var(--line); border-radius:14px; background:rgba(255,255,255,.03); }
+    .scene-card span { color:var(--subtle); font-size:.65rem; }
+    .scene-card strong { display:block; margin-top:4px; font-size:.86rem; }
+    .mini-chart { width:100%; height:170px; margin-top:22px; }
+    .insight-card { margin-top:24px; padding:22px; border:1px solid rgba(139,92,246,.24); border-radius:17px; background:rgba(139,92,246,.07); }
+    .insight-card b { color:#bca5ff; font-size:.72rem; letter-spacing:.08em; text-transform:uppercase; }
+    .insight-card p { margin:10px 0 0; color:var(--muted); }
+    .decision-list { display:grid; gap:10px; margin-top:24px; }
+    .decision-item { display:flex; align-items:center; justify-content:space-between; gap:16px; padding:15px 16px; border:1px solid var(--line); border-radius:13px; }
+    .decision-item small { color:var(--subtle); }
+    .decision-state { padding:6px 9px; border-radius:8px; color:var(--mint); background:rgba(32,227,178,.09); font-size:.68rem; font-weight:700; }
+
+    .reviews-shell { position:relative; }
+    .review-card { display:grid; grid-template-columns:1fr 260px; gap:48px; align-items:center; min-height:350px; padding:clamp(30px,5vw,58px); border:1px solid var(--line); border-radius:28px; background:var(--panel); box-shadow:0 22px 70px rgba(0,0,0,.14); }
+    .review-quote { margin:0; max-width:37ch; font:600 clamp(1.35rem,2.5vw,2.1rem)/1.35 "Manrope"; letter-spacing:-.035em; }
+    .review-person { display:flex; align-items:center; gap:13px; margin-top:24px; }
+    .avatar { display:grid; width:48px; height:48px; place-items:center; border-radius:50%; color:#04110d; background:linear-gradient(145deg,var(--mint),#00a88a); font-weight:800; }
+    .review-person span { display:block; color:var(--subtle); font-size:.76rem; }
+    .quote-metric { padding:26px; border:1px solid var(--line); border-radius:18px; background:rgba(255,255,255,.028); }
+    .quote-metric span { color:var(--subtle); font-size:.68rem; text-transform:uppercase; letter-spacing:.08em; }
+    .quote-metric strong { display:block; margin-top:10px; font:800 2.1rem "Manrope"; }
+    .quote-metric small { display:block; margin-top:6px; color:var(--mint); }
+    .review-controls { display:flex; align-items:center; gap:8px; margin-top:20px; }
+    .review-arrow { display:grid; width:44px; height:44px; place-items:center; border:1px solid var(--line); border-radius:50%; color:var(--muted); background:var(--panel); cursor:pointer; }
+    .review-arrow:hover { color:var(--ink); border-color:var(--line-strong); }
+    .review-dots { display:flex; align-items:center; gap:0; }
+    .review-dot { position:relative; width:32px; height:44px; border:0; background:transparent; cursor:pointer; }
+    .review-dot::after { content:""; position:absolute; top:50%; left:50%; width:8px; height:8px; border-radius:99px; background:var(--line-strong); transform:translate(-50%,-50%); transition:.25s ease; }
+    .review-dot[aria-selected="true"]::after { width:24px; background:var(--mint); box-shadow:0 0 14px rgba(32,227,178,.45); }
+    .review-count { margin-left:5px; color:var(--subtle); font-size:.75rem; }
+
+    .trust-cards { display:grid; grid-template-columns:repeat(3,1fr); gap:18px; }
+    .trust-card { padding:30px; border:1px solid var(--line); border-radius:22px; background:var(--panel); }
+    .trust-card .icon-box { margin-bottom:24px; }
+    .trust-card p { margin:12px 0 0; color:var(--muted); font-size:.88rem; }
+    .trust-note { margin-top:18px; color:var(--subtle); font-size:.75rem; }
+
+    .pwa-actions { position:relative; z-index:1; display:flex; flex-wrap:wrap; justify-content:center; gap:12px; margin-top:32px; }
+    .install-button[hidden] { display:none; }
+    .ios-sheet { position:fixed; inset:0; z-index:100; display:grid; place-items:end center; padding:20px; background:rgba(0,0,0,.54); backdrop-filter:blur(8px); }
+    .ios-sheet[hidden] { display:none; }
+    .ios-card { width:min(100%,460px); padding:26px; border:1px solid var(--line-strong); border-radius:24px; background:var(--panel); box-shadow:var(--shadow); }
+    .ios-card header { display:flex; align-items:start; justify-content:space-between; gap:20px; }
+    .ios-card p { color:var(--muted); }
+    .ios-card ol { margin:18px 0 0; padding-left:22px; color:var(--muted); }
+    .ios-card .nav-icon { flex:0 0 auto; }
+
+    @media(max-width:980px){
+      .story-layout { grid-template-columns:1fr; gap:26px; }
+      .story-progress { display:none; }
+      .story-steps { display:contents; }
+      .story-step { min-height:auto; padding:24px 24px 24px 70px; border-color:var(--line); background:var(--panel); }
+      .story-step[aria-current="step"] { background:var(--panel); }
+      .story-preview { position:relative; top:auto; min-height:auto; }
+      .story-preview-mobile { display:block; margin-bottom:24px; }
+      .story-screen { min-height:500px; }
+      .review-card { grid-template-columns:1fr; }
+      .trust-cards { grid-template-columns:1fr; }
+    }
+    @media(min-width:981px){ .story-preview-mobile { display:none; } }
+    @media(max-width:680px){
+      .story-section { padding:78px 0; }
+      .story-intro { margin-bottom:38px; text-align:left; }
+      .story-intro h2,.story-intro .lead { margin-inline:0; }
+      .story-layout { display:block; }
+      .story-step { margin-top:14px; }
+      .story-preview { margin-top:12px; padding:6px; border-radius:20px; }
+      .story-screen { min-height:470px; border-radius:15px; }
+      .story-scene { padding:20px; }
+      .scene-grid { grid-template-columns:1fr 1fr; }
+      .scene-card:last-child { display:none; }
+      .review-card { min-height:420px; gap:24px; padding:28px; }
+      .trust-card { padding:26px; }
+      .pwa-actions { flex-direction:column; }
+      .pwa-actions .button { width:100%; }
+    }
+    @media(prefers-reduced-motion:reduce){
+      .story-scene { transition:none; transform:none; }
+      .review-card { transition:none; }
+    }
+  </style>
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to main content</a>
+
+  <header class="site-header" id="site-header">
+    <div class="container nav">
+      <a class="brand" href="/" aria-label="NafaIQ home">
+        <img src="./src/assets/logo.png" alt="" width="30" height="30">
+        <span>Nafa<em>IQ</em></span>
+      </a>
+      <nav class="nav-links" id="nav-links" aria-label="Primary navigation">
+        <a href="#features">Features</a>
+        <a href="#platform">About</a>
+        <a href="/plans">Pricing</a>
+        <a href="mailto:usmankhalidj15@gmail.com">Contact</a>
+      </nav>
+      <div class="nav-actions">
+        <span class="nav-status"><i></i>PSX Closed</span>
+        <button class="nav-icon nav-aux" type="button" aria-label="Search stocks"><svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><circle cx="9" cy="9" r="5.5" stroke="currentColor" stroke-width="1.6"/><path d="m13 13 4 4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg></button>
+        <a class="login" href="/auth">Log in</a>
+        <button class="nav-icon nav-aux" id="theme-toggle" type="button" aria-label="Switch to light theme" aria-pressed="false"><svg class="theme-moon" viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M15.5 12.4A6 6 0 0 1 7.6 4.5 6 6 0 1 0 15.5 12.4Z" stroke="currentColor" stroke-width="1.5"/></svg><svg class="theme-sun" viewBox="0 0 20 20" fill="none" aria-hidden="true"><circle cx="10" cy="10" r="3.2" stroke="currentColor" stroke-width="1.5"/><path d="M10 2v2M10 16v2M2 10h2M16 10h2M4.3 4.3l1.4 1.4M14.3 14.3l1.4 1.4M15.7 4.3l-1.4 1.4M5.7 14.3l-1.4 1.4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></button>
+        <a class="button button-primary" href="/app">Get Started
+          <svg class="arrow" viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M4 10h12M11 5l5 5-5 5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </a>
+        <a class="nav-demo nav-aux" href="/app">Try Demo</a>
+        <button class="menu-toggle" id="menu-toggle" type="button" aria-controls="nav-links" aria-expanded="false" aria-label="Open navigation">
+          <svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M3 5h14M3 10h14M3 15h14" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <main id="main">
+    <section class="original-hero" id="original-hero" aria-labelledby="hero-title">
+      <div class="hero-base-gradient" aria-hidden="true"></div>
+      <span class="hero-cursor-glow hero-cursor-glow-one" aria-hidden="true"></span>
+      <span class="hero-cursor-glow hero-cursor-glow-two" aria-hidden="true"></span>
+      <div class="scattered-tickers" aria-hidden="true">
+        <span style="--x:4%;--y:12%;--size:11px;--opacity:.15;--depth:.3">HBL</span><span style="--x:14%;--y:28%;--size:10px;--opacity:.12;--depth:.6">+2.41%</span>
+        <span style="--x:22%;--y:8%;--size:12px;--opacity:.13;--depth:.2">ENGRO</span><span style="--x:32%;--y:22%;--size:10px;--opacity:.1;--depth:.7">312.45</span>
+        <span style="--x:44%;--y:15%;--size:11px;--opacity:.11;--depth:.4">LUCK</span><span style="--x:55%;--y:32%;--size:10px;--opacity:.12;--depth:.5">-0.45%</span>
+        <span style="--x:64%;--y:9%;--size:13px;--opacity:.14;--depth:.25">KSE-100</span><span style="--x:74%;--y:25%;--size:10px;--opacity:.11;--depth:.65">78,542</span>
+        <span style="--x:84%;--y:14%;--size:11px;--opacity:.13;--depth:.35">OGDC</span><span style="--x:91%;--y:35%;--size:10px;--opacity:.12;--depth:.55">+1.24%</span>
+        <span style="--x:8%;--y:48%;--size:11px;--opacity:.1;--depth:.45">FFC</span><span style="--x:18%;--y:62%;--size:10px;--opacity:.11;--depth:.7">168.70</span>
+        <span style="--x:28%;--y:45%;--size:10px;--opacity:.09;--depth:.5">+1.08%</span><span style="--x:38%;--y:58%;--size:12px;--opacity:.12;--depth:.3">UBL</span>
+        <span style="--x:50%;--y:70%;--size:10px;--opacity:.1;--depth:.6">198.20</span><span style="--x:60%;--y:52%;--size:11px;--opacity:.11;--depth:.4">MCB</span>
+        <span style="--x:70%;--y:68%;--size:10px;--opacity:.09;--depth:.65">-0.38%</span><span style="--x:80%;--y:55%;--size:11px;--opacity:.12;--depth:.35">PSO</span>
+        <span style="--x:88%;--y:72%;--size:10px;--opacity:.1;--depth:.6">251.30</span><span style="--x:6%;--y:78%;--size:12px;--opacity:.11;--depth:.3">KSE-30</span>
+        <span style="--x:16%;--y:85%;--size:10px;--opacity:.09;--depth:.7">24,180</span><span style="--x:35%;--y:82%;--size:11px;--opacity:.1;--depth:.4">DGKC</span>
+        <span style="--x:48%;--y:88%;--size:10px;--opacity:.09;--depth:.55">+0.95%</span><span style="--x:62%;--y:80%;--size:11px;--opacity:.11;--depth:.35">POL</span>
+        <span style="--x:72%;--y:90%;--size:10px;--opacity:.08;--depth:.7">412.80</span><span style="--x:82%;--y:83%;--size:11px;--opacity:.1;--depth:.45">LOTCHEM</span>
+        <span style="--x:92%;--y:78%;--size:10px;--opacity:.09;--depth:.55">+0.62%</span><span style="--x:42%;--y:38%;--size:10px;--opacity:.1;--depth:.5">145.30</span>
+      </div>
+      <div class="hero-particles" id="hero-particles" aria-hidden="true"></div>
+      <div class="hero-depth-orbs" aria-hidden="true"><span></span><span></span><span></span></div>
+
+      <div class="original-hero-grid">
+        <div class="original-hero-copy">
+          <span class="original-hero-badge"><span class="flag">PK</span> Built for the Pakistani Investor</span>
+          <h1 id="hero-title">PSX. Finance. AI.<br><span>One Terminal.</span></h1>
+          <p>Track markets, manage money, and get AI insights — built around Pakistan's financial reality.</p>
+          <div class="original-store-buttons">
+            <a class="original-primary-cta" href="/app"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 3v12m0 0 4-4m-4 4-4-4M5 20h14" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>Install as Web App — Free</a>
+            <div class="native-store-row">
+              <span class="native-store"><b aria-hidden="true">●</b><span><small>Coming soon</small>App Store</span></span>
+              <span class="native-store"><b aria-hidden="true">▶</b><span><small>Coming soon</small>Google Play</span></span>
+            </div>
+            <form class="launch-form" aria-label="Native app launch notification"><label class="sr-only" for="hero-email">Email for native app launch notification</label><input id="hero-email" type="email" placeholder="Email me at launch" required><button type="submit">Notify</button></form>
+          </div>
+          <p class="original-micro-proof"><span>✓ No account required to explore</span><span>✓ Works on iOS, Android &amp; Desktop</span></p>
+        </div>
+
+        <div class="original-phone-stage">
+          <div class="phone-float" id="phone-float">
+            <div class="phone-screen">
+              <div class="phone-status"><span>9:41</span><div><i></i><i></i><i></i></div></div>
+              <div class="phone-header"><b>NafaIQ</b><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 1.5A4.5 4.5 0 0 0 3.5 6v2l-1 2.5h11l-1-2.5V6A4.5 4.5 0 0 0 8 1.5ZM6 11.5a2 2 0 0 0 4 0" fill="none" stroke="rgba(255,255,255,.45)" stroke-width="1.2"/></svg></div>
+              <div class="phone-summary"><b>Asalam-o-Alaikum, Usman</b><small>Wed, Jul 1 · KSE-100 <em>+0.62%</em></small><span>Net Worth</span><strong>PKR 5,840,000</strong><svg viewBox="0 0 248 30" aria-label="Rising net worth chart"><defs><linearGradient id="phoneChart" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#14b894" stop-opacity=".2"/><stop offset="1" stop-color="#14b894" stop-opacity="0"/></linearGradient></defs><path d="M0 24Q15 26 31 22T62 20T93 16T124 14T155 10T186 7T217 5T248 4" fill="none" stroke="#14b894" stroke-width="2" stroke-linecap="round"/><path d="M0 24Q15 26 31 22T62 20T93 16T124 14T155 10T186 7T217 5T248 4V30H0Z" fill="url(#phoneChart)"/></svg></div>
+              <div class="phone-portfolio"><span>Portfolio Value</span><strong>PKR 4.25M</strong><b>+2.4% today</b></div>
+              <div class="phone-mini-grid"><div><span>Spending</span><strong>PKR 185K</strong><b class="negative">-8.2%</b></div><div><span>P&amp;L</span><strong class="positive">+PKR 28.4K</strong><b>+0.68%</b></div></div>
+              <div class="phone-holdings"><div><b>OGDC</b><span>142.50 <em>+2.3%</em></span></div><div><b>HBL</b><span>142.50 <em>+1.2%</em></span></div><div><b>LUCK</b><span class="negative">890.00 -0.45%</span></div></div>
+              <div class="phone-ticker"><div class="phone-ticker-track"><span>OGDC 142.50 +2.3%</span><span>HBL 89.40 +1.2%</span><span class="negative">LUCK 890.00 -0.45%</span><span>ENGRO 312.45 +1.36%</span><span>FFC 168.70 +1.08%</span><span>OGDC 142.50 +2.3%</span><span>HBL 89.40 +1.2%</span><span class="negative">LUCK 890.00 -0.45%</span><span>ENGRO 312.45 +1.36%</span><span>FFC 168.70 +1.08%</span></div></div>
+            </div>
+            <div class="phone-shine" aria-hidden="true"></div>
+          </div>
+        </div>
+      </div>
+      <div class="hero-scroll-cue" id="hero-scroll-cue" aria-hidden="true"><svg width="24" height="38" viewBox="0 0 24 38" fill="none"><rect x="1.5" y="1.5" width="21" height="35" rx="10.5" stroke="currentColor" stroke-width="1.5" opacity=".7"/><rect class="scroll-dot" x="10" y="9" width="4" height="8" rx="2" fill="currentColor" opacity=".9"/><line x1="12" y1="1.5" x2="12" y2="9" stroke="currentColor" opacity=".3"/></svg></div>
+      <div class="hero-bottom-fade" aria-hidden="true"></div>
+    </section>
+
+    <div class="ticker" aria-label="Sample market ticker">
+      <div class="ticker-track">
+        <div class="ticker-group"><div class="ticker-item"><b>KSE-100</b><span>78,542</span><i class="up">+1.24%</i></div><div class="ticker-item"><b>HBL</b><span>142.50</span><i class="up">+2.41%</i></div><div class="ticker-item"><b>ENGRO</b><span>312.45</span><i class="up">+1.36%</i></div><div class="ticker-item"><b>LUCK</b><span>890.00</span><i class="down">−0.45%</i></div><div class="ticker-item"><b>USD/PKR</b><span>278.40</span><i class="down">−0.12%</i></div><div class="ticker-item"><b>GOLD/TOLA</b><span>248,500</span><i class="up">+0.32%</i></div></div>
+        <div class="ticker-group" aria-hidden="true"><div class="ticker-item"><b>KSE-100</b><span>78,542</span><i class="up">+1.24%</i></div><div class="ticker-item"><b>HBL</b><span>142.50</span><i class="up">+2.41%</i></div><div class="ticker-item"><b>ENGRO</b><span>312.45</span><i class="up">+1.36%</i></div><div class="ticker-item"><b>LUCK</b><span>890.00</span><i class="down">−0.45%</i></div><div class="ticker-item"><b>USD/PKR</b><span>278.40</span><i class="down">−0.12%</i></div><div class="ticker-item"><b>GOLD/TOLA</b><span>248,500</span><i class="up">+0.32%</i></div></div>
+      </div>
+    </div>
+
+    <section class="trust" aria-label="NafaIQ product foundations">
+      <div class="container trust-grid">
+        <div class="trust-item"><span class="icon-box"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 18V9m5 9V5m5 13v-7m5 7V3" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg></span><div><strong>Live PSX & KSE-100</strong><span>Market intelligence in one place</span></div></div>
+        <div class="trust-item"><span class="icon-box"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 21a9 9 0 1 1 9-9c0 2.5-1 4.8-2.7 6.4M8.5 12.5l2.2 2.2 5-5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></span><div><strong>Shariah screening</strong><span>Values-aligned by design</span></div></div>
+        <div class="trust-item"><span class="icon-box"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="5" y="10" width="14" height="10" rx="2" stroke="currentColor" stroke-width="1.7"/><path d="M8 10V7a4 4 0 0 1 8 0v3" stroke="currentColor" stroke-width="1.7"/></svg></span><div><strong>Encrypted</strong><span>In transit and at rest</span></div></div>
+        <div class="trust-item"><span class="icon-box"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 12h16M12 4v16M7 7l10 10M17 7 7 17" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg></span><div><strong>No account needed</strong><span>Explore the product first</span></div></div>
+      </div>
+    </section>
+
+    <section class="section" id="platform" aria-labelledby="platform-title">
+      <div class="container">
+        <div class="section-head" data-reveal><div><p class="section-kicker">One platform, many financial lives</p><h2 id="platform-title">Start with what matters to you.</h2></div><p class="lead">NafaIQ makes a broad product easy to understand: each person gets a clear starting point, without losing the power of one connected financial picture.</p></div>
+        <div class="audience-switch" role="tablist" aria-label="Choose your NafaIQ use case" data-reveal>
+          <button id="tab-invest" type="button" role="tab" aria-selected="true" aria-controls="panel-invest">I invest in PSX</button>
+          <button id="tab-manage" type="button" role="tab" aria-selected="false" aria-controls="panel-manage">I manage my money</button>
+          <button id="tab-learn" type="button" role="tab" aria-selected="false" aria-controls="panel-learn">I want to learn</button>
+        </div>
+        <div class="audience-panel active" id="panel-invest" role="tabpanel" aria-labelledby="tab-invest" data-reveal>
+          <div class="audience-copy"><p class="section-kicker">For PSX investors</p><h3>See the market—and what it means for your wealth.</h3><p>Move from scattered prices and nominal returns to one decision-ready view of your portfolio.</p><ul class="check-list"><li><svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="m4 10 4 4 8-9" stroke="currentColor" stroke-width="2"/></svg>Live market overview, movers, heatmaps, and watchlists</li><li><svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="m4 10 4 4 8-9" stroke="currentColor" stroke-width="2"/></svg>AI-assisted portfolio insights and signals</li><li><svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="m4 10 4 4 8-9" stroke="currentColor" stroke-width="2"/></svg>Halal screening and devaluation-adjusted returns</li></ul></div>
+          <div class="audience-visual"><div class="visual-label">Portfolio value</div><div class="visual-total">PKR 4.25M <small>+0.68% today</small></div><div class="visual-card"><h3>Allocation</h3><div class="bar-row"><span>Energy</span><div class="bar"><i style="width:76%"></i></div><b>38%</b></div><div class="bar-row"><span>Banking</span><div class="bar"><i style="width:56%"></i></div><b>28%</b></div><div class="bar-row"><span>Cement</span><div class="bar"><i style="width:34%"></i></div><b>17%</b></div><div class="bar-row"><span>Other</span><div class="bar"><i style="width:34%"></i></div><b>17%</b></div></div><div class="visual-note">Illustrative product preview</div></div>
+        </div>
+        <div class="audience-panel" id="panel-manage" role="tabpanel" aria-labelledby="tab-manage" hidden>
+          <div class="audience-copy"><p class="section-kicker">For households</p><h3>Give every rupee a clearer job.</h3><p>Bring everyday finances into the same view as your long-term wealth.</p><ul class="check-list"><li><svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="m4 10 4 4 8-9" stroke="currentColor" stroke-width="2"/></svg>Track income, expenses, bills, and budgets in PKR</li><li><svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="m4 10 4 4 8-9" stroke="currentColor" stroke-width="2"/></svg>Build savings goals around real milestones</li><li><svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="m4 10 4 4 8-9" stroke="currentColor" stroke-width="2"/></svg>Calculate and plan for Zakat with confidence</li></ul></div>
+          <div class="audience-visual"><div class="visual-label">July plan</div><div class="visual-total">PKR 185K <small>monthly budget</small></div><div class="visual-card"><h3>Money flow</h3><div class="bar-row"><span>Essentials</span><div class="bar"><i style="width:68%"></i></div><b>54%</b></div><div class="bar-row"><span>Savings</span><div class="bar"><i style="width:43%"></i></div><b>22%</b></div><div class="bar-row"><span>Investing</span><div class="bar"><i style="width:31%"></i></div><b>16%</b></div><div class="bar-row"><span>Flexible</span><div class="bar"><i style="width:16%"></i></div><b>8%</b></div></div><div class="visual-note">PKR-native planning</div></div>
+        </div>
+        <div class="audience-panel" id="panel-learn" role="tabpanel" aria-labelledby="tab-learn" hidden>
+          <div class="audience-copy"><p class="section-kicker">For new investors</p><h3>Learn the concept. See it in the market. Use it.</h3><p>Build practical financial knowledge without leaving the product where you apply it.</p><ul class="check-list"><li><svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="m4 10 4 4 8-9" stroke="currentColor" stroke-width="2"/></svg>Beginner-to-advanced paths in Urdu and English</li><li><svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="m4 10 4 4 8-9" stroke="currentColor" stroke-width="2"/></svg>Short lessons, quizzes, and practical examples</li><li><svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="m4 10 4 4 8-9" stroke="currentColor" stroke-width="2"/></svg>24/7 AI finance tutor for follow-up questions</li></ul></div>
+          <div class="audience-visual"><div class="visual-label">Learning path</div><div class="visual-total">68% <small>PSX foundations</small></div><div class="visual-card"><h3>Your progress</h3><div class="bar-row"><span>Markets</span><div class="bar"><i style="width:92%"></i></div><b>92%</b></div><div class="bar-row"><span>Analysis</span><div class="bar"><i style="width:68%"></i></div><b>68%</b></div><div class="bar-row"><span>Portfolio</span><div class="bar"><i style="width:47%"></i></div><b>47%</b></div><div class="bar-row"><span>Zakat</span><div class="bar"><i style="width:32%"></i></div><b>32%</b></div></div><div class="visual-note">Urdu + English</div></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" id="features" aria-labelledby="features-title">
+      <div class="container">
+        <div class="section-head" data-reveal><div><p class="section-kicker">Complete financial intelligence</p><h2 id="features-title">Everything connected. Nothing overwhelming.</h2></div><p class="lead">Core capabilities organized around the decisions people actually need to make—not a wall of disconnected features.</p></div>
+        <div class="bento">
+          <article class="feature-card large" data-reveal><span class="icon-box"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 18V8m5 10V5m5 13v-8m5 8V3" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg></span><h3>PSX Trading Terminal</h3><p>Pro charts, sector heatmaps, top movers, watchlists, and market context in one focused workspace.</p><span class="feature-tag">Market intelligence</span><div class="market-stack" aria-hidden="true"><div class="market-row"><b>OGDC</b><span>145.30</span><i class="up">+0.80%</i></div><div class="market-row"><b>HBL</b><span>142.50</span><i class="up">+2.41%</i></div><div class="market-row"><b>LUCK</b><span>890.00</span><i class="down">−0.45%</i></div></div></article>
+          <article class="feature-card medium" data-reveal><span class="icon-box"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m12 3 2.3 5.7L20 11l-5.7 2.3L12 19l-2.3-5.7L4 11l5.7-2.3L12 3Z" stroke="currentColor" stroke-width="1.7"/></svg></span><h3>AI Financial Advisor</h3><p>Turn portfolio data into plain-language insights, reports, and next steps.</p><div class="ring" aria-hidden="true"><div class="ring-content"><strong>73</strong><span>Risk score</span></div></div></article>
+          <article class="feature-card third" data-reveal><span class="icon-box"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 3 5 6v5c0 4.6 2.8 8.2 7 10 4.2-1.8 7-5.4 7-10V6l-7-3Z" stroke="currentColor" stroke-width="1.7"/><path d="m9 12 2 2 4-5" stroke="currentColor" stroke-width="1.7"/></svg></span><h3>Built for Muslim Investors</h3><p>Halal stock screening, Zakat calculator, and Islamic savings goals aligned with your values.</p><span class="feature-tag">Shariah-aware</span></article>
+          <article class="feature-card third" data-reveal><span class="icon-box"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="3" stroke="currentColor" stroke-width="1.7"/><path d="M3 10h18M8 15h3" stroke="currentColor" stroke-width="1.7"/></svg></span><h3>Complete Finance Manager</h3><p>Income, expenses, budgets, bills, and goals—designed natively around Pakistani Rupees.</p><span class="feature-tag">One money view</span></article>
+          <article class="feature-card third" data-reveal><span class="icon-box"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 5.5A3.5 3.5 0 0 1 7.5 2H20v17H7.5a3.5 3.5 0 0 0 0 7H20" transform="scale(.85) translate(2 0)" stroke="currentColor" stroke-width="1.8"/></svg></span><h3>Financial Education</h3><p>Practical lessons in Urdu and English, reinforced with quizzes and real market examples.</p><span class="feature-tag">Learn by doing</span></article>
+        </div>
+      </div>
+    </section>
+
+    <section class="story-section" id="how-it-works" aria-labelledby="steps-title">
+      <div class="container">
+        <div class="story-intro" data-reveal><p class="section-kicker">How NafaIQ works</p><h2 id="steps-title">From scattered numbers to a <span class="text-gradient">confident next move.</span></h2><p class="lead">One connected journey turns market and money data into context you can understand—and choices you can act on.</p></div>
+        <div class="story-layout" id="story-layout">
+          <div class="story-steps" aria-label="Product journey">
+            <div class="story-progress" aria-hidden="true"><i></i></div>
+            <button class="story-step" type="button" data-story="0" aria-current="step"><span class="story-number">01</span><h3>Track</h3><p>Bring PSX positions, household money, savings goals, and watchlists into one clear financial picture.</p><span class="story-link">Explore your whole picture →</span></button>
+            <button class="story-step" type="button" data-story="1"><span class="story-number">02</span><h3>Understand</h3><p>See nominal performance beside inflation and PKR devaluation, then get plain-language AI context.</p><span class="story-link">Reveal what the numbers mean →</span></button>
+            <button class="story-step" type="button" data-story="2"><span class="story-number">03</span><h3>Decide</h3><p>Compare practical options for investing, saving, learning, halal screening, and Zakat planning.</p><span class="story-link">Move forward with context →</span></button>
+          </div>
+          <div class="story-preview" aria-live="polite" aria-atomic="true">
+            <div class="story-screen">
+              <div class="story-toolbar"><strong>NafaIQ · Financial picture</strong><span class="live-pill">Connected</span></div>
+              <div class="story-scenes">
+                <div class="story-scene active" data-scene="0" aria-hidden="false"><p class="scene-label">Track · Unified overview</p><div class="scene-value">PKR 4.25M</div><div class="scene-grid"><div class="scene-card"><span>Portfolio</span><strong>PKR 3.18M</strong></div><div class="scene-card"><span>Cash & goals</span><strong>PKR 890K</strong></div><div class="scene-card"><span>Today</span><strong class="up">+0.68%</strong></div></div><svg class="mini-chart" viewBox="0 0 600 190" role="img" aria-label="Illustrative upward portfolio trend"><defs><linearGradient id="storyFill" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#20e3b2" stop-opacity=".28"/><stop offset="1" stop-color="#20e3b2" stop-opacity="0"/></linearGradient></defs><path d="M0 165C55 158 80 135 125 143S198 102 245 112s72-54 121-34 72-28 117-17 67-24 117-37V190H0Z" fill="url(#storyFill)"/><path d="M0 165C55 158 80 135 125 143S198 102 245 112s72-54 121-34 72-28 117-17 67-24 117-37" fill="none" stroke="#20e3b2" stroke-width="3" stroke-linecap="round"/></svg><p class="trust-note">Illustrative product preview · not live market data</p></div>
+                <div class="story-scene" data-scene="1" aria-hidden="true"><p class="scene-label">Understand · AI context</p><div class="scene-value">12.7% <small style="font-size:.9rem;color:var(--subtle)">nominal return</small></div><div class="return-grid"><div class="return-box"><span>Headline return</span><strong class="up">+12.7%</strong></div><div class="return-arrow" aria-hidden="true">→</div><div class="return-box real"><span>USD-adjusted</span><strong>−3.2%</strong></div></div><div class="insight-card"><b>NafaIQ insight</b><p>Your portfolio gained in PKR terms, but currency movement changed its international purchasing power. Review both views before comparing outcomes.</p></div></div>
+                <div class="story-scene" data-scene="2" aria-hidden="true"><p class="scene-label">Decide · Guided next steps</p><div class="scene-value">3 paths</div><div class="decision-list"><div class="decision-item"><div><strong>Review concentration</strong><br><small>Energy is 38% of this example portfolio</small></div><span class="decision-state">Compare</span></div><div class="decision-item"><div><strong>Check values alignment</strong><br><small>Run the Shariah screening workflow</small></div><span class="decision-state">Screen</span></div><div class="decision-item"><div><strong>Close a knowledge gap</strong><br><small>Open a five-minute diversification lesson</small></div><span class="decision-state">Learn</span></div></div><p class="trust-note">Decision support, not personalized financial advice.</p></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="wealth section" id="haqeeqi" aria-labelledby="wealth-title">
+      <div class="container wealth-grid">
+        <div class="wealth-copy" data-reveal><p class="section-kicker">Haqeeqi Daulat™ · حقیقی دولت</p><h2 id="wealth-title">Know what your PKR gains are <span class="text-gradient">really worth.</span></h2><p class="lead">Nominal returns can look healthy while rupee devaluation quietly erodes purchasing power. NafaIQ reframes your portfolio in real terms so you can compare, understand, and act.</p><ul class="check-list"><li><svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="m4 10 4 4 8-9" stroke="currentColor" stroke-width="2"/></svg>Devaluation-adjusted returns in USD, AED, and SAR</li><li><svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="m4 10 4 4 8-9" stroke="currentColor" stroke-width="2"/></svg>PSX vs USD cash vs gold comparisons</li><li><svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="m4 10 4 4 8-9" stroke="currentColor" stroke-width="2"/></svg>Devaluation Shield Score with practical next steps</li></ul><div class="hero-actions"><a class="button button-primary" href="/app">See Haqeeqi Daulat<svg class="arrow" viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M4 10h12M11 5l5 5-5 5" stroke="currentColor" stroke-width="1.8"/></svg></a></div></div>
+        <div class="wealth-card" data-reveal><div class="wealth-inner"><header><div><span>ILLUSTRATIVE REAL WEALTH VIEW</span><h3>Return reality check</h3></div><span class="currency">USD adjusted</span></header><div class="return-grid"><div class="return-box"><span>Nominal example</span><strong class="up">+12.73%</strong></div><div class="return-arrow" aria-hidden="true">→</div><div class="return-box real"><span>After PKR decay</span><strong>−3.20%</strong></div></div><div class="erosion">Example only: currency movement can materially change purchasing-power outcomes.</div><div class="visual-card"><div class="bar-row"><span>Nominal</span><div class="bar"><i style="width:84%"></i></div><b>12.7%</b></div><div class="bar-row"><span>Real</span><div class="bar"><i style="width:21%;background:var(--red)"></i></div><b>−3.2%</b></div></div></div></div>
+      </div>
+    </section>
+
+    <section class="section proof-section" id="testimonials" aria-labelledby="proof-title">
+      <div class="container"><div class="section-head" data-reveal><div><p class="section-kicker">Early user feedback</p><h2 id="proof-title">Built to make the invisible visible.</h2></div><p class="lead">Perspectives from people exploring NafaIQ during its early product stage.</p></div><div class="reviews-shell" data-reveal><div class="review-card" id="review-card"><div><blockquote class="review-quote" id="review-quote">“Finally an app that shows me my real returns, not just the nominal PSX number. Haqeeqi Daulat opened my eyes.”</blockquote><div class="review-person"><div class="avatar" id="review-avatar" aria-hidden="true">AK</div><div><strong id="review-author">Ahmed Khan</strong><span id="review-role">PSX investor since 2018 · Karachi</span></div></div></div><div class="quote-metric"><span id="review-metric-label">Haqeeqi Daulat</span><strong id="review-metric-value">+4.2%</strong><small id="review-metric-note">vs +12.7% nominal</small></div></div><div class="sr-only" id="review-live" aria-live="polite" aria-atomic="true"></div><div class="review-controls" role="group" aria-label="Early user feedback controls"><button class="review-arrow" id="review-prev" type="button" aria-label="Previous review">←</button><div class="review-dots" role="tablist" aria-label="Choose a review"><button class="review-dot" type="button" role="tab" aria-selected="true" aria-label="Ahmed Khan review" data-review="0"></button><button class="review-dot" type="button" role="tab" aria-selected="false" aria-label="Sara Farooq review" data-review="1"></button><button class="review-dot" type="button" role="tab" aria-selected="false" aria-label="Muhammad Raza review" data-review="2"></button><button class="review-dot" type="button" role="tab" aria-selected="false" aria-label="Hira Aslam review" data-review="3"></button><button class="review-dot" type="button" role="tab" aria-selected="false" aria-label="Imran Siddiqui review" data-review="4"></button></div><button class="review-arrow" id="review-next" type="button" aria-label="Next review">→</button><span class="review-count" id="review-count" aria-hidden="true">1 / 5</span></div></div></div>
+    </section>
+
+    <section class="section" aria-labelledby="trust-title"><div class="container"><div class="section-head" data-reveal><div><p class="section-kicker">Trust through clarity</p><h2 id="trust-title">Know what the product does—and what it does not claim.</h2></div><p class="lead">NafaIQ is built as financial education and decision support. Important assumptions stay visible.</p></div><div class="trust-cards"><article class="trust-card" data-reveal><span class="icon-box">01</span><h3>Explainable views</h3><p>Illustrative comparisons are labeled, inputs remain visible, and nominal and adjusted outcomes are shown side by side.</p></article><article class="trust-card" data-reveal><span class="icon-box">02</span><h3>Privacy-minded</h3><p>Your portfolio is presented as private account data. NafaIQ’s interface does not use it as public social proof.</p></article><article class="trust-card" data-reveal><span class="icon-box">03</span><h3>Decision support</h3><p>AI context and screening tools help you investigate choices; they are not a promise of returns or personalized financial advice.</p></article></div><p class="trust-note">Market prices, rates, and adjusted-return examples may be delayed or illustrative in this prototype.</p></div></section>
+
+    <section class="section" id="faq" aria-labelledby="faq-title">
+      <div class="container faq-grid"><div data-reveal><p class="section-kicker">FAQ</p><h2 id="faq-title">Questions, answered clearly.</h2><p class="lead">Still deciding? <a class="text-gradient" href="/app">Explore the product</a> without creating an account, or email <a class="text-gradient" href="mailto:usmankhalidj15@gmail.com">the NafaIQ team</a>.</p></div><div class="faq-list" data-reveal><details open><summary>What can I explore without an account?</summary><p>You can explore market views, product previews, and the Haqeeqi Daulat experience before creating an account. Sign in when you want to save personal data.</p></details><details><summary>How does NafaIQ handle financial data?</summary><p>NafaIQ presents portfolio information as private account data. Review the current privacy terms before connecting or entering sensitive information.</p></details><details><summary>Is NafaIQ Shariah compliant?</summary><p>NafaIQ includes halal stock screening, a Zakat calculator, and Islamic savings goals to support values-aligned research. Screening results remain decision-support information.</p></details><details><summary>How much does it cost?</summary><p>The core terminal is free to explore with no credit card required. Visit <a class="text-gradient" href="/plans">Plans</a> for the current premium feature breakdown.</p></details><details><summary>Can I install it like an app?</summary><p>Yes. NafaIQ is a progressive web app on supported browsers. When installation is available, this page will show an install action; iPhone and iPad users receive platform-specific steps.</p></details><details><summary>Is NafaIQ financial advice?</summary><p>No. NafaIQ provides financial education, analytics, screening, and decision-support tools. You remain responsible for investment and financial decisions.</p></details></div></div>
+    </section>
+
+    <section class="final-cta" id="download" aria-labelledby="cta-title"><div class="container"><div class="cta-card" data-reveal><p class="section-kicker">Your clearer financial picture starts here</p><h2 id="cta-title">See more than a balance.<br><span class="text-gradient">See what it means.</span></h2><p>Explore NafaIQ free on any modern browser. No credit card and no account required to look around.</p><div class="pwa-actions"><a class="button button-primary" id="pwa-primary" href="/app">Open web app<svg class="arrow" viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M4 10h12M11 5l5 5-5 5" stroke="currentColor" stroke-width="1.8"/></svg></a><a class="button button-secondary" href="/app?demo=true">Try demo</a><a class="button button-secondary" href="/auth">Start for free</a></div><div class="micro-proof"><span>iOS 14+</span><span>Android 8+</span><span>Modern browsers</span><span>Installable when supported</span></div></div></div></section>
+    <div class="ios-sheet" id="ios-sheet" hidden><section class="ios-card" role="dialog" aria-modal="true" aria-labelledby="ios-title"><header><div><p class="section-kicker">Install NafaIQ</p><h3 id="ios-title">Add NafaIQ to your Home Screen</h3></div><button class="nav-icon" id="ios-close" type="button" aria-label="Close installation instructions">×</button></header><ol><li>Open this page in Safari.</li><li>Tap the Share button.</li><li>Choose “Add to Home Screen”, then confirm.</li></ol></section></div>
+    <div class="sr-only" id="site-status" aria-live="polite"></div>
+  </main>
+
+  <footer><div class="container"><div class="footer-grid"><div class="footer-brand"><a class="brand" href="/" aria-label="NafaIQ home"><img src="./src/assets/logo.png" alt="" width="30" height="30"><span>Nafa<em>IQ</em></span></a><p>Pakistan's financial intelligence terminal for markets, money, and real wealth.</p></div><div class="footer-col"><h3>Platform</h3><a href="/app">Dashboard</a><a href="/psx">PSX Market</a><a href="/portfolio">Portfolio</a><a href="/finance">Finance</a></div><div class="footer-col"><h3>Learn</h3><a href="/learn">Learn Hub</a><a href="#haqeeqi">Haqeeqi Daulat</a><a href="/plans">Pricing</a></div><div class="footer-col"><h3>Company</h3><a href="/team">Our Team</a><a href="mailto:usmankhalidj15@gmail.com">Contact</a><a href="mailto:usmankhalidj15@gmail.com?subject=Privacy%20Policy">Privacy</a><a href="mailto:usmankhalidj15@gmail.com?subject=Terms%20of%20Service">Terms</a></div></div><div class="footer-bottom"><span>© 2026 NafaIQ · Built in Karachi, Pakistan</span><span>Beta · Financial education and decision-support tools</span></div></div></footer>
+
+  <script>
+    const header = document.getElementById('site-header');
+    const menuButton = document.getElementById('menu-toggle');
+    const navLinks = document.getElementById('nav-links');
+    const setHeader = () => header.classList.toggle('scrolled', window.scrollY > 16);
+    setHeader();
+    addEventListener('scroll', setHeader, { passive: true });
+
+    menuButton.addEventListener('click', () => {
+      const open = menuButton.getAttribute('aria-expanded') === 'true';
+      menuButton.setAttribute('aria-expanded', String(!open));
+      menuButton.setAttribute('aria-label', open ? 'Open navigation' : 'Close navigation');
+      navLinks.classList.toggle('open', !open);
+    });
+    navLinks.addEventListener('click', event => {
+      if (event.target.closest('a')) {
+        navLinks.classList.remove('open');
+        menuButton.setAttribute('aria-expanded', 'false');
+        menuButton.setAttribute('aria-label', 'Open navigation');
+      }
+    });
+
+    const tabs = [...document.querySelectorAll('.audience-switch [role="tab"]')];
+    tabs.forEach((tab, index) => {
+      tab.addEventListener('click', () => activateTab(tab));
+      tab.addEventListener('keydown', event => {
+        if (!['ArrowLeft', 'ArrowRight'].includes(event.key)) return;
+        event.preventDefault();
+        const next = event.key === 'ArrowRight' ? (index + 1) % tabs.length : (index - 1 + tabs.length) % tabs.length;
+        tabs[next].focus(); activateTab(tabs[next]);
+      });
+    });
+    function activateTab(nextTab) {
+      tabs.forEach(tab => {
+        const active = tab === nextTab;
+        tab.setAttribute('aria-selected', String(active));
+        tab.tabIndex = active ? 0 : -1;
+        const panel = document.getElementById(tab.getAttribute('aria-controls'));
+        panel.hidden = !active;
+        panel.classList.toggle('active', active);
+      });
+    }
+
+    const hero = document.getElementById('original-hero');
+    const phone = document.getElementById('phone-float');
+    const particles = document.getElementById('hero-particles');
+    const scrollCue = document.getElementById('hero-scroll-cue');
+    const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+    document.querySelector('.launch-form')?.addEventListener('submit', event => {
+      event.preventDefault();
+      const button = event.currentTarget.querySelector('button');
+      button.textContent = 'Added';
+      setTimeout(() => button.textContent = 'Notify', 1800);
+      event.currentTarget.reset();
+    });
+
+    if (hero && !reduceMotion) {
+      const colors = ['rgba(0,212,170,.55)','rgba(139,92,246,.45)','rgba(245,158,11,.4)','rgba(255,255,255,.35)'];
+      for (let i = 0; i < 26; i++) {
+        const particle = document.createElement('i');
+        const drift = 12 + Math.random() * 28;
+        particle.style.cssText = `--px:${Math.random()*100}%;--py:${Math.random()*100}%;--ps:${2+Math.random()*4}px;--pc:${colors[i%colors.length]};--pd:${6+Math.random()*8}s;--pdelay:${Math.random()*-8}s;--pdx:${drift*.6}px;--pdy:${drift}px`;
+        particles.appendChild(particle);
+      }
+
+      let mouseX = .5, mouseY = .5, smoothX = .5, smoothY = .5;
+      hero.addEventListener('pointermove', event => {
+        const bounds = hero.getBoundingClientRect();
+        mouseX = (event.clientX - bounds.left) / bounds.width;
+        mouseY = (event.clientY - bounds.top) / bounds.height;
+      }, { passive: true });
+
+      const start = performance.now();
+      let heroActive = true;
+      let heroFrame = 0;
+      const animateHero = now => {
+        if (!heroActive || document.hidden) { heroFrame = 0; return; }
+        smoothX += (mouseX - smoothX) * .06;
+        smoothY += (mouseY - smoothY) * .06;
+        hero.style.setProperty('--g1x', `${10 + smoothX * 50}%`);
+        hero.style.setProperty('--g1y', `${smoothY * 40}%`);
+        hero.style.setProperty('--g2x', `${70 - smoothX * 40}%`);
+        hero.style.setProperty('--g2y', `${50 - smoothY * 40}%`);
+        const seconds = (now - start) / 1000;
+        phone.style.transform = `translateY(${Math.sin(seconds * .45 * Math.PI) * 7}px) rotate(8deg)`;
+        heroFrame = requestAnimationFrame(animateHero);
+      };
+      const startHeroMotion = () => { if (!heroFrame && heroActive && !document.hidden) heroFrame = requestAnimationFrame(animateHero); };
+      startHeroMotion();
+      if ('IntersectionObserver' in window) {
+        new IntersectionObserver(([entry]) => { heroActive = entry.isIntersecting; if (heroActive) startHeroMotion(); }, { rootMargin:'120px' }).observe(hero);
+      }
+      document.addEventListener('visibilitychange', startHeroMotion);
+
+      const updateHeroScroll = () => {
+        const progress = Math.min(1, Math.max(0, -hero.getBoundingClientRect().top / hero.offsetHeight));
+        hero.style.setProperty('--hero-progress', progress.toFixed(3));
+        scrollCue.style.opacity = window.scrollY > 50 ? '0' : '1';
+      };
+      updateHeroScroll();
+      addEventListener('scroll', updateHeroScroll, { passive: true });
+    }
+
+    if (!reduceMotion && 'IntersectionObserver' in window) {
+      const observer = new IntersectionObserver(entries => {
+        entries.forEach(entry => {
+          if (entry.isIntersecting) { entry.target.classList.add('visible'); observer.unobserve(entry.target); }
+        });
+      }, { threshold: .12 });
+      document.querySelectorAll('[data-reveal]').forEach(el => observer.observe(el));
+    } else {
+      document.querySelectorAll('[data-reveal]').forEach(el => el.classList.add('visible'));
+    }
+
+    // Theme: use the live landing page storage contract and keep browser chrome in sync.
+    const themeToggle = document.getElementById('theme-toggle');
+    const themeMeta = document.querySelector('meta[name="theme-color"]');
+    function applyTheme(theme, announce = false) {
+      const light = theme === 'light';
+      document.documentElement.dataset.theme = light ? 'light' : 'dark';
+      themeToggle?.setAttribute('aria-pressed', String(light));
+      themeToggle?.setAttribute('aria-label', light ? 'Switch to dark theme' : 'Switch to light theme');
+      themeMeta?.setAttribute('content', light ? '#faf8f3' : '#07110f');
+      try { localStorage.setItem('nafaiq-landing-theme', light ? 'light' : 'dark'); } catch {}
+      if (announce) document.getElementById('site-status').textContent = `${light ? 'Light' : 'Dark'} theme enabled`;
+    }
+    applyTheme(document.documentElement.dataset.theme);
+    themeToggle?.addEventListener('click', () => applyTheme(document.documentElement.dataset.theme === 'light' ? 'dark' : 'light', true));
+
+    // Product story: explicit controls plus scroll activation, without continuous scroll work.
+    const storySteps = [...document.querySelectorAll('[data-story]')];
+    const storyScenes = [...document.querySelectorAll('[data-scene]')];
+    const storyLayout = document.getElementById('story-layout');
+    let activeStory = 0;
+    function setStory(index) {
+      activeStory = Number(index);
+      storySteps.forEach((step, i) => { if (i === activeStory) step.setAttribute('aria-current','step'); else step.removeAttribute('aria-current'); });
+      storyScenes.forEach((scene, i) => { const active = i === activeStory; scene.classList.toggle('active', active); scene.setAttribute('aria-hidden', String(!active)); });
+      storyLayout?.style.setProperty('--story-progress', `${activeStory * 50}%`);
+    }
+    storySteps.forEach((step, index) => {
+      step.addEventListener('click', () => setStory(index));
+      step.addEventListener('keydown', event => {
+        if (!['ArrowUp','ArrowDown'].includes(event.key)) return;
+        event.preventDefault();
+        const next = event.key === 'ArrowDown' ? (index + 1) % storySteps.length : (index - 1 + storySteps.length) % storySteps.length;
+        storySteps[next].focus(); setStory(next);
+      });
+    });
+    if (!reduceMotion && 'IntersectionObserver' in window && matchMedia('(min-width: 981px)').matches) {
+      const storyObserver = new IntersectionObserver(entries => {
+        const visible = entries.filter(entry => entry.isIntersecting).sort((a,b) => b.intersectionRatio - a.intersectionRatio)[0];
+        if (visible) setStory(visible.target.dataset.story);
+      }, { rootMargin:'-32% 0px -42% 0px', threshold:[0,.25,.5,.75] });
+      storySteps.forEach(step => storyObserver.observe(step));
+    }
+
+    // Early-user feedback carousel: keyboard accessible and pauses after user interaction.
+    const reviews = [
+      {quote:'Finally an app that shows me my real returns, not just the nominal PSX number. Haqeeqi Daulat opened my eyes.',author:'Ahmed Khan',role:'PSX investor since 2018 · Karachi',initials:'AK',label:'Haqeeqi Daulat',value:'+4.2%',note:'vs +12.7% nominal'},
+      {quote:'The Learn Hub and AI tutor helped me understand PSX from scratch. The Urdu glossary feels built for us.',author:'Sara Farooq',role:'New to investing · Lahore',initials:'SF',label:'Lessons completed',value:'12',note:'3 this week'},
+      {quote:'The sector heatmap and AI signals bring the market into one workspace instead of sending me across multiple tools.',author:'Muhammad Raza',role:'Finance professional · Islamabad',initials:'MR',label:'Sector signals',value:'47',note:'tracked this month'},
+      {quote:'I used to check separate apps for my PSX position, USD rate, and savings goal. NafaIQ puts the picture together.',author:'Hira Aslam',role:'Software engineer · Lahore',initials:'HA',label:'Wealth tracked',value:'PKR 3.8M',note:'across 4 goals'},
+      {quote:'The halal screening and Zakat calculator make the product feel grounded in how many Pakistanis actually plan.',author:'Imran Siddiqui',role:'Business owner · Karachi',initials:'IS',label:'Watchlist screened',value:'92%',note:'illustrative workflow'}
+    ];
+    const reviewSection = document.getElementById('testimonials');
+    const reviewDots = [...document.querySelectorAll('[data-review]')];
+    let reviewIndex = 0, reviewPaused = reduceMotion, reviewHover = false;
+    function showReview(next, userInitiated = false) {
+      reviewIndex = (Number(next) + reviews.length) % reviews.length;
+      if (userInitiated) reviewPaused = true;
+      const item = reviews[reviewIndex];
+      document.getElementById('review-quote').textContent = `“${item.quote}”`;
+      document.getElementById('review-author').textContent = item.author;
+      document.getElementById('review-role').textContent = item.role;
+      document.getElementById('review-avatar').textContent = item.initials;
+      document.getElementById('review-metric-label').textContent = item.label;
+      document.getElementById('review-metric-value').textContent = item.value;
+      document.getElementById('review-metric-note').textContent = item.note;
+      document.getElementById('review-count').textContent = `${reviewIndex + 1} / ${reviews.length}`;
+      reviewDots.forEach((dot,i) => { dot.setAttribute('aria-selected', String(i === reviewIndex)); dot.tabIndex = i === reviewIndex ? 0 : -1; });
+      document.getElementById('review-live').textContent = `Review ${reviewIndex + 1} of ${reviews.length}: ${item.author}. ${item.quote}`;
+    }
+    document.getElementById('review-prev')?.addEventListener('click', () => showReview(reviewIndex - 1, true));
+    document.getElementById('review-next')?.addEventListener('click', () => showReview(reviewIndex + 1, true));
+    reviewDots.forEach((dot,index) => dot.addEventListener('click', () => showReview(index, true)));
+    reviewSection?.addEventListener('keydown', event => {
+      if (!['ArrowLeft','ArrowRight'].includes(event.key)) return;
+      event.preventDefault(); showReview(reviewIndex + (event.key === 'ArrowRight' ? 1 : -1), true);
+    });
+    reviewSection?.addEventListener('mouseenter', () => reviewHover = true);
+    reviewSection?.addEventListener('mouseleave', () => reviewHover = false);
+    reviewSection?.addEventListener('focusin', () => reviewHover = true);
+    reviewSection?.addEventListener('focusout', event => { if (!reviewSection.contains(event.relatedTarget)) reviewHover = false; });
+    setInterval(() => { if (!reviewPaused && !reviewHover && !document.hidden) showReview(reviewIndex + 1); }, 7000);
+
+    // FAQ accordion: retain semantic details while ensuring only one answer is expanded.
+    const faqItems = [...document.querySelectorAll('.faq-list details')];
+    faqItems.forEach(item => item.addEventListener('toggle', () => {
+      if (!item.open) return;
+      faqItems.forEach(other => { if (other !== item) other.open = false; });
+    }));
+
+    // Progressive Web App install states.
+    const pwaPrimary = document.getElementById('pwa-primary');
+    const iosSheet = document.getElementById('ios-sheet');
+    const iosClose = document.getElementById('ios-close');
+    let deferredInstallPrompt = null;
+    const standalone = matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+    const ios = /iphone|ipad|ipod/i.test(navigator.userAgent);
+    let installDismissed = false;
+    try { installDismissed = localStorage.getItem('nafaiq-install-dismissed') === 'true'; } catch {}
+    if (standalone) pwaPrimary.textContent = 'Open NafaIQ';
+    else if (ios && !installDismissed) pwaPrimary.textContent = 'How to install NafaIQ';
+    addEventListener('beforeinstallprompt', event => {
+      event.preventDefault();
+      if (standalone || installDismissed) return;
+      deferredInstallPrompt = event;
+      pwaPrimary.textContent = 'Install NafaIQ';
+      pwaPrimary.setAttribute('href','#download');
+    });
+    pwaPrimary?.addEventListener('click', async event => {
+      if (deferredInstallPrompt) {
+        event.preventDefault();
+        deferredInstallPrompt.prompt();
+        const choice = await deferredInstallPrompt.userChoice;
+        deferredInstallPrompt = null;
+        pwaPrimary.textContent = choice.outcome === 'accepted' ? 'Open NafaIQ' : 'Open web app';
+        pwaPrimary.setAttribute('href','/app');
+        document.getElementById('site-status').textContent = choice.outcome === 'accepted' ? 'NafaIQ installation accepted' : 'Installation dismissed';
+      } else if (ios && !standalone && !installDismissed) {
+        event.preventDefault(); iosSheet.hidden = false; iosClose.focus();
+      }
+    });
+    function closeIosSheet() {
+      iosSheet.hidden = true;
+      installDismissed = true;
+      try { localStorage.setItem('nafaiq-install-dismissed','true'); } catch {}
+      pwaPrimary.textContent = 'Open web app'; pwaPrimary.setAttribute('href','/app'); pwaPrimary.focus();
+    }
+    iosClose?.addEventListener('click', closeIosSheet);
+    iosSheet?.addEventListener('click', event => { if (event.target === iosSheet) closeIosSheet(); });
+    iosSheet?.addEventListener('keydown', event => { if (event.key === 'Escape') closeIosSheet(); });
+  </script>
+</body>
+</html>

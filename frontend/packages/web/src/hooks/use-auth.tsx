@@ -27,6 +27,14 @@ type AuthContextValue = {
   signInWithGoogle: () => Promise<{ error: string | null }>;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
+  /**
+   * True while a password reset is mid-flight. Verifying the emailed code
+   * establishes a real session BEFORE the new password is set, so every
+   * "signed in? go to the dashboard" redirect must stand down until the reset
+   * finishes — otherwise the user is thrown out of the flow at step 2.
+   */
+  recoveryInProgress: boolean;
+  setRecoveryInProgress: (value: boolean) => void;
 };
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
@@ -36,6 +44,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
+  const [recoveryInProgress, setRecoveryInProgress] = useState(false);
   // undefined = nothing resolved yet this page load; null = anonymous.
   const lastUserIdRef = useRef<string | null | undefined>(undefined);
 
@@ -170,6 +179,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         signInWithGoogle,
         signOut,
         refreshProfile,
+        recoveryInProgress,
+        setRecoveryInProgress,
       }}
     >
       {children}

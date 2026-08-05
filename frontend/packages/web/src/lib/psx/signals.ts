@@ -117,11 +117,49 @@ export interface ApiMarketContext {
   warnings: string[];
 }
 
+export type RecommendationRating = "STRONG_BUY" | "BUY" | "HOLD" | "SELL" | "STRONG_SELL";
+
+/**
+ * Tier 1 calibrated call. `p` is a *measured historical frequency* for the
+ * cohort named in `basis` — how often stocks in that state rose over the
+ * horizon — not a model score and not a forecast.
+ *
+ * Two things the UI must not get wrong:
+ *  - `base_rate` is the bar, NOT 0.5. The measured PSX 20-session rate is
+ *    ~0.472, so a stock at p = 0.50 is merely typical. Always render `p`
+ *    against `base_rate`, never against a half.
+ *  - `p_lower`/`p_upper` are a 95% Wilson interval. A wide interval is why a
+ *    promising-looking `p` still reads HOLD; show the band, not just the point.
+ */
+export interface ApiRecommendation {
+  rating: RecommendationRating;
+  horizon_sessions: number;
+  p: number | null;
+  p_lower: number | null;
+  p_upper: number | null;
+  base_rate: number | null;
+  /** Plain-language statement of what `p` is the probability of. */
+  event: string;
+  /** The cohort that answered, e.g. "stocks after a large recent decline". */
+  basis: string | null;
+  sample_size: number;
+  expected_move: number | null;
+  round_trip_cost: number | null;
+  suggested_stop_pct: number | null;
+  drivers: string[];
+  /** Present on every HOLD; names the bar that was not cleared. */
+  abstain_reason: string | null;
+  /** Buy calls face a wider bar than sell calls — the sell-side evidence is stronger. */
+  asymmetric: boolean;
+}
+
 export interface ApiSignalDetail {
   symbol: string;
   as_of: string;
   technical_setup: ApiTechnicalSetup;
   quality: ApiQualityScore | null;
+  /** Null when no technical setup is available, so no cohort can be assigned. */
+  recommendation: ApiRecommendation | null;
   forecast: ApiForecastOutlook;
   context: ApiMarketContext;
   disclosure: string;

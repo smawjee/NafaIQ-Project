@@ -1,0 +1,249 @@
+[
+  {
+    "horizon": 63,
+    "ex_financials": false,
+    "explore": {
+      "observations": 1325,
+      "rebalances": 12,
+      "quintile_hit_rate": [
+        0.38415,
+        0.39323,
+        0.41754,
+        0.41936,
+        0.36996
+      ],
+      "quintile_mean_ret": [
+        0.030242,
+        0.026513,
+        0.001932,
+        -0.019961,
+        -0.045429
+      ],
+      "quintile_mean_cost": [
+        0.010522,
+        0.009984,
+        0.009282,
+        0.009282,
+        0.009117
+      ],
+      "periods_per_quintile": [
+        9,
+        9,
+        9,
+        9,
+        9
+      ],
+      "base_rate_all_quintiles": 0.39685,
+      "top_quintile_hit_rate": 0.36996,
+      "top_excess_gross": -0.02689,
+      "top_excess_net_of_cost": -0.036,
+      "monotonicity_spearman": -1.0,
+      "monotonicity_p": 0.0
+    },
+    "holdout": {
+      "observations": 1004,
+      "rebalances": 6,
+      "quintile_hit_rate": [
+        0.42279,
+        0.33605,
+        0.38098,
+        0.4332,
+        0.39405
+      ],
+      "quintile_mean_ret": [
+        0.027443,
+        -0.015429,
+        -0.021049,
+        0.037695,
+        -0.017373
+      ],
+      "quintile_mean_cost": [
+        0.010533,
+        0.010877,
+        0.009473,
+        0.009522,
+        0.008871
+      ],
+      "periods_per_quintile": [
+        5,
+        5,
+        5,
+        5,
+        5
+      ],
+      "base_rate_all_quintiles": 0.39341,
+      "top_quintile_hit_rate": 0.39405,
+      "top_excess_gross": 0.00063,
+      "top_excess_net_of_cost": -0.00824,
+      "monotonicity_spearman": -0.2,
+      "monotonicity_p": 0.74706
+    },
+    "ece": 0.03406
+  },
+  {
+    "horizon": 126,
+    "ex_financials": false,
+    "explore": {
+      "observations": 1317,
+      "rebalances": 12,
+      "quintile_hit_rate": [
+        0.43108,
+        0.371,
+        0.39465,
+        0.4284,
+        0.34602
+      ],
+      "quintile_mean_ret": [
+        0.104426,
+        0.041142,
+        -0.00826,
+        -0.028448,
+        -0.100295
+      ],
+      "quintile_mean_cost": [
+        0.010504,
+        0.009968,
+        0.009274,
+        0.009288,
+        0.009123
+      ],
+      "periods_per_quintile": [
+        9,
+        9,
+        9,
+        9,
+        9
+      ],
+      "base_rate_all_quintiles": 0.39423,
+      "top_quintile_hit_rate": 0.34602,
+      "top_excess_gross": -0.04822,
+      "top_excess_net_of_cost": -0.05734,
+      "monotonicity_spearman": -1.0,
+      "monotonicity_p": 0.0
+    },
+    "holdout": {
+      "observations": 797,
+      "rebalances": 6,
+      "quintile_hit_rate": [
+        0.43087,
+        0.31704,
+        0.37765,
+        0.3729,
+        0.43729
+      ],
+      "quintile_mean_ret": [
+        0.06273,
+        -0.040587,
+        -0.015434,
+        0.018538,
+        0.00401
+      ],
+      "quintile_mean_cost": [
+        0.010365,
+        0.009765,
+        0.00943,
+        0.009415,
+        0.008747
+      ],
+      "periods_per_quintile": [
+        4,
+        4,
+        4,
+        4,
+        4
+      ],
+      "base_rate_all_quintiles": 0.38715,
+      "top_quintile_hit_rate": 0.43729,
+      "top_excess_gross": 0.05014,
+      "top_excess_net_of_cost": 0.04139,
+      "monotonicity_spearman": -0.1,
+      "monotonicity_p": 0.872889
+    },
+    "ece": 0.04359,
+    "verdict": "AMBER",
+    "reasons": [
+      "one-sided monotonicity not significant (rho -0.1, p 0.872889)"
+    ]
+  },
+  {
+    "horizon": 252,
+    "ex_financials": false,
+    "explore": {
+      "observations": 1311,
+      "rebalances": 12,
+      "quintile_hit_rate": [
+        0.40712,
+        0.36388,
+        0.35563,
+        0.39995,
+        0.31464
+      ],
+      "quintile_mean_ret": [
+        0.208414,
+        0.169819,
+        -0.054463,
+        -0.062848,
+        -0.236759
+      ],
+      "quintile_mean_cost": [
+        0.010539,
+        0.009977,
+        0.009271,
+        0.009299,
+        0.009122
+      ],
+      "periods_per_quintile": [
+        9,
+        9,
+        9,
+        9,
+        9
+      ],
+      "base_rate_all_quintiles": 0.36825,
+      "top_quintile_hit_rate": 0.31464,
+      "top_excess_gross": -0.05361,
+      "top_excess_net_of_cost": -0.06273,
+      "monotonicity_spearman": -1.0,
+      "monotonicity_p": 0.0
+    },
+    "holdout": {
+      "observations": 387,
+      "rebalances": 6,
+      "quintile_hit_rate": [
+        0.40169,
+        0.32466,
+        0.37105,
+        0.41824,
+        0.41053
+      ],
+      "quintile_mean_ret": [
+        0.363546,
+        -0.137171,
+        -0.081907,
+        -0.074272,
+        0.013269
+      ],
+      "quintile_mean_cost": [
+        0.011108,
+        0.010088,
+        0.009742,
+        0.009789,
+        0.009177
+      ],
+      "periods_per_quintile": [
+        2,
+        2,
+        2,
+        2,
+        2
+      ],
+      "base_rate_all_quintiles": 0.38523,
+      "top_quintile_hit_rate": 0.41053,
+      "top_excess_gross": 0.02529,
+      "top_excess_net_of_cost": 0.01611,
+      "monotonicity_spearman": 0.0,
+      "monotonicity_p": 1.0
+    },
+    "ece": 0.03485
+  }
+]

@@ -144,6 +144,16 @@ export default defineConfig({
       dependencies: ["setup"],
       use: { ...devices["Pixel 7"], storageState: AUTH_STATE },
     },
+    {
+      name: "authed-tablet",
+      testMatch: /authed\/learn-studio-(visual|pdf)\.spec\.ts/,
+      dependencies: ["setup"],
+      use: {
+        ...devices["Desktop Chrome"],
+        viewport: { width: 834, height: 1112 },
+        storageState: AUTH_STATE,
+      },
+    },
   ],
 
   webServer: [

@@ -76,6 +76,7 @@ dark** themes.
 | **Haqeeqi Daulat (TM)** | Devaluation-adjusted net-worth engine that surfaces purchasing power, not just a nominal PKR number. |
 | **Personal Finance** | Budgets, expense tracking, savings goals, bill reminders, and a Zakat calculator built around PKR realities. |
 | **Financial Education** | Urdu-first interactive lessons on stocks, funds, saving, and Islamic finance. |
+| **LearnHub AI Studio** | Creates source-grounded PSX lessons, notes, flashcards, practice quizzes, tutor answers, and optional narrated videos from a typed topic or a private text-based PDF. Generated work reuses the native lesson experience and never changes official XP or progress. |
 | **AI Financial Tutor** | Contextual, LLM-powered answers about the market, a stock, or your portfolio. |
 | **Bilingual & Themed** | Full English/Urdu (RTL) support and light/dark themes across the app. |
 
@@ -145,6 +146,11 @@ dark** themes.
   token; **user data** (portfolio, finance, alerts) is authenticated.
 - The web app keeps **server state** in TanStack Query and a small amount of
   **demo/client state** in Redux Toolkit.
+- **LearnHub AI Studio** runs pack and media generation on a leased Postgres
+  queue. Typed topics retrieve only from the approved LearnHub corpus. Private
+  PDFs are validated, stored in a private bucket, extracted into owner-bound
+  sources, and removed through a durable cleanup queue when their project is
+  deleted. Generated media is served only through short-lived signed URLs.
 
 ---
 
@@ -366,12 +372,19 @@ is covered by a pytest suite.
 - **Web app** — a TanStack Start / Nitro build (deployed to a serverless host).
   Set production environment variables (notably `VITE_API_URL`) in the hosting
   provider; local `.env` files are not shipped.
-- **Backend API** — containerized via the provided `Dockerfile` and deployed to a
-  container host (`railway.json` is included; auto-deploys from `main`). Ensure
-  `CORS_ORIGINS` allows your web app's origin and the `SUPABASE_*` / `PSX_SUPABASE_*`
-  secrets are set. The advanced ML libraries (LightGBM/XGBoost/CatBoost) are not in
-  the deployed `requirements.txt`; production serves signals from the technical
-  baseline while ML runs in shadow mode.
+- **Backend on Railway** — deploy two services from the same `backend/` root and
+  the same Dockerfile/config:
+  - API service: set `PROCESS_ROLE=web`, generate the public Railway domain, and
+    set `CORS_ORIGINS` to the web app origin.
+  - Scheduler service: set `PROCESS_ROLE=worker`, do not use it as the public API
+    URL, and set `API_KEEPALIVE_URL` to the API service's Railway URL after the
+    domain is generated.
+  Both services need the shared backend secrets (`SUPABASE_*`,
+  `PSX_SUPABASE_*`, `SUPABASE_POOLER_*`, AI/email keys as enabled). The scheduler
+  is advisory-lock gated, so the split cannot run duplicate jobs.
+  The advanced ML libraries (LightGBM/XGBoost/CatBoost) are not in the deployed
+  `requirements.txt`; production serves signals from the technical baseline while
+  ML runs in shadow mode.
 - **Database** — a managed Supabase project.
 
 ---

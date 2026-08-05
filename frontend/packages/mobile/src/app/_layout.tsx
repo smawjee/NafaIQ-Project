@@ -25,7 +25,7 @@ export const unstable_settings = { initialRouteName: "index" };
 const PUBLIC_ROUTES = ["", "index", "auth", "plans"];
 
 function RootNavigator() {
-  const { user, profile, loading } = useAuth();
+  const { user, profile, loading, recoveryInProgress } = useAuth();
   const { colors, mode } = useTheme();
   const segments = useSegments();
   const router = useRouter();
@@ -41,6 +41,11 @@ function RootNavigator() {
 
   useEffect(() => {
     if (loading) return;
+    // A password reset holds every redirect below: verifying the emailed code
+    // signs the user in BEFORE they have set a new password, and bouncing them
+    // to the tabs (or the plan gate) on that half-finished session would drop
+    // them out of the flow at step 2.
+    if (recoveryInProgress) return;
     if (!user && !inPublic) {
       router.replace("/auth");
     } else if (needsPlanSelection && top !== "plans") {
@@ -48,7 +53,7 @@ function RootNavigator() {
     } else if (user && top === "auth") {
       router.replace("/(tabs)/app");
     }
-  }, [user, loading, inPublic, top, needsPlanSelection, router]);
+  }, [user, loading, inPublic, top, needsPlanSelection, recoveryInProgress, router]);
 
   if (loading) {
     return (

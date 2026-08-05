@@ -1,0 +1,161 @@
+{
+  "buy": {
+    "events": 452,
+    "explore": {
+      "events": 283,
+      "rows": [
+        {
+          "horizon": 21,
+          "events": 283,
+          "dates": 236,
+          "gross_car": 0.015098,
+          "gross_clustered_t": 3.032,
+          "net_car": 0.006173,
+          "net_clustered_t": 1.239,
+          "mean_cost": 0.008907
+        },
+        {
+          "horizon": 63,
+          "events": 260,
+          "dates": 221,
+          "gross_car": 0.038862,
+          "gross_clustered_t": 4.422,
+          "net_car": 0.029998,
+          "net_clustered_t": 3.41,
+          "mean_cost": 0.008887
+        },
+        {
+          "horizon": 126,
+          "events": 216,
+          "dates": 182,
+          "gross_car": 0.06449,
+          "gross_clustered_t": 4.107,
+          "net_car": 0.055824,
+          "net_clustered_t": 3.556,
+          "mean_cost": 0.0087
+        }
+      ]
+    },
+    "holdout": {
+      "events": 169,
+      "rows": [
+        {
+          "horizon": 21,
+          "events": 169,
+          "dates": 138,
+          "gross_car": 0.006759,
+          "gross_clustered_t": 0.598,
+          "net_car": -0.003664,
+          "net_clustered_t": -0.325,
+          "mean_cost": 0.01041
+        },
+        {
+          "horizon": 63,
+          "events": 164,
+          "dates": 135,
+          "gross_car": 0.041274,
+          "gross_clustered_t": 3.14,
+          "net_car": 0.030803,
+          "net_clustered_t": 2.366,
+          "mean_cost": 0.010473
+        },
+        {
+          "horizon": 126,
+          "events": 149,
+          "dates": 128,
+          "gross_car": 0.045085,
+          "gross_clustered_t": 1.748,
+          "net_car": 0.034462,
+          "net_clustered_t": 1.341,
+          "mean_cost": 0.010622
+        }
+      ]
+    },
+    "verdict": "AMBER",
+    "reasons": [
+      "holdout 126s clustered t 1.341 <= 1.96",
+      "ECE 0.061 > 0.05"
+    ],
+    "ece": 0.06079211396571027
+  },
+  "sell": {
+    "events": 389,
+    "explore": {
+      "events": 307,
+      "rows": [
+        {
+          "horizon": 21,
+          "events": 307,
+          "dates": 249,
+          "gross_car": -0.002831,
+          "gross_clustered_t": -0.455,
+          "net_car": -0.011159,
+          "net_clustered_t": -1.792,
+          "mean_cost": 0.008363
+        },
+        {
+          "horizon": 63,
+          "events": 274,
+          "dates": 232,
+          "gross_car": 0.001179,
+          "gross_clustered_t": 0.107,
+          "net_car": -0.007058,
+          "net_clustered_t": -0.643,
+          "mean_cost": 0.008228
+        },
+        {
+          "horizon": 126,
+          "events": 237,
+          "dates": 202,
+          "gross_car": -0.01185,
+          "gross_clustered_t": -0.731,
+          "net_car": -0.020032,
+          "net_clustered_t": -1.236,
+          "mean_cost": 0.008168
+        }
+      ]
+    },
+    "holdout": {
+      "events": 82,
+      "rows": [
+        {
+          "horizon": 21,
+          "events": 82,
+          "dates": 66,
+          "gross_car": -0.027669,
+          "gross_clustered_t": -1.602,
+          "net_car": -0.037483,
+          "net_clustered_t": -2.176,
+          "mean_cost": 0.009813
+        },
+        {
+          "horizon": 63,
+          "events": 74,
+          "dates": 60,
+          "gross_car": -0.059522,
+          "gross_clustered_t": -2.309,
+          "net_car": -0.069313,
+          "net_clustered_t": -2.69,
+          "mean_cost": 0.009757
+        },
+        {
+          "horizon": 126,
+          "events": 71,
+          "dates": 59,
+          "gross_car": 0.006405,
+          "gross_clustered_t": 0.13,
+          "net_car": -0.00336,
+          "net_clustered_t": -0.068,
+          "mean_cost": 0.009775
+        }
+      ]
+    },
+    "verdict": "AMBER",
+    "reasons": [
+      "holdout 126s net CAR -0.0034 not > one round trip (0.0098)",
+      "holdout 126s clustered t -0.068 <= 1.96",
+      "ECE 0.078 > 0.05"
+    ],
+    "ece": 0.07816142111975322
+  }
+}

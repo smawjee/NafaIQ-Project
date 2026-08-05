@@ -72,6 +72,39 @@ class RelativeRank(BaseModel):
     factors: dict[str, float] = Field(default_factory=dict)  # factor -> percentile
 
 
+class Recommendation(BaseModel):
+    """A directional call with a probability the engine can actually defend.
+
+    ``p`` is the measured frequency with which stocks in this cohort rose over
+    the horizon — a counted rate with a Wilson interval, not a model score. The
+    rating is derived from whether the *whole* interval clears an asymmetric
+    threshold, so a wide interval abstains to HOLD by construction.
+    """
+    rating: Literal["STRONG_BUY", "BUY", "HOLD", "SELL", "STRONG_SELL"]
+    horizon_sessions: int = 20
+    p: float | None = Field(default=None, ge=0, le=1)
+    p_lower: float | None = Field(default=None, ge=0, le=1)
+    p_upper: float | None = Field(default=None, ge=0, le=1)
+    #: The base rate the call is measured against — never assume 0.50, the
+    #: measured PSX 20-session base rate is ~0.47.
+    base_rate: float | None = Field(default=None, ge=0, le=1)
+    #: Plain-language statement of what `p` is the probability OF.
+    event: str = "rose over the next 20 trading sessions"
+    #: Which historical cohort answered, e.g. "stocks after a large recent decline".
+    basis: str | None = None
+    sample_size: int = 0
+    #: Median 20-session move of that cohort, relative to the universe.
+    expected_move: float | None = None
+    round_trip_cost: float | None = None
+    suggested_stop_pct: float | None = None
+    drivers: list[str] = Field(default_factory=list)
+    #: Set whenever the rating is HOLD, explaining which bar was not cleared.
+    abstain_reason: str | None = None
+    #: True when the sell-side asymmetry was applied (sell evidence is stronger
+    #: on PSX, so buy calls face a higher bar). Surfaced for transparency.
+    asymmetric: bool = True
+
+
 class QualityScore(BaseModel):
     """Reliability of the *measurement* (not the direction). Replaces confidence %."""
     score: float                              # 0..100
@@ -104,10 +137,17 @@ class SignalResponse(BaseModel):
     as_of: date
     technical_setup: TechnicalSetup
     quality: QualityScore | None = None
+    #: Tier 1 calibrated base-rate call. Present whenever the calibration
+    #: artifact is loaded and the stock's cohort could be identified.
+    recommendation: Recommendation | None = None
     forecast: ForecastOutlook
     context: MarketContext = Field(default_factory=MarketContext)
-    # Explicit contract for the UI: this response is descriptive analysis.
-    disclosure: str = "Technical analysis and market context — not a forecast."
+    # Explicit contract for the UI. The technical setup describes present
+    # posture; the recommendation is a measured historical frequency. Neither
+    # is a forecast, and the wording must not imply one.
+    disclosure: str = (
+        "Technical posture plus measured historical base rates — not a forecast."
+    )
     data_quality: dict[str, Any] = Field(default_factory=dict)
 
 

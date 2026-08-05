@@ -21,6 +21,7 @@ export function TutorSheet({
   section,
   presets = [],
   greeting = "Hi! I'm your NafaIQ tutor. Ask me anything.",
+  projectId,
 }: {
   visible: boolean;
   onClose: () => void;
@@ -28,6 +29,7 @@ export function TutorSheet({
   section?: string;
   presets?: string[];
   greeting?: string;
+  projectId?: string;
 }) {
   const { t, isUrdu } = useLang();
   const router = useRouter();
@@ -35,6 +37,7 @@ export function TutorSheet({
     lessonTitle,
     lessonContext: section,
     greeting,
+    projectId,
   });
   const [input, setInput] = useState("");
   const scrollRef = useRef<ScrollView>(null);

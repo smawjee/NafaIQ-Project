@@ -39,6 +39,21 @@ async function get<T>(path: string): Promise<T> {
   return res.json() as Promise<T>;
 }
 
+/**
+ * POST to an endpoint that takes no credential at all (backend PUBLIC_PATHS).
+ * Distinct from userPost, which attaches the session JWT — the callers here run
+ * for signed-out visitors, where there is no session to attach.
+ */
+export async function publicPost<T>(path: string, body: unknown): Promise<T> {
+  const res = await fetch(`${BASE}${path}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw new Error(`${path}: ${res.status} ${res.statusText}`);
+  return res.json() as Promise<T>;
+}
+
 // === User-authenticated requests (use Supabase session JWT) ===
 async function getSupabaseSession() {
   const { supabase } = await import("@/integrations/supabase/client");
@@ -70,6 +85,27 @@ async function userPost<T>(path: string, body: unknown): Promise<T> {
     body: JSON.stringify(body),
   });
   if (!res.ok) throw new Error(`${path}: ${res.status} ${res.statusText}`);
+  return res.json() as Promise<T>;
+}
+
+async function userPostForm<T>(path: string, body: FormData): Promise<T> {
+  const session = await getSupabaseSession();
+  if (!session) throw new Error("Not authenticated");
+  const res = await fetch(`${BASE}${path}`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${session.access_token}` },
+    body,
+  });
+  if (!res.ok) {
+    let detail = "";
+    try {
+      const payload = (await res.json()) as { detail?: unknown };
+      if (typeof payload.detail === "string") detail = payload.detail;
+    } catch {
+      // Some upstream responses are not JSON; retain the status fallback.
+    }
+    throw new Error(detail || `${path}: ${res.status} ${res.statusText}`);
+  }
   return res.json() as Promise<T>;
 }
 
@@ -113,6 +149,7 @@ async function userDelete<T>(path: string): Promise<T> {
   };
   const res = await fetch(`${BASE}${path}`, { method: "DELETE", headers });
   if (!res.ok) throw new Error(`${path}: ${res.status} ${res.statusText}`);
+  if (res.status === 204) return undefined as T;
   return res.json() as Promise<T>;
 }
 
@@ -218,7 +255,7 @@ export function fetchBatchSignals(limit = 50): Promise<BatchSignalsResponse> {
 }
 
 // === User-authenticated request exports ===
-export { userGet, userPost, userPatch, userPut, userDelete };
+export { userGet, userPost, userPostForm, userPatch, userPut, userDelete };
 
 // === Bulk "delete all" (user-scoped; server deletes only the caller's rows) ===
 export function deleteAllFinance(

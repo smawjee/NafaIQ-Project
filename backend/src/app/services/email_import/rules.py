@@ -496,6 +496,16 @@ _BILL_AMOUNT_LABEL_RE = re.compile(
     r"amount\s+payable|payable\s+amount|current\s+charges|balance\s+due|total)"
     r"\D{0,32}(?:PKR|Rs\.?|RS)\s*([\d,]+(?:\.\d{1,2})?)"
 )
+_BILL_AMOUNT_LINE_RE = re.compile(
+    r"(?im)^\s*(?:amount\s+due|total\s+due|bill\s+amount|invoice\s+amount|"
+    r"amount\s+payable|payable\s+amount|current\s+charges|balance\s+due|"
+    r"total\s+service\s+charges|total\s+amount|net\s+amount|amount)"
+    r"\s*(?:[:\-]|\s)\s*(?:PKR|Rs\.?|RS)?\s*([\d,]+(?:\.\d{1,2})?)\s*$"
+)
+_BILL_AMOUNT_NOISE_LINE_RE = re.compile(
+    r"(?i)\b(?:cheque|dishonou?red|late\s+fee|platform\s+charges?|login|"
+    r"helpline|cash\s+voucher|invoice\s+id|account\s+#|customer\s+id)\b"
+)
 _DUE_DATE_LABEL_RE = re.compile(
     r"(?is)\b(?:due\s+date|payment\s+due\s+date|pay\s+by|due\s+by|last\s+date|valid\s+till)"
     r"\D{0,24}([A-Za-z]{3,9}\s+\d{1,2},?\s+\d{4}|\d{1,2}[-\s][A-Za-z]{3,9}[-\s]\d{4}|"
@@ -534,6 +544,28 @@ def _parse_due_date(raw: str) -> Optional[date]:
 
 
 def _bill_amount(text: str) -> Optional[float]:
+    line_candidates: list[tuple[int, float]] = []
+    for line in text.splitlines():
+        if _BILL_AMOUNT_NOISE_LINE_RE.search(line):
+            continue
+        match = _BILL_AMOUNT_LINE_RE.search(line)
+        if not match:
+            continue
+        amount = _to_amount(match.group(1))
+        if amount is None:
+            continue
+        low = line.lower()
+        score = 4
+        if "amount due" in low or "total due" in low or "payable" in low:
+            score += 4
+        if "total service charges" in low or "current charges" in low:
+            score += 3
+        if low.strip().startswith("amount"):
+            score -= 2
+        line_candidates.append((score, amount))
+    if line_candidates:
+        return max(line_candidates, key=lambda item: item[0])[1]
+
     labelled = _BILL_AMOUNT_LABEL_RE.search(text)
     if labelled:
         return _to_amount(labelled.group(1))

@@ -41,6 +41,24 @@ export const UR: Record<string, string> = {
   Email: "ای میل",
   Plan: "پلان",
 
+  // Settings → change password
+  Password: "پاس ورڈ",
+  "Changing your password signs you out everywhere else.":
+    "پاس ورڈ تبدیل کرنے سے آپ ہر دوسری جگہ سے سائن آؤٹ ہو جائیں گے۔",
+  "Current password": "موجودہ پاس ورڈ",
+  "New password": "نیا پاس ورڈ",
+  "Confirm new password": "نئے پاس ورڈ کی تصدیق کریں",
+  "Update password": "پاس ورڈ اپ ڈیٹ کریں",
+  "Show password": "پاس ورڈ دکھائیں",
+  "Hide password": "پاس ورڈ چھپائیں",
+  "Current password is incorrect.": "موجودہ پاس ورڈ غلط ہے۔",
+  "Password must be at least 8 characters.": "پاس ورڈ کم از کم 8 حروف کا ہونا چاہیے۔",
+  "Those passwords don't match.": "یہ پاس ورڈ آپس میں مطابقت نہیں رکھتے۔",
+  "Your new password must be different from your current one.":
+    "آپ کا نیا پاس ورڈ موجودہ پاس ورڈ سے مختلف ہونا چاہیے۔",
+  "Password updated. Other devices have been signed out.":
+    "پاس ورڈ اپ ڈیٹ ہو گیا۔ دیگر آلات سے سائن آؤٹ کر دیا گیا ہے۔",
+
   // ---- Shared stat / metric labels ----
   "Portfolio Value": "پورٹ فولیو ویلیو",
   "Total Invested": "کل سرمایہ کاری",
@@ -704,7 +722,6 @@ export const UR: Record<string, string> = {
   "Based on": "ماخذ",
 
   // ---- Lesson AI summary card (opt-in, end of the reading page) ----
-  "Key ideas from this lesson": "اس سبق کے اہم نکات",
   "AI generated": "اے آئی سے تیار",
   "Common mistake": "عام غلطی",
   "Summarised by AI from this lesson. Not financial advice.":
@@ -1145,4 +1162,38 @@ export const UR: Record<string, string> = {
   "active today": "آج فعال",
   "user report awaiting reply": "جواب کی منتظر صارف رپورٹ",
   "user reports awaiting reply": "جواب کی منتظر صارف رپورٹس",
+  "AI-generated · Source grounded": "AI سے تیار کردہ · مستند ذرائع پر مبنی",
+  "Practice Quiz": "مشقی کوئز",
+  "Practice only": "صرف مشق",
+  "Practice your understanding. Official progress is unchanged.":
+    "اپنی سمجھ کی مشق کریں۔ سرکاری پیش رفت میں کوئی تبدیلی نہیں ہوگی۔",
+  "Generated quizzes do not affect your XP or learning streak.":
+    "تیار کردہ کوئز مشق کے طور پر محفوظ ہوتے ہیں اور سرکاری پیش رفت یا سیکھنے کے تسلسل کو متاثر نہیں کرتے۔",
+  "Sources used": "استعمال شدہ ذرائع",
+  "Key ideas from this lesson": "اس سبق کے اہم نکات",
+  "Key terms": "اہم اصطلاحات",
+  "Suggested next topics": "اگلے مجوزہ موضوعات",
+  "Study flashcards": "فلیش کارڈز سے مشق کریں",
+  "Educational content only — not financial advice.": "یہ صرف تعلیمی مواد ہے، مالی مشورہ نہیں۔",
+  "Generate 3–5 minute video lesson": "3–5 منٹ کا ویڈیو سبق بنائیں",
+  "Generating video…": "ویڈیو تیار ہو رہی ہے…",
+  "Lesson source": "سبق کا ذریعہ",
+  "Choose a topic": "موضوع منتخب کریں",
+  "Upload a PDF": "پی ڈی ایف اپ لوڈ کریں",
+  "Select a private PDF": "نجی پی ڈی ایف منتخب کریں",
+  "PDF only · Up to 15 MB and 100 pages · Never added to the public corpus":
+    "صرف پی ڈی ایف · زیادہ سے زیادہ 15 ایم بی اور 100 صفحات · عوامی مواد میں کبھی شامل نہیں کیا جاتا",
+  "Lesson focus (optional)": "سبق کی توجہ (اختیاری)",
+  "Optional focus, e.g. explain the dividend policy":
+    "اختیاری توجہ، مثلاً ڈیویڈنڈ پالیسی کی وضاحت کریں",
+  "Create from PDF": "پی ڈی ایف سے سبق بنائیں",
+  "Uploading…": "اپ لوڈ ہو رہا ہے…",
+  "Private PDF": "نجی پی ڈی ایف",
+  "Delete lesson": "سبق حذف کریں",
+  "Delete this lesson and its private uploaded files?":
+    "کیا یہ سبق اور اس کی نجی اپ لوڈ شدہ فائلیں حذف کر دی جائیں؟",
+  "The lesson could not be deleted. Please try again.":
+    "سبق حذف نہیں ہو سکا۔ براہ کرم دوبارہ کوشش کریں۔",
+  "PDF exceeds the 15 MB limit.": "پی ڈی ایف 15 ایم بی کی حد سے بڑی ہے۔",
+  "Reading and checking your private PDF": "آپ کی نجی پی ڈی ایف پڑھی اور جانچی جا رہی ہے",
 };

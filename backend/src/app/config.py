@@ -101,6 +101,15 @@ class Settings(BaseSettings):
     brevo_from_email: str = ""
     brevo_from_name: str = "NafaIQ Alerts"
 
+    # Password-recovery codes. The code itself is minted and expired by Supabase
+    # GoTrue (MAILER_OTP_EXP, default 3600s) — this setting only controls the
+    # lifetime we PRINT in the email, so keep it in step with the dashboard value
+    # or users will be told the wrong thing.
+    password_reset_code_ttl_minutes: int = 60
+    # Per-email send cap. The slowapi limiter on the route caps a single IP;
+    # this caps a single mailbox however many IPs ask for it.
+    password_reset_max_per_hour: int = 3
+
     # Langfuse LLM observability (optional). When both keys are set, every LLM
     # call is traced with model/tokens/latency/cost. Left blank => tracing is a
     # no-op, so CI/prod without keys are unaffected. Host is region-specific
@@ -203,6 +212,20 @@ class Settings(BaseSettings):
     # exhaust or throttle the other. 20/day covers a full lesson's quizzes plus
     # summaries while bounding what one account can spend on the free tier.
     learn_ai_daily_limit: int = 20
+    # LearnHub Studio is independently kill-switched because it requires the
+    # Studio migration and a durable worker in addition to the base RAG corpus.
+    learn_studio_enabled: bool = False
+    learn_studio_pack_daily_limit: int = 5
+    learn_studio_video_daily_limit: int = 1
+    learn_studio_prompt_version: str = "1"
+    learn_studio_renderer_version: str = "1"
+    learn_studio_corpus_version: str = "1"
+    learn_studio_worker_poll_seconds: float = 2.0
+    learn_studio_media_bucket: str = "learnhub-studio"
+    learn_studio_tts_model: str = "gemini-2.5-flash-preview-tts"
+    learn_studio_pdf_max_bytes: int = 15 * 1024 * 1024
+    learn_studio_pdf_max_pages: int = 100
+    learn_studio_pdf_max_text_chars: int = 120_000
 
     # Bank-email transaction import (Gmail API OAuth). Keys live ONLY in
     # backend env — never shipped to any client bundle.

@@ -1,0 +1,161 @@
+{
+  "buy": {
+    "events": 421,
+    "explore": {
+      "events": 236,
+      "rows": [
+        {
+          "horizon": 21,
+          "events": 236,
+          "dates": 195,
+          "gross_car": 0.000473,
+          "gross_clustered_t": 0.088,
+          "net_car": -0.00834,
+          "net_clustered_t": -1.549,
+          "mean_cost": 0.008881
+        },
+        {
+          "horizon": 63,
+          "events": 236,
+          "dates": 195,
+          "gross_car": 0.012525,
+          "gross_clustered_t": 1.306,
+          "net_car": 0.003712,
+          "net_clustered_t": 0.387,
+          "mean_cost": 0.008881
+        },
+        {
+          "horizon": 126,
+          "events": 236,
+          "dates": 195,
+          "gross_car": 0.043547,
+          "gross_clustered_t": 2.815,
+          "net_car": 0.034734,
+          "net_clustered_t": 2.246,
+          "mean_cost": 0.008881
+        }
+      ]
+    },
+    "holdout": {
+      "events": 185,
+      "rows": [
+        {
+          "horizon": 21,
+          "events": 185,
+          "dates": 141,
+          "gross_car": -0.048001,
+          "gross_clustered_t": -2.289,
+          "net_car": -0.058301,
+          "net_clustered_t": -2.79,
+          "mean_cost": 0.010166
+        },
+        {
+          "horizon": 63,
+          "events": 185,
+          "dates": 141,
+          "gross_car": -0.033048,
+          "gross_clustered_t": -1.332,
+          "net_car": -0.043348,
+          "net_clustered_t": -1.756,
+          "mean_cost": 0.010166
+        },
+        {
+          "horizon": 126,
+          "events": 185,
+          "dates": 141,
+          "gross_car": -0.012449,
+          "gross_clustered_t": -0.416,
+          "net_car": -0.022749,
+          "net_clustered_t": -0.764,
+          "mean_cost": 0.010166
+        }
+      ]
+    },
+    "verdict": "RED",
+    "reasons": [
+      "holdout 126s net CAR -0.0227 not > one round trip (0.0102)",
+      "holdout 126s clustered t -0.764 <= 1.96",
+      "ECE 0.057 > 0.05"
+    ],
+    "ece": 0.05705451213925791
+  },
+  "sell": {
+    "events": 372,
+    "explore": {
+      "events": 285,
+      "rows": [
+        {
+          "horizon": 21,
+          "events": 285,
+          "dates": 242,
+          "gross_car": -0.00414,
+          "gross_clustered_t": -0.605,
+          "net_car": -0.012375,
+          "net_clustered_t": -1.807,
+          "mean_cost": 0.00817
+        },
+        {
+          "horizon": 63,
+          "events": 285,
+          "dates": 242,
+          "gross_car": 0.001596,
+          "gross_clustered_t": 0.142,
+          "net_car": -0.00664,
+          "net_clustered_t": -0.59,
+          "mean_cost": 0.00817
+        },
+        {
+          "horizon": 126,
+          "events": 285,
+          "dates": 242,
+          "gross_car": -0.033286,
+          "gross_clustered_t": -2.095,
+          "net_car": -0.041522,
+          "net_clustered_t": -2.616,
+          "mean_cost": 0.00817
+        }
+      ]
+    },
+    "holdout": {
+      "events": 87,
+      "rows": [
+        {
+          "horizon": 21,
+          "events": 87,
+          "dates": 72,
+          "gross_car": -0.036567,
+          "gross_clustered_t": -2.04,
+          "net_car": -0.046328,
+          "net_clustered_t": -2.593,
+          "mean_cost": 0.009787
+        },
+        {
+          "horizon": 63,
+          "events": 87,
+          "dates": 72,
+          "gross_car": -0.065714,
+          "gross_clustered_t": -2.954,
+          "net_car": -0.075476,
+          "net_clustered_t": -3.4,
+          "mean_cost": 0.009787
+        },
+        {
+          "horizon": 126,
+          "events": 87,
+          "dates": 72,
+          "gross_car": -0.002785,
+          "gross_clustered_t": -0.057,
+          "net_car": -0.012547,
+          "net_clustered_t": -0.257,
+          "mean_cost": 0.009787
+        }
+      ]
+    },
+    "verdict": "RED",
+    "reasons": [
+      "holdout 126s net CAR -0.0125 not > one round trip (0.0098)",
+      "holdout 126s clustered t -0.257 <= 1.96"
+    ],
+    "ece": 0.0366606170598911
+  }
+}

@@ -24,10 +24,24 @@ import { ReadingView } from "@/features/learn/lesson/components/ReadingView";
 import { QuizView } from "@/features/learn/lesson/components/QuizView";
 import { ResultsView } from "@/features/learn/lesson/components/ResultsView";
 import { ChatPanel } from "@/features/learn/lesson/components/ChatPanel";
+import { FlashcardModal } from "@/features/learn/hub/components/FlashcardModal";
+import type { StudioStudyPack } from "@nafaiq/shared";
 
 type Mode = "reading" | "quiz" | "results";
 
-export function LessonInner({ lesson }: { lesson: LessonContent }) {
+export function LessonInner({
+  lesson,
+  studyPack,
+  onPracticeFinish,
+  onGenerateVideo,
+  videoGenerating = false,
+}: {
+  lesson: LessonContent;
+  studyPack?: StudioStudyPack;
+  onPracticeFinish?: (correct: number, total: number) => void;
+  onGenerateVideo?: () => void;
+  videoGenerating?: boolean;
+}) {
   const navigate = useNavigate();
   const { statusOf, completeLesson, bookmarks, toggleBookmark, xp } = useLearn();
   const { t } = useLang();
@@ -36,13 +50,15 @@ export function LessonInner({ lesson }: { lesson: LessonContent }) {
   const [activeSection, setActiveSection] = useState(lesson.sections[0]?.id);
   const [chatOpen, setChatOpen] = useState(false);
   const [showArticle, setShowArticle] = useState(true);
+  const [flashcardsOpen, setFlashcardsOpen] = useState(false);
   const [tocCollapsed, setTocCollapsed] = usePersistedBool("nafaiq-lesson-toc");
   const [chatCollapsed, setChatCollapsed] = usePersistedBool("nafaiq-lesson-chat");
 
+  const practice = lesson.rewardMode === "practice";
   const order = lessonOrder();
   const idx = order.indexOf(lesson.id);
-  const prevId = idx > 0 ? order[idx - 1] : null;
-  const nextId = idx < order.length - 1 ? order[idx + 1] : null;
+  const prevId = !practice && idx > 0 ? order[idx - 1] : null;
+  const nextId = !practice && idx >= 0 && idx < order.length - 1 ? order[idx + 1] : null;
   const bookmarked = bookmarks.includes(lesson.id);
 
   // Reading progress on scroll
@@ -91,13 +107,17 @@ export function LessonInner({ lesson }: { lesson: LessonContent }) {
   }, []);
 
   function onQuizFinish(correct: number) {
+    if (practice) {
+      onPracticeFinish?.(correct, lesson.quiz.length);
+      return 0;
+    }
     const gain = xpForScore(correct, lesson.quiz.length);
     if (correct >= 2) completeLesson(lesson.id, gain);
     return gain;
   }
 
   return (
-    <div>
+    <div data-testid="lesson-experience" className="pb-32 xl:pb-0">
       {/* Reading progress + top bar — only in reading mode; quiz/results own their nav */}
       {mode === "reading" && (
         <>
@@ -213,7 +233,7 @@ export function LessonInner({ lesson }: { lesson: LessonContent }) {
         )}
 
         {/* Main content */}
-        <main className="min-w-0 flex-1 xl:max-w-[760px]">
+        <div className="min-w-0 flex-1 xl:max-w-[760px]">
           {mode === "reading" && (
             <ReadingView
               lesson={lesson}
@@ -227,12 +247,23 @@ export function LessonInner({ lesson }: { lesson: LessonContent }) {
               }}
               completed={statusOf(lesson.id) === "complete"}
               onMarkWatched={() => completeLesson(lesson.id, 30)}
+              practice={practice}
+              notes={studyPack?.notes}
+              keyTerms={studyPack?.keyTerms}
+              suggestedTopics={studyPack?.suggestedTopics}
+              sources={lesson.sources}
+              onOpenFlashcards={
+                studyPack?.flashcards?.length ? () => setFlashcardsOpen(true) : undefined
+              }
+              onGenerateVideo={onGenerateVideo}
+              videoGenerating={videoGenerating}
             />
           )}
 
           {mode === "quiz" && (
             <QuizView
               lesson={lesson}
+              practice={practice}
               onExit={() => setMode("reading")}
               onFinish={(correct) => {
                 const gain = onQuizFinish(correct);
@@ -250,6 +281,7 @@ export function LessonInner({ lesson }: { lesson: LessonContent }) {
               startXp={xp - (resultRef.current.correct >= 2 ? resultRef.current.gain : 0)}
               nextId={nextId}
               onRetake={() => setMode("quiz")}
+              practice={practice}
               onBackToLesson={() => setMode("reading")}
               onContinue={() => {
                 if (nextId) navigate({ to: "/learn/lesson/$id", params: { id: nextId } });
@@ -257,7 +289,7 @@ export function LessonInner({ lesson }: { lesson: LessonContent }) {
               }}
             />
           )}
-        </main>
+        </div>
 
         {/* Right docked AI Tutor panel — desktop xl+ */}
         {mode === "reading" && (
@@ -285,6 +317,10 @@ export function LessonInner({ lesson }: { lesson: LessonContent }) {
           </CollapsibleColumn>
         )}
       </div>
+
+      {flashcardsOpen && studyPack && (
+        <FlashcardModal cards={studyPack.flashcards} onClose={() => setFlashcardsOpen(false)} />
+      )}
 
       {/* Floating AI button */}
       <button

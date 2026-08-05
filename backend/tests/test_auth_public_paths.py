@@ -12,7 +12,12 @@ from __future__ import annotations
 
 import pytest
 
-from app.middleware.auth import ADMIN_PATHS, _is_public_path, _is_user_path
+from app.middleware.auth import (
+    ADMIN_PATHS,
+    PUBLIC_PATHS,
+    _is_public_path,
+    _is_user_path,
+)
 
 
 @pytest.mark.parametrize(
@@ -73,6 +78,15 @@ def test_financials_does_not_collapse_into_finance(path: str) -> None:
     """`/api/financials` must not be swallowed by the `/api/finance` user prefix."""
     assert _is_user_path(path) is False
     assert _is_public_path(path) is True
+
+
+def test_forgot_password_is_anonymous_but_only_that_path() -> None:
+    """Recovery must be reachable without a credential — and nothing else under
+    /api/auth may inherit that. A prefix entry would open every future auth
+    route (change-email, delete-account, …) the moment it was added."""
+    assert "/api/auth/forgot-password" in PUBLIC_PATHS
+    assert _is_public_path("/api/auth/reset-password") is False
+    assert _is_user_path("/api/auth/reset-password") is False
 
 
 def test_prefix_matching_respects_boundaries() -> None:

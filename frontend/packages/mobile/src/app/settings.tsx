@@ -18,6 +18,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { GlassCard } from "@/components/glass/GlassCard";
 import { GlassScreen } from "@/components/glass/GlassScreen";
+import { ChangePasswordCard } from "@/components/settings/ChangePasswordCard";
 import { Button, Text } from "@/components/ui";
 import { ChipRow } from "@/components/ui/controls";
 import { fonts, radii, type ThemeMode } from "@/constants/theme";
@@ -29,6 +30,7 @@ import {
   useEmailIntegration,
   useSyncEmail,
 } from "@/hooks/queries/use-email-integration";
+import { useBrokerAccounts, useBrokerImports } from "@/hooks/queries/use-broker-imports";
 import {
   type FinanceSettings,
   useFinanceSettings,
@@ -195,6 +197,9 @@ export default function SettingsScreen() {
       {/* Bank email import */}
       <BankEmailCard />
 
+      {/* Password */}
+      {user?.email && <ChangePasswordCard email={user.email} style={styles.card} />}
+
       {/* Account */}
       <GlassCard style={styles.card}>
         <Text variant="title" style={{ fontSize: 15 }}>{t("Account")}</Text>
@@ -281,11 +286,14 @@ function BankEmailCard() {
   const connect = useConnectGmail();
   const disconnect = useDisconnectEmail();
   const sync = useSyncEmail();
+  const brokerAccounts = useBrokerAccounts(!!user);
+  const brokerImports = useBrokerImports("pending_review", !!user);
 
   const connected = status.data?.connected;
   // Google "Testing" mode refresh tokens expire after 7 days — surface that as
   // an actionable reconnect rather than a silent stall.
   const needsReconnect = !!status.data?.last_error;
+  const brokerCounts = status.data?.broker_confirmations;
 
   const onConnect = async () => {
     try {
@@ -340,7 +348,7 @@ function BankEmailCard() {
     <GlassCard style={styles.card}>
       <View style={styles.head}>
         <Inbox color={colors.primary} size={16} />
-        <Text variant="title" style={{ fontSize: 15 }}>{t("Bank email import")}</Text>
+        <Text variant="title" style={{ fontSize: 15 }}>{t("Bank & broker email import")}</Text>
       </View>
       <Text variant="secondary" style={{ fontSize: 13 }}>
         {t("Connect the Gmail account your bank sends alerts to and NafaIQ will add those transactions automatically. Read-only — we only look at bank emails.")}
@@ -361,8 +369,37 @@ function BankEmailCard() {
                   {status.data?.last_error}
                 </Text>
               ) : null}
+              {brokerCounts ? (
+                <Text variant="muted" style={{ marginTop: 6 }}>
+                  {`${t("Broker confirmations")}: ${brokerCounts.pending} ${t("pending")}, ${brokerCounts.imported} ${t("imported")}`}
+                </Text>
+              ) : null}
             </View>
           </View>
+          {brokerAccounts.data?.length ? (
+            <View style={{ gap: 6 }}>
+              {brokerAccounts.data.map((account) => (
+                <View
+                  key={account.id}
+                  style={[styles.option, { borderColor: colors.border, backgroundColor: colors.glassFillStrong }]}
+                >
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ fontWeight: "600", fontSize: 12 }}>
+                      {`${account.broker_code.replace("_", " ")} ${account.account_mask}`}
+                    </Text>
+                    <Text variant="muted">
+                      {`${account.portfolio_name ?? t("No portfolio")} · ${account.mode}`}
+                    </Text>
+                  </View>
+                </View>
+              ))}
+            </View>
+          ) : null}
+          {(brokerImports.data?.items.length ?? 0) > 0 ? (
+            <Text style={{ fontSize: 12, color: colors.warning }}>
+              {`${brokerImports.data?.items.length ?? 0} ${t("broker confirmation(s) waiting for review.")}`}
+            </Text>
+          ) : null}
           {needsReconnect ? (
             <Button title={t("Reconnect Gmail")} onPress={onConnect} loading={connect.isPending} />
           ) : (

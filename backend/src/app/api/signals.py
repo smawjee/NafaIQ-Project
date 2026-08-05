@@ -5,6 +5,8 @@ event outlook. It never falls back to a fabricated HOLD signal.
 """
 from __future__ import annotations
 
+from typing import Any
+
 from fastapi import APIRouter, Request
 from pydantic import BaseModel, Field
 
@@ -32,14 +34,76 @@ class BatchSignalsRequest(BaseModel):
 
 @router.get("/signals/track-record")
 async def signal_track_record():
-    """Technical setups are not scored as forecasts, so there is no track record."""
+    """Out-of-sample reliability of the calibrated probabilities.
+
+    Not a strategy P&L and not a forecast record. This answers the one question
+    that makes a stated probability meaningful: when the engine said 58%, how
+    often did it actually happen — on a period the calibration never saw?
+
+    The numbers come from the calibration artifact, which is built on 2016-2024
+    and scored against an untouched 2025-2026 holdout. An artifact is only
+    written when that holdout error clears the pre-registered bound, so a
+    response here is itself evidence the calibration passed.
+    """
+    # Installed mobile builds read `by_signal`/`matured_total` unguarded
+    # (SignalTrackRecordCard does `SIGNAL_ORDER.filter(s => data.by_signal[s])`,
+    # which throws on undefined) and cannot be force-updated. These three keys
+    # are therefore part of the contract until those builds age out — same
+    # reasoning as the deprecated URL aliases below.
+    legacy = {"matured_total": 0, "by_signal": {}, "pending_maturity": 0}
+
+    table = service.get_base_rate_table()
+    if table is None:
+        return {
+            **legacy,
+            "status": "unavailable",
+            "reason_code": "NO_CALIBRATION_ARTIFACT",
+            "note": "Base-rate calibration has not been generated.",
+        }
+
+    validation = table.holdout_validation or {}
+    reliability = validation.get("reliability") or []
+
+    # Live record: predictions actually served, then measured. Best-effort —
+    # the historical holdout stands on its own, and an empty live record simply
+    # means not enough predictions have reached their horizon yet.
+    live: dict[str, Any] = {"reliability": [], "n": 0, "ece": None}
+    try:
+        from app.repositories import signals_repo
+        from app.services.signals.outcomes import reliability_from_rollup
+
+        live = reliability_from_rollup(await signals_repo.calibration_rows())
+    except Exception:
+        pass
+
     return {
-        "status": "unavailable",
-        "reason_code": "TECHNICAL_SETUP_NOT_FORECAST",
-        "matured_total": 0,
-        "by_signal": {},
-        "pending_maturity": 0,
-        "note": "Only promoted event forecasts receive predictive outcomes.",
+        **legacy,
+        "status": "available" if reliability else "unavailable",
+        "kind": "probability_calibration",
+        "horizon_sessions": table.horizon,
+        "base_rate": table.global_rate,
+        "total_samples": table.total_samples,
+        # Predictions served and since measured. Accumulates from launch, so it
+        # is empty at first and is the only figure that can catch the
+        # relationship decaying after calibration.
+        "live": {
+            "observations": live.get("n", 0),
+            "calibration_error": live.get("ece"),
+            "buckets": live.get("reliability", []),
+        },
+        "holdout": {
+            "period_start": table.explore_end,
+            "observations": validation.get("n", 0),
+            # Expected calibration error: average gap between stated and
+            # realised frequency, weighted by how often each bucket occurred.
+            "calibration_error": validation.get("ece"),
+            "passes_bound": validation.get("passes"),
+            "buckets": reliability,
+        },
+        "note": (
+            "Reliability of the stated probabilities on data the calibration "
+            "never saw. Not a trading track record."
+        ),
     }
 
 

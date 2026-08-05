@@ -23,6 +23,20 @@ FACTORS: dict[str, tuple[str, bool, float]] = {
     "liquidity": ("turnover", True, 0.12),
 }
 
+# Ranked and reported, but deliberately NOT blended into the composite.
+#
+# The 20-session return percentile is what `base_rates.reversal_bucket` needs to
+# place a stock in its historical cohort, and it has to be cross-sectional, so
+# the daily job is the only sensible place to compute it. It stays out of the
+# composite because the composite drives the user-facing "Top X% of PSX" chip —
+# adding a sixth weight would silently re-rank every stock in the app.
+#
+# name -> (feature key, higher_is_stronger). Ascending: the biggest 20-day
+# losers land near percentile 0, which is exactly what reversal_bucket expects.
+CONTEXT_FACTORS: dict[str, tuple[str, bool]] = {
+    "reversal_20d": ("ret_20d", True),
+}
+
 
 def factor_inputs(features: dict[str, Any]) -> dict[str, Optional[float]]:
     """Extract the raw factor values for one symbol from its feature snapshot."""
@@ -33,6 +47,8 @@ def factor_inputs(features: dict[str, Any]) -> dict[str, Optional[float]]:
     base = {"_trend": trend}
     out: dict[str, Optional[float]] = {}
     for name, (key, _dir, _w) in FACTORS.items():
+        out[name] = _num(base.get(key)) if key in base else _num(features.get(key))
+    for name, (key, _dir) in CONTEXT_FACTORS.items():
         out[name] = _num(base.get(key)) if key in base else _num(features.get(key))
     return out
 
@@ -50,7 +66,10 @@ def rank_universe(universe: list[tuple[str, dict[str, Optional[float]]]]) -> dic
     n = len(symbols)
     result: dict[str, dict[str, Any]] = {s: {"factors": {}, "universe_size": n} for s in symbols}
 
-    for name, (_key, higher_is_stronger, _w) in FACTORS.items():
+    rankable = {name: direction for name, (_k, direction, _w) in FACTORS.items()}
+    rankable.update({name: direction for name, (_k, direction) in CONTEXT_FACTORS.items()})
+
+    for name, higher_is_stronger in rankable.items():
         present = [(s, values[s].get(name)) for s in symbols if _num(values[s].get(name)) is not None]
         if len(present) < 3:
             continue

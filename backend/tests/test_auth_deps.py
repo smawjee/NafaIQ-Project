@@ -17,7 +17,7 @@ from typing import Annotated
 import httpx
 import jwt
 import pytest
-from fastapi import Depends, FastAPI
+from fastapi import Depends, FastAPI, HTTPException
 
 from app.api import deps as deps_module
 from app.api.deps import require_user
@@ -85,3 +85,44 @@ async def test_a_valid_token_reaches_the_route(monkeypatch):
         )
     assert res.status_code == 200
     assert res.json() == {"user_id": "u-1"}
+
+
+@pytest.mark.asyncio
+async def test_asymmetric_supabase_token_does_not_require_legacy_secret(monkeypatch):
+    from app.config import settings
+    from app.services import auth
+
+    class SigningKey:
+        key = object()
+
+    class JwksClient:
+        def get_signing_key_from_jwt(self, token):
+            return SigningKey()
+
+    monkeypatch.setattr(settings, "supabase_jwt_secret", "")
+    monkeypatch.setattr(auth.jwt, "get_unverified_header", lambda token: {"alg": "ES256"})
+    monkeypatch.setattr(auth, "_get_jwks_client", lambda: JwksClient())
+    monkeypatch.setattr(
+        auth.jwt,
+        "decode",
+        lambda *args, **kwargs: {"sub": "user-1", "email": "studio@example.com"},
+    )
+
+    async def plan_features(user_id):
+        return "Free", {}, "active"
+
+    monkeypatch.setattr(auth, "get_user_plan_features", plan_features)
+    result = await auth.resolve_supabase_user("asymmetric-token")
+    assert result["user_id"] == "user-1"
+
+
+@pytest.mark.asyncio
+async def test_legacy_token_still_requires_shared_secret(monkeypatch):
+    from app.config import settings
+    from app.services import auth
+
+    monkeypatch.setattr(settings, "supabase_jwt_secret", "")
+    monkeypatch.setattr(auth.jwt, "get_unverified_header", lambda token: {"alg": "HS256"})
+    with pytest.raises(HTTPException) as error:
+        await auth.resolve_supabase_user("legacy-token")
+    assert error.value.status_code == 503

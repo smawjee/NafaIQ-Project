@@ -1,0 +1,42 @@
+{
+  "explore": {
+    "dates": 158,
+    "events": 3191,
+    "quintile_drift": [
+      0.00134,
+      0.00253,
+      -0.00971,
+      -0.00578,
+      -0.00592
+    ],
+    "q5_minus_q1_gross": -0.00726,
+    "q5_minus_q1_net": -0.02645,
+    "top_quintile_net": -0.01551,
+    "t_stat_clustered": -0.433,
+    "monotonicity": -0.6903,
+    "mean_cost": 0.00959
+  },
+  "holdout": {
+    "dates": 42,
+    "events": 902,
+    "quintile_drift": [
+      0.00169,
+      0.01068,
+      0.00052,
+      0.02882,
+      4e-05
+    ],
+    "q5_minus_q1_gross": -0.00165,
+    "q5_minus_q1_net": -0.02269,
+    "top_quintile_net": -0.01048,
+    "t_stat_clustered": -0.079,
+    "monotonicity": 0.1919,
+    "mean_cost": 0.01052
+  },
+  "verdict": "RED",
+  "reasons": [
+    "explore Q5-Q1 after cost -0.02645 not positive",
+    "monotonicity -0.6903 below 0.8",
+    "clustered t -0.433 below 2.0"
+  ]
+}

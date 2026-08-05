@@ -82,6 +82,24 @@ const UR: Record<string, string> = {
   Email: "ای میل",
   Plan: "پلان",
 
+  // Settings → change password
+  Password: "پاس ورڈ",
+  "Changing your password signs you out everywhere else.":
+    "پاس ورڈ تبدیل کرنے سے آپ ہر دوسری جگہ سے سائن آؤٹ ہو جائیں گے۔",
+  "Current password": "موجودہ پاس ورڈ",
+  "New password": "نیا پاس ورڈ",
+  "Confirm new password": "نئے پاس ورڈ کی تصدیق کریں",
+  "Update password": "پاس ورڈ اپ ڈیٹ کریں",
+  "Current password is incorrect.": "موجودہ پاس ورڈ غلط ہے۔",
+  "Password must be at least 8 characters.":
+    "پاس ورڈ کم از کم 8 حروف کا ہونا چاہیے۔",
+  "Those passwords don't match.": "یہ پاس ورڈ آپس میں مطابقت نہیں رکھتے۔",
+  "Your new password must be different from your current one.":
+    "آپ کا نیا پاس ورڈ موجودہ پاس ورڈ سے مختلف ہونا چاہیے۔",
+  "Could not update password": "پاس ورڈ اپ ڈیٹ نہیں ہو سکا",
+  "Password updated. Other devices have been signed out.":
+    "پاس ورڈ اپ ڈیٹ ہو گیا۔ دیگر آلات سے سائن آؤٹ کر دیا گیا ہے۔",
+
   // ---- Shared stat / metric labels ----
   "Portfolio Value": "پورٹ فولیو ویلیو",
   "Total Invested": "کل سرمایہ کاری",
@@ -208,6 +226,39 @@ const UR: Record<string, string> = {
   HOLD: "ہولڈ",
   SELL: "سیل",
   "STRONG SELL": "اسٹرانگ سیل",
+  // ---- Calibrated recommendation (SignalRecommendationCard) ----
+  Recommendation: "سفارش",
+  "Strong Buy": "مضبوط خریداری",
+  Buy: "خریدیں",
+  Hold: "روکیں",
+  Sell: "فروخت کریں",
+  "Strong Sell": "مضبوط فروخت",
+  "Based on": "بنیاد",
+  "comparable cases in PSX history": "پی ایس ایکس تاریخ میں ملتے جلتے واقعات",
+  "rose over the next 20 trading sessions": "اگلے 20 ٹریڈنگ سیشنز میں اوپر گئے",
+  vs: "بمقابلہ",
+  typical: "عام",
+  Range: "حد",
+  "95% confidence": "95% اعتماد",
+  "Measured across": "پیمائش کی گئی",
+  "Est. round-trip cost": "تخمینی مکمل لین دین لاگت",
+  "Suggested stop": "تجویز کردہ اسٹاپ",
+  "The historical range for this setup spans the market average, so there is no clear edge either way.":
+    "اس سیٹ اپ کی تاریخی حد مارکیٹ اوسط پر محیط ہے، اس لیے کسی بھی طرف واضح برتری نہیں۔",
+  "This setup leaned slightly one way historically, but not by enough to cover trading costs.":
+    "یہ سیٹ اپ تاریخی طور پر ہلکا سا ایک طرف جھکا، مگر ٹریڈنگ لاگت پوری کرنے کے لیے کافی نہیں۔",
+  "Too few comparable cases in PSX history to say anything reliable.":
+    "پی ایس ایکس تاریخ میں اتنے کم ملتے جلتے واقعات ہیں کہ قابلِ اعتماد بات نہیں کہی جا سکتی۔",
+  "Historical base rates are unavailable right now.":
+    "تاریخی بنیادی شرحیں فی الحال دستیاب نہیں۔",
+  "No clear edge in the historical record.": "تاریخی ریکارڈ میں کوئی واضح برتری نہیں۔",
+  "Indicators currently read": "اشاریے فی الحال بتا رہے ہیں",
+  ", but this is about what happened next: on PSX, stocks in this state went on to rise":
+    "، مگر یہ اس بارے میں ہے کہ آگے کیا ہوا: پی ایس ایکس پر اس حالت والے اسٹاکس آگے چل کر اوپر گئے",
+  "of the time over the following": "اوقات میں، اگلے",
+  "sessions. Measured, not a promise.": "سیشنز میں۔ پیمائش شدہ، وعدہ نہیں۔",
+  "Buy calls require stronger evidence than sell calls — on PSX the sell-side signal has historically been the more reliable of the two.":
+    "خریداری کی سفارشات کو فروخت کی نسبت زیادہ مضبوط شواہد درکار ہیں — پی ایس ایکس پر فروخت کا سگنل تاریخی طور پر زیادہ قابلِ اعتماد رہا ہے۔",
   All: "تمام",
   Gainers: "بڑھنے والے",
   Losers: "گھٹنے والے",
@@ -624,6 +675,16 @@ const UR: Record<string, string> = {
   Priority: "ترجیحی",
   Community: "کمیونٹی",
   Standard: "معیاری",
+  "AI-generated · Source grounded": "AI سے تیار کردہ · مستند ذرائع پر مبنی",
+  "Private PDF": "نجی پی ڈی ایف",
+  "Take Practice Quiz": "مشقی کوئز شروع کریں",
+  "Sources used": "استعمال شدہ ذرائع",
+  "Key ideas from this lesson": "اس سبق کے اہم نکات",
+  "Key terms": "اہم اصطلاحات",
+  "Suggested next topics": "اگلے مجوزہ موضوعات",
+  "Practice result saved · Official progress unchanged":
+    "مشق کا نتیجہ محفوظ ہو گیا · سرکاری پیش رفت میں کوئی تبدیلی نہیں",
+  "Educational content only — not financial advice.": "یہ صرف تعلیمی مواد ہے، مالی مشورہ نہیں۔",
 };
 
 export function translate(lang: Lang, key: string): string {

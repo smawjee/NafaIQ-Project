@@ -7,13 +7,11 @@ import { LinearGradient } from "expo-linear-gradient";
 import { useEffect, useRef, useState } from "react";
 import {
   AccessibilityInfo,
-  ActivityIndicator,
   Alert,
   ImageBackground,
   Pressable,
   ScrollView,
   StyleSheet,
-  TextInput,
   useWindowDimensions,
   View,
 } from "react-native";
@@ -29,6 +27,8 @@ import Animated, {
 } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { Field, GlassButton, PasswordField, PrimaryButton } from "@/components/auth/auth-fields";
+import { ForgotPasswordCard } from "@/components/auth/ForgotPasswordCard";
 import { GlassCard } from "@/components/glass/GlassCard";
 import { LiquidGlassStar } from "@/components/glass/LiquidGlassStar";
 import { LiquidStockGraph } from "@/components/glass/LiquidStockGraph";
@@ -36,13 +36,13 @@ import { Logo } from "@/components/Logo";
 import { Text } from "@/components/ui";
 import { colors, fonts, radii } from "@/constants/theme";
 import { useAuth } from "@/hooks/use-auth";
-import { Activity, ArrowRight, Eye, EyeOff, ShieldCheck, Sparkles } from "@/lib/icons";
+import { Activity, ShieldCheck, Sparkles } from "@/lib/icons";
 
 const bgSource = require("../../../assets/generated/landing-bg.webp");
 const LOGO_H = 64;
 const INTRO_HOLD = 2800;
 
-type Mode = "signin" | "signup";
+type Mode = "signin" | "signup" | "forgot";
 
 export function AuthExperience({ intro = false }: { intro?: boolean }) {
   const { signInWithPassword, signUpWithPassword, signInWithGoogle } = useAuth();
@@ -179,6 +179,7 @@ export function AuthExperience({ intro = false }: { intro?: boolean }) {
   }
 
   const isSignup = mode === "signup";
+  const isForgot = mode === "forgot";
 
   return (
     <View style={styles.root}>
@@ -224,62 +225,88 @@ export function AuthExperience({ intro = false }: { intro?: boolean }) {
             keyboardShouldPersistTaps="handled"
             showsVerticalScrollIndicator={false}
           >
-            <Text style={styles.title}>{isSignup ? "Create account" : "Welcome back"}</Text>
+            <Text style={styles.title}>
+              {isForgot ? "Reset password" : isSignup ? "Create account" : "Welcome back"}
+            </Text>
             <Text variant="secondary" style={styles.subtitle}>
-              {isSignup ? "Start your journey with intelligent PSX insights." : "Sign in to your NafaIQ terminal."}
+              {isForgot
+                ? "We'll get you back into your account."
+                : isSignup
+                  ? "Start your journey with intelligent PSX insights."
+                  : "Sign in to your NafaIQ terminal."}
             </Text>
 
             <GlassCard radius={radii.card} intensity={26} style={styles.card}>
               <View style={styles.cardInner}>
-                <GlassButton label="Continue with Google" onPress={google} disabled={busy} />
+                {isForgot ? (
+                  <ForgotPasswordCard onBackToSignIn={() => setMode("signin")} />
+                ) : (
+                  <>
+                    <GlassButton label="Continue with Google" onPress={google} disabled={busy} />
 
-                <View style={styles.divider}>
-                  <View style={styles.line} />
-                  <Text variant="muted">or</Text>
-                  <View style={styles.line} />
-                </View>
+                    <View style={styles.divider}>
+                      <View style={styles.line} />
+                      <Text variant="muted">or</Text>
+                      <View style={styles.line} />
+                    </View>
 
-                {isSignup && (
-                  <Field label="Name" value={name} onChangeText={setName} placeholder="Ahmed Khan" autoCapitalize="words" />
+                    {isSignup && (
+                      <Field label="Name" value={name} onChangeText={setName} placeholder="Ahmed Khan" autoCapitalize="words" />
+                    )}
+                    <Field
+                      label="Email"
+                      value={email}
+                      onChangeText={setEmail}
+                      placeholder="you@example.com"
+                      keyboardType="email-address"
+                      autoCapitalize="none"
+                      autoComplete="email"
+                      inputMode="email"
+                    />
+                    <PasswordField value={password} onChangeText={setPassword} />
+
+                    {!isSignup && (
+                      <Pressable
+                        onPress={() => setMode("forgot")}
+                        hitSlop={12}
+                        accessibilityRole="button"
+                        accessibilityLabel="Forgot password"
+                        style={styles.forgotRow}
+                      >
+                        <Text style={styles.switchLink}>Forgot password?</Text>
+                      </Pressable>
+                    )}
+
+                    <PrimaryButton
+                      label={isSignup ? "Create account" : "Sign in"}
+                      onPress={submit}
+                      loading={busy}
+                    />
+                  </>
                 )}
-                <Field
-                  label="Email"
-                  value={email}
-                  onChangeText={setEmail}
-                  placeholder="you@example.com"
-                  keyboardType="email-address"
-                  autoCapitalize="none"
-                  autoComplete="email"
-                  inputMode="email"
-                />
-                <PasswordField value={password} onChangeText={setPassword} />
-
-                <PrimaryButton
-                  label={isSignup ? "Create account" : "Sign in"}
-                  onPress={submit}
-                  loading={busy}
-                />
               </View>
             </GlassCard>
 
-            <View
-              style={styles.switchRow}
-              onLayout={(e) => {
-                const { y, height: h } = e.nativeEvent.layout;
-                setAnchorY(insets.top + LOGO_H + 18 + y + h);
-              }}
-            >
-              <Text variant="secondary">
-                {isSignup ? "Already have an account?" : "Don't have an account?"}
-              </Text>
-              <Text
-                onPress={() => setMode(isSignup ? "signin" : "signup")}
-                style={styles.switchLink}
-                accessibilityRole="button"
+            {!isForgot && (
+              <View
+                style={styles.switchRow}
+                onLayout={(e) => {
+                  const { y, height: h } = e.nativeEvent.layout;
+                  setAnchorY(insets.top + LOGO_H + 18 + y + h);
+                }}
               >
-                {isSignup ? "Sign in" : "Sign up"}
-              </Text>
-            </View>
+                <Text variant="secondary">
+                  {isSignup ? "Already have an account?" : "Don't have an account?"}
+                </Text>
+                <Text
+                  onPress={() => setMode(isSignup ? "signin" : "signup")}
+                  style={styles.switchLink}
+                  accessibilityRole="button"
+                >
+                  {isSignup ? "Sign in" : "Sign up"}
+                </Text>
+              </View>
+            )}
           </ScrollView>
         </Animated.View>
 
@@ -296,100 +323,6 @@ export function AuthExperience({ intro = false }: { intro?: boolean }) {
         </Animated.View>
       </ImageBackground>
     </View>
-  );
-}
-
-/* ------------------------------- form pieces ------------------------------ */
-
-function Field({ label, ...props }: { label: string } & React.ComponentProps<typeof TextInput>) {
-  return (
-    <View style={{ gap: 6 }}>
-      <Text variant="secondary" style={{ fontSize: 13 }}>{label}</Text>
-      <GlassCard radius={12} intensity={16} sheen={0.06} style={styles.fieldGlass}>
-        <TextInput
-          style={styles.input}
-          placeholderTextColor={colors.textMuted}
-          accessibilityLabel={label}
-          {...props}
-        />
-      </GlassCard>
-    </View>
-  );
-}
-
-function PasswordField({ value, onChangeText }: { value: string; onChangeText: (v: string) => void }) {
-  const [hidden, setHidden] = useState(true);
-  return (
-    <View style={{ gap: 6 }}>
-      <Text variant="secondary" style={{ fontSize: 13 }}>Password</Text>
-      <GlassCard radius={12} intensity={16} sheen={0.06} style={styles.fieldGlass}>
-        <View style={styles.pwRow}>
-          <TextInput
-            style={[styles.input, { flex: 1 }]}
-            placeholderTextColor={colors.textMuted}
-            accessibilityLabel="Password"
-            placeholder="••••••••"
-            secureTextEntry={hidden}
-            autoComplete="password"
-            value={value}
-            onChangeText={onChangeText}
-          />
-          <Pressable
-            onPress={() => setHidden((h) => !h)}
-            hitSlop={12}
-            accessibilityRole="button"
-            accessibilityLabel={hidden ? "Show password" : "Hide password"}
-            style={styles.pwToggle}
-          >
-            {hidden ? <Eye color={colors.textMuted} size={18} /> : <EyeOff color={colors.primary} size={18} />}
-          </Pressable>
-        </View>
-      </GlassCard>
-    </View>
-  );
-}
-
-function PrimaryButton({ label, onPress, loading }: { label: string; onPress: () => void; loading?: boolean }) {
-  return (
-    <Pressable
-      onPress={onPress}
-      disabled={loading}
-      accessibilityRole="button"
-      accessibilityLabel={label}
-      accessibilityState={{ busy: loading, disabled: loading }}
-      style={({ pressed }) => [styles.primaryBtn, (pressed || loading) && { opacity: 0.9, transform: [{ scale: 0.99 }] }]}
-    >
-      <LinearGradient
-        colors={["#2DF2C4", colors.primary]}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={StyleSheet.absoluteFill}
-      />
-      {loading ? (
-        <ActivityIndicator color={colors.primaryForeground} />
-      ) : (
-        <>
-          <Text style={styles.primaryText}>{label}</Text>
-          <ArrowRight color={colors.primaryForeground} size={18} />
-        </>
-      )}
-    </Pressable>
-  );
-}
-
-function GlassButton({ label, onPress, disabled }: { label: string; onPress: () => void; disabled?: boolean }) {
-  return (
-    <Pressable
-      onPress={onPress}
-      disabled={disabled}
-      accessibilityRole="button"
-      accessibilityLabel={label}
-      style={({ pressed }) => [{ borderRadius: radii.btn }, pressed && { opacity: 0.8 }]}
-    >
-      <GlassCard radius={radii.btn} intensity={20} sheen={0.12} style={styles.glassBtn}>
-        <Text style={styles.glassBtnText}>{label}</Text>
-      </GlassCard>
-    </Pressable>
   );
 }
 
@@ -456,6 +389,8 @@ const styles = StyleSheet.create({
 
   switchRow: { flexDirection: "row", justifyContent: "center", gap: 6, marginTop: 18 },
   switchLink: { color: colors.primary, fontWeight: "700" },
+  // 44pt tall so the tap target clears the accessibility minimum.
+  forgotRow: { minHeight: 44, alignItems: "flex-end", justifyContent: "center" },
 
   footer: { position: "absolute", left: 0, right: 0, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 10 },
   footerDot: { width: 3, height: 3, borderRadius: 2, backgroundColor: colors.textMuted, opacity: 0.6 },

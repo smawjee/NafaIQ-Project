@@ -11,6 +11,7 @@ monkeypatched, so no database is required.
 from __future__ import annotations
 
 import contextlib
+from datetime import datetime, timezone
 
 import httpx
 import pytest
@@ -230,15 +231,31 @@ async def test_the_requested_month_is_echoed_back(repo):
 
 
 # --------------------------- income/expense series --------------------------
+#
+# The series builds its month grid from the wall clock (summary.py anchors on
+# datetime.now(timezone.utc)), so a row keyed to a hard-coded month falls off
+# the grid the moment the calendar moves past it. These tests derive their
+# months from the same clock instead — a literal here is a test that passes in
+# the month it was written and fails silently ever after.
+
+
+def _month_ago(n: int) -> str:
+    """The 'YYYY-MM' key n months before the current UTC month (0 = this month)."""
+    now = datetime.now(timezone.utc)
+    y, m = now.year, now.month - n
+    while m <= 0:
+        m += 12
+        y -= 1
+    return f"{y:04d}-{m:02d}"
 
 
 async def test_series_folds_the_salary_into_every_point(repo):
     """The trend chart must not show a salary spike only in the current month."""
     repo["settings"] = {"monthly_income": 100_000.0}
     repo["income_expense_rows"] = [
-        {"month": "2026-06", "transaction_type": "income", "total": 5_000.0},
-        {"month": "2026-06", "transaction_type": "expense", "total": 20_000.0},
-        {"month": "2026-07", "transaction_type": "income", "total": 7_000.0},
+        {"month": _month_ago(1), "transaction_type": "income", "total": 5_000.0},
+        {"month": _month_ago(1), "transaction_type": "expense", "total": 20_000.0},
+        {"month": _month_ago(0), "transaction_type": "income", "total": 7_000.0},
     ]
 
     async with _client() as c:
@@ -293,7 +310,7 @@ async def test_series_is_case_insensitive_about_the_transaction_type(repo):
     # the service lower-cases before bucketing.
     repo["settings"] = None
     repo["income_expense_rows"] = [
-        {"month": "2026-07", "transaction_type": "INCOME", "total": 9_000.0},
+        {"month": _month_ago(0), "transaction_type": "INCOME", "total": 9_000.0},
     ]
 
     async with _client() as c:

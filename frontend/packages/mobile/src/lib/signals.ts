@@ -67,6 +67,28 @@ export interface ApiSignalDetail {
     } | null;
     warnings?: string[];
   };
+  /**
+   * Calibrated base-rate call. `p` is a measured historical frequency for the
+   * cohort in `basis`, not a model score. `base_rate` is the bar to compare
+   * against — it is ~0.47 on PSX, never 0.5.
+   */
+  recommendation?: {
+    rating: "STRONG_BUY" | "BUY" | "HOLD" | "SELL" | "STRONG_SELL";
+    horizon_sessions: number;
+    p: number | null;
+    p_lower: number | null;
+    p_upper: number | null;
+    base_rate: number | null;
+    event: string;
+    basis: string | null;
+    sample_size: number;
+    expected_move: number | null;
+    round_trip_cost: number | null;
+    suggested_stop_pct: number | null;
+    drivers: string[];
+    abstain_reason: string | null;
+    asymmetric: boolean;
+  } | null;
   disclosure?: string;
   data_quality: Record<string, unknown>;
 }
@@ -89,10 +111,40 @@ export function ratingToLegacySignal(rating: SignalRating | null): ApiSignal["si
   }
 }
 
+/** Calibrated call -> the 5-state badge label the shared UI already renders. */
+export function recommendationToBadge(
+  rating: NonNullable<ApiSignalDetail["recommendation"]>["rating"],
+): ApiSignal["signal"] {
+  switch (rating) {
+    case "STRONG_BUY":
+      return "STRONG BUY";
+    case "BUY":
+      return "BUY";
+    case "SELL":
+      return "SELL";
+    case "STRONG_SELL":
+      return "STRONG SELL";
+    default:
+      return "HOLD";
+  }
+}
+
 export function toLegacySignal(signal: ApiSignalDetail): ApiSignal {
   return {
     symbol: signal.symbol,
-    signal: ratingToLegacySignal(signal.technical_setup.rating),
+    // Prefer the calibrated call over the raw indicator posture.
+    //
+    // `ratingToLegacySignal` maps "Strong Bullish" -> "STRONG BUY", which is
+    // the specific claim the research disproved: measured over 339,683 PSX
+    // observations, a bullish posture is followed by *below*-average returns
+    // (see backend/scripts/signals/RESEARCH_LOG.md). Showing the posture in a
+    // slot labelled BUY/SELL asserts a direction the data contradicts.
+    //
+    // Falls back to the posture mapping when no recommendation is available,
+    // so symbols without enough history behave exactly as before.
+    signal: signal.recommendation
+      ? recommendationToBadge(signal.recommendation.rating)
+      : ratingToLegacySignal(signal.technical_setup.rating),
     confidence: 0,
     probabilities: {},
     features_used: signal.technical_setup.components.map((component) => component.name),

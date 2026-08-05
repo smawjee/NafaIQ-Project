@@ -22,7 +22,7 @@ import { useLang } from "@/hooks/use-lang";
 import { useLearn } from "@/hooks/use-learn";
 import { useTheme } from "@/hooks/use-theme";
 import { lessonOrder, xpForScore } from "@nafaiq/shared";
-import { LESSON_CONTENT, type ContentBlock, type LessonContent } from "@nafaiq/shared";
+import { LESSON_CONTENT, type ContentBlock, type LessonContent, type StudioSource } from "@nafaiq/shared";
 import { ArrowLeft, Bookmark, Bot, Check, ChevronRight, iconFor, Info, Lightbulb, Play, RotateCcw, Sparkles, TriangleAlert, X } from "@/lib/icons";
 
 const FALLBACK = Object.keys(LESSON_CONTENT)[0];
@@ -31,6 +31,30 @@ export default function LessonScreen() {
   const { id: rawId } = useLocalSearchParams<{ id: string }>();
   const id = LESSON_CONTENT[rawId ?? ""] ? (rawId as string) : FALLBACK;
   const lesson = LESSON_CONTENT[id];
+  return <LessonExperience lesson={lesson} lessonId={id} />;
+}
+
+export function LessonExperience({
+  lesson,
+  lessonId: id,
+  practice = false,
+  notes,
+  keyTerms,
+  suggestedTopics,
+  sources,
+  onPracticeFinish,
+  studioProjectId,
+}: {
+  lesson: LessonContent;
+  lessonId: string;
+  practice?: boolean;
+  notes?: string[];
+  keyTerms?: string[];
+  suggestedTopics?: string[];
+  sources?: StudioSource[];
+  onPracticeFinish?: (correct: number, total: number) => void;
+  studioProjectId?: string;
+}) {
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const router = useRouter();
@@ -43,13 +67,14 @@ export default function LessonScreen() {
 
   const order = useMemo(() => lessonOrder(), []);
   const idx = order.indexOf(id);
-  const nextId = idx >= 0 && idx < order.length - 1 ? order[idx + 1] : null;
-  const prevId = idx > 0 ? order[idx - 1] : null;
+  const nextId = !practice && idx >= 0 && idx < order.length - 1 ? order[idx + 1] : null;
+  const prevId = !practice && idx > 0 ? order[idx - 1] : null;
   const bookmarked = bookmarks.includes(id);
 
   function finishQuiz(correct: number) {
     setScore(correct);
-    if (correct >= 2) completeLesson(id, xpForScore(correct, lesson.quiz.length));
+    if (practice) onPracticeFinish?.(correct, lesson.quiz.length);
+    else if (correct >= 2) completeLesson(id, xpForScore(correct, lesson.quiz.length));
     setMode("results");
   }
 
@@ -61,9 +86,9 @@ export default function LessonScreen() {
           <ArrowLeft color={colors.textPrimary} size={22} />
         </Pressable>
         <Text style={{ flex: 1, fontWeight: "600" }} numberOfLines={1}>{lesson.title}</Text>
-        <Pressable onPress={() => toggleBookmark(id)} hitSlop={8} accessibilityRole="button" accessibilityLabel="Bookmark">
+        {!practice && <Pressable onPress={() => toggleBookmark(id)} hitSlop={8} accessibilityRole="button" accessibilityLabel="Bookmark">
           <Bookmark color={bookmarked ? colors.gold : colors.textMuted} fill={bookmarked ? colors.gold : "none"} size={20} />
-        </Pressable>
+        </Pressable>}
         <Pressable onPress={() => setTutorOpen(true)} hitSlop={8} accessibilityRole="button" accessibilityLabel="Ask AI">
           <Bot color={colors.bull} size={20} />
         </Pressable>
@@ -80,9 +105,14 @@ export default function LessonScreen() {
           onWatched={() => completeLesson(id, 30)}
           onPrev={prevId ? () => router.replace(`/(tabs)/learn/lesson/${prevId}`) : undefined}
           onNext={nextId ? () => router.replace(`/(tabs)/learn/lesson/${nextId}`) : undefined}
+          practice={practice}
+          notes={notes}
+          keyTerms={keyTerms}
+          suggestedTopics={suggestedTopics}
+          sources={sources}
         />
       )}
-      {mode === "quiz" && <Quiz lesson={lesson} lessonId={id} onFinish={finishQuiz} />}
+      {mode === "quiz" && <Quiz lesson={lesson} lessonId={id} onFinish={finishQuiz} practice={practice} />}
       {mode === "results" && (
         <Results
           lesson={lesson}
@@ -90,10 +120,11 @@ export default function LessonScreen() {
           onRetake={() => setMode("quiz")}
           onContinue={() => (nextId ? router.replace(`/(tabs)/learn/lesson/${nextId}`) : router.replace("/(tabs)/learn"))}
           onBack={() => router.replace("/(tabs)/learn")}
+          practice={practice}
         />
       )}
 
-      <TutorSheet visible={tutorOpen} onClose={() => setTutorOpen(false)} lessonTitle={lesson.title} presets={lesson.presets} greeting={`Ask me anything about "${lesson.title}".`} />
+      <TutorSheet visible={tutorOpen} onClose={() => setTutorOpen(false)} lessonTitle={lesson.title} presets={lesson.presets} greeting={`Ask me anything about "${lesson.title}".`} projectId={studioProjectId} />
       </SafeAreaView>
     </GlassScreen>
   );
@@ -109,6 +140,11 @@ function Reading({
   onWatched,
   onPrev,
   onNext,
+  practice = false,
+  notes,
+  keyTerms,
+  suggestedTopics,
+  sources,
 }: {
   lesson: LessonContent;
   lessonId: string;
@@ -118,6 +154,11 @@ function Reading({
   onWatched: () => void;
   onPrev?: () => void;
   onNext?: () => void;
+  practice?: boolean;
+  notes?: string[];
+  keyTerms?: string[];
+  suggestedTopics?: string[];
+  sources?: StudioSource[];
 }) {
   const { colors } = useTheme();
   const { t } = useLang();
@@ -142,6 +183,20 @@ function Reading({
         <Text variant="display" style={{ fontSize: 22 }}>{lesson.title}</Text>
         <Text variant="secondary">{lesson.subtitle}</Text>
         <Text variant="muted" style={{ marginTop: 4 }}>{lesson.duration} · {t(lesson.level)}</Text>
+        {practice && (
+          <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
+            <View style={[styles.generatedBadge, { borderColor: colors.ai + "55", backgroundColor: colors.ai + "18" }]}>
+              <Sparkles color={colors.ai} size={13} />
+              <Text style={{ color: colors.ai, fontSize: 11, fontWeight: "700" }}>{t("AI-generated · Source grounded")}</Text>
+            </View>
+            {lesson.sourceKind === "pdf" ? (
+              <View style={[styles.generatedBadge, { borderColor: colors.border, backgroundColor: colors.surface }]}>
+                <Info color={colors.textSecondary} size={13} />
+                <Text style={{ color: colors.textSecondary, fontSize: 11, fontWeight: "700" }}>{t("Private PDF")}</Text>
+              </View>
+            ) : null}
+          </View>
+        )}
       </View>
 
       {lesson.type === "video" && lesson.videoUrl && (
@@ -152,7 +207,7 @@ function Reading({
           <Text variant="secondary">{t("Watch the video lesson")}</Text>
           <View style={{ flexDirection: "row", gap: 10 }}>
             <Button title={t("Play")} onPress={() => WebBrowser.openBrowserAsync(lesson.videoUrl!)} />
-            <Button title={t("Mark as Watched")} variant="outline" onPress={onWatched} />
+            {!practice && <Button title={t("Mark as Watched")} variant="outline" onPress={onWatched} />}
           </View>
         </GlassCard>
       )}
@@ -166,10 +221,42 @@ function Reading({
         </View>
       ))}
 
-      <LessonSummaryCard lessonId={lessonId} />
-      <RelatedLessons lessonId={lessonId} />
+      {practice && notes?.length ? (
+        <GlassCard style={{ gap: 8, padding: 16, borderColor: colors.ai + "33" }}>
+          <Text variant="title">{t("Key ideas from this lesson")}</Text>
+          {notes.map((note) => <Text key={note} variant="secondary">• {note}</Text>)}
+          {keyTerms?.length ? (
+            <View style={{ gap: 6, marginTop: 6 }}>
+              <Text style={{ fontWeight: "700" }}>{t("Key terms")}</Text>
+              <Text variant="secondary">{keyTerms.join(" · ")}</Text>
+            </View>
+          ) : null}
+        </GlassCard>
+      ) : (
+        <LessonSummaryCard lessonId={lessonId} />
+      )}
 
-      <Button title={statusComplete ? t("Retake the Quiz") : t("Take the Quiz")} onPress={onStartQuiz} icon={<ChevronRight color={colors.primaryForeground} size={16} />} />
+      {practice && suggestedTopics?.length ? (
+        <GlassCard style={{ gap: 8, padding: 16 }}>
+          <Text variant="title">{t("Suggested next topics")}</Text>
+          {suggestedTopics.map((topic) => <Text key={topic} variant="secondary">• {topic}</Text>)}
+        </GlassCard>
+      ) : null}
+      {practice && sources?.length ? (
+        <GlassCard style={{ gap: 8, padding: 16 }}>
+          <Text variant="title">{t("Sources used")}</Text>
+          {sources.map((source) => (
+            <Text key={source.sourceId} variant="secondary" style={{ fontSize: 12 }}>
+              {source.title}{source.heading ? ` · ${source.heading}` : ""}
+            </Text>
+          ))}
+          <Text variant="muted" style={{ fontSize: 11 }}>{t("Educational content only — not financial advice.")}</Text>
+        </GlassCard>
+      ) : (
+        <RelatedLessons lessonId={lessonId} />
+      )}
+
+      <Button title={practice ? t("Take Practice Quiz") : statusComplete ? t("Retake the Quiz") : t("Take the Quiz")} onPress={onStartQuiz} icon={<ChevronRight color={colors.primaryForeground} size={16} />} />
 
       <View style={styles.navRow}>
         <View style={{ flex: 1 }}>{onPrev ? <Button title={`‹ ${t("Previous")}`} variant="outline" onPress={onPrev} /> : null}</View>
@@ -229,7 +316,7 @@ function Block({ block }: { block: ContentBlock }) {
 }
 
 /* --------------------------------- Quiz ---------------------------------- */
-function Quiz({ lesson, lessonId, onFinish }: { lesson: LessonContent; lessonId: string; onFinish: (correct: number) => void }) {
+function Quiz({ lesson, lessonId, onFinish, practice = false }: { lesson: LessonContent; lessonId: string; onFinish: (correct: number) => void; practice?: boolean }) {
   const { colors } = useTheme();
   const { t, lang } = useLang();
   const { user } = useAuth();
@@ -322,7 +409,7 @@ function Quiz({ lesson, lessonId, onFinish }: { lesson: LessonContent; lessonId:
           {/* Opt-in deep AI explanation. The static line above always stands;
               this only fires on an explicit tap so it never silently spends the
               learner's daily AI budget. Gated on the flag + a signed-in user. */}
-          {ragEnabled && user && !explain.data && (
+          {!practice && ragEnabled && user && !explain.data && (
             <Pressable
               onPress={() =>
                 explain.mutate({
@@ -386,26 +473,36 @@ function Results({
   onRetake,
   onContinue,
   onBack,
+  practice = false,
 }: {
   lesson: LessonContent;
   score: number;
   onRetake: () => void;
   onContinue: () => void;
   onBack: () => void;
+  practice?: boolean;
 }) {
   const { colors } = useTheme();
   const { t } = useLang();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const total = lesson.quiz.length;
   const xp = xpForScore(score, total);
-  const msg = score >= total ? t("Perfect! You've mastered this.") : score >= 2 ? t("Great work — lesson complete!") : t("Good try — review and retake to complete.");
+  const msg = score >= total
+    ? t("Perfect! You've mastered this.")
+    : score >= 2
+      ? t(practice ? "Great work — practice complete!" : "Great work — lesson complete!")
+      : t("Good try — review and retake to complete.");
 
   return (
     <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
       <View style={{ alignItems: "center", gap: 12, paddingVertical: 12 }}>
         <ScoreRing correct={score} total={total} />
         <Text variant="title">{msg}</Text>
-        <Text style={{ color: colors.gold, fontFamily: fonts.mono, fontWeight: "700" }}>+{xp} XP</Text>
+        {practice ? (
+          <Text variant="muted">{t("Practice result saved · Official progress unchanged")}</Text>
+        ) : (
+          <Text style={{ color: colors.gold, fontFamily: fonts.mono, fontWeight: "700" }}>+{xp} XP</Text>
+        )}
       </View>
 
       <Text variant="title">{t("Review")}</Text>
@@ -608,6 +705,7 @@ const makeStyles = (c: ThemeColors) =>
     between: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
     hero: { borderWidth: 1, borderRadius: radii.card, padding: 16, gap: 2 },
     heroIcon: { width: 44, height: 44, borderRadius: 10, alignItems: "center", justifyContent: "center" },
+    generatedBadge: { alignSelf: "flex-start", flexDirection: "row", alignItems: "center", gap: 6, borderWidth: 1, borderRadius: 4, paddingHorizontal: 8, paddingVertical: 4, marginTop: 8 },
     callout: { flexDirection: "row", gap: 8, borderLeftWidth: 3, borderRadius: 8, padding: 10 },
     formula: { backgroundColor: c.glassFill, borderRadius: 8, padding: 12, gap: 2 },
     table: { borderWidth: 1, borderColor: c.border, borderRadius: 8, overflow: "hidden" },

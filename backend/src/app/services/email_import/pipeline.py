@@ -26,7 +26,7 @@ THREE LAYERS OF DEDUP, EACH CATCHING WHAT THE OTHERS CANNOT
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import date, datetime, timedelta, timezone
 
 from app.config import settings
@@ -35,12 +35,15 @@ from app.repositories import email_integrations as integrations_repo
 from app.repositories import finance as finance_repo
 from app.repositories.base import begin, connect
 from app.services import notifier
+from app.services import broker_imports
 from app.services.crypto import CryptoError, decrypt
 from app.services.email_import import correlate, llm, reconcile, rules, senders
+from app.services.email_import.attachments import extract_pdf_text
 from app.services.finance.categories import canonical_category
 from app.services.email_import.gmail_client import (
     GmailError,
     RawMessage,
+    download_attachment,
     fetch_new_messages,
 )
 from app.services.email_import.models import ParsedBill, ParsedEmailItem, ParsedTransaction
@@ -113,6 +116,10 @@ class SyncResult:
     # Transient failures left in the retry queue.
     parse_errors: int = 0
     reconnect_required: bool = False
+    broker_pending: int = 0
+    broker_imported: int = 0
+    broker_unsupported: int = 0
+    broker_failed: int = 0
 
 
 class _BudgetExhausted(Exception):
@@ -148,6 +155,35 @@ async def _parse_message(msg: RawMessage, llm_budget: list[int]) -> ParsedEmailI
         raise _BudgetExhausted
     llm_budget[0] -= 1
     return await llm.parse(msg.subject, msg.body, msg.sender, msg.received_at)
+
+
+async def _with_bill_attachment_text(
+    msg: RawMessage, access_token: str
+) -> RawMessage:
+    """Append PDF invoice text for bill parsing, without retaining the PDF."""
+    if not msg.attachments:
+        return msg
+    if not senders.looks_like_bill(msg.subject, msg.body):
+        return msg
+    snippets: list[str] = []
+    for attachment in msg.attachments:
+        filename = (attachment.filename or "").lower()
+        if not filename.endswith(".pdf"):
+            continue
+        try:
+            data = await download_attachment(
+                access_token, msg.message_id, attachment.attachment_id
+            )
+        except GmailError:
+            log.info("could not download bill PDF attachment %s", msg.message_id, exc_info=True)
+            continue
+        text = extract_pdf_text(data)
+        if text:
+            snippets.append(text)
+    if not snippets:
+        return msg
+    body = f"{msg.body}\n\n" + "\n\n".join(snippets)
+    return replace(msg, body=body[:80_000])
 
 
 def _extract_signals(msg: RawMessage, parsed: ParsedEmailItem | None) -> dict:
@@ -541,6 +577,20 @@ async def sync_user(integration: dict) -> SyncResult:
             continue
         result.candidates += 1
 
+        if senders.is_broker_sender(msg.sender) and senders.looks_like_broker_confirmation(
+            msg.subject, msg.body
+        ):
+            counts = await broker_imports.process_broker_message(user_id, msg, access_token)
+            result.broker_pending += counts.get("queued", 0)
+            result.broker_imported += counts.get("imported", 0)
+            result.broker_unsupported += counts.get("unsupported", 0)
+            result.broker_failed += counts.get("failed", 0)
+            if not blocked:
+                watermark = max(watermark, msg.internal_date)
+            continue
+
+        msg = await _with_bill_attachment_text(msg, access_token)
+
         staged, created = await _stage(user_id, msg)
         if not created:
             disposition = _prior_disposition(staged)
@@ -659,6 +709,10 @@ async def sync_all() -> dict[str, int]:
         "merged": 0,
         "failed_txn": 0,
         "parse_errors": 0,
+        "broker_pending": 0,
+        "broker_imported": 0,
+        "broker_unsupported": 0,
+        "broker_failed": 0,
     }
     for integration in integrations:
         try:
@@ -671,6 +725,10 @@ async def sync_all() -> dict[str, int]:
             totals["merged"] += r.merged
             totals["failed_txn"] += r.failed_txn
             totals["parse_errors"] += r.parse_errors
+            totals["broker_pending"] += r.broker_pending
+            totals["broker_imported"] += r.broker_imported
+            totals["broker_unsupported"] += r.broker_unsupported
+            totals["broker_failed"] += r.broker_failed
         except Exception:
             log.exception("sync failed for user %s", integration.get("user_id"))
     return totals

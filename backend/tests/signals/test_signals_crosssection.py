@@ -53,6 +53,43 @@ def test_ties_share_percentile():
     assert r["A"]["factors"]["trend"]["percentile"] == r["B"]["factors"]["trend"]["percentile"]
 
 
+def test_reversal_percentile_is_ranked_but_never_enters_the_composite():
+    """The composite drives the user-facing 'Top X% of PSX' chip.
+
+    Adding the reversal axis must rank and report, and must NOT re-rank a single
+    stock in the app — otherwise a research need would silently change a
+    shipped number.
+    """
+    without = [("A", _sym(0.30, 0.30, 0.10)),
+               ("B", _sym(0.20, 0.20, 0.20)),
+               ("C", _sym(0.10, 0.10, 0.30))]
+    with_reversal = [
+        (s, {**f, "reversal_20d": v})
+        for (s, f), v in zip(without, (-0.25, 0.0, 0.40))
+    ]
+
+    base = rank_universe([(s, dict(f)) for s, f in without])
+    aug = rank_universe(with_reversal)
+
+    for sym in ("A", "B", "C"):
+        assert aug[sym]["composite_percentile"] == base[sym]["composite_percentile"]
+        assert aug[sym]["factors_used"] == base[sym]["factors_used"]
+
+    # ...but the percentile is available, ascending: biggest loser -> 0.
+    assert aug["A"]["factors"]["reversal_20d"]["percentile"] == 0.0
+    assert aug["C"]["factors"]["reversal_20d"]["percentile"] == 100.0
+
+
+def test_factor_inputs_exposes_the_reversal_axis():
+    f = factor_inputs({
+        "price_sma50_ratio": 0.10, "price_sma200_ratio": 0.20,
+        "ret_60d": 0.05, "ret_20d": -0.12,
+        "relative_strength_kse20": 0.03,
+        "volatility_20d": 0.4, "turnover": 1_000_000,
+    })
+    assert f["reversal_20d"] == -0.12
+
+
 def test_measurement_quality_is_not_direction_confidence():
     # A clean, liquid, deep, calm, decisive reading → High.
     good = measurement_quality(coverage=1.0, bullish=20, bearish=3, neutral=3,

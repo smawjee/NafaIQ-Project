@@ -157,6 +157,126 @@ async def recent_events(symbol: str, limit: int = 3) -> list[dict[str, Any]]:
     return result.data or []
 
 
+# --- live track record ------------------------------------------------------
+# Predictions are recorded daily and matured once their horizon elapses. Simple
+# writes go through PostgREST like the rest of this module; the maturation query
+# needs a windowed join against psx_ohlcv, which PostgREST cannot express, so it
+# uses the SQLAlchemy pooler.
+
+
+async def record_recommendations(rows: list[dict[str, Any]]) -> int:
+    """Upsert today's predictions. Idempotent on (symbol, as_of, horizon)."""
+    if not rows:
+        return 0
+    written = 0
+    for start in range(0, len(rows), 200):
+        chunk = rows[start:start + 200]
+        await async_execute(
+            lambda c, _c=chunk: c.table("psx_signal_recommendations").upsert(
+                _c, on_conflict="symbol,as_of,horizon_sessions"
+            )
+        )
+        written += len(chunk)
+    return written
+
+
+async def matured_candidates(limit: int = 5000) -> list[dict[str, Any]]:
+    """Pending predictions whose horizon has elapsed, with the realised price.
+
+    Finds, for each unmatured prediction, the Nth trading bar after it — N being
+    the prediction's own horizon. Counting *bars* rather than calendar days is
+    what makes "20 sessions" mean 20 sessions across holidays and halts.
+    """
+    from sqlalchemy import text
+
+    from app.repositories.base import connect
+
+    async with connect() as conn:
+        result = await conn.execute(text("""
+            WITH ranked AS (
+                SELECT r.symbol,
+                       r.as_of,
+                       r.horizon_sessions,
+                       r.prob_bucket,
+                       r.close_at_prediction,
+                       o.date  AS matured_on,
+                       o.close AS close_now,
+                       ROW_NUMBER() OVER (
+                           PARTITION BY r.symbol, r.as_of, r.horizon_sessions
+                           ORDER BY o.date
+                       ) AS session_no
+                FROM psx_signal_recommendations r
+                JOIN psx_ohlcv o
+                  ON o.symbol = r.symbol
+                 AND o.date   > r.as_of
+                WHERE r.matured_on IS NULL
+            )
+            SELECT symbol, as_of, horizon_sessions, prob_bucket,
+                   close_at_prediction, matured_on, close_now
+            FROM ranked
+            WHERE session_no = horizon_sessions
+            LIMIT :limit
+        """), {"limit": limit})
+        return [dict(row) for row in result.mappings().all()]
+
+
+async def mark_matured(rows: list[dict[str, Any]]) -> int:
+    """Write realised outcomes back onto their predictions.
+
+    Outcomes are written once and never revised — that is the mechanism by
+    which a track record stops being a measurement.
+    """
+    if not rows:
+        return 0
+    written = 0
+    for start in range(0, len(rows), 200):
+        chunk = rows[start:start + 200]
+        await async_execute(
+            lambda c, _c=chunk: c.table("psx_signal_recommendations").upsert(
+                _c, on_conflict="symbol,as_of,horizon_sessions"
+            )
+        )
+        written += len(chunk)
+    return written
+
+
+async def calibration_rows(since: str | None = None) -> list[dict[str, Any]]:
+    """Stored rollup rows, newest first."""
+    def build(c):
+        q = c.table("psx_signal_calibration_daily").select(
+            "matured_on,horizon_sessions,prob_bucket,n,hits"
+        ).order("matured_on", desc=True).limit(2000)
+        return q.gte("matured_on", since) if since else q
+
+    result = await async_execute(build)
+    return result.data or []
+
+
+async def upsert_calibration(rows: list[dict[str, Any]]) -> int:
+    if not rows:
+        return 0
+    await async_execute(
+        lambda c: c.table("psx_signal_calibration_daily").upsert(
+            rows, on_conflict="matured_on,horizon_sessions,prob_bucket"
+        )
+    )
+    return len(rows)
+
+
+async def prune_matured_before(cutoff: str) -> None:
+    """Drop matured raw predictions past the retention window.
+
+    The rollup is the permanent record; keeping every raw row would add roughly
+    18 MB a year to a database with no headroom.
+    """
+    await async_execute(
+        lambda c: c.table("psx_signal_recommendations")
+        .delete()
+        .lt("as_of", cutoff)
+        .not_.is_("matured_on", "null")
+    )
+
+
 async def event(event_id: str | None) -> dict[str, Any] | None:
     if not event_id:
         return None

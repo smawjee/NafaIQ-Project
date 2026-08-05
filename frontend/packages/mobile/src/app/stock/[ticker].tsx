@@ -11,6 +11,7 @@ import { AiReportSheet } from "@/components/ai/AiReportSheet";
 import { GlassSheet } from "@/components/glass/GlassSheet";
 import { Field } from "@/components/Modal";
 import { SignalContextTiles } from "@/components/psx/SignalContextTiles";
+import { SignalRecommendationCard } from "@/components/psx/SignalRecommendationCard";
 import { SignalTrackRecordCard } from "@/components/psx/SignalTrackRecordCard";
 import { Button, Card, Change, SignalBadge, Text } from "@/components/ui";
 import { Segmented } from "@/components/ui/controls";
@@ -34,7 +35,7 @@ import { useSymbolDividends } from "@/hooks/queries/use-dividends";
 import { useAnnualFinancials, useQuarterlyFinancials } from "@/hooks/queries/use-financials";
 import { useFilings } from "@/hooks/queries/use-filings";
 import { useStockAnalysisReport } from "@/hooks/ai/use-stock-analysis-report";
-import { ratingToLegacySignal } from "@/lib/signals";
+import { ratingToLegacySignal, recommendationToBadge } from "@/lib/signals";
 import { useLang } from "@/hooks/use-lang";
 import { useTheme } from "@/hooks/use-theme";
 import { ExternalLink, FileText } from "@/lib/icons";
@@ -112,7 +113,13 @@ export default function StockDetailScreen() {
   // reports status "available" — no fabricated call (same rule as web).
   const setup = signal?.technical_setup;
   const modelReady = setup?.status === "available";
-  const ratingLabel = ratingToLegacySignal(setup?.rating ?? null);
+  // The badge shows the calibrated call, not the indicator posture. Mapping
+  // "Strong Bullish" straight to STRONG BUY asserts a direction the measured
+  // base rates contradict (see backend/scripts/signals/RESEARCH_LOG.md); the
+  // posture itself is still rendered below, labelled as posture.
+  const ratingLabel = signal?.recommendation
+    ? recommendationToBadge(signal.recommendation.rating)
+    : ratingToLegacySignal(setup?.rating ?? null);
   // V4 replaced the invented confidence % with measurement quality, which is
   // an honest statement about the data rather than about the direction.
   const qualityLabel = signal?.quality?.label ?? null;
@@ -351,7 +358,10 @@ export default function StockDetailScreen() {
         {signal ? <SignalContextTiles signal={signal} /> : null}
       </Card>
 
-      {/* Audited hit rates of published forecasts */}
+      {/* Calibrated base-rate call — leads the analysis section */}
+      <SignalRecommendationCard signal={signal} />
+
+      {/* Out-of-sample reliability of those probabilities */}
       <SignalTrackRecordCard />
 
       {/* LLM deep-dive report — verified & cited, separate from the technical setup above */}

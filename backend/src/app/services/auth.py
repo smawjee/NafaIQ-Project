@@ -47,8 +47,6 @@ def _get_jwks_client() -> "jwt.PyJWKClient":
 
 
 async def resolve_supabase_user(token: str) -> dict[str, Any]:
-    if not settings.supabase_jwt_secret:
-        raise HTTPException(503, "SUPABASE_JWT_SECRET not configured")
     try:
         alg = jwt.get_unverified_header(token).get("alg", "HS256")
         if alg in ("RS256", "ES256"):
@@ -62,12 +60,16 @@ async def resolve_supabase_user(token: str) -> dict[str, Any]:
             )
         else:
             # Legacy HS256 shared secret.
+            if not settings.supabase_jwt_secret:
+                raise HTTPException(503, "SUPABASE_JWT_SECRET not configured")
             payload = jwt.decode(
                 token,
                 settings.supabase_jwt_secret,
                 algorithms=["HS256"],
                 options={"verify_aud": False},
             )
+    except HTTPException:
+        raise
     except Exception as e:
         # The decoder's own message can carry implementation detail (codec
         # errors, key material, library internals). Log it for operators and

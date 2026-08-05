@@ -16,6 +16,7 @@ from app.repositories import email_import_messages as ledger_repo
 from app.repositories import email_integrations as repo
 from app.repositories.base import begin, connect
 from app.services.crypto import CryptoError, decrypt, encrypt
+from app.services import broker_imports
 from app.services.email_import import (
     OAuthError,
     build_auth_url,
@@ -162,10 +163,17 @@ async def get_status(user_id: str) -> Optional[dict[str, Any]]:
         # otherwise have no way to know a receipt never made it in.
         try:
             status["unparsed_count"] = await ledger_repo.unparsed_count(conn, user_id)
+            status["broker_confirmations"] = await broker_imports.counts(user_id)
         except Exception:
             # The ledger is diagnostics; never let it break the status endpoint.
             log.warning("could not read unparsed count for %s", user_id, exc_info=True)
             status["unparsed_count"] = 0
+            status["broker_confirmations"] = {
+                "pending": 0,
+                "imported": 0,
+                "unsupported": 0,
+                "failed": 0,
+            }
         return status
 
 
@@ -217,4 +225,8 @@ async def sync_now(user_id: str) -> dict[str, Any]:
         "merged": result.merged,
         "failed_txn": result.failed_txn,
         "parse_errors": result.parse_errors,
+        "broker_pending": result.broker_pending,
+        "broker_imported": result.broker_imported,
+        "broker_unsupported": result.broker_unsupported,
+        "broker_failed": result.broker_failed,
     }

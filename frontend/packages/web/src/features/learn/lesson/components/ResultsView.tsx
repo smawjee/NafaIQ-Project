@@ -20,6 +20,7 @@ export function ResultsView({
   onRetake,
   onBackToLesson,
   onContinue,
+  practice = false,
 }: {
   lesson: LessonContent;
   correct: number;
@@ -29,6 +30,7 @@ export function ResultsView({
   onRetake: () => void;
   onBackToLesson: () => void;
   onContinue: () => void;
+  practice?: boolean;
 }) {
   const { t } = useLang();
   const total = lesson.quiz.length;
@@ -99,13 +101,22 @@ export function ResultsView({
 
       <p className="mt-4 text-base font-semibold text-text-primary">{message}</p>
 
-      <div className="mx-auto mt-5 max-w-sm rounded-card border border-bull/40 bg-bull/10 p-5">
-        <div className="font-mono text-3xl font-bold text-bull">+{gain} XP</div>
-        <div className="mt-1 text-xs text-text-secondary">{t("Added to your profile")}</div>
-        <div className="mt-2 font-mono text-sm tabular-nums text-text-muted">
-          {xpVal} {t("XP total")}
+      {practice ? (
+        <div className="mx-auto mt-5 max-w-sm rounded-card border border-ai/30 bg-ai/5 p-5">
+          <div className="text-sm font-semibold text-ai">{t("Practice result saved")}</div>
+          <div className="mt-1 text-xs text-text-secondary">
+            {t("Generated quizzes do not affect your XP or learning streak.")}
+          </div>
         </div>
-      </div>
+      ) : (
+        <div className="mx-auto mt-5 max-w-sm rounded-card border border-bull/40 bg-bull/10 p-5">
+          <div className="font-mono text-3xl font-bold text-bull">+{gain} XP</div>
+          <div className="mt-1 text-xs text-text-secondary">{t("Added to your profile")}</div>
+          <div className="mt-2 font-mono text-sm tabular-nums text-text-muted">
+            {xpVal} {t("XP total")}
+          </div>
+        </div>
+      )}
 
       {/* Review accordion */}
       <Accordion type="single" collapsible className="mt-6 space-y-2 text-left">

@@ -6,7 +6,13 @@ from datetime import date
 from typing import Any
 
 from app.repositories import signals_repo
-from app.repositories import signals_repo
+from app.services.signals.base_rates import (
+    BaseRateTable,
+    reversal_bucket,
+    volatility_band,
+)
+from app.services.signals.costs import round_trip_cost_from_bars
+from app.services.signals.policy import build_recommendation
 from app.services.signals.promotion import forecast_from_row
 from app.services.signals.earnings_features import load_earnings_features
 from app.services.signals.quality import measurement_quality
@@ -17,6 +23,7 @@ from app.services.signals.schemas import (
     ForecastOutlook,
     MarketContext,
     QualityScore,
+    Recommendation,
     RelativeRank,
     SignalResponse,
     TechnicalSetup,
@@ -99,22 +106,114 @@ async def get_signal(symbol: str) -> dict[str, Any]:
     if base_rate:
         context = context.model_copy(update={"rating_base_rate": base_rate})
 
+    recommendation = _recommendation(technical, quality, context, bars)
+
     payload = SignalResponse(
         symbol=sym,
         as_of=as_of,
         technical_setup=technical,
         quality=quality,
+        recommendation=recommendation,
         forecast=forecast,
         context=context,
         data_quality={
             "confirmed_eod_only": True,
             "history_days": len(bars),
             "latest_bar_date": technical.bar_date,
+            # The adjusted close the setup was computed from. The track record
+            # prices every prediction off this, so a realised return is measured
+            # against the number the user actually saw — not a later live quote.
+            "last_close": _last_close(bars),
             "reason_code": technical.reason_code,
         },
     ).model_dump(mode="json")
     _cache_put(sym, payload)
     return payload
+
+
+_base_rate_table: BaseRateTable | None = None
+_base_rate_loaded = False
+
+
+def get_base_rate_table() -> BaseRateTable | None:
+    """Load the calibration artifact once per process (it is ~150 KB of JSON).
+
+    Public because the track-record endpoint reports the artifact's own
+    out-of-sample reliability.
+    """
+    global _base_rate_table, _base_rate_loaded
+    if not _base_rate_loaded:
+        try:
+            _base_rate_table = BaseRateTable.load()
+        except Exception:
+            _base_rate_table = None
+        _base_rate_loaded = True
+    return _base_rate_table
+
+
+#: Backwards-compatible alias for the internal call sites below.
+_get_base_rates = get_base_rate_table
+
+
+def _recommendation(
+    technical: TechnicalSetup,
+    quality: QualityScore | None,
+    context: MarketContext,
+    bars: list[dict[str, Any]],
+) -> Recommendation | None:
+    """Place the stock in its historical cohort and read off the ladder.
+
+    Best-effort by design: a missing artifact, an unranked symbol or a thin
+    cohort all degrade to HOLD with a stated reason rather than suppressing the
+    response or inventing a number.
+    """
+    table = _get_base_rates()
+    if table is None or table.global_rate is None:
+        return None
+    if technical.status != "available":
+        return None
+
+    try:
+        # The reversal percentile is precomputed daily by cross_section_job and
+        # arrives via relative_rank.factors. Absent until that job next runs,
+        # in which case the lookup simply falls back to a coarser cohort.
+        factors = context.relative_rank.factors if context.relative_rank else {}
+        reversal = reversal_bucket(factors.get("reversal_20d"))
+
+        metrics = context.risk_metrics or {}
+        vol_band = volatility_band(metrics.get("annualized_volatility"))
+
+        rate = table.lookup(
+            reversal=reversal,
+            trend=context.trend_state,
+            volatility=vol_band,
+            regime=context.regime,
+        )
+        cost = round_trip_cost_from_bars(bars)
+        return build_recommendation(
+            base_rate=rate,
+            horizon=table.horizon,
+            quality_score=quality.score if quality else None,
+            round_trip_cost=cost.total,
+            suggested_stop_pct=metrics.get("suggested_stop_pct"),
+            global_rate=table.global_rate,
+            drivers=list(context.warnings or [])[:3],
+        )
+    except Exception:
+        # A recommendation is additive; never let it take down the setup.
+        return None
+
+
+def _last_close(bars: list[dict[str, Any]]) -> float | None:
+    """Adjusted close of the most recent confirmed bar."""
+    for row in reversed(bars):
+        try:
+            value = float(row.get("close"))
+        except (TypeError, ValueError):
+            continue
+        if value > 0:
+            return value
+    return None
 
 
 def _quality(technical: TechnicalSetup, context: MarketContext, history_days: int) -> QualityScore | None:

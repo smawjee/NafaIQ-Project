@@ -94,6 +94,19 @@ export function publicGet<T>(path: string): Promise<T> {
   return get<T>(path);
 }
 
+/**
+ * POST to an endpoint that takes no credential at all (backend PUBLIC_PATHS,
+ * e.g. password recovery). Distinct from userPost, which attaches the session
+ * JWT — the callers here run for signed-out users, who have no session.
+ */
+export function publicPost<T>(path: string, body: unknown): Promise<T> {
+  return request<T>(path, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+}
+
 // === User-authenticated requests (Supabase session JWT) ===
 
 async function userHeaders(json = false): Promise<Record<string, string>> {

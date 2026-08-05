@@ -5,8 +5,6 @@ import {
   Loader2,
   Eye,
   EyeOff,
-  Check,
-  X,
   ArrowLeft,
   ArrowRight,
   MailCheck,
@@ -23,17 +21,27 @@ import { formContainer, formItem } from "@/features/auth/auth.data";
 import { LogoIcon } from "@/features/auth/components/LogoIcon";
 import { GoogleButton } from "@/features/auth/components/GoogleButton";
 import { FloatingInput } from "@/features/auth/components/FloatingInput";
+import { PasswordStrength } from "@/features/auth/components/PasswordStrength";
 import { AuthVisualPanel } from "@/features/auth/components/AuthVisualPanel";
+import { ForgotPasswordPanel } from "@/features/auth/ForgotPasswordPanel";
+import { MIN_PASSWORD_LENGTH } from "@/features/auth/password-rules";
 
 export function AuthPage() {
-  const { user, loading, signInWithPassword, signUpWithPassword, signInWithGoogle } = useAuth();
+  const {
+    user,
+    loading,
+    signInWithPassword,
+    signUpWithPassword,
+    signInWithGoogle,
+    recoveryInProgress,
+  } = useAuth();
   const { signInAsDemo } = useDemo();
   const { theme } = useLandingTheme();
   const isLight = theme === "light";
   const navigate = useNavigate();
   const { redirect } = useSearch({ from: "/auth" });
 
-  const [mode, setMode] = useState<"signin" | "signup">("signup");
+  const [mode, setMode] = useState<"signin" | "signup" | "forgot">("signup");
   const { registrationEnabled, maintenanceMode } = usePlatformFlags();
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
@@ -49,9 +57,13 @@ export function AuthPage() {
       : "/app";
 
   // Fallback: if a session already exists (or arrives via OAuth/email link), go in.
+  //
+  // Except during a password reset. Verifying the emailed code signs the user in
+  // BEFORE they have set a new password, and this effect would otherwise fire on
+  // that half-finished session and eject them to the dashboard at step 2.
   useEffect(() => {
-    if (!loading && user) navigate({ to: destination });
-  }, [user, loading, navigate, destination]);
+    if (!loading && user && !recoveryInProgress) navigate({ to: destination });
+  }, [user, loading, navigate, destination, recoveryInProgress]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -64,8 +76,8 @@ export function AuthPage() {
           toast.error("Please enter your name");
           return;
         }
-        if (password.length < 8) {
-          toast.error("Password must be at least 8 characters");
+        if (password.length < MIN_PASSWORD_LENGTH) {
+          toast.error(`Password must be at least ${MIN_PASSWORD_LENGTH} characters`);
           return;
         }
         const { error, needsConfirmation } = await signUpWithPassword(email.trim(), password, name);
@@ -101,28 +113,13 @@ export function AuthPage() {
   // leaving the user on a form that cannot succeed.
   const isSignup = mode === "signup" && registrationEnabled;
 
-  const pwChecks = [
-    { label: "At least 8 characters", ok: password.length >= 8 },
-    { label: "One uppercase letter", ok: /[A-Z]/.test(password) },
-    { label: "One number", ok: /[0-9]/.test(password) },
-    { label: "One special character", ok: /[^A-Za-z0-9]/.test(password) },
-  ];
-  const pwScore = pwChecks.filter((c) => c.ok).length;
-  const strengthMeta = [
-    { label: "Too weak", color: "var(--color-bear)" },
-    { label: "Weak", color: "var(--color-bear)" },
-    { label: "Fair", color: "var(--color-warning)" },
-    { label: "Good", color: "var(--color-gold)" },
-    { label: "Strong", color: "var(--color-primary)" },
-  ][pwScore];
-
   // Derive which guided step is active so the visual panel mirrors form progress.
   const currentStep = confirmSent
     ? 3
     : !isSignup
       ? 2
       : firstName.trim() && lastName.trim()
-        ? email.trim() && password.length >= 8
+        ? email.trim() && password.length >= MIN_PASSWORD_LENGTH
           ? 3
           : 2
         : 1;
@@ -194,6 +191,8 @@ export function AuthPage() {
                   Go to Sign In
                 </button>
               </motion.div>
+            ) : mode === "forgot" ? (
+              <ForgotPasswordPanel onBackToSignIn={() => setMode("signin")} />
             ) : (
               <div className="space-y-5">
                 <div className="space-y-1.5">
@@ -281,7 +280,7 @@ export function AuthPage() {
                       value={password}
                       onChange={setPassword}
                       required
-                      minLength={8}
+                      minLength={MIN_PASSWORD_LENGTH}
                       autoComplete={isSignup ? "new-password" : "current-password"}
                       icon={<Lock className="h-4 w-4" />}
                       trailing={
@@ -300,53 +299,18 @@ export function AuthPage() {
                       }
                     />
 
-                    {isSignup && password.length > 0 && (
-                      <motion.div
-                        initial={{ opacity: 0, height: 0 }}
-                        animate={{ opacity: 1, height: "auto" }}
-                        className="space-y-2.5 pt-0.5"
-                      >
-                        <div className="flex items-center gap-2">
-                          <div className="flex h-1.5 flex-1 gap-1">
-                            {[0, 1, 2, 3].map((i) => (
-                              <div
-                                key={i}
-                                className="flex-1 rounded-full transition-colors duration-200"
-                                style={{
-                                  backgroundColor:
-                                    i < pwScore ? strengthMeta.color : "var(--color-border)",
-                                }}
-                              />
-                            ))}
-                          </div>
-                          <span
-                            className="text-xs font-medium"
-                            style={{ color: strengthMeta.color }}
-                          >
-                            {strengthMeta.label}
-                          </span>
-                        </div>
-                        <ul className="grid grid-cols-2 gap-x-3 gap-y-1.5">
-                          {pwChecks.map((c) => (
-                            <li
-                              key={c.label}
-                              className="flex items-center gap-1.5 text-xs transition-colors duration-200"
-                              style={{
-                                color: c.ok ? "var(--color-primary)" : "var(--color-text-muted)",
-                              }}
-                            >
-                              <span className="flex h-4 w-4 shrink-0 items-center justify-center">
-                                {c.ok ? (
-                                  <Check className="h-3.5 w-3.5" />
-                                ) : (
-                                  <X className="h-3.5 w-3.5 opacity-50" />
-                                )}
-                              </span>
-                              {c.label}
-                            </li>
-                          ))}
-                        </ul>
-                      </motion.div>
+                    {isSignup && password.length > 0 && <PasswordStrength password={password} />}
+
+                    {!isSignup && (
+                      <div className="flex justify-end">
+                        <button
+                          type="button"
+                          onClick={() => setMode("forgot")}
+                          className="text-sm font-medium text-primary transition-colors duration-200 hover:underline"
+                        >
+                          Forgot password?
+                        </button>
+                      </div>
                     )}
                   </motion.div>
 

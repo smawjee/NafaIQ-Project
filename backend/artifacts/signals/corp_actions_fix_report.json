@@ -1,0 +1,11 @@
+{
+  "cross_filled_rows": 0,
+  "inline_pct_rows": 0,
+  "probe": {
+    "tried": 50,
+    "scanned": 33,
+    "parsed": 3,
+    "fetch_fail": 0,
+    "no_date_in_text": 14
+  }
+}

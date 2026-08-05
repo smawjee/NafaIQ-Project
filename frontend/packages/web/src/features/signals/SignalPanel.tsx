@@ -1,4 +1,5 @@
 import { Card } from "@/components/shared/Card";
+import { SignalRecommendation } from "@/features/signals/SignalRecommendation";
 import type { ApiSignalDetail } from "@/lib/psx/signals";
 
 const tone: Record<string, string> = {
@@ -46,10 +47,19 @@ export function SignalPanel({ signal }: { signal?: ApiSignalDetail | null }) {
 
   return (
     <Card>
-      <div className="flex items-start justify-between gap-4">
+      {/* The call leads. The technical setup below describes present posture,
+          which on PSX frequently points the other way — SignalRecommendation
+          renders the bridge line when the two disagree. */}
+      <SignalRecommendation recommendation={signal?.recommendation} setup={setup} />
+
+      <div
+        className={`flex items-start justify-between gap-4 ${signal?.recommendation ? "mt-4" : ""}`}
+      >
         <div>
           <h3 className="text-sm font-semibold text-text-primary">Technical Setup</h3>
-          <p className="mt-1 text-xs text-text-muted">Confirmed EOD indicators only</p>
+          <p className="mt-1 text-xs text-text-muted">
+            What indicators read right now — not a forecast
+          </p>
         </div>
         {setup?.status === "available" ? (
           <span className={`text-sm font-semibold ${tone[setup.rating ?? "Neutral"]}`}>

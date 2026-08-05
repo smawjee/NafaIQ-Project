@@ -23,6 +23,7 @@ export function ChatPanel({
     lessonTitle: lesson.title,
     lessonContext: sectionHeading,
     greeting: `${t("Hi! I'm here to help you understand")} ${t(lesson.title)}. ${t("What would you like to know?")}`,
+    projectId: lesson.projectId,
   });
   const [input, setInput] = useState("");
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -128,6 +129,7 @@ export function ChatPanel({
           <button
             onClick={() => submit(input)}
             disabled={loading || quotaExceeded}
+            aria-label={t("Send")}
             className="flex h-9 w-9 shrink-0 items-center justify-center rounded-btn bg-bull text-bull-foreground disabled:opacity-50"
           >
             <Send className="h-4 w-4" />

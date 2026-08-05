@@ -26,10 +26,12 @@ export function QuizView({
   lesson,
   onExit,
   onFinish,
+  practice = false,
 }: {
   lesson: LessonContent;
   onExit: () => void;
   onFinish: (correct: number) => void;
+  practice?: boolean;
 }) {
   const { t, lang } = useLang();
   const { user } = useAuth();
@@ -115,7 +117,8 @@ export function QuizView({
     <div className="learn-fade-in mx-auto max-w-[1100px]">
       <div className="flex justify-end">
         <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-bull/10 px-3 py-1 text-xs font-semibold text-bull">
-          <Star className="h-3.5 w-3.5" strokeWidth={1.5} /> {t("Up to 50 XP")}
+          <Star className="h-3.5 w-3.5" strokeWidth={1.5} />
+          {practice ? t("Practice Quiz") : t("Up to 50 XP")}
         </span>
       </div>
 
@@ -370,7 +373,9 @@ export function QuizView({
               </div>
               <div className="mt-3 flex items-center gap-1.5 text-xs text-text-secondary">
                 <Target className="h-3.5 w-3.5 shrink-0" strokeWidth={1.5} />
-                {t("Score 2+ to complete this lesson.")}
+                {practice
+                  ? t("Practice your understanding. Official progress is unchanged.")
+                  : t("Score 2+ to complete this lesson.")}
               </div>
             </div>
           </div>

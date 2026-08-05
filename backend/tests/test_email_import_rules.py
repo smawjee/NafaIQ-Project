@@ -14,8 +14,12 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 
+import pytest
+
 from app.services.email_import import llm, rules
+from app.services.email_import.gmail_client import RawAttachment, RawMessage
 from app.services.email_import.models import ParsedBill
+from app.services.email_import.pipeline import _with_bill_attachment_text
 from app.services.email_import.sanitize import (
     clean_merchant,
     fallback_title,
@@ -296,6 +300,21 @@ Total due PKR 1,100
 Payment due date Aug 15, 2026
 Your subscription renews monthly."""
 
+OPTIX_INVOICE = """Invoice # KHI-289883
+Billing Month August-2026
+Issue Date 01-Aug-2026
+Due Date 10-Aug-2026
+Internet (CVAS) XTREAM 10 Mbps
+Subscription Charges 2,904.00
+FED/Sales Tax 458.00
+Advance Tax 324.00
+Total Service Charges 3,686.00
+Arrears 0.00
+3,686.00
+Dishonoured Cheque: Rs. 500/-will be charged incase customer cheque dishonoured.
+Cash Voucher
+Amount 3,731.00"""
+
 
 def test_bill_email_parses_to_bill_not_transaction():
     parsed = rules.parse_bill(
@@ -323,3 +342,51 @@ def test_subscription_invoice_parses_to_bill():
     assert parsed.name == "Spotify"
     assert parsed.amount == 1100.0
     assert parsed.due_date.isoformat() == "2026-08-15"
+
+
+def test_pdf_invoice_without_currency_prefix_picks_real_total_not_warning_fee():
+    parsed = rules.parse_bill(
+        "_MrcInvoices_August2026.pdf",
+        OPTIX_INVOICE,
+        NOW,
+        sender="billing@optix.pk",
+    )
+    assert parsed is not None
+    assert parsed.name == "Optix Internet"
+    assert parsed.amount == 3686.0
+    assert parsed.due_date.isoformat() == "2026-08-10"
+    assert parsed.recurring is True
+
+
+@pytest.mark.asyncio
+async def test_bill_pdf_attachment_text_is_added_before_parsing(monkeypatch):
+    msg = RawMessage(
+        message_id="m1",
+        sender="billing@optix.pk",
+        subject="Your invoice is attached",
+        body="Please find your invoice attached.",
+        received_at=NOW,
+        internal_date=1,
+        attachments=(
+            RawAttachment(
+                attachment_id="a1",
+                filename="invoice.pdf",
+                mime_type="application/pdf",
+                size=1024,
+            ),
+        ),
+    )
+
+    async def fake_download(_token, message_id, attachment_id):
+        assert (message_id, attachment_id) == ("m1", "a1")
+        return b"%PDF fake"
+
+    monkeypatch.setattr("app.services.email_import.pipeline.download_attachment", fake_download)
+    monkeypatch.setattr("app.services.email_import.pipeline.extract_pdf_text", lambda _data: OPTIX_INVOICE)
+
+    enriched = await _with_bill_attachment_text(msg, "token")
+    parsed = rules.parse_bill(enriched.subject, enriched.body, enriched.received_at, sender=enriched.sender)
+
+    assert parsed is not None
+    assert parsed.name == "Optix Internet"
+    assert parsed.amount == 3686.0

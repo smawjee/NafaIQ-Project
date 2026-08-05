@@ -230,6 +230,50 @@ async def job_precompute_cross_section():
         await _record_health("psx_signal_cross_section", success=False, error=str(e))
 
 
+async def job_record_signal_recommendations():
+    """Snapshot today's calibrated call for every ranked symbol.
+
+    Must run AFTER job_precompute_cross_section: the reversal percentile the
+    recommendation conditions on is produced there, and without it the lookup
+    falls back to a coarser cohort.
+    """
+    from app.services.signals.track_record_job import record_todays_recommendations
+
+    try:
+        log.info("job:record_recommendations:start")
+        result = await record_todays_recommendations()
+        log.info("job:record_recommendations:done", **result)
+        await _record_health("psx_signal_recommendations",
+                             success=result.get("recorded", 0) > 0,
+                             rows_updated=result.get("recorded", 0))
+    except Exception as e:
+        log.exception("job:record_recommendations:failed")
+        await _record_health("psx_signal_recommendations", success=False, error=str(e))
+
+
+async def job_mature_signal_recommendations():
+    """Measure predictions whose horizon has elapsed, then roll them up.
+
+    Writes outcomes once and never revises them — a revisable track record is
+    marketing, not measurement. Raw rows are pruned past the retention window;
+    the per-bucket rollup is the permanent record.
+    """
+    from app.services.signals.track_record_job import mature_recommendations
+
+    try:
+        log.info("job:mature_recommendations:start")
+        result = await mature_recommendations()
+        log.info("job:mature_recommendations:done", **result)
+        # Zero matured is normal (nothing reached its horizon today), so this
+        # must not be judged on row count.
+        await _record_health("psx_signal_calibration", success=True,
+                             rows_updated=result.get("matured", 0),
+                             allow_zero_rows=True)
+    except Exception as e:
+        log.exception("job:mature_recommendations:failed")
+        await _record_health("psx_signal_calibration", success=False, error=str(e))
+
+
 async def job_ingest_signal_events():
     """Fold psx_announcements + psx_dividends into canonical psx_signal_events.
 
@@ -1522,6 +1566,23 @@ def init_scheduler():
         job_precompute_cross_section,
         CronTrigger(hour=20, minute=0, timezone="Asia/Karachi"),
         id="precompute_cross_section",
+        replace_existing=True,
+        misfire_grace_time=3600,
+    )
+    # Live track record. Recording runs 30 min after the cross-section job so
+    # the reversal percentile it conditions on is fresh; maturation runs later
+    # still and is independent of both.
+    scheduler.add_job(
+        job_record_signal_recommendations,
+        CronTrigger(hour=20, minute=30, timezone="Asia/Karachi"),
+        id="record_signal_recommendations",
+        replace_existing=True,
+        misfire_grace_time=3600,
+    )
+    scheduler.add_job(
+        job_mature_signal_recommendations,
+        CronTrigger(hour=21, minute=15, timezone="Asia/Karachi"),
+        id="mature_signal_recommendations",
         replace_existing=True,
         misfire_grace_time=3600,
     )

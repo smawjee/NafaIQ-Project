@@ -2,7 +2,17 @@ import { useState } from "react";
 import { Video } from "lucide-react";
 import { useLang } from "@/hooks/use-lang";
 
-export function VideoPlayer({ url }: { url: string }) {
+export function VideoPlayer({
+  url,
+  mode = "embed",
+  captionsUrl,
+  posterUrl,
+}: {
+  url: string;
+  mode?: "embed" | "file";
+  captionsUrl?: string | null;
+  posterUrl?: string | null;
+}) {
   const [failed, setFailed] = useState(false);
   const { t } = useLang();
   return (
@@ -12,6 +22,18 @@ export function VideoPlayer({ url }: { url: string }) {
           <Video className="h-8 w-8" strokeWidth={1.5} />
           <div className="text-sm">{t("Video loading…")}</div>
         </div>
+      ) : mode === "file" ? (
+        <video
+          src={url}
+          poster={posterUrl ?? undefined}
+          controls
+          playsInline
+          preload="metadata"
+          className="h-full w-full bg-black object-contain"
+          onError={() => setFailed(true)}
+        >
+          {captionsUrl && <track kind="captions" src={captionsUrl} srcLang="en" default />}
+        </video>
       ) : (
         <iframe
           src={url}

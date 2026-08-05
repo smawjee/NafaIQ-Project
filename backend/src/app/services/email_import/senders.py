@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import re
 from datetime import datetime, timezone
+from email.utils import parseaddr
 from zoneinfo import ZoneInfo
 
 # Matched against the From header's domain (case-insensitive, suffix match so
@@ -63,6 +64,15 @@ BILL_SENDER_DOMAINS: tuple[str, ...] = (
 )
 
 FINANCE_SENDER_DOMAINS: tuple[str, ...] = BANK_SENDER_DOMAINS + BILL_SENDER_DOMAINS
+
+BROKER_SENDER_ADDRESSES: tuple[str, ...] = (
+    "equity.settlement@js.com",
+)
+
+BROKER_SUBJECT_HINTS: tuple[str, ...] = (
+    "equity trade confirmation",
+    "trade confirmation",
+)
 
 # Each sender's OWN names (lowercase), used by sanitize.py to reject a bank
 # signing its own alert as the "merchant" ("from Bank Alfalah" in the footer
@@ -319,6 +329,19 @@ def sender_domain(from_header: str) -> str | None:
     return match.group(1).lower() if match else None
 
 
+def sender_address(from_header: str) -> str:
+    return (parseaddr(from_header or "")[1] or from_header or "").strip().lower()
+
+
+def is_broker_sender(from_header: str) -> bool:
+    return sender_address(from_header) in BROKER_SENDER_ADDRESSES
+
+
+def looks_like_broker_confirmation(subject: str, body: str) -> bool:
+    haystack = f"{subject} {body}".lower()
+    return any(hint in haystack for hint in BROKER_SUBJECT_HINTS)
+
+
 def is_bank_sender(from_header: str) -> bool:
     domain = sender_domain(from_header)
     if not domain:
@@ -373,6 +396,8 @@ def is_candidate(from_header: str, subject: str, body: str) -> bool:
     Finance senders (banks/billers) keep their existing transaction/bill gates
     and precise template parsing. Any other sender qualifies only as a purchase
     receipt — that's how store receipts (foodpanda, Anomaly, …) get in."""
+    if is_broker_sender(from_header) and looks_like_broker_confirmation(subject, body):
+        return True
     if is_finance_sender(from_header):
         return looks_like_transaction(subject, body) or looks_like_bill(subject, body)
     return looks_like_purchase(subject, body)
@@ -424,4 +449,5 @@ def gmail_query(
     else:
         after = _start_of_month_epoch(now)
     window = f"after:{after}"
-    return f"(({senders}) OR ({receipts})) {window}"
+    brokers = " OR ".join(f"from:{addr}" for addr in BROKER_SENDER_ADDRESSES)
+    return f"(({senders}) OR ({brokers}) OR ({receipts})) {window}"

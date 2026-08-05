@@ -56,6 +56,23 @@ async def get_plan_features(conn: Executor, user_id: str) -> Optional[dict[str, 
     return dict(row) if row else None
 
 
+async def get_account_status(conn: Executor, user_id: str) -> Optional[str]:
+    """'active' / 'suspended' / … for a user, or None when there is no profile row.
+
+    Deliberately narrower than get_plan_features: password recovery only needs
+    the status, and it runs for unauthenticated callers.
+    """
+    row = await conn.execute(
+        text(
+            "SELECT COALESCE(account_status, 'active') AS account_status "
+            "FROM profiles WHERE id = :uid"
+        ),
+        {"uid": user_id},
+    )
+    r = row.mappings().first()
+    return r["account_status"] if r else None
+
+
 async def is_known_plan(conn: Executor, plan: str) -> bool:
     row = await conn.execute(
         text("SELECT 1 FROM plan_features WHERE plan = :p"), {"p": plan}
