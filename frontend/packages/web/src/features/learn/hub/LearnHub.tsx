@@ -86,7 +86,7 @@ export function LearnHub() {
         onAskAi={() => setChatOpen(true)}
         onFlashcards={() => setFlashcards(true)}
       />
-      {ragSearchEnabled && <StudioCreateCard />}
+      <StudioCreateCard />
       <Card hover={false} className="hidden bg-gradient-to-br from-ai-tint to-surface">
         <h1 className="font-nastaliq text-2xl text-text-primary">سمجھو، سیکھو، بڑھو</h1>
         <p className="text-sm font-semibold text-text-primary">Samjho, Seekho, Barho</p>

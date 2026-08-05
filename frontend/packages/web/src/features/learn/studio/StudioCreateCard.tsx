@@ -30,7 +30,7 @@ export function StudioCreateCard() {
   const [pdfFileError, setPdfFileError] = useState("");
   const [level, setLevel] = useState<StudioLevel>("beginner");
 
-  if (user && status.data && !status.data.enabled) return null;
+  const disabledForBackend = Boolean(user && status.data && !status.data.enabled);
 
   async function submitTopic(event: FormEvent) {
     event.preventDefault();
@@ -80,6 +80,11 @@ export function StudioCreateCard() {
               "Enter a PSX topic to create source-grounded notes, flashcards, a quiz, and an optional video lecture.",
             )}
           </p>
+          {disabledForBackend ? (
+            <p className="mt-2 rounded-btn border border-warning/25 bg-warning/10 px-3 py-2 text-xs font-medium text-warning">
+              {t("LearnHub Studio is installed, but disabled on this backend. Enable LEARN_STUDIO_ENABLED and restart the API.")}
+            </p>
+          ) : null}
         </div>
       </div>
 
@@ -91,7 +96,8 @@ export function StudioCreateCard() {
         <button
           type="button"
           aria-pressed={mode === "topic"}
-          onClick={() => setMode("topic")}
+          onClick={() => !disabledForBackend && setMode("topic")}
+          disabled={disabledForBackend}
           className={`rounded-[6px] px-3 py-1.5 text-xs font-semibold ${mode === "topic" ? "bg-bull text-bull-foreground" : "text-text-secondary"}`}
         >
           <BookOpen className="mr-1.5 inline h-3.5 w-3.5" /> {t("Choose a topic")}
@@ -99,7 +105,8 @@ export function StudioCreateCard() {
         <button
           type="button"
           aria-pressed={mode === "pdf"}
-          onClick={() => setMode("pdf")}
+          onClick={() => !disabledForBackend && setMode("pdf")}
+          disabled={disabledForBackend}
           className={`rounded-[6px] px-3 py-1.5 text-xs font-semibold ${mode === "pdf" ? "bg-bull text-bull-foreground" : "text-text-secondary"}`}
         >
           <FileUp className="mr-1.5 inline h-3.5 w-3.5" /> {t("Upload a PDF")}
@@ -138,7 +145,7 @@ export function StudioCreateCard() {
           </select>
           <button
             type="submit"
-            disabled={create.isPending || topic.trim().length < 3}
+            disabled={disabledForBackend || create.isPending || topic.trim().length < 3}
             className="inline-flex min-h-11 items-center justify-center gap-2 rounded-btn bg-bull px-5 text-sm font-semibold text-bull-foreground hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
           >
             {create.isPending ? (
@@ -217,7 +224,7 @@ export function StudioCreateCard() {
             </select>
             <button
               type="submit"
-              disabled={createPdf.isPending || !pdfFile}
+              disabled={disabledForBackend || createPdf.isPending || !pdfFile}
               className="inline-flex min-h-11 items-center justify-center gap-2 rounded-btn bg-bull px-5 text-sm font-semibold text-bull-foreground hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
             >
               {createPdf.isPending ? (

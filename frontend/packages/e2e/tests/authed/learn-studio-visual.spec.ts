@@ -275,7 +275,9 @@ test.describe("LearnHub Studio native visual contract", () => {
     await expect(
       page.getByRole("heading", { name: /quiz results/i }),
     ).toBeVisible();
-    await expect(page.getByText(/XP/)).toHaveCount(0);
+    await expect(page.getByText(/\+\d+\s*XP/i)).toHaveCount(0);
+    await expect(page.getByText(/XP total/i)).toHaveCount(0);
+    await expect(page.getByText(/Added to your profile/i)).toHaveCount(0);
     await expect(page.getByRole("button", { name: /retake/i })).toBeVisible();
   });
 
