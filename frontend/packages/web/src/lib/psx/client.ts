@@ -2,6 +2,7 @@ import { API_BASE_URL } from "@/lib/api";
 
 import type {
   ApiMarketSnapshotItem,
+  ApiIntradayBar,
   ApiOHLCVBar,
   ApiSymbolInfo,
   ApiCompanyProfile,
@@ -199,6 +200,10 @@ export function fetchQuote(symbol: string): Promise<ApiMarketSnapshotItem> {
 export function fetchHistory(symbol: string, days?: number): Promise<ApiOHLCVBar[]> {
   const qs = days ? `?days=${days}` : "";
   return get<ApiOHLCVBar[]>(`/api/quote/${symbol}/history${qs}`);
+}
+
+export function fetchIntraday(symbol: string, sessions = 1): Promise<ApiIntradayBar[]> {
+  return get<ApiIntradayBar[]>(`/api/quote/${symbol}/intraday?sessions=${sessions}`);
 }
 
 export function fetchSymbols(): Promise<ApiSymbolInfo[]> {

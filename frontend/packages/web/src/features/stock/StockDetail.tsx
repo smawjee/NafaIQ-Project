@@ -16,6 +16,7 @@ import {
   usePsxSignal,
   usePsxSymbols,
   usePsxRealtime,
+  usePsxIntraday,
 } from "@/hooks/psx/use-psx";
 import { SignalPanel } from "@/features/signals/SignalPanel";
 import { usePersistedTfMap } from "@/hooks/psx/use-persisted-tf-map";
@@ -29,7 +30,15 @@ import { StockDetailHeader } from "@/features/stock/components/StockDetailHeader
 import { StockChartCard } from "@/features/stock/components/StockChartCard";
 import { StockTabs, type StockTab } from "@/features/stock/components/StockTabs";
 import { PriceAlertModal } from "@/features/stock/components/PriceAlertModal";
-import { reconcileLiveCandle, tfDays, type LiveCandleInput } from "@/features/psx/psx.utils";
+import {
+  fetchDaysFor,
+  intradayFallbackBars,
+  reconcileLiveCandle,
+  tfSpec,
+  windowBars,
+  windowStartIndex,
+  type LiveCandleInput,
+} from "@/features/psx/psx.utils";
 
 export function StockDetail() {
   const { ticker } = useParams({ from: "/stock/$ticker" });
@@ -41,10 +50,22 @@ export function StockDetail() {
 
   // Phase 0 / B5: per-symbol timeframe persistence
   const { tfFor, setTfFor } = usePersistedTfMap("6M");
-  const { data: quote } = usePsxQuote(ticker);
   // Key off `upper` to match the toolbar's tfFor/setTfFor calls below —
   // a lowercase URL (/stock/hbl) would otherwise read a different tf entry.
-  const { data: ohlcvData } = usePsxHistory(ticker, Math.max(365, tfDays(tfFor(upper))));
+  const tf = tfFor(upper) as Timeframe;
+  const setTf = (next: Timeframe) => setTfFor(upper, next);
+  const spec = tfSpec(tf);
+
+  const { data: quote } = usePsxQuote(ticker);
+  // One fetch depth covers 1D…1Y (see DAILY_FETCH_DAYS), so switching among
+  // those timeframes re-slices cached bars instead of re-requesting them.
+  const { data: ohlcvData, isLoading: historyLoading } = usePsxHistory(ticker, fetchDaysFor(tf));
+  // 5-minute bars, requested only by the intraday timeframes.
+  const { data: intradayData, isLoading: intradayLoading } = usePsxIntraday(
+    ticker,
+    spec.sessions || 1,
+    spec.kind === "intraday",
+  );
   const { data: profile } = usePsxProfile(ticker);
   const { data: fundamentals } = usePsxFundamentals(ticker);
   const { data: announcements } = usePsxAnnouncements(ticker, 5);
@@ -70,8 +91,6 @@ export function StockDetail() {
 
   const [chartType, setChartType] = useState<"candle" | "line">("candle");
   const [chartMas, setChartMas] = useState<Indicator[]>(["MA20", "MA50", "MA100"]);
-  const tf = tfFor(upper) as Timeframe;
-  const setTf = (next: Timeframe) => setTfFor(upper, next);
 
   const [alertOpen, setAlertOpen] = useState(false);
   const [alertCondition, setAlertCondition] = useState<"above" | "below">("above");
@@ -119,22 +138,40 @@ export function StockDetail() {
     () => reconcileLiveCandle(((ohlcvData ?? []) as Candle[]).slice(), liveCandle),
     [ohlcvData, liveCandle],
   );
+  // An intraday timeframe uses intraday bars when there are any. There won't
+  // be on a fresh deployment, for a symbol that has not traded today, or once
+  // the retention window has pruned them — so fall back to daily candles and
+  // say so, rather than drawing an empty pane.
+  const hasIntraday = spec.kind === "intraday" && (intradayData?.length ?? 0) > 0;
+  const intradayFallback = spec.kind === "intraday" && !hasIntraday && !intradayLoading;
+
   const data = useMemo(() => {
-    const visibleCount = tfDays(tf);
-    return chartHistory.slice(-visibleCount);
-  }, [chartHistory, tf]);
+    if (hasIntraday) return windowBars(intradayData!, tf);
+    if (spec.kind === "intraday") return chartHistory.slice(-intradayFallbackBars(tf));
+    return windowBars(chartHistory, tf);
+  }, [chartHistory, hasIntraday, intradayData, spec.kind, tf]);
+
   const maSeries = useMemo(() => {
-    const visibleCount = tfDays(tf);
-    const start = Math.max(0, chartHistory.length - visibleCount);
+    // Intraday: let the chart derive MAs from the 5-minute series itself — the
+    // daily averages below are on a different time base and would be nonsense
+    // plotted against it.
+    if (spec.kind === "intraday") return undefined;
+    // Daily: the MAs are computed over the FULL fetched history and sliced with
+    // the same start index as the visible bars, so MA200 is already warmed up
+    // at the window's left edge instead of starting as 200 nulls.
+    const start = windowStartIndex(chartHistory, tf);
     return {
       ma20: sma(chartHistory, 20).slice(start),
       ma50: sma(chartHistory, 50).slice(start),
       ma100: sma(chartHistory, 100).slice(start),
       ma200: sma(chartHistory, 200).slice(start),
     };
-  }, [chartHistory, tf]);
+  }, [chartHistory, spec.kind, tf]);
+
   const lastBar = data[data.length - 1];
   const isLive = quote?.price != null && quote.price > 0;
+  const chartLoading =
+    data.length === 0 && (historyLoading || (spec.kind === "intraday" && intradayLoading));
 
   const marketCap =
     profile?.listed_shares && price ? formatCompactPKR(profile.listed_shares * price) : "—";
@@ -237,6 +274,8 @@ export function StockDetail() {
         price={price}
         isLive={isLive}
         lastBar={lastBar}
+        isLoading={chartLoading}
+        intradayFallback={intradayFallback}
       />
 
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">

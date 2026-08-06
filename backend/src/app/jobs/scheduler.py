@@ -42,6 +42,7 @@ from app.scrapers.financials_psx import FinancialsPSXScraper
 from app.services.market.volume_spikes import VolumeSpikeDetector
 import os
 from app.services.market._base import get_cache, ALL_PSX_INDICES
+from app.services.market import intraday as intraday_service
 from app.api.health import set_market_refresh_time
 from app.db.supabase import async_execute, select_all
 from app.repositories import reports_repo
@@ -684,6 +685,46 @@ async def job_refresh_index_snapshot():
         await _record_health("index_snapshot", success=False, error=str(e))
 
 
+async def job_capture_intraday():
+    """Fold the live market snapshot into 5-minute bars in ``psx_intraday``.
+
+    ``psx_market_snapshot`` is upsert-on-symbol — every refresh overwrites the
+    previous tick — so before this job existed no intraday series was retained
+    anywhere and the chart's "1D" timeframe had nothing but daily bars to draw.
+
+    Runs every minute during market hours; each sample is merged into the
+    5-minute bucket it lands in, so a re-run of the same minute is idempotent
+    rather than duplicative.
+    """
+    if not await _is_market_open():
+        return
+    try:
+        written = await intraday_service.capture_snapshot()
+        log.info("job:capture_intraday:done", rows=written)
+        await _record_health("psx_intraday", success=True, rows_updated=written)
+    except Exception as e:
+        log.exception("job:capture_intraday:failed")
+        await _record_health("psx_intraday", success=False, error=str(e))
+
+
+async def job_prune_intraday():
+    """Drop intraday bars past the retention window.
+
+    ~500 symbols x 78 buckets is ~39k rows per session, and the table backs a
+    chart window rather than an archive (``psx_ohlcv`` is the historical
+    record), so without this it only ever grows.
+    """
+    try:
+        await intraday_service.prune()
+        log.info("job:prune_intraday:done")
+        # A prune that deleted nothing is the healthy steady state once the
+        # window is shorter than the retention period.
+        await _record_health("psx_intraday_prune", success=True, allow_zero_rows=True)
+    except Exception as e:
+        log.exception("job:prune_intraday:failed")
+        await _record_health("psx_intraday_prune", success=False, error=str(e))
+
+
 async def job_refresh_tv_data():
     """Fetch TradingView scanner data for sectors — primary source for all stocks."""
     log.info("job:refresh_tv_data:start")
@@ -938,20 +979,30 @@ def _context_hash(bundle: dict) -> str:
     ).hexdigest()
 
 
-async def job_generate_market_brief():
+async def job_generate_market_brief(replace: bool = False):
     """Generate the once-per-trading-day SHARED Market Brief and persist it (§11).
 
-    Runs after the daily market data is refreshed. The Market Brief is shared
-    (no user, `confidential=False` -> free/shared provider) and cache-keyed by
-    trading_date via `get_or_create_shared`, so the read endpoint only fetches
-    the latest. A failed brief must NEVER crash the scheduler, so every failure
-    mode (fail-closed `ReportUnavailable`, `ProviderError`, or anything else) is
+    Runs twice a day. The morning run gives users a brief to read during the
+    session; the post-close run passes ``replace=True`` so the day ends with a
+    brief that describes the COMPLETED session rather than a partial-day move.
+    Without the second run the brief is frozen at whatever the tape looked like
+    mid-morning — on 2026-08-06 the stored brief said the index "climbed 725.79
+    points ... to close at 180740.72" when it actually closed at 181776.59,
+    +1761.66.
+
+    A failed brief must NEVER crash the scheduler, so every failure mode
+    (fail-closed `ReportUnavailable`, `ProviderError`, or anything else) is
     logged and swallowed — mirroring `job_check_alerts`.
     """
     try:
-        log.info("job:generate_market_brief:start")
+        log.info("job:generate_market_brief:start", replace=replace)
         gen = await engine.generate_report(REPORT_SPECS["market_brief"], lang="en")
-        trading_date = datetime.now(PTK_TZ).date().isoformat()
+        # A `date`, NOT `.isoformat()`. asyncpg binds this straight to the
+        # trading_date DATE column and raises "'str' object has no attribute
+        # 'toordinal'" on a string — which is why this job threw on every run
+        # since it was written and psx_data_source_health.market_brief carried
+        # last_success = NULL while the LLM cost was paid each time.
+        trading_date = datetime.now(PTK_TZ).date()
         async with begin() as conn:
             await reports_repo.get_or_create_shared(
                 conn,
@@ -963,11 +1014,13 @@ async def job_generate_market_brief():
                 verified=gen.verification.verified,
                 provider=gen.provider,
                 model=gen.model,
+                replace=replace,
             )
         log.info(
             "job:generate_market_brief:done",
-            trading_date=trading_date,
+            trading_date=trading_date.isoformat(),
             verified=gen.verification.verified,
+            replace=replace,
         )
         await _record_health("market_brief", success=True, rows_updated=1)
     except (ReportUnavailable, ProviderError) as e:
@@ -1485,6 +1538,27 @@ def init_scheduler():
         # keeps the catch-up to one run.
         misfire_grace_time=600,
     )
+    # Intraday bar capture: every minute during market hours. One minute is the
+    # sampling rate, not the bar size — samples fold into 5-minute buckets, so
+    # each bar is built from ~5 observations and a missed beat only costs
+    # resolution within a bucket, never the bucket itself.
+    scheduler.add_job(
+        job_capture_intraday,
+        CronTrigger(day_of_week="mon-fri", hour="9-16", minute="*", timezone="Asia/Karachi"),
+        id="capture_intraday",
+        replace_existing=True,
+        # Deliberately short: a late sample would be filed under the bucket it
+        # runs in, not the one it was scheduled for, so a stale catch-up run is
+        # worse than a skipped one.
+        misfire_grace_time=30,
+    )
+    scheduler.add_job(
+        job_prune_intraday,
+        CronTrigger(hour=1, minute=30, timezone="Asia/Karachi"),
+        id="prune_intraday",
+        replace_existing=True,
+        misfire_grace_time=3600,
+    )
     scheduler.add_job(job_check_alerts, IntervalTrigger(seconds=60), id="check_alerts", replace_existing=True)
     # Keep-alive: the always-on worker pings the API so Railway can't cold-start
     # it after an idle gap (a cold boot pays the numpy/pandas + reflection cost).
@@ -1510,13 +1584,30 @@ def init_scheduler():
         id="refresh_fipi",
         replace_existing=True,
     )
-    # Shared, once-per-trading-day Market Brief — weekdays ~09:45 PKT, after the
-    # morning market data refresh (§11). Runs in Asia/Karachi (PSX) time.
+    # Shared Market Brief — weekdays, in Asia/Karachi (PSX) time (§11).
+    #
+    # Two runs, not one. The 09:45 run (after the morning market data refresh)
+    # gives users something to read during the session. The 16:05 run lands
+    # after the 15:30 close and passes replace=True so the stored brief ends the
+    # day describing the COMPLETED session — otherwise it stays frozen on a
+    # partial-day move and reads as a closing summary that never happened.
+    #
+    # misfire_grace_time is generous on both: a brief served late is fine, a day
+    # with no brief is not.
     scheduler.add_job(
         job_generate_market_brief,
         CronTrigger(day_of_week="mon-fri", hour=9, minute=45, timezone="Asia/Karachi"),
         id="generate_market_brief",
         replace_existing=True,
+        misfire_grace_time=3600,
+    )
+    scheduler.add_job(
+        job_generate_market_brief,
+        CronTrigger(day_of_week="mon-fri", hour=16, minute=5, timezone="Asia/Karachi"),
+        id="generate_market_brief_postclose",
+        replace_existing=True,
+        kwargs={"replace": True},
+        misfire_grace_time=3600,
     )
     # ---- Workstream D ----
     # SBP rates: KIBOR/PKRV/FX/policy rate into ``macro_rates``. Daily 09:30 PKT,

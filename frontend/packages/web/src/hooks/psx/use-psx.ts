@@ -7,6 +7,7 @@ import {
   fetchMarketSnapshot,
   fetchQuote,
   fetchHistory,
+  fetchIntraday,
   fetchSymbols,
   fetchFundamentals,
   fetchProfile,
@@ -275,6 +276,42 @@ export function usePsxHistory(symbol: string | undefined, days = 180) {
     // this, switching stocks would unmount the chart and remount it once the
     // fetch resolves, causing a flash of empty state and a possible length
     // mismatch between `data` and `maSeries` that Recharts throws on.
+    placeholderData: keepPreviousData,
+  });
+}
+
+/**
+ * 5-minute intraday bars for the chart's 1D / 1W timeframes.
+ *
+ * `enabled` is the caller's switch: only the intraday timeframes should pay for
+ * this request. An empty result is normal and not an error — `psx_intraday`
+ * only accumulates while the market is open — so callers fall back to daily
+ * bars when this comes back empty.
+ */
+export function usePsxIntraday(symbol: string | undefined, sessions: number, enabled = true) {
+  const sym = symbol?.toUpperCase();
+  return useQuery({
+    queryKey: ["psx", "intraday", sym, sessions],
+    queryFn: async () => {
+      const bars = await fetchIntraday(sym!, sessions);
+      return bars.map<Candle>((b) => ({
+        // `date` carries the full ISO instant here, where daily bars carry
+        // YYYY-MM-DD. The chart formats from `t` and never parses this, so the
+        // two shapes coexist in one `Candle`.
+        date: b.ts,
+        t: new Date(b.ts).getTime(),
+        open: b.open,
+        high: b.high,
+        low: b.low,
+        close: b.close,
+        volume: b.volume,
+      }));
+    },
+    enabled: !!sym && enabled,
+    // Matches the writer's 60s cadence — a shorter window would only re-fetch
+    // bars the scheduler has not written yet.
+    staleTime: 60_000,
+    refetchInterval: 60_000,
     placeholderData: keepPreviousData,
   });
 }
