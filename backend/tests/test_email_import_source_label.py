@@ -45,11 +45,20 @@ def test_biller_sender_is_candidate_for_invoice():
     )
 
 
-def test_gmail_query_first_sync_starts_from_current_month():
+def test_gmail_query_first_sync_backfills_six_months():
+    """First sync reaches back six whole months, not just the current one.
+
+    It used to start at the 1st of the CURRENT month, which left every earlier
+    month of the 6-month income/expense chart empty — the emails were simply
+    never fetched, so the chart was faithfully reporting data that did not
+    exist. Only the FIRST sync pays for this; afterwards the watermark applies
+    (see test_gmail_query_existing_sync_uses_watermark_overlap).
+    """
     query = gmail_query(0, now=datetime(2026, 7, 23, 12, 0, tzinfo=timezone.utc))
 
-    # 2026-07-01 00:00 in Asia/Karachi == 2026-06-30 19:00 UTC.
-    expected_after = int(datetime(2026, 6, 30, 19, 0, tzinfo=timezone.utc).timestamp())
+    # Six months inclusive of July => 2026-02-01 00:00 Asia/Karachi,
+    # which is 2026-01-31 19:00 UTC.
+    expected_after = int(datetime(2026, 1, 31, 19, 0, tzinfo=timezone.utc).timestamp())
     assert f"after:{expected_after}" in query
     assert "newer_than:" not in query
 

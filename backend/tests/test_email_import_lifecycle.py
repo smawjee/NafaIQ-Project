@@ -113,6 +113,50 @@ def test_gmail_query_downloads_refund_mail():
     assert "refund" in q.lower()
 
 
+def test_first_sync_reaches_back_six_months():
+    """A newly-connected inbox must populate the whole 6-month chart.
+
+    First sync used to start at the 1st of the CURRENT month, so every earlier
+    month of the income/expense graph stayed empty — not because the user had
+    no spending, but because those emails were never fetched.
+    """
+    from datetime import datetime, timezone
+
+    now = datetime(2026, 8, 6, 12, 0, tzinfo=timezone.utc)
+    after = int(senders.gmail_query(0, now=now).rsplit("after:", 1)[1].rstrip(")"))
+    start = datetime.fromtimestamp(after, tz=timezone.utc).astimezone(senders._APP_TZ)
+    # 6 months INCLUSIVE of August => March 1st, in Pakistan time.
+    assert (start.year, start.month, start.day) == (2026, 3, 1)
+    assert (start.hour, start.minute) == (0, 0)
+
+
+def test_first_sync_window_steps_back_across_a_year_boundary():
+    from datetime import datetime, timezone
+
+    now = datetime(2026, 2, 10, 12, 0, tzinfo=timezone.utc)
+    after = int(senders.gmail_query(0, now=now).rsplit("after:", 1)[1].rstrip(")"))
+    start = datetime.fromtimestamp(after, tz=timezone.utc).astimezone(senders._APP_TZ)
+    assert (start.year, start.month, start.day) == (2025, 9, 1)
+
+
+def test_subsequent_polls_still_use_the_watermark_not_the_backfill_window():
+    """The 6-month reach is FIRST SYNC ONLY.
+
+    Once a watermark exists the poll must resume from it, so previous months
+    are never re-fetched or re-parsed on every run.
+    """
+    from datetime import datetime, timezone
+
+    watermark_ms = int(datetime(2026, 8, 5, 9, 0, tzinfo=timezone.utc).timestamp() * 1000)
+    after = int(
+        senders.gmail_query(watermark_ms, now=datetime(2026, 8, 6, 12, 0, tzinfo=timezone.utc))
+        .rsplit("after:", 1)[1]
+        .rstrip(")")
+    )
+    # Watermark minus the deliberate one-day nudge, nowhere near March.
+    assert after == watermark_ms // 1000 - 86_400
+
+
 # ── pipeline behaviour ───────────────────────────────────────────────────────
 
 
