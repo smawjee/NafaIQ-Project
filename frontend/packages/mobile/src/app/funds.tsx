@@ -44,6 +44,7 @@ export default function FundsScreen() {
       const amc = typeof item.amc === "string" ? item.amc : null;
       const meta = [item.category, amc].filter(Boolean).join(" · ");
       return (
+        <Pressable onPress={() => router.push(`/fund/${encodeURIComponent(item.fund_code)}` as never)} accessibilityRole="button" accessibilityLabel={`Open ${item.name} NAV history`}>
         <Card style={styles.row}>
           <View style={styles.iconBox}>
             <Landmark color={colors.primary} size={16} />
@@ -56,16 +57,17 @@ export default function FundsScreen() {
           </View>
           <View style={styles.navCol}>
             <Text variant="mono" style={{ fontSize: 13.5 }}>
-              {item.nav != null ? fmtPKR(item.nav, 2) : "—"}
+              {item.latest_nav != null ? fmtPKR(item.latest_nav, 2) : "—"}
             </Text>
             <Text variant="muted" style={{ marginTop: 2 }}>
               NAV
             </Text>
           </View>
         </Card>
+        </Pressable>
       );
     },
-    [styles, colors],
+    [styles, colors, router],
   );
 
   return (

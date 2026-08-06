@@ -2,7 +2,7 @@
 // Avenir header. Theme-aware via GlassScreen; pass `dark` to pin the dark glass
 // for screens still on the static dark palette.
 import { ReactNode } from "react";
-import { Platform, Pressable, ScrollView, StyleSheet, View } from "react-native";
+import { Pressable, ScrollView, StyleSheet, View } from "react-native";
 import { Edge, SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 
@@ -11,8 +11,6 @@ import { Text } from "@/components/ui";
 import { fonts } from "@/constants/theme";
 import { useTheme } from "@/hooks/use-theme";
 import { ArrowLeft } from "@/lib/icons";
-
-const AVENIR = Platform.select({ ios: "Avenir-Heavy", default: fonts.sans });
 
 export function Screen({
   children,
@@ -48,7 +46,7 @@ export function Screen({
             <ArrowLeft color={colors.textPrimary} size={22} />
           </Pressable>
         ) : null}
-        <Text variant="display" style={{ fontFamily: AVENIR }}>{title}</Text>
+        <Text variant="display" style={{ fontFamily: fonts.heading }}>{title}</Text>
       </View>
       {subtitle ? (
         <Text variant="secondary" style={{ marginTop: 2 }}>

@@ -23,9 +23,9 @@ type TextVariant = "display" | "title" | "body" | "secondary" | "muted" | "mono"
 function textStyle(variant: TextVariant, c: ThemeColors): object {
   switch (variant) {
     case "display":
-      return { fontSize: 26, fontWeight: "700", color: c.textPrimary };
+      return { fontSize: 26, fontWeight: "700", color: c.textPrimary, fontFamily: fonts.heading };
     case "title":
-      return { fontSize: 18, fontWeight: "600", color: c.textPrimary };
+      return { fontSize: 18, fontWeight: "600", color: c.textPrimary, fontFamily: fonts.headingMedium };
     case "secondary":
       return { fontSize: 14, color: c.textSecondary };
     case "muted":

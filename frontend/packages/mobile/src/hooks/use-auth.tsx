@@ -19,7 +19,7 @@ export type Profile = {
   avatar_url: string | null;
 };
 
-type Result = { error: string | null };
+type Result = { error: string | null; needsConfirmation?: boolean };
 
 type AuthContextValue = {
   session: Session | null;
@@ -105,12 +105,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     password,
     displayName,
   ) => {
-    const { error } = await supabase.auth.signUp({
+    const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: { emailRedirectTo: redirectTo, data: { display_name: displayName } },
     });
-    return { error: error?.message ?? null };
+    return { error: error?.message ?? null, needsConfirmation: !error && data.session == null };
   };
 
   const signInWithGoogle: AuthContextValue["signInWithGoogle"] = async () => {

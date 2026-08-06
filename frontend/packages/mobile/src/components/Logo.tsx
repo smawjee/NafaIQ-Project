@@ -24,12 +24,12 @@ export function Logo({
       </View>
       {wordmark && (
         <Text
-          style={{ fontSize: size * 0.62, fontWeight: "800", letterSpacing: -0.5, fontFamily: fonts.sans }}
+          style={{ fontSize: size * 0.62, fontWeight: "800", letterSpacing: -0.5, fontFamily: fonts.heading }}
           accessibilityElementsHidden
           importantForAccessibility="no"
         >
           Nafa
-          <Text style={{ color: colors.primary, fontSize: size * 0.62, fontWeight: "800", fontFamily: fonts.sans }}>
+          <Text style={{ color: colors.primary, fontSize: size * 0.62, fontWeight: "800", fontFamily: fonts.heading }}>
             IQ
           </Text>
         </Text>

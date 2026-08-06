@@ -7,6 +7,17 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { userDelete, userGet, userPatch, userPost } from "@/lib/api";
 
+export type FinanceBulkEntity = "transactions" | "budgets" | "bills" | "goals";
+
+export function useDeleteAllFinance() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (entity: FinanceBulkEntity) =>
+      userDelete<{ deleted: number }>(`/api/finance/${entity}`),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["finance"] }),
+  });
+}
+
 /* ------------------------------ Transactions ----------------------------- */
 
 export interface FinanceTransaction {

@@ -23,7 +23,7 @@ import { Button, Text } from "@/components/ui";
 import { ProgressBar } from "@/components/ui/ProgressBar";
 import { fonts, radii, type ThemeColors } from "@/constants/theme";
 import { useTutorChat } from "@/hooks/ai/use-tutor-chat";
-import { useLearnSearch, type ApiLearnSearchResult } from "@/hooks/ai/use-learn-search";
+import { useGlossarySearch, useLearnSearch, type ApiLearnSearchResult } from "@/hooks/ai/use-learn-search";
 import { useLang } from "@/hooks/use-lang";
 import { useLearn, XP_GOAL } from "@/hooks/use-learn";
 import { useTheme } from "@/hooks/use-theme";
@@ -53,7 +53,7 @@ const AVENIR = Platform.select({ ios: "Avenir-Heavy", default: fonts.sans });
 export default function LearnHub() {
   const { xp, statusOf, pathProgress } = useLearn();
   const { colors } = useTheme();
-  const { t } = useLang();
+  const { t, lang, isUrdu } = useLang();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const router = useRouter();
   const [search, setSearch] = useState("");
@@ -72,6 +72,7 @@ export default function LearnHub() {
   // Level derived from XP (real), replacing the old hardcoded "Beginner".
   const level = xp >= 400 ? "Advanced" : xp >= 150 ? "Intermediate" : "Beginner";
   const terms = GLOSSARY.filter((term) => term.en.toLowerCase().includes(search.toLowerCase()));
+  const semanticGlossary = useGlossarySearch(search, lang, terms.length === 0);
 
   return (
     <GlassScreen>
@@ -186,6 +187,27 @@ export default function LearnHub() {
               </Pressable>
             );
           })}
+          {terms.length === 0 && semanticGlossary.loading ? (
+            <View style={{ paddingVertical: 12 }}><ActivityIndicator color={colors.primary} size="small" /></View>
+          ) : null}
+          {terms.length === 0 && semanticGlossary.results.map((result, index) => {
+            const snippet = isUrdu && result.snippet_ur ? result.snippet_ur : result.snippet_en;
+            return (
+              <Pressable
+                key={`${result.heading ?? result.title}-${index}`}
+                onPress={() => result.lesson_id && router.push(`/(tabs)/learn/lesson/${result.lesson_id}`)}
+                style={[styles.term, { borderColor: colors.primary + "44" }]}
+                accessibilityRole={result.lesson_id ? "button" : undefined}
+              >
+                <View style={styles.between}>
+                  <Text style={{ fontWeight: "700", flex: 1 }}>{result.heading ?? result.title}</Text>
+                  <View style={[styles.badge, { borderColor: colors.primary + "44" }]}><Sparkles color={colors.primary} size={11} /><Text style={{ color: colors.primary, fontSize: 9, fontWeight: "700" }}>SEMANTIC</Text></View>
+                </View>
+                <Text variant="secondary" style={[{ marginTop: 6, fontSize: 13 }, isUrdu && result.snippet_ur ? { fontFamily: fonts.urdu, textAlign: "right" } : null]}>{snippet}</Text>
+              </Pressable>
+            );
+          })}
+          {search.trim().length >= 2 && terms.length === 0 && !semanticGlossary.loading && semanticGlossary.results.length === 0 ? <Text variant="muted" style={{ textAlign: "center", paddingVertical: 10 }}>No glossary terms found.</Text> : null}
         </View>
         <View style={{ height: 40 }} />
       </ScrollView>

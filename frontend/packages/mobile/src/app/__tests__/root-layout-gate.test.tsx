@@ -38,6 +38,10 @@ jest.mock("@/hooks/use-learn", () => ({
   LearnProvider: ({ children }: { children: React.ReactNode }) => children,
 }));
 
+jest.mock("@/hooks/queries/use-platform-flags", () => ({
+  usePlatformFlags: () => ({ registrationEnabled: true, maintenanceMode: false, isLoading: false }),
+}));
+
 jest.mock("@/components/glass/GlassScreen", () => ({
   WallpaperWarmup: () => null,
 }));
@@ -186,6 +190,11 @@ describe("navigator registration", () => {
       "plans",
       "(tabs)",
       "settings",
+      "help",
+      "monetary",
+      "watchlist",
+      "ai-insights",
+      "fund/[code]",
       "alerts",
       "assistant",
       "stock/[ticker]",

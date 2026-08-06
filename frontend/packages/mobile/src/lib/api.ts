@@ -96,6 +96,11 @@ export function publicGet<T>(path: string): Promise<T> {
   return get<T>(path);
 }
 
+/** Public JSON POST for anonymous-safe endpoints such as client telemetry. */
+export function publicPost<T>(path: string, body: unknown): Promise<T> {
+  return post<T>(path, body);
+}
+
 // === User-authenticated requests (Supabase session JWT) ===
 
 async function userHeaders(json = false): Promise<Record<string, string>> {
@@ -220,6 +225,10 @@ export function fetchBatchSignals(limit = 50): Promise<BatchSignalsResponse> {
 
 export function fetchSignalV2(symbol: string, horizon: SignalHorizon = "20D"): Promise<ApiSignalV2> {
   return get<ApiSignalV2>(`/api/signals/v2/${symbol}?horizon=${horizon}`);
+}
+
+export function fetchSignalV4(symbol: string): Promise<ApiSignalV4> {
+  return get<ApiSignalV4>(`/api/signals/v3/${symbol}`);
 }
 
 export function fetchSignalTrackRecord(): Promise<ApiTrackRecord> {

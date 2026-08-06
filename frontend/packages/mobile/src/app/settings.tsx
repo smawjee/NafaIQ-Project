@@ -2,6 +2,7 @@
 // appearance/theme toggle (dark/light), account info. Wires the theme + lang
 // foundations so the user can actually switch them.
 import { useEffect, useState } from "react";
+import { useRouter } from "expo-router";
 import {
   ActivityIndicator,
   Alert,
@@ -49,6 +50,7 @@ import {
   LogOut,
   Mail,
   MessageSquare,
+  LifeBuoy,
   Monitor,
   Moon,
   Pencil,
@@ -63,6 +65,7 @@ const AVENIR = Platform.select({ ios: "Avenir-Heavy", default: fonts.sans });
 const CURRENCIES = ["PKR", "USD", "AED", "SAR", "EUR", "GBP"];
 
 export default function SettingsScreen() {
+  const router = useRouter();
   const { colors, mode, setMode } = useTheme();
   const { lang, setLang, t } = useLang();
   const { profile, user, signOut, refreshProfile } = useAuth();
@@ -194,6 +197,19 @@ export default function SettingsScreen() {
 
       {/* Bank email import */}
       <BankEmailCard />
+
+      {/* Support */}
+      <Pressable onPress={() => router.push("/help" as never)} accessibilityRole="button" accessibilityLabel={t("Help and support") }>
+        <GlassCard style={[styles.card, { flexDirection: "row", alignItems: "center", gap: 12 }]}>
+          <View style={[styles.iconBtn, { backgroundColor: colors.primary + "18" }]}>
+            <LifeBuoy color={colors.primary} size={18} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text variant="title" style={{ fontSize: 15 }}>{t("Help & Support")}</Text>
+            <Text variant="secondary" style={{ fontSize: 13 }}>{t("Report a problem and track the response.")}</Text>
+          </View>
+        </GlassCard>
+      </Pressable>
 
       {/* Account */}
       <GlassCard style={styles.card}>

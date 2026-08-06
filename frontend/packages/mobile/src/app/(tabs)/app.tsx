@@ -323,7 +323,7 @@ export default function Dashboard() {
           <GlassCard style={styles.card}>
             <View style={styles.between}>
               <Text variant="title" style={{ fontSize: 16 }}>Watchlist</Text>
-              <Pressable onPress={() => router.push("/(tabs)/psx")} hitSlop={8} accessibilityRole="button" accessibilityLabel="View all on PSX">
+              <Pressable onPress={() => router.push("/watchlist" as never)} hitSlop={8} accessibilityRole="button" accessibilityLabel="Open watchlist">
                 <Text style={{ color: colors.primary, fontWeight: "600", fontSize: 13 }}>View all</Text>
               </Pressable>
             </View>

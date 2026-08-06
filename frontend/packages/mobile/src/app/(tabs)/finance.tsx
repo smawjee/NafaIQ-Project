@@ -3,6 +3,8 @@
 // endpoints via React Query hooks (src/hooks/queries/use-finance*.ts); list
 // tabs are virtualized FlatLists.
 import { useRouter } from "expo-router";
+import * as Print from "expo-print";
+import * as Sharing from "expo-sharing";
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
@@ -37,6 +39,7 @@ import {
   type FinanceBudget,
   type FinanceGoal,
   type FinanceTransaction,
+  type FinanceBulkEntity,
   useContributeGoal,
   useCreateBill,
   useCreateBudget,
@@ -47,6 +50,7 @@ import {
   useDeleteBudget,
   useDeleteGoal,
   useDeleteTransaction,
+  useDeleteAllFinance,
   useFinanceBills,
   useFinanceBudgets,
   useFinanceGoals,
@@ -62,12 +66,14 @@ import {
   type ZakatEstimate,
   type ZakatRecord,
   useCalculateZakat,
+  useUpdateZakatSettings,
   useZakatHistory,
   useZakatSettings,
 } from "@/hooks/queries/use-zakat";
 import { useFinanceReport } from "@/hooks/ai/use-ai-report";
 import { useFinanceSettings } from "@/hooks/queries/use-finance-settings";
 import { useIncomeExpenseSeries } from "@/hooks/queries/use-finance-series";
+import { useMonetarySnapshot } from "@/hooks/queries/use-macro";
 import { fmtPKR } from "@nafaiq/shared";
 import {
   ArrowDownRight,
@@ -80,6 +86,8 @@ import {
   PiggyBank,
   Plus,
   Scale,
+  FileDown,
+  RefreshCw,
   Search,
   Sparkles,
   Target,
@@ -413,6 +421,24 @@ interface TxnGroup {
   items: FinanceTransaction[];
 }
 
+function DeleteAllAction({ count, entity, label }: { count: number; entity: FinanceBulkEntity; label: string }) {
+  const { colors } = useTheme();
+  const clear = useDeleteAllFinance();
+  if (count === 0) return null;
+  return (
+    <Button
+      title={`Delete all ${label}`}
+      variant="ghost"
+      loading={clear.isPending}
+      icon={<Trash2 color={colors.bear} size={14} />}
+      onPress={() => Alert.alert(`Delete all ${label}?`, "This cannot be undone.", [
+        { text: "Cancel", style: "cancel" },
+        { text: "Delete all", style: "destructive", onPress: () => clear.mutate(entity) },
+      ])}
+    />
+  );
+}
+
 const TxnGroupCard = memo(function TxnGroupCard({
   group,
   onEdit,
@@ -620,6 +646,9 @@ function Transactions() {
         keyboardShouldPersistTaps="handled"
         ListHeaderComponent={
           <View style={{ gap: 10 }}>
+            <View style={{ alignItems: "flex-end" }}>
+              <DeleteAllAction count={transactions.length} entity="transactions" label="transactions" />
+            </View>
             <View style={styles.search}>
               <Search color={colors.textMuted} size={16} />
               <TextInput
@@ -843,6 +872,7 @@ function Budgets() {
         contentContainerStyle={[styles.content, { gap: 12 }]}
         showsVerticalScrollIndicator={false}
         ListHeaderComponent={
+          <View style={{ gap: 8 }}>
           <View style={styles.monthNav}>
             <Pressable onPress={() => setOffset((o) => o - 1)} hitSlop={12} accessibilityRole="button" accessibilityLabel="Previous month">
               <Text style={{ color: colors.textSecondary }}>‹ {prevLabel}</Text>
@@ -851,6 +881,10 @@ function Budgets() {
             <Pressable onPress={() => setOffset((o) => o + 1)} hitSlop={12} accessibilityRole="button" accessibilityLabel="Next month">
               <Text style={{ color: colors.textSecondary }}>{nextLabel} ›</Text>
             </Pressable>
+          </View>
+          <View style={{ alignItems: "flex-end" }}>
+            <DeleteAllAction count={budgets.length} entity="budgets" label="budgets" />
+          </View>
           </View>
         }
         ListEmptyComponent={
@@ -1062,6 +1096,7 @@ function Bills() {
         renderItem={renderBill}
         contentContainerStyle={[styles.content, { gap: 10 }]}
         showsVerticalScrollIndicator={false}
+        ListHeaderComponent={<View style={{ alignItems: "flex-end" }}><DeleteAllAction count={bills.length} entity="bills" label="bills" /></View>}
         ListEmptyComponent={
           isPending ? (
             <LoadingCard label="Loading bills…" />
@@ -1233,6 +1268,7 @@ function Goals() {
         renderItem={renderGoal}
         contentContainerStyle={[styles.content, { gap: 12 }]}
         showsVerticalScrollIndicator={false}
+        ListHeaderComponent={<View style={{ alignItems: "flex-end" }}><DeleteAllAction count={goals.length} entity="goals" label="goals" /></View>}
         ListEmptyComponent={
           isPending ? (
             <LoadingCard label="Loading goals…" />
@@ -1273,10 +1309,8 @@ function Goals() {
 
 /* -------------------------------- Zakat ---------------------------------- */
 const NISAB_SOURCES = ["gold", "silver", "cash", "manual"];
-// Silver-based nisab is the web app's anchor (~PKR 135,000); gold-based is the
-// higher common threshold. These are editable seed defaults — the on-screen
-// disclaimer notes that nisab and rulings vary by scholar.
-const NISAB_PRESETS: Record<string, number> = { gold: 612000, silver: 135000, cash: 135000 };
+const GOLD_NISAB_TOLA = 7.5;
+const SILVER_NISAB_TOLA = 52.5;
 const ZAKAT_METHODS = [
   { key: "standard_2_5", label: "Standard 2.5%" },
   { key: "custom_rate", label: "Custom rate" },
@@ -1315,17 +1349,30 @@ function Zakat() {
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const settingsQ = useZakatSettings();
   const historyQ = useZakatHistory(20);
+  const monetary = useMonetarySnapshot();
   const calculate = useCalculateZakat();
+  const updateZakatSettings = useUpdateZakatSettings();
 
   const [assets, setAssets] = useState("");
   const [deductions, setDeductions] = useState("");
+  const [goldTola, setGoldTola] = useState("");
+  const [silverTola, setSilverTola] = useState("");
   const [nisabSource, setNisabSource] = useState("silver");
   const [nisabValue, setNisabValue] = useState("");
   const [method, setMethod] = useState<ZakatMethod>("standard_2_5");
   const [customRate, setCustomRate] = useState("2.5");
   const [result, setResult] = useState<ZakatEstimate | null>(null);
   const [err, setErr] = useState("");
+  const [exporting, setExporting] = useState(false);
   const seededRef = useRef(false);
+
+  const gold = monetary.data?.metals.find((m) => m.code === "XAU");
+  const silver = monetary.data?.metals.find((m) => m.code === "XAG");
+  const liveMetalsReady = !!gold && !!silver && monetary.data?.stale !== true;
+  const liveNisab = useMemo(() => ({
+    gold: gold ? Math.round(gold.pkr_per_tola * GOLD_NISAB_TOLA) : 0,
+    silver: silver ? Math.round(silver.pkr_per_tola * SILVER_NISAB_TOLA) : 0,
+  }), [gold, silver]);
 
   // Seed defaults from saved settings once, when they first arrive.
   const settings = settingsQ.data;
@@ -1333,26 +1380,36 @@ function Zakat() {
     if (!settings || seededRef.current) return;
     seededRef.current = true;
     setNisabSource(settings.nisab_source ?? "silver");
-    setNisabValue(
-      settings.nisab_value_pkr != null
-        ? String(settings.nisab_value_pkr)
-        : String(NISAB_PRESETS[settings.nisab_source] ?? NISAB_PRESETS.silver),
-    );
+    if (settings.nisab_source === "manual" && settings.nisab_value_pkr != null) {
+      setNisabValue(String(settings.nisab_value_pkr));
+    }
     if (settings.method) setMethod(settings.method);
     if (settings.custom_rate_pct != null) setCustomRate(String(settings.custom_rate_pct));
   }, [settings]);
 
+  useEffect(() => {
+    if (nisabSource === "manual" || !liveMetalsReady) return;
+    const next = nisabSource === "gold" ? liveNisab.gold : liveNisab.silver;
+    if (next > 0) setNisabValue(String(next));
+  }, [liveMetalsReady, liveNisab.gold, liveNisab.silver, nisabSource]);
+
   function pickSource(src: string) {
     setNisabSource(src);
-    if (src !== "manual" && NISAB_PRESETS[src] != null) setNisabValue(String(NISAB_PRESETS[src]));
+    if (src !== "manual" && liveMetalsReady) {
+      setNisabValue(String(src === "gold" ? liveNisab.gold : liveNisab.silver));
+    }
   }
 
   function run(save: boolean) {
     setErr("");
-    const a = Number(assets);
+    const a = Number(assets) || 0;
     const d = Number(deductions) || 0;
+    const goldQty = Number(goldTola) || 0;
+    const silverQty = Number(silverTola) || 0;
     const n = Number(nisabValue);
-    if (!assets || Number.isNaN(a) || a < 0) return setErr("Enter your total assets in PKR.");
+    if (nisabSource !== "manual" && !liveMetalsReady) return setErr("Live gold and silver prices are required before Zakat can be calculated.");
+    const metalValue = goldQty * (gold?.pkr_per_tola ?? 0) + silverQty * (silver?.pkr_per_tola ?? 0);
+    if (Number.isNaN(a) || a < 0 || (a + metalValue <= 0)) return setErr("Enter at least one zakatable asset.");
     if (!nisabValue || Number.isNaN(n) || n < 0) return setErr("Enter a nisab threshold value.");
     const rate = method === "custom_rate" ? Number(customRate) : 2.5;
     if (method === "custom_rate" && (!customRate || Number.isNaN(rate) || rate <= 0)) {
@@ -1361,18 +1418,51 @@ function Zakat() {
     calculate.mutate(
       {
         islamic_year: String(new Date().getFullYear()),
-        total_assets_pkr: a,
+        total_assets_pkr: a + metalValue,
         total_deductions_pkr: d,
         nisab_value_pkr: n,
         rate_pct: rate,
         method,
+        breakdown: {
+          cash_and_other_assets: a,
+          gold_tola: goldQty,
+          silver_tola: silverQty,
+          gold_pkr_per_tola: gold?.pkr_per_tola ?? null,
+          silver_pkr_per_tola: silver?.pkr_per_tola ?? null,
+          nisab_source: nisabSource,
+          monetary_refreshed_at: monetary.data?.refreshed_at ?? null,
+          metal_source: monetary.data?.metal_source ?? null,
+        },
         save,
       },
       {
-        onSuccess: (res) => setResult(res),
+        onSuccess: (res) => {
+          setResult(res);
+          updateZakatSettings.mutate({
+            nisab_source: nisabSource as "gold" | "silver" | "cash" | "manual",
+            nisab_value_pkr: n,
+            method,
+            custom_rate_pct: method === "custom_rate" ? rate : null,
+          });
+        },
         onError: () => setErr(save ? "Could not save your zakat record." : "Could not calculate zakat."),
       },
     );
+  }
+
+  async function exportPdf() {
+    if (!result) return;
+    setExporting(true);
+    try {
+      const html = `<!doctype html><html><body style="font-family:Arial,sans-serif;padding:32px;color:#172033"><h1>NafaIQ Zakat Estimate</h1><p>Generated ${new Date().toLocaleString()}</p><hr/><p><strong>Net zakatable wealth:</strong> ${fmtPKR(Math.round(result.net_zakatable))}</p><p><strong>Nisab threshold:</strong> ${fmtPKR(Math.round(result.nisab_value))} (${nisabSource})</p><p><strong>Zakat due:</strong> ${fmtPKR(Math.round(result.zakat_due))}</p><p>Gold: ${goldTola || "0"} tola at ${gold ? fmtPKR(Math.round(gold.pkr_per_tola)) : "unavailable"}</p><p>Silver: ${silverTola || "0"} tola at ${silver ? fmtPKR(Math.round(silver.pkr_per_tola)) : "unavailable"}</p><p style="margin-top:32px;font-size:11px;color:#64748b">Estimate for guidance only. Consult a qualified authority.</p></body></html>`;
+      const file = await Print.printToFileAsync({ html });
+      if (await Sharing.isAvailableAsync()) await Sharing.shareAsync(file.uri, { mimeType: "application/pdf", dialogTitle: "Share Zakat estimate" });
+      else Alert.alert("PDF created", file.uri);
+    } catch {
+      Alert.alert("Could not export PDF", "Please try again.");
+    } finally {
+      setExporting(false);
+    }
   }
 
   const saving = calculate.isPending && calculate.variables?.save === true;
@@ -1392,7 +1482,25 @@ function Zakat() {
           </View>
           <Text variant="title">Zakat Calculator</Text>
         </View>
-        <Field label="Total assets (PKR)" value={assets} onChangeText={setAssets} keyboardType="numeric" placeholder="0" />
+        <GlassCard style={{ gap: 7, padding: 12, backgroundColor: colors.glassFill }}>
+          <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+            <Text variant="secondary" style={{ fontWeight: "700" }}>Live Nisab reference</Text>
+            <Pressable onPress={() => monetary.refetch()} hitSlop={8} accessibilityRole="button" accessibilityLabel="Refresh metal prices">
+              <RefreshCw color={colors.primary} size={15} />
+            </Pressable>
+          </View>
+          {monetary.isPending ? <ActivityIndicator color={colors.primary} size="small" /> : liveMetalsReady ? (
+            <>
+              <Text variant="muted">Gold {fmtPKR(Math.round(gold!.pkr_per_tola))}/tola · Silver {fmtPKR(Math.round(silver!.pkr_per_tola))}/tola</Text>
+              <Text variant="muted">{monetary.data?.metal_source?.name ?? gold?.source_name ?? "International spot fallback"} · {new Date(monetary.data!.refreshed_at).toLocaleString()}</Text>
+            </>
+          ) : <Text style={{ color: colors.warning, fontSize: 12 }}>Live metal prices are unavailable or stale. Calculation is paused.</Text>}
+        </GlassCard>
+        <Field label="Cash, investments & other assets (PKR)" value={assets} onChangeText={setAssets} keyboardType="numeric" placeholder="0" />
+        <View style={{ flexDirection: "row", gap: 10 }}>
+          <View style={{ flex: 1 }}><Field label="Gold (tola)" value={goldTola} onChangeText={setGoldTola} keyboardType="decimal-pad" placeholder="0" /></View>
+          <View style={{ flex: 1 }}><Field label="Silver (tola)" value={silverTola} onChangeText={setSilverTola} keyboardType="decimal-pad" placeholder="0" /></View>
+        </View>
         <Field
           label="Deductions / liabilities (PKR)"
           value={deductions}
@@ -1410,6 +1518,7 @@ function Zakat() {
           onChangeText={setNisabValue}
           keyboardType="numeric"
           placeholder="0"
+          editable={nisabSource === "manual"}
         />
         <View style={{ gap: 4 }}>
           <Text variant="secondary">Calculation method</Text>
@@ -1461,6 +1570,7 @@ function Zakat() {
             </Text>
           </View>
           <Button title="Save this year's record" variant="outline" onPress={() => run(true)} loading={saving} />
+          <Button title="Export PDF" variant="ghost" onPress={exportPdf} loading={exporting} icon={<FileDown color={colors.primary} size={16} />} />
         </GlassCard>
       ) : null}
 

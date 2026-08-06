@@ -138,3 +138,16 @@ export function useRemoveFromWatchlist() {
     },
   });
 }
+
+export function useClearWatchlist() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () => userDelete<{ deleted: number }>("/api/watchlist"),
+    onSuccess: () => {
+      qc.setQueryData<string[]>(["watchlist"], []);
+      qc.setQueryData<EnrichedWatchlistItem[]>(["enriched-watchlist"], []);
+      qc.invalidateQueries({ queryKey: ["watchlist"] });
+      qc.invalidateQueries({ queryKey: ["enriched-watchlist"] });
+    },
+  });
+}

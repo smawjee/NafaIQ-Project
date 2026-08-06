@@ -62,7 +62,7 @@ describe("FundsScreen", () => {
   it("renders a fund name from the hook", () => {
     (useFunds as jest.Mock).mockReturnValue({
       ...idle,
-      data: [{ fund_code: "MMF01", name: "Meezan Money Market", category: "Money Market", nav: 51.2 }],
+      data: [{ fund_code: "MMF01", name: "Meezan Money Market", category: "Money Market", latest_nav: 51.2 }],
     });
     const { getByText } = renderScreen(<FundsScreen />);
     expect(getByText("Meezan Money Market")).toBeTruthy();
@@ -82,11 +82,13 @@ describe("DividendsScreen", () => {
 
 describe("MoreScreen", () => {
   it("renders the hub navigation rows", () => {
-    (usePolicyRate as jest.Mock).mockReturnValue({ ...idle, data: { date: "2026-06-01", rate: 22 } });
+    (usePolicyRate as jest.Mock).mockReturnValue({ ...idle, data: { series: "POLICY_RATE", date: "2026-06-01", value: 22 } });
     (useMacroFx as jest.Mock).mockReturnValue({ ...idle, data: [] });
     (useMacroRates as jest.Mock).mockReturnValue({ ...idle, data: [] });
     const { getByText } = renderScreen(<MoreScreen />);
     expect(getByText("Market News")).toBeTruthy();
+    expect(getByText("AI Insights")).toBeTruthy();
+    expect(getByText("Monetary Desk")).toBeTruthy();
     expect(getByText("Mutual Funds")).toBeTruthy();
     expect(getByText("Dividends")).toBeTruthy();
   });

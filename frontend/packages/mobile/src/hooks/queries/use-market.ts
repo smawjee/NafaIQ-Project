@@ -27,6 +27,7 @@ import {
   fetchSignal,
   fetchSignalTrackRecord,
   fetchSignalV2,
+  fetchSignalV4,
   fetchSymbols,
   publicGet,
 } from "@/lib/api";
@@ -326,6 +327,15 @@ export function usePsxSignalV2(symbol: string | undefined, horizon: SignalHorizo
   return useQuery({
     queryKey: ["psx", "signals", "v2", symbol, horizon],
     queryFn: () => fetchSignalV2(symbol!, horizon),
+    enabled: !!symbol,
+    staleTime: 300_000,
+  });
+}
+
+export function usePsxSignalV4(symbol: string | undefined) {
+  return useQuery({
+    queryKey: ["psx", "signals", "v4", symbol],
+    queryFn: () => fetchSignalV4(symbol!),
     enabled: !!symbol,
     staleTime: 300_000,
   });

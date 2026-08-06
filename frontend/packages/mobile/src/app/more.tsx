@@ -4,7 +4,7 @@
 // from the PSX tab. Mirrors the web app's macro/reference surfaces.
 import { Stack, useRouter } from "expo-router";
 import { useMemo } from "react";
-import { ActivityIndicator, Platform, Pressable, StyleSheet, View } from "react-native";
+import { ActivityIndicator, Platform, Pressable, ScrollView, StyleSheet, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { GlassScreen } from "@/components/glass/GlassScreen";
@@ -21,12 +21,16 @@ import {
   type LucideIcon,
   Newspaper,
   Percent,
+  ArrowRightLeft,
+  Sparkles,
 } from "@/lib/icons";
 import { fmtNum } from "@nafaiq/shared";
 
 const AVENIR = Platform.select({ ios: "Avenir-Heavy", default: fonts.sans });
 
 const LINKS: { label: string; desc: string; icon: LucideIcon; href: string }[] = [
+  { label: "AI Insights", desc: "Market, portfolio & finance intelligence", icon: Sparkles, href: "/ai-insights" },
+  { label: "Monetary Desk", desc: "Live FX, converter & bullion", icon: ArrowRightLeft, href: "/monetary" },
   { label: "Market News", desc: "Latest PSX headlines", icon: Newspaper, href: "/news" },
   { label: "Mutual Funds", desc: "MUFAP funds & NAV", icon: Landmark, href: "/funds" },
   { label: "Dividends", desc: "Payouts & ex-dates", icon: Coins, href: "/dividends" },
@@ -45,7 +49,7 @@ export default function MoreScreen() {
   const usd = useMemo(() => {
     const row = (fx.data ?? []).find((r) => (r.currency || "").toUpperCase().includes("USD"));
     if (!row) return null;
-    return row.selling ?? row.buying ?? null;
+    return row.sell ?? row.buy ?? null;
   }, [fx.data]);
 
   // Latest value per rate series (rows arrive newest-ish; keep first seen).
@@ -80,7 +84,7 @@ export default function MoreScreen() {
           </Text>
         </View>
 
-        <View style={styles.content}>
+        <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
           <View style={styles.group}>
             {LINKS.map((l, i) => {
               const Icon = l.icon;
@@ -125,7 +129,7 @@ export default function MoreScreen() {
                   <MacroStat
                     icon={Percent}
                     label="Policy Rate"
-                    value={policy.data?.rate != null ? `${fmtNum(policy.data.rate, 2)}%` : "—"}
+                    value={policy.data?.value != null ? `${fmtNum(policy.data.value, 2)}%` : "—"}
                     colors={colors}
                     styles={styles}
                   />
@@ -155,7 +159,7 @@ export default function MoreScreen() {
               </>
             )}
           </Card>
-        </View>
+        </ScrollView>
       </SafeAreaView>
     </GlassScreen>
   );

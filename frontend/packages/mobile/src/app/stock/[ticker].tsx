@@ -2,25 +2,27 @@
 // header, candlestick chart, stats grid (live fundamentals), technical setup,
 // recent announcements, actions. Live data via src/hooks/queries/use-market.ts.
 import { useLocalSearchParams } from "expo-router";
-import { useState } from "react";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, Alert, Linking, Pressable, StyleSheet, View, useWindowDimensions } from "react-native";
 
 import { Screen } from "@/components/Screen";
 import { CandlestickChart } from "@/components/charts/CandlestickChart";
+import { PriceLineChart } from "@/components/charts/PriceLineChart";
 import { AiReportSheet } from "@/components/ai/AiReportSheet";
 import { GlassSheet } from "@/components/glass/GlassSheet";
 import { Field } from "@/components/Modal";
-import { SignalContextTiles } from "@/components/psx/SignalContextTiles";
+import { SignalV4Panel } from "@/components/psx/SignalV4Panel";
 import { SignalTrackRecordCard } from "@/components/psx/SignalTrackRecordCard";
 import { Button, Card, Change, SignalBadge, Text } from "@/components/ui";
-import { Segmented } from "@/components/ui/controls";
+import { ChipRow, Segmented } from "@/components/ui/controls";
 import {
   usePsxAnnouncements,
   usePsxCompanyProfile,
   usePsxFundamentals,
   usePsxHistory,
   usePsxQuote,
-  usePsxSignalV2,
+  usePsxSignalV4,
   usePsxSymbols,
 } from "@/hooks/queries/use-market";
 import { useWatchlist } from "@/hooks/queries/use-watchlist";
@@ -32,7 +34,7 @@ import {
 } from "@/hooks/queries/use-portfolio";
 import { useSymbolDividends } from "@/hooks/queries/use-dividends";
 import { useAnnualFinancials, useQuarterlyFinancials } from "@/hooks/queries/use-financials";
-import { useFilings } from "@/hooks/queries/use-filings";
+import { useFilingDetail, useFilings, type Filing } from "@/hooks/queries/use-filings";
 import { useStockAnalysisReport } from "@/hooks/ai/use-stock-analysis-report";
 import { useLang } from "@/hooks/use-lang";
 import { useTheme } from "@/hooks/use-theme";
@@ -76,6 +78,8 @@ function formatTimeAgo(iso: string | null): string {
   return d.toLocaleDateString();
 }
 
+const RANGE_DAYS: Record<string, number> = { "1M": 30, "3M": 90, "6M": 180, "1Y": 365, "2Y": 730 };
+
 export default function StockDetailScreen() {
   const { ticker } = useLocalSearchParams<{ ticker: string }>();
   const { colors } = useTheme();
@@ -84,11 +88,14 @@ export default function StockDetailScreen() {
   const upper = (ticker ?? "HBL").toUpperCase();
 
   const { data: quote } = usePsxQuote(upper);
-  const { data: candles, isPending: candlesPending } = usePsxHistory(upper, 180);
+  const [range, setRange] = useState("6M");
+  const [chartType, setChartType] = useState<"Candles" | "Line">("Candles");
+  const [movingAverages, setMovingAverages] = useState<number[]>([50]);
+  const { data: candles, isPending: candlesPending } = usePsxHistory(upper, RANGE_DAYS[range]);
   const { data: profile } = usePsxCompanyProfile(upper);
   const { data: fundamentals } = usePsxFundamentals(upper);
   const { data: announcements, isPending: newsPending } = usePsxAnnouncements(upper, 5);
-  const { data: signal } = usePsxSignalV2(upper);
+  const signalV4 = usePsxSignalV4(upper);
   const { data: symbolsData } = usePsxSymbols();
   const wl = useWatchlist();
   const [wlBusy, setWlBusy] = useState(false);
@@ -107,15 +114,34 @@ export default function StockDetailScreen() {
   const price = quote?.price ?? null;
   const changePct = quote?.change_pct ?? null;
 
-  // Signal (v2 engine): the engine declines with "NO SIGNAL" rather than
-  // guessing — show no fake call in that case (same rule as web).
-  const modelReady = !!signal && signal.signal !== "NO SIGNAL";
-  const confidence = signal?.confidence ?? 0;
-  const keyDrivers =
-    signal?.indicator_votes
-      ?.slice(0, 3)
-      .map((v) => v.name)
-      .join(", ") ?? "";
+  const modelReady = signalV4.data?.technical_setup.status === "available";
+  const legacySignal = useMemo<Signal>(() => {
+    const rating = signalV4.data?.technical_setup.rating;
+    return rating === "Strong Bullish" ? "STRONG BUY" : rating === "Bullish" ? "BUY" : rating === "Bearish" ? "SELL" : rating === "Strong Bearish" ? "STRONG SELL" : "HOLD";
+  }, [signalV4.data?.technical_setup.rating]);
+  const maConfig = useMemo(() => movingAverages.map((period, index) => ({ period, color: colors.chart[index % colors.chart.length] })), [movingAverages, colors.chart]);
+
+  useEffect(() => {
+    const key = `stock-chart:${upper}`;
+    AsyncStorage.getItem(key).then((raw) => {
+      if (!raw) return;
+      try {
+        const saved = JSON.parse(raw) as { range?: string; chartType?: "Candles" | "Line"; movingAverages?: number[] };
+        if (saved.range && RANGE_DAYS[saved.range]) setRange(saved.range);
+        if (saved.chartType) setChartType(saved.chartType);
+        if (saved.movingAverages) setMovingAverages(saved.movingAverages);
+      } catch { /* ignore a corrupt local preference */ }
+    });
+  }, [upper]);
+
+  useEffect(() => {
+    void AsyncStorage.setItem(`stock-chart:${upper}`, JSON.stringify({ range, chartType, movingAverages }));
+  }, [upper, range, chartType, movingAverages]);
+
+  function toggleMa(label: string) {
+    const period = Number(label.replace("MA", ""));
+    setMovingAverages((current) => current.includes(period) ? current.filter((item) => item !== period) : [...current, period].sort((a, b) => a - b));
+  }
 
   const marketCap =
     profile?.listed_shares && price != null ? compactPKR(profile.listed_shares * price) : "—";
@@ -262,7 +288,7 @@ export default function StockDetailScreen() {
         </View>
         <View style={styles.between}>
           {modelReady ? (
-            <SignalBadge signal={signal!.signal as Signal} />
+            <SignalBadge signal={legacySignal} />
           ) : (
             <Text variant="muted">{t("Signal unavailable")}</Text>
           )}
@@ -272,12 +298,21 @@ export default function StockDetailScreen() {
               : t("Technical setup pending")}
           </Text>
         </View>
+        <ChipRow options={["1M", "3M", "6M", "1Y", "2Y"]} value={range} onChange={setRange} />
+        <Segmented options={["Candles", "Line"]} value={chartType} onChange={(value) => setChartType(value as "Candles" | "Line")} />
+        <View style={styles.maRow}>
+          {[20, 50, 100, 200].map((period) => (
+            <Pressable key={period} onPress={() => toggleMa(`MA${period}`)} style={[styles.maChip, { borderColor: movingAverages.includes(period) ? colors.primary : colors.border, backgroundColor: movingAverages.includes(period) ? colors.primary + "18" : colors.glassFill }]} accessibilityRole="button" accessibilityState={{ selected: movingAverages.includes(period) }}>
+              <Text style={{ color: movingAverages.includes(period) ? colors.primary : colors.textMuted, fontSize: 11, fontWeight: "700" }}>MA{period}</Text>
+            </Pressable>
+          ))}
+        </View>
         {candlesPending ? (
           <View style={styles.chartPlaceholder} accessibilityLabel={t("Loading chart data")}>
             <ActivityIndicator color={colors.primary} />
           </View>
         ) : candles && candles.length > 0 ? (
-          <CandlestickChart data={candles} width={width - 64} height={200} mas={[{ period: 50, color: colors.info }]} />
+          chartType === "Candles" ? <CandlestickChart data={candles} width={width - 64} height={200} mas={maConfig} /> : <PriceLineChart data={candles} width={width - 64} height={200} mas={maConfig} />
         ) : (
           <View style={styles.chartPlaceholder}>
             <Text variant="muted">{t("No chart data available.")}</Text>
@@ -301,45 +336,7 @@ export default function StockDetailScreen() {
         </View>
       </Card>
 
-      <Card style={{ gap: 8 }}>
-        <Text variant="title">{t("NafaIQ Technical Setup")}</Text>
-        {modelReady ? (
-          <>
-            <View style={[styles.verdict, { borderColor: colors.ai + "44" }]}>
-              <Text style={{ color: colors.ai, fontWeight: "700" }}>
-                {t("Overall")}: {t(signal!.signal)} · {t("Setup strength")} {Math.round(confidence)}%
-              </Text>
-              <Text variant="secondary">
-                {`${upper} — ${t("NafaIQ rates this technical setup")} ${t(signal!.signal)}. ${t("Key drivers")}: ${
-                  keyDrivers || t("technical indicators")
-                }.`}
-              </Text>
-            </View>
-            {signal!.reasons?.length ? (
-              <View style={{ gap: 4 }}>
-                {signal!.reasons.slice(0, 3).map((reason) => (
-                  <Text key={reason} variant="muted" numberOfLines={2}>
-                    · {reason}
-                  </Text>
-                ))}
-              </View>
-            ) : null}
-            <Text variant="muted" style={{ fontStyle: "italic" }}>
-              {t("Technical analysis only. Not financial advice.")}
-            </Text>
-          </>
-        ) : (
-          <View style={[styles.pending, { borderColor: colors.border }]}>
-            <Text variant="secondary" style={{ fontWeight: "600" }}>
-              {t("Signal unavailable — setup pending")}
-            </Text>
-            <Text variant="muted">
-              {t("NafaIQ has not produced a technical setup for this stock yet.")}
-            </Text>
-          </View>
-        )}
-        {signal ? <SignalContextTiles signal={signal} /> : null}
-      </Card>
+      <SignalV4Panel signal={signalV4.data} loading={signalV4.isPending} />
 
       {/* Audited hit rates of published signals — new v2 outcomes store */}
       <SignalTrackRecordCard />
@@ -457,6 +454,7 @@ export default function StockDetailScreen() {
           />
         ) : (
           <FilingsList
+            symbol={upper}
             loading={filings.isPending}
             error={!!filings.error}
             emptyLabel={t("No filings available for this symbol yet.")}
@@ -578,6 +576,7 @@ function TabTable({
 /** Per-symbol filings list. Rows deep-link to the original PDF (the list
  * endpoint omits the extracted body, so there is nothing to expand inline). */
 function FilingsList({
+  symbol,
   data,
   loading,
   error,
@@ -588,7 +587,8 @@ function FilingsList({
   pagesLabel,
   t,
 }: {
-  data: { announcement_id: string; type: string | null; filed_at: string | null; pdf_url: string | null; page_count: number | null }[];
+  symbol: string;
+  data: Filing[];
   loading: boolean;
   error: boolean;
   emptyLabel: string;
@@ -613,42 +613,29 @@ function FilingsList({
     );
   return (
     <View style={{ gap: 8 }}>
-      {data.map((f) => {
-        const title = `${t(f.type ?? "Filing")}`;
-        const meta = [
-          f.filed_at ? formatTimeAgo(f.filed_at) : null,
-          f.page_count != null ? `${f.page_count} ${pagesLabel}` : null,
-        ]
-          .filter(Boolean)
-          .join(" · ");
-        const inner = (
-          <>
-            <FileText color={iconColor} size={16} />
-            <View style={{ flex: 1, gap: 2 }}>
-              <Text variant="body" numberOfLines={2}>
-                {title}
-              </Text>
-              <Text variant="muted">{meta || "—"}</Text>
-            </View>
-            {f.pdf_url ? <ExternalLink color={linkColor} size={16} /> : null}
-          </>
-        );
-        return f.pdf_url ? (
-          <Pressable
-            key={f.announcement_id}
-            onPress={() => Linking.openURL(f.pdf_url!)}
-            accessibilityRole="link"
-            accessibilityLabel={`${title}. ${openLabel}`}
-            style={({ pressed }) => [styles.filingRow, pressed && { opacity: 0.7 }]}
-          >
-            {inner}
-          </Pressable>
-        ) : (
-          <View key={f.announcement_id} style={styles.filingRow}>
-            {inner}
-          </View>
-        );
-      })}
+      {data.map((f) => <FilingRow key={f.announcement_id} filing={f} symbol={symbol} iconColor={iconColor} linkColor={linkColor} openLabel={openLabel} pagesLabel={pagesLabel} t={t} />)}
+    </View>
+  );
+}
+
+function FilingRow({ filing, symbol, iconColor, linkColor, openLabel, pagesLabel, t }: { filing: Filing; symbol: string; iconColor: string; linkColor: string; openLabel: string; pagesLabel: string; t: (key: string) => string }) {
+  const [open, setOpen] = useState(false);
+  const detail = useFilingDetail(symbol, open ? filing.announcement_id : undefined);
+  const title = t(filing.type ?? "Filing");
+  const meta = [filing.filed_at ? formatTimeAgo(filing.filed_at) : null, filing.page_count != null ? `${filing.page_count} ${pagesLabel}` : null].filter(Boolean).join(" · ");
+  return (
+    <View style={styles.filingWrap}>
+      <Pressable onPress={() => setOpen((value) => !value)} accessibilityRole="button" accessibilityState={{ expanded: open }} style={({ pressed }) => [styles.filingRow, pressed && { opacity: 0.7 }]}>
+        <FileText color={iconColor} size={16} />
+        <View style={{ flex: 1, gap: 2 }}><Text numberOfLines={2}>{title}</Text><Text variant="muted">{meta || "—"}</Text></View>
+        <Text style={{ color: linkColor, fontSize: 11, fontWeight: "700" }}>{open ? "Close" : "Read"}</Text>
+      </Pressable>
+      {open ? (
+        <View style={{ gap: 8 }}>
+          {detail.isPending ? <ActivityIndicator color={linkColor} /> : detail.isError ? <><Text variant="muted">Could not load the extracted filing text.</Text><Button title="Retry" variant="ghost" onPress={() => detail.refetch()} /></> : <Text variant="secondary" selectable style={{ fontSize: 12, lineHeight: 18 }}>{detail.data?.text_content?.slice(0, 4000) || "No extracted text is available for this filing."}{(detail.data?.text_content?.length ?? 0) > 4000 ? "\n\n… truncated" : ""}</Text>}
+          {filing.pdf_url ? <Button title={openLabel} variant="outline" onPress={() => Linking.openURL(filing.pdf_url!)} icon={<ExternalLink color={linkColor} size={15} />} /> : null}
+        </View>
+      ) : null}
     </View>
   );
 }
@@ -658,6 +645,8 @@ const styles = StyleSheet.create({
   statGrid: { flexDirection: "row", flexWrap: "wrap" },
   statCell: { width: "25%", paddingVertical: 6, gap: 2 },
   chartPlaceholder: { height: 200, alignItems: "center", justifyContent: "center" },
+  maRow: { flexDirection: "row", flexWrap: "wrap", gap: 7 },
+  maChip: { borderWidth: 1, borderRadius: 999, paddingHorizontal: 10, paddingVertical: 5 },
   verdict: { borderWidth: 1, borderRadius: 10, padding: 10, gap: 4, marginTop: 4 },
   pending: { borderWidth: 1, borderStyle: "dashed", borderRadius: 10, padding: 12, gap: 4, alignItems: "center" },
   newsRow: { gap: 2, minHeight: 44, justifyContent: "center" },
@@ -667,4 +656,5 @@ const styles = StyleSheet.create({
   cell: { flex: 1.1 },
   cellRight: { flex: 1, textAlign: "right" },
   filingRow: { flexDirection: "row", alignItems: "center", gap: 10, minHeight: 44, paddingVertical: 4 },
+  filingWrap: { gap: 8, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: "rgba(148,163,184,0.16)", paddingBottom: 8 },
 });

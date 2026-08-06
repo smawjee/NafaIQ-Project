@@ -9,7 +9,10 @@ export interface Fund {
   fund_code: string;
   name: string;
   category: string | null;
-  nav: number | null;
+  latest_nav: number | null;
+  nav_date?: string | null;
+  shariah?: boolean | null;
+  aum?: number | null;
   amc?: string | null;
   fund_type?: string | null;
   [key: string]: unknown;

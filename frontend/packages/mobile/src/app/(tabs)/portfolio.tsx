@@ -56,6 +56,7 @@ export default function PortfolioScreen() {
   const { width } = useWindowDimensions();
   const chartW = width - 64;
   const [range, setRange] = useState("6M");
+  const [allocationMode, setAllocationMode] = useState<"Sector" | "Stock">("Sector");
 
   const { user } = useAuth();
   const isLoggedIn = !!user;
@@ -78,6 +79,7 @@ export default function PortfolioScreen() {
     isLoggedIn,
   );
   const { data: allocationData } = usePortfolioAllocation("sector", isLoggedIn);
+  const { data: stockAllocationData } = usePortfolioAllocation("stock", isLoggedIn);
   // Per-symbol sector labels from /api/symbols (web Portfolio.tsx sectorMap).
   const { data: symbols } = usePsxSymbols();
   const sectorMap = useMemo(
@@ -140,6 +142,17 @@ export default function PortfolioScreen() {
       })),
     [allocationData, colors.chart],
   );
+  const stockAllocation = useMemo<(DonutSegment & { pct: number })[]>(
+    () =>
+      (stockAllocationData?.items ?? []).map((it, i) => ({
+        label: it.symbol ?? it.sector ?? "Other",
+        value: it.value ?? 0,
+        pct: it.pct ?? 0,
+        color: colors.chart[i % colors.chart.length],
+      })),
+    [stockAllocationData, colors.chart],
+  );
+  const visibleAllocation = allocationMode === "Sector" ? allocation : stockAllocation;
 
   const saving =
     addHoldingApi.isPending || updateHoldingApi.isPending || createPortfolio.isPending;
@@ -351,12 +364,13 @@ export default function PortfolioScreen() {
         </View>
       </GlassCard>
 
-      {allocation.length > 0 && (
+      {(allocation.length > 0 || stockAllocation.length > 0) && (
         <GlassCard style={{ alignItems: "center", gap: 12, padding: 16 }}>
-          <Text variant="title" style={{ alignSelf: "flex-start" }}>Allocation by Sector</Text>
-          <DonutChart segments={allocation} size={190} strokeWidth={20} centerLabel={fmtPKR(totals.value)} centerSub="value" />
+          <Text variant="title" style={{ alignSelf: "flex-start" }}>Portfolio Allocation</Text>
+          <View style={{ alignSelf: "stretch" }}><Segmented options={["Sector", "Stock"]} value={allocationMode} onChange={(value) => setAllocationMode(value as "Sector" | "Stock")} /></View>
+          <DonutChart segments={visibleAllocation} size={190} strokeWidth={20} centerLabel={fmtPKR(totals.value)} centerSub="value" />
           <View style={{ gap: 6, alignSelf: "stretch" }}>
-            {allocation.map((a) => (
+            {visibleAllocation.map((a) => (
               <View key={a.label} style={styles.between}>
                 <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
                   <View style={{ width: 10, height: 10, borderRadius: 2, backgroundColor: a.color }} />

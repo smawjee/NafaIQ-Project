@@ -19,11 +19,24 @@ export interface Filing {
   [key: string]: unknown;
 }
 
+export interface FilingDetail extends Filing {
+  text_content: string | null;
+}
+
 export function useFilings(symbol: string | undefined, limit = 50) {
   return useQuery<Filing[]>({
     queryKey: ["filings", symbol, limit],
     queryFn: () => publicGet<Filing[]>(`/api/filings/${symbol}?limit=${limit}`),
     enabled: !!symbol,
     staleTime: 5 * 60 * 1000,
+  });
+}
+
+export function useFilingDetail(symbol: string, announcementId: string | undefined) {
+  return useQuery<FilingDetail>({
+    queryKey: ["filings", symbol, "detail", announcementId],
+    queryFn: () => publicGet<FilingDetail>(`/api/filings/${symbol}/${announcementId}`),
+    enabled: !!symbol && !!announcementId,
+    staleTime: 30 * 60_000,
   });
 }

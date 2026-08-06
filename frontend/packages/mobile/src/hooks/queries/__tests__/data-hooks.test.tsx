@@ -20,12 +20,15 @@ import { useCreatePriceAlert, useDeletePriceAlert, usePriceAlerts } from "@/hook
 import { useLatestNews, useNews } from "@/hooks/queries/use-news";
 import { useFundNav, useFunds } from "@/hooks/queries/use-funds";
 import { useDividends, useSymbolDividends } from "@/hooks/queries/use-dividends";
-import { useMacroFx, useMacroRates, usePolicyRate } from "@/hooks/queries/use-macro";
+import { useMacroFx, useMacroRates, useMonetarySnapshot, usePolicyRate } from "@/hooks/queries/use-macro";
 import { useNotificationPrefs, useUpdateNotificationPrefs } from "@/hooks/queries/use-notification-prefs";
 import { useFinanceSettings, useUpdateFinanceSettings } from "@/hooks/queries/use-finance-settings";
 import { useCalculateZakat, useUpdateZakatSettings, useZakatHistory, useZakatSettings } from "@/hooks/queries/use-zakat";
 import { useAnnualFinancials, useQuarterlyFinancials } from "@/hooks/queries/use-financials";
-import { useFilings } from "@/hooks/queries/use-filings";
+import { useFilingDetail, useFilings } from "@/hooks/queries/use-filings";
+import { useDeleteAllFinance } from "@/hooks/queries/use-finance";
+import { useCreateBugReport, useMyBugReports } from "@/hooks/queries/use-support";
+import { usePlatformFlags } from "@/hooks/queries/use-platform-flags";
 
 const mUserGet = userGet as jest.Mock;
 const mUserPost = userPost as jest.Mock;
@@ -123,6 +126,13 @@ describe("public market hooks", () => {
     expect(mPublicGet).toHaveBeenCalledWith("/api/macro/rates?limit=12");
   });
 
+  it("loads the live monetary snapshot", async () => {
+    mPublicGet.mockResolvedValue({ usd_pkr: 280, currencies: [], metals: [] });
+    const { result } = renderHook(() => useMonetarySnapshot(), { wrapper: wrapper() });
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(mPublicGet).toHaveBeenCalledWith("/api/macro/monetary");
+  });
+
   it("financials + filings hit their endpoints", async () => {
     mPublicGet.mockResolvedValue([]);
     renderHook(() => useAnnualFinancials("HBL"), { wrapper: wrapper() });
@@ -131,6 +141,43 @@ describe("public market hooks", () => {
     await waitFor(() => expect(mPublicGet).toHaveBeenCalledWith(expect.stringContaining("/api/financials/HBL/annual")));
     expect(mPublicGet).toHaveBeenCalledWith(expect.stringContaining("/api/financials/HBL/quarterly"));
     expect(mPublicGet).toHaveBeenCalledWith(expect.stringContaining("/api/filings/HBL"));
+  });
+
+  it("loads extracted filing text from the detail endpoint", async () => {
+    mPublicGet.mockResolvedValue({ announcement_id: "A-1", text_content: "Annual report" });
+    const { result } = renderHook(() => useFilingDetail("HBL", "A-1"), { wrapper: wrapper() });
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(mPublicGet).toHaveBeenCalledWith("/api/filings/HBL/A-1");
+  });
+});
+
+describe("consumer parity hooks", () => {
+  it("reads platform flags with consumer-safe values", async () => {
+    mPublicGet.mockResolvedValue({ registration_enabled: false, maintenance_mode: true });
+    const { result } = renderHook(() => usePlatformFlags(), { wrapper: wrapper() });
+    await waitFor(() => expect(result.current.maintenanceMode).toBe(true));
+    expect(result.current.registrationEnabled).toBe(false);
+    expect(mPublicGet).toHaveBeenCalledWith("/api/platform/flags");
+  });
+
+  it("reads and submits the caller's bug reports", async () => {
+    mUserGet.mockResolvedValue([]);
+    mUserPost.mockResolvedValue({ id: 1 });
+    const mine = renderHook(() => useMyBugReports(true), { wrapper: wrapper() });
+    await waitFor(() => expect(mine.result.current.isSuccess).toBe(true));
+    expect(mUserGet).toHaveBeenCalledWith("/api/support/bug-reports");
+    const create = renderHook(() => useCreateBugReport(), { wrapper: wrapper() });
+    await act(async () => {
+      await create.result.current.mutateAsync({ title: "Wrong total", description: "The total does not match holdings", category: "data", route: "/portfolio" });
+    });
+    expect(mUserPost).toHaveBeenCalledWith("/api/support/bug-reports", expect.objectContaining({ title: "Wrong total", route: "/portfolio" }));
+  });
+
+  it("bulk-deletes a selected finance entity", async () => {
+    mUserDelete.mockResolvedValue({ deleted: 4 });
+    const { result } = renderHook(() => useDeleteAllFinance(), { wrapper: wrapper() });
+    await act(async () => { await result.current.mutateAsync("budgets"); });
+    expect(mUserDelete).toHaveBeenCalledWith("/api/finance/budgets");
   });
 });
 

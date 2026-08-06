@@ -36,6 +36,7 @@ import { Logo } from "@/components/Logo";
 import { Text } from "@/components/ui";
 import { colors, fonts, radii } from "@/constants/theme";
 import { useAuth } from "@/hooks/use-auth";
+import { usePlatformFlags } from "@/hooks/queries/use-platform-flags";
 import { Activity, ArrowRight, Eye, EyeOff, ShieldCheck, Sparkles } from "@/lib/icons";
 
 const bgSource = require("../../../assets/generated/landing-bg.webp");
@@ -46,6 +47,7 @@ type Mode = "signin" | "signup";
 
 export function AuthExperience({ intro = false }: { intro?: boolean }) {
   const { signInWithPassword, signUpWithPassword, signInWithGoogle } = useAuth();
+  const { registrationEnabled, maintenanceMode } = usePlatformFlags();
   const { width: winW, height } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const keyboard = useAnimatedKeyboard();
@@ -154,13 +156,23 @@ export function AuthExperience({ intro = false }: { intro?: boolean }) {
 
   async function submit() {
     if (busy) return;
+    if (maintenanceMode) return Alert.alert("NafaIQ is under maintenance", "Please try again shortly.");
     setBusy(true);
     try {
       if (mode === "signup") {
+        if (!registrationEnabled) return Alert.alert("Registration is currently closed");
         if (name.trim().length < 2) return Alert.alert("Please enter your name");
-        const { error } = await signUpWithPassword(email.trim(), password, name.trim());
+        const passwordValid =
+          password.length >= 8 && /[A-Z]/.test(password) && /\d/.test(password) && /[^A-Za-z0-9]/.test(password);
+        if (!passwordValid) return Alert.alert("Choose a stronger password", "Use 8+ characters with an uppercase letter, number, and special character.");
+        const { error, needsConfirmation } = await signUpWithPassword(email.trim(), password, name.trim());
         if (error) return Alert.alert("Sign up failed", error);
-        Alert.alert("Account created — welcome to NafaIQ!");
+        if (needsConfirmation) {
+          setMode("signin");
+          Alert.alert("Check your email", "Confirm your email address, then return here to sign in.");
+        } else {
+          Alert.alert("Account created — welcome to NafaIQ!");
+        }
       } else {
         const { error } = await signInWithPassword(email.trim(), password);
         if (error) return Alert.alert("Sign in failed", error);
@@ -172,6 +184,7 @@ export function AuthExperience({ intro = false }: { intro?: boolean }) {
 
   async function google() {
     if (busy) return;
+    if (maintenanceMode) return Alert.alert("NafaIQ is under maintenance", "Please try again shortly.");
     setBusy(true);
     const { error } = await signInWithGoogle();
     if (error) Alert.alert("Google sign-in failed", error);
@@ -229,9 +242,23 @@ export function AuthExperience({ intro = false }: { intro?: boolean }) {
               {isSignup ? "Start your journey with intelligent PSX insights." : "Sign in to your NafaIQ terminal."}
             </Text>
 
+            {maintenanceMode ? (
+              <View style={styles.notice}>
+                <Text style={styles.noticeTitle}>Scheduled maintenance</Text>
+                <Text variant="secondary" style={{ fontSize: 12 }}>The terminal is temporarily unavailable. Your data remains secure.</Text>
+              </View>
+            ) : null}
+
+            {isSignup && !registrationEnabled ? (
+              <View style={styles.notice}>
+                <Text style={styles.noticeTitle}>Registration is currently closed</Text>
+                <Text variant="secondary" style={{ fontSize: 12 }}>Existing members can still sign in.</Text>
+              </View>
+            ) : null}
+
             <GlassCard radius={radii.card} intensity={26} style={styles.card}>
               <View style={styles.cardInner}>
-                <GlassButton label="Continue with Google" onPress={google} disabled={busy} />
+                <GlassButton label="Continue with Google" onPress={google} disabled={busy || maintenanceMode} />
 
                 <View style={styles.divider}>
                   <View style={styles.line} />
@@ -254,10 +281,13 @@ export function AuthExperience({ intro = false }: { intro?: boolean }) {
                 />
                 <PasswordField value={password} onChangeText={setPassword} />
 
+                {isSignup ? <PasswordChecklist password={password} /> : null}
+
                 <PrimaryButton
                   label={isSignup ? "Create account" : "Sign in"}
                   onPress={submit}
                   loading={busy}
+                  disabled={maintenanceMode || (isSignup && !registrationEnabled)}
                 />
               </View>
             </GlassCard>
@@ -272,13 +302,15 @@ export function AuthExperience({ intro = false }: { intro?: boolean }) {
               <Text variant="secondary">
                 {isSignup ? "Already have an account?" : "Don't have an account?"}
               </Text>
-              <Text
-                onPress={() => setMode(isSignup ? "signin" : "signup")}
-                style={styles.switchLink}
-                accessibilityRole="button"
-              >
-                {isSignup ? "Sign in" : "Sign up"}
-              </Text>
+              {(isSignup || registrationEnabled) ? (
+                <Text
+                  onPress={() => setMode(isSignup ? "signin" : "signup")}
+                  style={styles.switchLink}
+                  accessibilityRole="button"
+                >
+                  {isSignup ? "Sign in" : "Sign up"}
+                </Text>
+              ) : null}
             </View>
           </ScrollView>
         </Animated.View>
@@ -349,15 +381,33 @@ function PasswordField({ value, onChangeText }: { value: string; onChangeText: (
   );
 }
 
-function PrimaryButton({ label, onPress, loading }: { label: string; onPress: () => void; loading?: boolean }) {
+function PasswordChecklist({ password }: { password: string }) {
+  const checks = [
+    [password.length >= 8, "8 or more characters"],
+    [/[A-Z]/.test(password), "Uppercase letter"],
+    [/\d/.test(password), "Number"],
+    [/[^A-Za-z0-9]/.test(password), "Special character"],
+  ] as const;
+  return (
+    <View style={styles.checks}>
+      {checks.map(([ok, label]) => (
+        <Text key={label} style={{ color: ok ? colors.primary : colors.textMuted, fontSize: 11 }}>
+          {ok ? "✓" : "○"} {label}
+        </Text>
+      ))}
+    </View>
+  );
+}
+
+function PrimaryButton({ label, onPress, loading, disabled }: { label: string; onPress: () => void; loading?: boolean; disabled?: boolean }) {
   return (
     <Pressable
       onPress={onPress}
-      disabled={loading}
+      disabled={loading || disabled}
       accessibilityRole="button"
       accessibilityLabel={label}
-      accessibilityState={{ busy: loading, disabled: loading }}
-      style={({ pressed }) => [styles.primaryBtn, (pressed || loading) && { opacity: 0.9, transform: [{ scale: 0.99 }] }]}
+      accessibilityState={{ busy: loading, disabled: loading || disabled }}
+      style={({ pressed }) => [styles.primaryBtn, (pressed || loading || disabled) && { opacity: 0.55, transform: [{ scale: 0.99 }] }]}
     >
       <LinearGradient
         colors={["#2DF2C4", colors.primary]}
@@ -414,13 +464,15 @@ const styles = StyleSheet.create({
 
   graphWrap: { position: "absolute", left: 22, right: 22, bottom: "10%", alignItems: "center" },
   taglineWrap: { position: "absolute", left: 0, right: 0, bottom: "26%", alignItems: "center" },
-  tagline1: { fontSize: 27, fontWeight: "700", color: colors.textPrimary, letterSpacing: 0.5, fontFamily: fonts.sans },
-  tagline2: { fontSize: 31, fontWeight: "800", color: colors.primary, letterSpacing: 0.5, marginTop: 2, fontFamily: fonts.sans },
+  tagline1: { fontSize: 27, fontWeight: "700", color: colors.textPrimary, letterSpacing: 0.5, fontFamily: fonts.heading },
+  tagline2: { fontSize: 31, fontWeight: "800", color: colors.primary, letterSpacing: 0.5, marginTop: 2, fontFamily: fonts.heading },
 
   formWrap: { position: "absolute", left: 0, right: 0, bottom: 0 },
   formContent: { paddingHorizontal: 22, paddingTop: 24, gap: 6 },
-  title: { fontSize: 30, fontWeight: "800", color: colors.textPrimary, letterSpacing: -0.5, fontFamily: fonts.sans },
+  title: { fontSize: 30, fontWeight: "800", color: colors.textPrimary, letterSpacing: -0.5, fontFamily: fonts.heading },
   subtitle: { marginTop: 2, marginBottom: 18 },
+  notice: { borderWidth: 1, borderColor: colors.warning + "55", backgroundColor: colors.warning + "12", borderRadius: 12, padding: 12, gap: 3, marginBottom: 8 },
+  noticeTitle: { color: colors.warning, fontFamily: fonts.headingMedium, fontWeight: "700", fontSize: 13 },
 
   card: {},
   cardInner: { padding: 18, gap: 14 },
@@ -438,6 +490,7 @@ const styles = StyleSheet.create({
   },
   pwRow: { flexDirection: "row", alignItems: "center" },
   pwToggle: { paddingHorizontal: 14, height: 50, alignItems: "center", justifyContent: "center" },
+  checks: { flexDirection: "row", flexWrap: "wrap", columnGap: 12, rowGap: 5 },
 
   primaryBtn: {
     minHeight: 52,

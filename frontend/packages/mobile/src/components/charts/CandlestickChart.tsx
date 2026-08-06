@@ -4,7 +4,7 @@ import { useMemo } from "react";
 import { View } from "react-native";
 import Svg, { G, Line, Polyline, Rect } from "react-native-svg";
 
-import { colors } from "@/constants/theme";
+import { useTheme } from "@/hooks/use-theme";
 import type { Candle } from "@nafaiq/shared";
 import { sma } from "@nafaiq/shared";
 
@@ -23,6 +23,7 @@ export function CandlestickChart({
   mas?: MA[];
   showVolume?: boolean;
 }) {
+  const { colors } = useTheme();
   const volH = showVolume ? Math.round(height * 0.18) : 0;
   const priceH = height - volH - (showVolume ? 6 : 0);
 

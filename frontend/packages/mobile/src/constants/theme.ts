@@ -114,9 +114,24 @@ export const radii = { badge: 4, btn: 8, card: 14, modal: 14, full: 999 } as con
 export const spacing = { xs: 4, sm: 8, md: 12, lg: 16, xl: 24, "2xl": 32 } as const;
 
 export const fonts = Platform.select({
-  ios: { sans: "system-ui", mono: "ui-monospace", urdu: "Noto Nastaliq Urdu" },
-  default: { sans: "Inter", mono: "JetBrains Mono", urdu: "Noto Nastaliq Urdu" },
-}) as { sans: string; mono: string; urdu: string };
+  ios: {
+    sans: "system-ui",
+    heading: "Avenir-Heavy",
+    headingMedium: "Avenir-Medium",
+    mono: "ui-monospace",
+    urdu: "Noto Nastaliq Urdu",
+  },
+  // Avenir is bundled by iOS. Android uses the existing app sans fallback
+  // until a licensed Avenir asset is supplied; keeping this token central
+  // prevents individual screens from silently choosing a default font.
+  default: {
+    sans: "Inter",
+    heading: "Inter",
+    headingMedium: "Inter",
+    mono: "JetBrains Mono",
+    urdu: "Noto Nastaliq Urdu",
+  },
+}) as { sans: string; heading: string; headingMedium: string; mono: string; urdu: string };
 
 export const Colors = {
   light: { text: lightColors.textPrimary, background: lightColors.background, tint: lightColors.primary },
