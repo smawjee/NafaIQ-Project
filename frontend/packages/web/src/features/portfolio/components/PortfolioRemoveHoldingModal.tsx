@@ -88,7 +88,7 @@ export function PortfolioRemoveHoldingModal({
         <div className="flex items-center gap-2 rounded-[8px] border border-border bg-surface px-3 py-2">
           <StockLogo symbol={target.symbol} size={22} />
           <span className="text-sm font-semibold text-bull">{target.symbol}</span>
-          <span className="ml-auto text-[11px] text-text-muted">
+          <span className="ms-auto text-[11px] text-text-muted">
             {fmtNum(target.shares)} {t("shares")} @ {fmtNum(target.avgCost)}
           </span>
         </div>

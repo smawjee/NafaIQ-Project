@@ -10,6 +10,7 @@ import { FloatingInput } from "@/features/auth/components/FloatingInput";
 import { PasswordStrength } from "@/features/auth/components/PasswordStrength";
 import { MIN_PASSWORD_LENGTH } from "@/features/auth/password-rules";
 import { requestPasswordReset, setNewPassword, verifyRecoveryCode } from "@/lib/auth/recovery";
+import { useLang } from "@/hooks/use-lang";
 
 type Step = "email" | "code" | "password";
 
@@ -31,6 +32,7 @@ const MAX_CODE_ATTEMPTS = 5;
  *    otherwise redirect them to the dashboard mid-flow.
  */
 export function ForgotPasswordPanel({ onBackToSignIn }: { onBackToSignIn: () => void }) {
+  const { t } = useLang();
   const { setRecoveryInProgress } = useAuth();
 
   const [step, setStep] = useState<Step>("email");
@@ -202,7 +204,7 @@ export function ForgotPasswordPanel({ onBackToSignIn }: { onBackToSignIn: () => 
         <form onSubmit={submitCode} className="space-y-4">
           <div className="space-y-1.5">
             <label htmlFor="reset-code" className="text-xs font-medium text-text-muted">
-              Verification code
+              {t("Verification code")}
             </label>
             <input
               id="reset-code"
@@ -278,13 +280,14 @@ export function ForgotPasswordPanel({ onBackToSignIn }: { onBackToSignIn: () => 
         className="group mx-auto flex items-center gap-1.5 text-sm text-text-muted transition-colors duration-200 hover:text-text-primary"
       >
         <ArrowLeft className="h-3.5 w-3.5 transition-transform duration-200 group-hover:-translate-x-0.5" />
-        Back to sign in
+        {t("Back to sign in")}
       </button>
     </motion.div>
   );
 }
 
 function SubmitButton({ busy, label }: { busy: boolean; label: string }) {
+  const { t } = useLang();
   return (
     <button
       type="submit"
@@ -295,7 +298,7 @@ function SubmitButton({ busy, label }: { busy: boolean; label: string }) {
         <Loader2 className="h-5 w-5 animate-spin" />
       ) : (
         <>
-          {label}
+          {t(label)}
           <ArrowRight className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-0.5" />
         </>
       )}

@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import logo from "@/assets/logo.png";
 import { Magnetic, SPRING_UI } from "@/components/shared/animations";
+import { LangToggle } from "@/features/landing/components/LangToggle";
 import { ThemeToggle } from "@/components/shared/ThemeToggle";
 import { useAuth } from "@/hooks/use-auth";
 import { useDemo } from "@/hooks/use-demo";
@@ -13,8 +14,10 @@ import { useLandingTheme } from "@/hooks/use-landing-theme";
 import { NAV_LINKS } from "@/features/landing/landing.data";
 import { StatusPill } from "@/features/landing/components/StatusPill";
 import { NavSearch } from "@/features/landing/components/NavSearch";
+import { useLang } from "@/hooks/use-lang";
 
 export function Nav() {
+  const { t } = useLang();
   const { user } = useAuth();
   const { signInAsDemo } = useDemo();
   const { theme, toggleTheme } = useLandingTheme();
@@ -53,7 +56,7 @@ export function Nav() {
             className="rounded-[7px] ring-1 ring-bull/30"
           />
           <span className="font-display text-lg font-bold tracking-tight text-text-primary">
-            Nafa<span className="text-primary">IQ</span>
+            Nafa<span className="text-primary">{t("IQ")}</span>
           </span>
         </Link>
 
@@ -67,7 +70,7 @@ export function Nav() {
                 className="group relative overflow-hidden rounded-full px-2.5 py-1.5 text-sm font-medium whitespace-nowrap text-text-secondary transition-colors hover:bg-white/[0.06] hover:text-text-primary"
               >
                 <span className="absolute left-1/2 top-0 h-[2px] w-0 -translate-x-1/2 rounded-full bg-primary shadow-[0_0_10px_1px_var(--color-primary)] transition-all duration-300 group-hover:w-2/3" />
-                {l.label}
+                {t(l.label)}
               </Link>
             ) : (
               <a
@@ -76,14 +79,14 @@ export function Nav() {
                 className="group relative overflow-hidden rounded-full px-2.5 py-1.5 text-sm font-medium whitespace-nowrap text-text-secondary transition-colors hover:bg-white/[0.06] hover:text-text-primary"
               >
                 <span className="absolute left-1/2 top-0 h-[2px] w-0 -translate-x-1/2 rounded-full bg-primary shadow-[0_0_10px_1px_var(--color-primary)] transition-all duration-300 group-hover:w-2/3" />
-                {l.label}
+                {t(l.label)}
               </a>
             ),
           )}
         </nav>
 
         {/* utility cluster — right */}
-        <div className="ml-auto flex items-center gap-2.5 sm:gap-3 md:ml-0">
+        <div className="ms-auto flex items-center gap-2.5 sm:gap-3 md:ms-0">
           <div className="hidden items-center gap-3 lg:flex">
             <StatusPill />
             <NavSearch />
@@ -91,13 +94,18 @@ export function Nav() {
           {!user && (
             <Link
               to="/auth"
-              className="hidden whitespace-nowrap pl-1 text-[13px] font-normal text-text-secondary transition-colors hover:text-text-primary md:inline lg:border-l lg:border-white/[0.08] lg:pl-3"
+              className="hidden whitespace-nowrap ps-1 text-[13px] font-normal text-text-secondary transition-colors hover:text-text-primary md:inline lg:border-s lg:border-white/[0.08] lg:ps-3"
             >
-              Log In
+              {t("Log In")}
             </Link>
           )}
 
-          {/* Theme toggle — dark/light (mobile accesses it in the drawer) */}
+          {/* Language + theme toggles. The language switch has to live here:
+              Settings is behind auth, so this is a signed-out visitor's only
+              way to reach the Urdu site. */}
+          <div className="hidden md:block">
+            <LangToggle />
+          </div>
           <div className="hidden md:block">
             <ThemeToggle isDark={isDark} onToggle={toggleTheme} />
           </div>
@@ -137,7 +145,7 @@ export function Nav() {
                     }}
                     className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-full border border-white/[0.12] bg-surface/60 px-4 py-2 text-sm font-medium text-text-secondary backdrop-blur-sm transition hover:border-white/[0.24] hover:text-text-primary"
                   >
-                    Try Demo
+                    {t("Try Demo")}
                   </button>
                 </motion.div>
               </Magnetic>
@@ -170,7 +178,7 @@ export function Nav() {
                   onClick={() => setOpen(false)}
                   className="rounded-[12px] px-4 py-4 text-lg font-medium whitespace-nowrap text-text-primary transition hover:bg-white/[0.05]"
                 >
-                  {l.label}
+                  {t(l.label)}
                 </Link>
               ) : (
                 <a
@@ -179,7 +187,7 @@ export function Nav() {
                   onClick={() => setOpen(false)}
                   className="rounded-[12px] px-4 py-4 text-lg font-medium whitespace-nowrap text-text-primary transition hover:bg-white/[0.05]"
                 >
-                  {l.label}
+                  {t(l.label)}
                 </a>
               ),
             )}
@@ -189,14 +197,18 @@ export function Nav() {
                 onClick={() => setOpen(false)}
                 className="rounded-[12px] px-4 py-4 text-lg font-medium whitespace-nowrap text-text-secondary transition hover:bg-white/[0.05]"
               >
-                Log In
+                {t("Log In")}
               </Link>
             )}
             <div className="flex items-center justify-between px-4 py-3">
               <span className="text-base font-medium text-text-secondary">
-                {isDark ? "Dark mode" : "Light mode"}
+                {isDark ? t("Dark mode") : t("Light mode")}
               </span>
               <ThemeToggle isDark={isDark} onToggle={toggleTheme} />
+            </div>
+            <div className="flex items-center justify-between px-4 py-3">
+              <span className="text-base font-medium text-text-secondary">{t("Language")}</span>
+              <LangToggle />
             </div>
             <div className="flex items-center px-4 py-3">
               <StatusPill />
@@ -215,7 +227,7 @@ export function Nav() {
                 }}
                 className="flex items-center justify-center gap-1 rounded-full border border-white/[0.14] bg-surface/60 px-4 py-4 text-base font-medium text-text-secondary transition hover:border-white/[0.24] hover:text-text-primary"
               >
-                Try Demo
+                {t("Try Demo")}
               </button>
             )}
             <Link

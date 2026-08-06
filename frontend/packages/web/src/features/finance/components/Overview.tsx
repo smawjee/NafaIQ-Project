@@ -151,7 +151,7 @@ export function Overview() {
           <div className="badge-positive mb-4 flex h-9 w-9 items-center justify-center rounded-[10px]">
             <ArrowUpRight className="h-5 w-5 text-bull" />
           </div>
-          <KpiLabel>Total Monthly Income</KpiLabel>
+          <KpiLabel>{t("Total Monthly Income")}</KpiLabel>
           <div
             dir="ltr"
             className="mt-1 font-mono text-lg font-semibold tracking-tight text-bull tabular-nums sm:text-xl"
@@ -197,7 +197,7 @@ export function Overview() {
           <div className="badge-negative mb-4 flex h-9 w-9 items-center justify-center rounded-[10px]">
             <ArrowDownRight className="h-5 w-5 text-bear" />
           </div>
-          <KpiLabel>Total Expenses</KpiLabel>
+          <KpiLabel>{t("Total Expenses")}</KpiLabel>
           <div
             dir="ltr"
             className="mt-1 font-mono text-lg font-semibold tracking-tight text-bear tabular-nums sm:text-xl"
@@ -229,7 +229,7 @@ export function Overview() {
           <div className="badge-neutral mb-4 flex h-9 w-9 items-center justify-center rounded-[10px]">
             <PiggyBank className="h-5 w-5 text-ai" />
           </div>
-          <KpiLabel>Net Savings</KpiLabel>
+          <KpiLabel>{t("Net Savings")}</KpiLabel>
           <div
             dir="ltr"
             className="kpi-value-neutral mt-1 font-mono text-lg font-semibold tracking-tight text-ai tabular-nums sm:text-xl"
@@ -260,7 +260,7 @@ export function Overview() {
           <div className="badge-neutral mb-4 flex h-9 w-9 items-center justify-center rounded-[10px]">
             <Percent className="h-5 w-5 text-warning" />
           </div>
-          <KpiLabel>Savings Rate</KpiLabel>
+          <KpiLabel>{t("Savings Rate")}</KpiLabel>
           <div
             dir="ltr"
             className="kpi-value-neutral mt-1 font-mono text-lg font-semibold tracking-tight text-warning tabular-nums sm:text-xl"

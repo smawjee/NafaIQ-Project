@@ -24,6 +24,9 @@ export function IncomeExpenseChart({
         <CartesianGrid stroke={ct.grid} vertical={false} />
         <XAxis
           dataKey="month"
+          // Demo series carries bare month names ("Jan"); the API sends
+          // "YYYY-MM", which has no dictionary entry and passes through.
+          tickFormatter={(v) => t(String(v))}
           tick={{ fill: ct.tick, fontSize: 11 }}
           axisLine={{ stroke: ct.grid }}
           tickLine={false}

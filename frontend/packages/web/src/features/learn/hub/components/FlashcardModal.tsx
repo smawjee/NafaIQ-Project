@@ -87,7 +87,7 @@ export function FlashcardModal({
         >
           <Layers className="h-4 w-4" strokeWidth={1.5} /> {t("Flashcards")}
         </span>
-        <button onClick={onClose} aria-label="Close">
+        <button onClick={onClose} aria-label={t("Close")}>
           <X className="h-5 w-5 text-text-secondary" />
         </button>
       </div>
@@ -98,7 +98,7 @@ export function FlashcardModal({
             <button
               onClick={() => setFlipped((f) => !f)}
               className="flip-card h-72 w-full max-w-md"
-              aria-label="Flip card"
+              aria-label={t("Flip card")}
             >
               <div className={cn("flip-inner", flipped && "flipped")}>
                 <div className="flip-face rounded-[16px] border border-border bg-surface p-8">

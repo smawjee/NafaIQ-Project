@@ -1,12 +1,14 @@
 import { Link, useParams } from "@tanstack/react-router";
 import { Inbox } from "lucide-react";
-import { LESSON_CONTENT } from "@/lib/learn/data";
+import { useLessonCatalogue } from "@/hooks/learn/use-lectures";
 import { useLang } from "@/hooks/use-lang";
 import { LessonInner } from "@/features/learn/lesson/components/LessonInner";
 
 export function LessonPage() {
   const { id } = useParams({ from: "/learn/lesson/$id" });
-  const lesson = LESSON_CONTENT[id];
+  // Static catalogue + lectures added from the admin console.
+  const catalogue = useLessonCatalogue();
+  const lesson = catalogue[id];
   const { t } = useLang();
 
   if (!lesson) {

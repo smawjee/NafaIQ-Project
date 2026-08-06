@@ -239,3 +239,119 @@ class PlanUpdate(BaseModel):
 class AnonymiseRequest(BaseModel):
     reason: Optional[str] = Field(None, max_length=500)
 
+
+
+# --- LearnHub lectures ------------------------------------------------------
+VALID_LECTURE_LEVELS = ("Beginner", "Intermediate", "Advanced")
+VALID_LECTURE_STATUSES = ("draft", "published", "archived")
+VALID_LECTURE_TYPES = ("article", "video")
+
+# Matches the LessonSection / QuizQuestion shapes the web lesson renderer
+# already consumes, so a DB-backed lecture needs no special-casing in the UI.
+SLUG_PATTERN = r"^[a-z0-9]+(-[a-z0-9]+)*$"
+
+
+class LectureInfo(BaseModel):
+    id: str
+    slug: str
+    title: str
+    subtitle: str = ""
+    category: str
+    level: str
+    duration: str
+    emoji: str
+    accent: str
+    type: str
+    video_url: Optional[str] = None
+    sections: list[Any] = Field(default_factory=list)
+    quiz: list[Any] = Field(default_factory=list)
+    status: str
+    sort_order: int
+    created_by: Optional[str] = None
+    updated_by: Optional[str] = None
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+
+
+class LectureCreate(BaseModel):
+    slug: str = Field(..., min_length=1, max_length=120, pattern=SLUG_PATTERN)
+    title: str = Field(..., min_length=1, max_length=200)
+    subtitle: str = Field("", max_length=300)
+    category: str = Field("PSX Basics", min_length=1, max_length=80)
+    level: str = "Beginner"
+    duration: str = Field("5 min", min_length=1, max_length=40)
+    emoji: str = Field("📘", max_length=8)
+    accent: str = Field("#00d4aa", pattern=r"^#[0-9a-fA-F]{6}$")
+    type: str = "article"
+    video_url: Optional[str] = Field(None, max_length=1000)
+    sections: list[Any] = Field(default_factory=list)
+    quiz: list[Any] = Field(default_factory=list)
+    status: str = "published"
+    sort_order: int = Field(100, ge=0, le=10_000)
+    reason: Optional[str] = Field(None, max_length=500)
+
+    @field_validator("level")
+    @classmethod
+    def _level(cls, v: str) -> str:
+        if v not in VALID_LECTURE_LEVELS:
+            raise ValueError(f"level must be one of {VALID_LECTURE_LEVELS}")
+        return v
+
+    @field_validator("status")
+    @classmethod
+    def _status(cls, v: str) -> str:
+        if v not in VALID_LECTURE_STATUSES:
+            raise ValueError(f"status must be one of {VALID_LECTURE_STATUSES}")
+        return v
+
+    @field_validator("type")
+    @classmethod
+    def _type(cls, v: str) -> str:
+        if v not in VALID_LECTURE_TYPES:
+            raise ValueError(f"type must be one of {VALID_LECTURE_TYPES}")
+        return v
+
+
+class LectureUpdate(BaseModel):
+    """Every field optional: an edit writes only what it sends."""
+
+    slug: Optional[str] = Field(None, min_length=1, max_length=120, pattern=SLUG_PATTERN)
+    title: Optional[str] = Field(None, min_length=1, max_length=200)
+    subtitle: Optional[str] = Field(None, max_length=300)
+    category: Optional[str] = Field(None, min_length=1, max_length=80)
+    level: Optional[str] = None
+    duration: Optional[str] = Field(None, min_length=1, max_length=40)
+    emoji: Optional[str] = Field(None, max_length=8)
+    accent: Optional[str] = Field(None, pattern=r"^#[0-9a-fA-F]{6}$")
+    type: Optional[str] = None
+    video_url: Optional[str] = Field(None, max_length=1000)
+    sections: Optional[list[Any]] = None
+    quiz: Optional[list[Any]] = None
+    status: Optional[str] = None
+    sort_order: Optional[int] = Field(None, ge=0, le=10_000)
+    reason: Optional[str] = Field(None, max_length=500)
+
+    @field_validator("level")
+    @classmethod
+    def _level(cls, v: Optional[str]) -> Optional[str]:
+        if v is not None and v not in VALID_LECTURE_LEVELS:
+            raise ValueError(f"level must be one of {VALID_LECTURE_LEVELS}")
+        return v
+
+    @field_validator("status")
+    @classmethod
+    def _status(cls, v: Optional[str]) -> Optional[str]:
+        if v is not None and v not in VALID_LECTURE_STATUSES:
+            raise ValueError(f"status must be one of {VALID_LECTURE_STATUSES}")
+        return v
+
+    @field_validator("type")
+    @classmethod
+    def _type(cls, v: Optional[str]) -> Optional[str]:
+        if v is not None and v not in VALID_LECTURE_TYPES:
+            raise ValueError(f"type must be one of {VALID_LECTURE_TYPES}")
+        return v
+
+
+class LectureDeleteRequest(BaseModel):
+    reason: Optional[str] = Field(None, max_length=500)

@@ -42,7 +42,7 @@ export function Typewriter({
     <span className={className}>
       {shown}
       {!done && (
-        <span className="ml-0.5 inline-block h-[1em] w-[2px] translate-y-[2px] animate-pulse bg-current align-middle" />
+        <span className="ms-0.5 inline-block h-[1em] w-[2px] translate-y-[2px] animate-pulse bg-current align-middle" />
       )}
     </span>
   );

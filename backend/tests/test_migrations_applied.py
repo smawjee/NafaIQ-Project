@@ -436,6 +436,46 @@ CHECKS: List[MigrationCheck] = [
             ),
         ],
     ),
+    MigrationCheck(
+        filename="20260807100000_learnhub_lectures.sql",
+        description="Admin-managed LearnHub lecture catalogue",
+        checks=[
+            Check(
+                "learnhub_lectures table exists",
+                "SELECT to_regclass('public.learnhub_lectures') IS NOT NULL",
+            ),
+            Check(
+                "slug is unique",
+                "SELECT EXISTS (SELECT 1 FROM pg_indexes "
+                "WHERE tablename = 'learnhub_lectures' AND indexdef ILIKE '%UNIQUE%slug%')",
+                "Without this two lectures can claim the same /learn/lesson/$id route.",
+            ),
+            Check(
+                "RLS is on",
+                "SELECT relrowsecurity FROM pg_class WHERE relname = 'learnhub_lectures'",
+                "Admin-managed tables are service_role only; a browser key must not read drafts.",
+            ),
+            Check(
+                "learn permissions seeded",
+                "SELECT COUNT(*) = 2 FROM public.admin_permissions "
+                "WHERE slug IN ('learn.read', 'learn.write')",
+            ),
+            Check(
+                "content_admin can manage lectures",
+                "SELECT COUNT(*) = 2 FROM public.admin_role_permissions "
+                "WHERE role_slug = 'content_admin' "
+                "AND permission_slug IN ('learn.read', 'learn.write')",
+            ),
+            Check(
+                "super_admin picked up the new permissions",
+                "SELECT COUNT(*) = 2 FROM public.admin_role_permissions "
+                "WHERE role_slug = 'super_admin' "
+                "AND permission_slug IN ('learn.read', 'learn.write')",
+                "The base migration seeds super_admin from a snapshot of the "
+                "permission table, so a later permission needs re-seeding.",
+            ),
+        ],
+    ),
 ]
 
 

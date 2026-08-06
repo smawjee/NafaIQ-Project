@@ -78,9 +78,7 @@ describe("CandlestickChart time axis", () => {
     const bars = Array.from({ length: 416 }, (_, i) =>
       candle(end - (415 - i) * 7 * 86_400_000, 2.38 + i * 0.01),
     );
-    const { container } = render(
-      <CandlestickChart data={bars} height={400} tf="All" mas={[]} />,
-    );
+    const { container } = render(<CandlestickChart data={bars} height={400} tf="All" mas={[]} />);
     const ticks = xAxisTicks(container);
     expect(ticks.length).toBeGreaterThan(0);
     expect(ticks.every((v) => /^\d{4}$/.test(v))).toBe(true);

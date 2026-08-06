@@ -1,5 +1,8 @@
+import { useLang } from "@/hooks/use-lang";
+
 /* ---------- Sticky panel visuals (shared terminal frame) ---------- */
 export function StepPanelFrame({ children }: { children: React.ReactNode }) {
+  const { t } = useLang();
   return (
     <div
       className="relative flex min-h-[300px] w-full max-w-[380px] flex-col rounded-[18px] border border-white/10 dark-surface"
@@ -14,8 +17,8 @@ export function StepPanelFrame({ children }: { children: React.ReactNode }) {
         <span className="h-2.5 w-2.5 rounded-full bg-bear/70" />
         <span className="h-2.5 w-2.5 rounded-full bg-warning/70" />
         <span className="h-2.5 w-2.5 rounded-full bg-bull/70" />
-        <span className="ml-auto font-mono text-[9px] font-semibold uppercase tracking-[0.2em] text-text-muted">
-          nafaiq · live
+        <span className="ms-auto font-mono text-[9px] font-semibold uppercase tracking-[0.2em] text-text-muted">
+          {t("nafaiq · live")}
         </span>
       </div>
       <div className="flex flex-1 flex-col justify-start p-6">{children}</div>

@@ -62,7 +62,7 @@ export function ReadingView({
       {/* Hero banner */}
       <div
         className="rounded-card bg-gradient-to-br from-surface to-elevated p-6 sm:p-8"
-        style={{ borderLeft: `4px solid ${ACCENT}` }}
+        style={{ borderInlineStart: `4px solid ${ACCENT}` }}
       >
         <div
           className="flex h-12 w-12 items-center justify-center rounded-btn border border-border bg-elevated"
@@ -190,7 +190,7 @@ export function ReadingView({
           <Link
             to="/learn/lesson/$id"
             params={{ id: prev.id }}
-            className="rounded-btn border border-border p-3 text-left hover:border-border-hover"
+            className="rounded-btn border border-border p-3 text-start hover:border-border-hover"
           >
             <div className="flex items-center gap-1 text-[10px] text-text-muted">
               <ArrowLeft className="h-3 w-3" strokeWidth={1.5} /> {t("Previous")}
@@ -204,7 +204,7 @@ export function ReadingView({
           <Link
             to="/learn/lesson/$id"
             params={{ id: next.id }}
-            className="rounded-btn border border-border p-3 text-right hover:border-border-hover"
+            className="rounded-btn border border-border p-3 text-end hover:border-border-hover"
           >
             <div className="flex items-center justify-end gap-1 text-[10px] text-text-muted">
               {t("Next")} <ArrowRight className="h-3 w-3" strokeWidth={1.5} />

@@ -170,7 +170,7 @@ export function Goals() {
                 <EmojiIcon emoji={g.emoji} size={16} />
               </span>
               <span className="font-semibold text-text-primary">{t(g.name)}</span>
-              <div className="ml-auto flex items-center gap-2">
+              <div className="ms-auto flex items-center gap-2">
                 <span className="font-mono text-sm font-bold tabular-nums text-bull">{pct}%</span>
                 {(user || isDemo) && (
                   <button
@@ -195,8 +195,8 @@ export function Goals() {
                 {t("Target date:")} {g.date}
               </div>
             )}
-            <div className="mt-2 rounded-[6px] border-l-2 border-ai bg-ai-tint px-2.5 py-1.5 text-[11px] text-text-secondary">
-              <Sparkles className="mr-1 inline h-3 w-3 text-ai" />
+            <div className="mt-2 rounded-[6px] border-s-2 border-ai bg-ai-tint px-2.5 py-1.5 text-[11px] text-text-secondary">
+              <Sparkles className="me-1 inline h-3 w-3 text-ai" />
               {t(g.ai)}
             </div>
             <button
@@ -238,7 +238,7 @@ export function Goals() {
                 type="button"
                 className={cn(
                   fieldClass,
-                  "flex items-center gap-2 text-left",
+                  "flex items-center gap-2 text-start",
                   !date && "text-text-muted",
                 )}
               >

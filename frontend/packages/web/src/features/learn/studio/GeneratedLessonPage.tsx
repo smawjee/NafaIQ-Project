@@ -66,21 +66,35 @@ export function GeneratedLessonPage() {
     } as LessonContent;
   }, [project.data?.studyPack?.lesson, playback.data]);
 
-  if (project.isLoading || project.data?.status === "queued" || project.data?.status === "generating") {
+  if (
+    project.isLoading ||
+    project.data?.status === "queued" ||
+    project.data?.status === "generating"
+  ) {
     return <LessonSkeleton stage={project.data?.stage ?? "queued"} />;
   }
 
-  if (project.isError || !project.data || project.data.status === "failed" || project.data.status === "unsupported") {
+  if (
+    project.isError ||
+    !project.data ||
+    project.data.status === "failed" ||
+    project.data.status === "unsupported"
+  ) {
     return (
       <div className="mx-auto max-w-md px-4 py-20 text-center">
         <AlertCircle className="mx-auto h-9 w-9 text-warning" strokeWidth={1.5} />
         <h1 className="mt-3 text-lg font-semibold text-text-primary">
-          {project.data?.status === "unsupported" ? t("We need better sources for this topic") : t("Lesson generation failed")}
+          {project.data?.status === "unsupported"
+            ? t("We need better sources for this topic")
+            : t("Lesson generation failed")}
         </h1>
         <p className="mt-2 text-sm text-text-secondary">
           {project.data?.errorMessage ?? t("Please try another PSX topic.")}
         </p>
-        <Link to="/learn" className="mt-5 inline-flex min-h-11 items-center gap-2 rounded-btn bg-bull px-4 text-sm font-semibold text-bull-foreground">
+        <Link
+          to="/learn"
+          className="mt-5 inline-flex min-h-11 items-center gap-2 rounded-btn bg-bull px-4 text-sm font-semibold text-bull-foreground"
+        >
           <ArrowLeft className="h-4 w-4" /> {t("Back to Learn Hub")}
         </Link>
       </div>
@@ -89,18 +103,34 @@ export function GeneratedLessonPage() {
 
   if (!lesson || !project.data.studyPack) return <LessonSkeleton stage={project.data.stage} />;
 
-  const videoGenerating = ["video_queued", "writing_storyboard", "generating_audio", "rendering", "uploading"].includes(project.data.stage);
+  const videoGenerating = [
+    "video_queued",
+    "writing_storyboard",
+    "generating_audio",
+    "rendering",
+    "uploading",
+  ].includes(project.data.stage);
 
   return (
     <>
       {videoGenerating && (
-        <div className="sticky top-[var(--header-h)] z-30 flex items-center justify-center gap-2 border-b border-ai/20 bg-ai/10 px-3 py-2 text-xs font-medium text-ai" role="status">
-          <Sparkles className="h-3.5 w-3.5 animate-pulse" /> {t(STAGE_LABELS[project.data.stage] ?? "Generating video")}
+        <div
+          className="sticky top-[var(--header-h)] z-30 flex items-center justify-center gap-2 border-b border-ai/20 bg-ai/10 px-3 py-2 text-xs font-medium text-ai"
+          role="status"
+        >
+          <Sparkles className="h-3.5 w-3.5 animate-pulse" />{" "}
+          {t(STAGE_LABELS[project.data.stage] ?? "Generating video")}
         </div>
       )}
       {project.data.stage === "video_failed" && (
-        <div className="border-b border-warning/25 bg-warning/10 px-3 py-2 text-center text-xs font-medium text-warning" role="alert">
-          {t(project.data.errorMessage ?? "The lesson is ready, but the video could not be generated. You can retry.")}
+        <div
+          className="border-b border-warning/25 bg-warning/10 px-3 py-2 text-center text-xs font-medium text-warning"
+          role="alert"
+        >
+          {t(
+            project.data.errorMessage ??
+              "The lesson is ready, but the video could not be generated. You can retry.",
+          )}
         </div>
       )}
       <LessonInner

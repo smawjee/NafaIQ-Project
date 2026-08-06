@@ -165,13 +165,19 @@ async function userPut<T>(path: string, body: unknown): Promise<T> {
   return res.json() as Promise<T>;
 }
 
-async function userDelete<T>(path: string): Promise<T> {
+/** `body` is optional — admin deletes carry an audit reason, most do not. */
+async function userDelete<T>(path: string, body?: unknown): Promise<T> {
   const session = await getSupabaseSession();
   if (!session) throw new Error("Not authenticated");
   const headers: Record<string, string> = {
     Authorization: `Bearer ${session.access_token}`,
   };
-  const res = await fetch(`${BASE}${path}`, { method: "DELETE", headers });
+  if (body !== undefined) headers["Content-Type"] = "application/json";
+  const res = await fetch(`${BASE}${path}`, {
+    method: "DELETE",
+    headers,
+    ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
+  });
   await raiseForStatus(res, path);
   if (res.status === 204) return undefined as T;
   return res.json() as Promise<T>;
@@ -700,6 +706,30 @@ export interface ApiLearnSearchResult {
 
 export interface ApiLearnSearchResponse {
   results: ApiLearnSearchResult[];
+}
+
+/** Wire shape of a published Learn Hub lecture (learnhub_lectures). */
+export interface ApiLearnLecture {
+  id: string;
+  slug: string;
+  title: string;
+  subtitle: string;
+  category: string;
+  level: string;
+  duration: string;
+  emoji: string;
+  accent: string;
+  type: string;
+  video_url: string | null;
+  sections: unknown[];
+  quiz: unknown[];
+  sort_order: number;
+}
+
+/** Lectures added from the admin console. Public: published course material,
+ *  the same class of content the bundle already ships. */
+export function fetchLearnLectures(): Promise<{ lectures: ApiLearnLecture[] }> {
+  return get<{ lectures: ApiLearnLecture[] }>("/api/learn/lectures");
 }
 
 export function fetchLearnStatus(): Promise<ApiLearnStatus> {

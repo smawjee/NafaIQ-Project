@@ -70,39 +70,39 @@ export function DashboardMetricCards({
       <StatCard
         variant="hero"
         className="sm:col-span-2"
-        label="Total Net Worth"
+        label={t("Total Net Worth")}
         icon={Wallet}
-        info="Your portfolio's market value plus cash — your total wealth on NafaIQ."
+        info={t("Your portfolio's market value plus cash — your total wealth on NafaIQ.")}
         value={<CountUpNumber value={netWorth} prefix="PKR " />}
         sub={`${formatSignedPKR(Math.round(todayPnl))} (${pctLabel(todayPnlPct)}) today`}
         trend={todayPnl >= 0 ? "up" : "down"}
       />
       <StatCard
-        label="Portfolio Value"
+        label={t("Portfolio Value")}
         icon={TrendingUp}
         value={<CountUpNumber value={portfolioValue} prefix="PKR " />}
         sub={`${pctLabel(unrealizedPct)} all time`}
         trend={unrealizedPct >= 0 ? "up" : "down"}
       />
       <StatCard
-        label="Total Invested"
+        label={t("Total Invested")}
         icon={Coins}
-        info="The total cost basis of your holdings — what you originally paid for them."
+        info={t("The total cost basis of your holdings — what you originally paid for them.")}
         value={<CountUpNumber value={totalInvested} prefix="PKR " />}
-        sub="cost basis"
+        sub={t("cost basis")}
         trend="neutral"
       />
       <StatCard
-        label="Monthly Spending"
+        label={t("Monthly Spending")}
         icon={CreditCard}
         value={<CountUpNumber value={monthlySpending} prefix="PKR " />}
         sub={`${spendingDeltaPct >= 0 ? "+" : ""}${spendingDeltaPct}% vs last month`}
         trend={spendingDeltaPct > 0 ? "down" : "up"}
       />
       <StatCard
-        label="Today's PSX P/L"
+        label={t("Today's PSX P/L")}
         icon={Activity}
-        info="Change in your holdings' value today versus yesterday's closing prices."
+        info={t("Change in your holdings' value today versus yesterday's closing prices.")}
         value={
           <CountUpNumber
             value={Math.abs(Math.round(todayPnl))}

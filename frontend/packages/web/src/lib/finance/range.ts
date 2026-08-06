@@ -1,4 +1,13 @@
+import { getCurrentLang, translate } from "@/hooks/use-lang";
+
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+/**
+ * These helpers are plain functions, not hooks, so they read the language from
+ * the store directly. Callers render inside components that subscribe via
+ * useLang(), so a language switch still re-runs them.
+ */
+const tr = (s: string) => translate(getCurrentLang(), s);
 
 /**
  * Human label for one month key.
@@ -9,10 +18,12 @@ const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "
  */
 export function formatMonthKey(key: string): string {
   const match = /^(\d{4})-(\d{2})$/.exec(key);
-  if (!match) return key;
+  // Bare month names ("Jan") come from the demo fixture and are dictionary
+  // keys in their own right; run them through the translator too.
+  if (!match) return tr(key);
   const monthIndex = Number(match[2]) - 1;
   const name = MONTHS[monthIndex];
-  return name ? `${name} ${match[1]}` : key;
+  return name ? `${tr(name)} ${match[1]}` : key;
 }
 
 /**

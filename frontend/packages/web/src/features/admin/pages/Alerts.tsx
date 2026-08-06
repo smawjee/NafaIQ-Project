@@ -68,27 +68,27 @@ export function AdminAlerts() {
     () => [
       {
         id: "symbol",
-        header: "Symbol",
+        header: t("Symbol"),
         hideable: false,
         exportValue: (r) => r.symbol,
         cell: (r) => <span className="font-medium text-text-primary">{r.symbol}</span>,
       },
       {
         id: "alerts",
-        header: "Active alerts",
+        header: t("Active alerts"),
         align: "end",
         exportValue: (r) => r.alerts,
         cell: (r) => <span className="tabular">{formatNumber(r.alerts)}</span>,
       },
       {
         id: "users",
-        header: "Distinct users",
+        header: t("Distinct users"),
         align: "end",
         exportValue: (r) => r.users,
         cell: (r) => <span className="tabular text-text-secondary">{formatNumber(r.users)}</span>,
       },
     ],
-    [],
+    [t],
   );
 
   return (
@@ -96,7 +96,9 @@ export function AdminAlerts() {
       <PageHeader
         title={t("Alerts")}
         breadcrumbs={[{ label: t("Admin"), to: "/admin" }, { label: t("Alerts") }]}
-        description="Platform-wide alert volume and delivery health. Aggregates only — the contents of an individual user's alerts are never exposed to this console."
+        description={t(
+          "Platform-wide alert volume and delivery health. Aggregates only — the contents of an individual user's alerts are never exposed to this console.",
+        )}
         actions={
           <Button
             variant="outline"
@@ -104,7 +106,7 @@ export function AdminAlerts() {
             loading={q.isFetching}
             onClick={() => void q.refetch()}
           >
-            Refresh
+            {t("Refresh")}
           </Button>
         }
       />
@@ -124,53 +126,53 @@ export function AdminAlerts() {
         <>
           <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
             <KpiCard
-              label="Price alerts"
+              label={t("Price alerts")}
               value={formatNumber(price.enabled)}
               available={q.data.price_alerts.available}
               icon={<Bell className="h-4 w-4" />}
               hint={`${formatNumber(price.total)} total, ${formatNumber(price.symbols_watched)} symbols`}
             />
             <KpiCard
-              label="App alerts"
+              label={t("App alerts")}
               value={formatNumber(app.enabled)}
               available={q.data.app_alerts.available}
               icon={<BellRing className="h-4 w-4" />}
               hint={`${formatNumber(app.total)} total across bill, budget & goal`}
             />
             <KpiCard
-              label="Fired (24h)"
+              label={t("Fired (24h)")}
               value={formatNumber(price.triggered_24h)}
               available={q.data.price_alerts.available}
               icon={<Send className="h-4 w-4" />}
-              hint="Price alerts triggered in the last day"
+              hint={t("Price alerts triggered in the last day")}
             />
             <KpiCard
-              label="Users with alerts"
+              label={t("Users with alerts")}
               value={formatNumber(price.users_with_alerts)}
               available={q.data.price_alerts.available}
               icon={<Users className="h-4 w-4" />}
-              hint="Distinct users holding a price alert"
+              hint={t("Distinct users holding a price alert")}
             />
           </div>
 
           <div className="grid gap-4 xl:grid-cols-3">
             <Panel
-              title="Delivery health"
-              description="Alert events raised in the last 7 days"
+              title={t("Delivery health")}
+              description={t("Alert events raised in the last 7 days")}
               className="xl:col-span-1"
             >
               {!q.data.delivery.available ? (
-                <EmptyBlock label="Delivery data unavailable" />
+                <EmptyBlock label={t("Delivery data unavailable")} />
               ) : delivery.events_7d === 0 ? (
                 <EmptyBlock
-                  label="No alert events in the last 7 days"
-                  hint="Either no alerts met their conditions, or the evaluator isn't running."
+                  label={t("No alert events in the last 7 days")}
+                  hint={t("Either no alerts met their conditions, or the evaluator isn't running.")}
                 />
               ) : (
                 <div className="space-y-4">
                   <div>
                     <div className="mb-1.5 flex items-baseline justify-between">
-                      <span className="text-xs text-text-muted">Delivered</span>
+                      <span className="text-xs text-text-muted">{t("Delivered")}</span>
                       <span className="tabular text-sm font-semibold text-text-primary">
                         {formatPercent(deliveredPct)}
                       </span>
@@ -193,7 +195,7 @@ export function AdminAlerts() {
                   </div>
 
                   <div className="border-t border-border pt-3">
-                    <div className="mb-2 text-xs text-text-muted">By channel</div>
+                    <div className="mb-2 text-xs text-text-muted">{t("By channel")}</div>
                     <dl className="space-y-1.5 text-sm">
                       {(
                         [
@@ -216,12 +218,12 @@ export function AdminAlerts() {
             </Panel>
 
             <Panel
-              title="Alert events"
-              description="Daily volume over the last 14 days (PKT)"
+              title={t("Alert events")}
+              description={t("Daily volume over the last 14 days (PKT)")}
               className="xl:col-span-2"
             >
               {!q.data.events_by_day.available ? (
-                <EmptyBlock label="Event history unavailable" />
+                <EmptyBlock label={t("Event history unavailable")} />
               ) : (
                 <TrendChart data={trend} name="Events" height={240} />
               )}
@@ -229,27 +231,31 @@ export function AdminAlerts() {
           </div>
 
           <div className="grid gap-4 xl:grid-cols-2">
-            <Panel title="App alerts by type" description="Enabled and disabled combined">
+            <Panel title={t("App alerts by type")} description={t("Enabled and disabled combined")}>
               {!q.data.app_alerts.available ? (
-                <EmptyBlock label="App alert data unavailable" />
+                <EmptyBlock label={t("App alert data unavailable")} />
               ) : appTypeBreakdown.length === 0 ? (
-                <EmptyBlock label="No app alerts have been created yet" />
+                <EmptyBlock label={t("No app alerts have been created yet")} />
               ) : (
                 <CategoryBarChart data={appTypeBreakdown} name="Alerts" height={240} />
               )}
             </Panel>
 
-            <Panel title="Most-watched symbols" description="Across all enabled price alerts" flush>
+            <Panel
+              title={t("Most-watched symbols")}
+              description={t("Across all enabled price alerts")}
+              flush
+            >
               {!q.data.top_symbols.available ? (
-                <EmptyBlock label="Symbol data unavailable" />
+                <EmptyBlock label={t("Symbol data unavailable")} />
               ) : (
                 <DataTable
-                  label="Most-watched symbols"
+                  label={t("Most-watched symbols")}
                   columns={symbolColumns}
                   rows={symbols}
                   getRowId={(r) => r.symbol}
                   enableColumnControl={false}
-                  emptyState={<EmptyBlock label="No active price alerts" />}
+                  emptyState={<EmptyBlock label={t("No active price alerts")} />}
                 />
               )}
             </Panel>

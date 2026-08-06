@@ -50,7 +50,7 @@ export function Sidebar({ onCollapse }: { onCollapse: () => void }) {
           <img src={logo} alt="NafaIQ" className="h-10 w-10 shrink-0 rounded-[12px]" />
           <div className="min-w-0">
             <div className="premium-sidebar-logo text-xl font-bold leading-6 tracking-tight">
-              Nafa<span className="text-[#14B8A6]">IQ</span>
+              Nafa<span className="text-[#14B8A6]">{t("IQ")}</span>
             </div>
             <div className="premium-sidebar-subtitle mt-0.5 truncate text-[11px] font-medium">
               {t("AI Investing Platform")}
@@ -74,7 +74,7 @@ export function Sidebar({ onCollapse }: { onCollapse: () => void }) {
         <button
           type="button"
           onClick={() => setChatOpen(true)}
-          className="premium-sidebar-ai-cta group flex h-12 w-full items-center gap-2.5 rounded-[14px] border px-3.5 text-left shadow-[0_10px_26px_rgba(20,184,166,0.10)] transition-all duration-200 hover:-translate-y-0.5"
+          className="premium-sidebar-ai-cta group flex h-12 w-full items-center gap-2.5 rounded-[14px] border px-3.5 text-start shadow-[0_10px_26px_rgba(20,184,166,0.10)] transition-all duration-200 hover:-translate-y-0.5"
         >
           <span className="premium-sidebar-ai-icon flex h-8 w-8 items-center justify-center rounded-[10px] transition-colors duration-200">
             <Sparkles className="h-[18px] w-[18px]" strokeWidth={1.9} />
@@ -111,7 +111,7 @@ export function Sidebar({ onCollapse }: { onCollapse: () => void }) {
           {isAdmin && (
             <SidebarLink
               to="/admin"
-              label="Admin"
+              label={t("Admin")}
               icon={ShieldCheck}
               active={isActive("/admin")}
               compact

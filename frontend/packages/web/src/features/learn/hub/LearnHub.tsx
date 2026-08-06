@@ -28,6 +28,7 @@ import { AiGlyph } from "@/components/icons/AiGlyph";
 import { EmojiIcon } from "@/components/icons/icons";
 import { LESSONS, GLOSSARY } from "@/lib/finance/data";
 import { LEARNING_PATHS, LESSON_CONTENT, lessonId } from "@/lib/learn/data";
+import { useAdminLectures } from "@/hooks/learn/use-lectures";
 import { useLearn } from "@/hooks/learn/use-learn";
 import { useGlossarySearch, useLearnRagStatus } from "@/hooks/learn/use-learn-search";
 import { AnimatedBar } from "@/components/shared/CountUpNumber";
@@ -47,6 +48,31 @@ export function LearnHub() {
   const [search, setSearch] = useState("");
   const [flashcards, setFlashcards] = useState(false);
   const [chatOpen, setChatOpen] = useState(false);
+
+  // Static catalogue + lectures added from the admin console. Admin lectures
+  // are appended, so the shipped ordering of the built-in lessons is untouched.
+  const { lectures } = useAdminLectures();
+  const lessonCards = useMemo(
+    () => [
+      ...LESSONS.map((l: (typeof LESSONS)[number]) => ({
+        id: lessonId(l.title),
+        emoji: l.emoji,
+        title: l.title,
+        duration: l.duration,
+        level: l.level,
+        content: LESSON_CONTENT[lessonId(l.title)],
+      })),
+      ...lectures.map((l) => ({
+        id: l.id,
+        emoji: l.emoji,
+        title: l.title,
+        duration: l.duration,
+        level: l.level,
+        content: l,
+      })),
+    ],
+    [lectures],
+  );
 
   const lessonsDone = useMemo(
     () => LESSONS.filter((l) => statusOf(lessonId(l.title)) === "complete").length,
@@ -89,7 +115,7 @@ export function LearnHub() {
       <StudioCreateCard />
       <Card hover={false} className="hidden bg-gradient-to-br from-ai-tint to-surface">
         <h1 className="font-nastaliq text-2xl text-text-primary">سمجھو، سیکھو، بڑھو</h1>
-        <p className="text-sm font-semibold text-text-primary">Samjho, Seekho, Barho</p>
+        <p className="text-sm font-semibold text-text-primary">{t("Samjho, Seekho, Barho")}</p>
         <p className="mt-1 text-sm text-text-secondary">
           {t("From KSE basics to technical analysis — in plain Urdu and English.")}
         </p>
@@ -154,7 +180,7 @@ export function LearnHub() {
               <div
                 key={p.id}
                 className="group min-w-[220px] flex-1 rounded-[12px] border border-border bg-surface p-5 transition-all hover:-translate-y-0.5 hover:border-border-hover hover:shadow-[0_8px_30px_rgba(0,0,0,0.4)]"
-                style={{ borderLeft: `3px solid ${p.accent}` }}
+                style={{ borderInlineStart: `3px solid ${p.accent}` }}
               >
                 <div
                   className="flex h-10 w-10 items-center justify-center rounded-[8px] border border-border"
@@ -192,13 +218,13 @@ export function LearnHub() {
       <section>
         <h3 className="mb-3 text-sm font-semibold text-text-primary">{t("Lessons")}</h3>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {LESSONS.map((l) => {
-            const id = lessonId(l.title);
+          {lessonCards.map((l) => {
+            const id = l.id;
             const status = statusOf(id);
-            const content = LESSON_CONTENT[id];
+            const content = l.content;
             const isVideo = content?.type === "video" && !!content?.videoUrl;
             return (
-              <Link key={l.title} to="/learn/lesson/$id" params={{ id }}>
+              <Link key={id} to="/learn/lesson/$id" params={{ id }}>
                 <Card className="group h-full transition-all hover:-translate-y-[3px] hover:border-bull">
                   <div className="flex items-start gap-3">
                     <span className="flex h-10 w-10 items-center justify-center rounded-[8px] border border-border bg-elevated text-text-secondary">
@@ -336,7 +362,7 @@ export function LearnHub() {
               <span className="inline-flex items-center gap-1.5 text-sm font-semibold text-text-primary">
                 <AiGlyph className="h-4 w-4 text-bull" /> {t("Ask AI Tutor")}
               </span>
-              <button onClick={() => setChatOpen(false)} aria-label="Close">
+              <button onClick={() => setChatOpen(false)} aria-label={t("Close")}>
                 <X className="h-5 w-5 text-text-secondary" />
               </button>
             </div>
@@ -439,19 +465,19 @@ function LearnHubHero({
           )}
 
           <div className="mt-6 grid gap-2 sm:grid-cols-4">
-            <HeroMetric icon={Flame} label="Streak" value="5 days" tone="text-warning" />
+            <HeroMetric icon={Flame} label={t("Streak")} value="5 days" tone="text-warning" />
             <HeroMetric
               icon={CheckCircle2}
-              label="Lessons done"
+              label={t("Lessons done")}
               value={`${lessonsDone}/${totalLessons}`}
               tone="text-bull"
             />
-            <HeroMetric icon={Star} label="XP earned" value={`${xp}`} tone="text-gold" />
-            <HeroMetric icon={Trophy} label="Level" value="Beginner" tone="text-ai" />
+            <HeroMetric icon={Star} label={t("XP earned")} value={`${xp}`} tone="text-gold" />
+            <HeroMetric icon={Trophy} label={t("Level")} value="Beginner" tone="text-ai" />
           </div>
         </div>
 
-        <div className="border-t border-border bg-elevated/55 p-5 sm:p-6 lg:border-l lg:border-t-0">
+        <div className="border-t border-border bg-elevated/55 p-5 sm:p-6 lg:border-s lg:border-t-0">
           <div className="flex h-full flex-col justify-between gap-5">
             <div>
               <div className="text-xs font-semibold uppercase tracking-[0.18em] text-text-muted">

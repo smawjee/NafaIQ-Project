@@ -9,6 +9,7 @@ import { type ReactNode } from "react";
 import { Link } from "@tanstack/react-router";
 import { ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useLang } from "@/hooks/use-lang";
 
 export interface Crumb {
   label: string;
@@ -17,9 +18,10 @@ export interface Crumb {
 }
 
 export function Breadcrumbs({ items }: { items: Crumb[] }) {
+  const { t } = useLang();
   if (items.length === 0) return null;
   return (
-    <nav aria-label="Breadcrumb" className="min-w-0">
+    <nav aria-label={t("Breadcrumb")} className="min-w-0">
       <ol className="flex flex-wrap items-center gap-1 text-xs text-text-muted">
         {items.map((c, i) => {
           const last = i === items.length - 1;

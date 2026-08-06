@@ -32,7 +32,7 @@ export function MarketTicker() {
           <span className="text-bull">{t("Live")}</span>
         </div>
         <div className="market-strip-tape flex-1 overflow-hidden py-2">
-          <div className="flex w-max animate-ticker gap-6 pl-6">
+          <div className="flex w-max animate-ticker gap-6 ps-6">
             {row.map((s, i) => (
               <span key={i} className="flex items-center gap-2 whitespace-nowrap text-[12px]">
                 <span className="market-strip-symbol font-semibold">{s.symbol}</span>

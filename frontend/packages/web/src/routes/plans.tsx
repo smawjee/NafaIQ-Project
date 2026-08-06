@@ -123,7 +123,7 @@ function PlansPage() {
           <Link to={backTo} className="flex items-center gap-2">
             <img src={logo} alt="NafaIQ" width={26} height={26} className="rounded-[6px]" />
             <span className="font-display text-lg font-bold tracking-tight text-text-primary">
-              Nafa<span className="text-primary">IQ</span>
+              Nafa<span className="text-primary">{t("IQ")}</span>
             </span>
           </Link>
           <Link
@@ -281,7 +281,7 @@ function PlansPage() {
             <table className="w-full min-w-[560px] text-sm">
               <thead>
                 <tr className="border-b border-border bg-surface">
-                  <th className="px-5 py-4 text-left text-[11px] font-semibold uppercase tracking-wide text-text-muted">
+                  <th className="px-5 py-4 text-start text-[11px] font-semibold uppercase tracking-wide text-text-muted">
                     {t("Feature")}
                   </th>
                   <th className="px-5 py-4 text-center font-semibold text-text-primary">

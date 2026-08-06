@@ -119,7 +119,7 @@ export function ResultsView({
       )}
 
       {/* Review accordion */}
-      <Accordion type="single" collapsible className="mt-6 space-y-2 text-left">
+      <Accordion type="single" collapsible className="mt-6 space-y-2 text-start">
         {questions.map((sq, i) => (
           <AccordionItem
             key={i}

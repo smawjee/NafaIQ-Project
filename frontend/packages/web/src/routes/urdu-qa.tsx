@@ -118,7 +118,7 @@ function UrduQaPage() {
 
       <div className="mx-auto max-w-[1100px] space-y-8 px-4 py-8">
         {/* Typography scale */}
-        <Section title="Typography scale">
+        <Section title={t("Typography scale")}>
           <div className="space-y-2">
             <p className="text-3xl font-bold">{t("Understand, Learn, Grow")}</p>
             <p className="text-2xl font-semibold">{t("Your net worth at a glance")}</p>
@@ -137,7 +137,7 @@ function UrduQaPage() {
         </Section>
 
         {/* Buttons */}
-        <Section title="Buttons & actions">
+        <Section title={t("Buttons & actions")}>
           <div className="flex flex-wrap items-center gap-3">
             <button className="inline-flex items-center gap-1.5 rounded-[8px] bg-bull px-4 py-2 text-sm font-semibold text-bull-foreground hover:brightness-110">
               <Plus className="h-4 w-4" /> {t("Add Goal")}
@@ -158,7 +158,7 @@ function UrduQaPage() {
         </Section>
 
         {/* Signal badges */}
-        <Section title="Signal badges">
+        <Section title={t("Signal badges")}>
           <div className="flex flex-wrap gap-3">
             {SIGNALS.map((s) => (
               <SignalBadge key={s} signal={s} />
@@ -167,32 +167,37 @@ function UrduQaPage() {
         </Section>
 
         {/* KPI / Stat cards */}
-        <Section title="KPI cards">
+        <Section title={t("KPI cards")}>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <StatCard
-              label="Total Net Worth"
+              label={t("Total Net Worth")}
               value="PKR 4,280,500"
-              sub="+1.32% this month"
+              sub={t("+1.32% this month")}
               subColor="text-bull"
             />
             <StatCard
-              label="Portfolio Value"
+              label={t("Portfolio Value")}
               value="PKR 858,054"
-              sub="YTD +12.73%"
+              sub={t("YTD +12.73%")}
               subColor="text-bull"
             />
             <StatCard
-              label="Monthly Expenses"
+              label={t("Monthly Expenses")}
               value="PKR 112,050"
-              sub="-12% vs May"
+              sub={t("-12% vs May")}
               subColor="text-bear"
             />
-            <StatCard label="Today's PSX P/L" value="+17,480" sub="+1.42%" subColor="text-bull" />
+            <StatCard
+              label={t("Today's PSX P/L")}
+              value="+17,480"
+              sub="+1.42%"
+              subColor="text-bull"
+            />
           </div>
         </Section>
 
         {/* Change indicators */}
-        <Section title="Price change indicators">
+        <Section title={t("Price change indicators")}>
           <div className="flex flex-wrap items-center gap-4">
             <Change pct={1.42} value="HBL" pill />
             <Change pct={-0.45} value="LUCK" pill />
@@ -202,7 +207,7 @@ function UrduQaPage() {
         </Section>
 
         {/* Form fields */}
-        <Section title="Form inputs">
+        <Section title={t("Form inputs")}>
           <div className="grid gap-3 sm:grid-cols-2">
             <input className={fieldClass} placeholder={t("Goal name")} />
             <input
@@ -213,7 +218,7 @@ function UrduQaPage() {
             <div className="relative sm:col-span-2">
               <Search className="pointer-events-none absolute top-1/2 ltr:left-3 rtl:right-3 -translate-y-1/2 text-text-muted h-4 w-4" />
               <input
-                className={cn(fieldClass, "ltr:pl-9 rtl:pr-9")}
+                className={cn(fieldClass, "ltr:ps-9 rtl:pe-9")}
                 placeholder={t("Search stocks (e.g. HBL)")}
               />
             </div>
@@ -221,7 +226,7 @@ function UrduQaPage() {
         </Section>
 
         {/* Progress */}
-        <Section title="Progress & goals">
+        <Section title={t("Progress & goals")}>
           <div className="space-y-4">
             <div>
               <div className="flex items-center justify-between text-xs">
@@ -243,7 +248,7 @@ function UrduQaPage() {
         </Section>
 
         {/* Table */}
-        <Section title="Data table">
+        <Section title={t("Data table")}>
           <div className="overflow-x-auto rounded-[8px] border border-border">
             <table className="w-full border-collapse text-sm">
               <thead>
@@ -282,11 +287,11 @@ function UrduQaPage() {
         </Section>
 
         {/* Callouts / alerts */}
-        <Section title="Callouts & alerts">
+        <Section title={t("Callouts & alerts")}>
           <div className="space-y-3">
             <div
-              className="rounded-r-[8px] p-4"
-              style={{ background: "rgba(0,212,170,0.08)", borderLeft: "3px solid #00d4aa" }}
+              className="rounded-e-[8px] p-4"
+              style={{ background: "rgba(0,212,170,0.08)", borderInlineStart: "3px solid #00d4aa" }}
             >
               <div className="flex items-center gap-1.5 text-xs font-bold text-bull">
                 <Sparkles className="h-3.5 w-3.5" /> {t("AI Suggestion")}
@@ -308,7 +313,7 @@ function UrduQaPage() {
         </Section>
 
         {/* Glossary-style cards */}
-        <Section title="Lesson cards">
+        <Section title={t("Lesson cards")}>
           <div className="grid gap-4 sm:grid-cols-2">
             {(
               [
@@ -347,7 +352,7 @@ function UrduQaPage() {
           >
             <div className="flex items-center justify-between">
               <h3 className="text-lg font-bold">{t("Add Goal")}</h3>
-              <button onClick={() => setShowModal(false)} aria-label="Close">
+              <button onClick={() => setShowModal(false)} aria-label={t("Close")}>
                 <X className="h-5 w-5 text-text-secondary" />
               </button>
             </div>

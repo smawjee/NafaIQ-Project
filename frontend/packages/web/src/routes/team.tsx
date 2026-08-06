@@ -5,6 +5,7 @@ import { ArrowLeft, Linkedin, Twitter, Github } from "lucide-react";
 import logo from "@/assets/logo.png";
 import { Reveal, staggerParent, fadeUp, SPRING_UI, EASE } from "@/components/shared/animations";
 import { useLandingTheme } from "@/hooks/use-landing-theme";
+import { useLang } from "@/hooks/use-lang";
 
 export const Route = createFileRoute("/team")({
   head: () => ({
@@ -95,6 +96,7 @@ function Avatar({
   initials: string;
   accent: { hue: number; solid: string; bg: string; glow: string };
 }) {
+  const { t } = useLang();
   return (
     <div className="relative mx-auto" style={{ width: 110, height: 110 }}>
       {/* glow behind avatar */}
@@ -135,6 +137,7 @@ function SocialLink({
   hue: number;
   isLight: boolean;
 }) {
+  const { t } = useLang();
   return (
     <motion.a
       href={href}
@@ -167,10 +170,14 @@ function SocialLink({
 
 function TeamPage() {
   const { theme } = useLandingTheme();
+  const { t, isUrdu } = useLang();
   const isLight = theme === "light";
 
   return (
-    <div className={`relative min-h-screen ${isLight ? "bg-background" : "bg-[#060B17]"}`}>
+    <div
+      dir={isUrdu ? "rtl" : "ltr"}
+      className={`relative min-h-screen ${isLight ? "bg-background" : "bg-[#060B17]"}${isUrdu ? " font-urdu" : ""}`}
+    >
       {/* subtle grid pattern — dark only */}
       {!isLight && (
         <div
@@ -211,16 +218,16 @@ function TeamPage() {
               className="rounded-[7px] ring-1 ring-bull/30"
             />
             <span className="font-display text-lg font-bold tracking-tight text-text-primary">
-              Nafa<span className="text-primary">IQ</span>
+              Nafa<span className="text-primary">{t("IQ")}</span>
             </span>
           </Link>
-          <div className="ml-auto flex items-center gap-3">
+          <div className="ms-auto flex items-center gap-3">
             <Link
               to="/"
               className="inline-flex items-center gap-1.5 text-[13px] font-medium text-text-muted transition hover:text-text-primary"
             >
               <ArrowLeft className="h-3.5 w-3.5" />
-              Back to home
+              {t("Back to home")}
             </Link>
           </div>
         </div>
@@ -231,19 +238,19 @@ function TeamPage() {
         <Reveal>
           <div className="mx-auto max-w-2xl text-center">
             <span className="inline-block rounded-full border border-primary/20 bg-primary/10 px-4 py-1.5 text-[11px] font-semibold uppercase tracking-[0.15em] text-primary">
-              Our Team
+              {t("Our Team")}
             </span>
             <h1 className="mt-6 text-[32px] font-bold leading-[1.12] tracking-tight text-text-primary sm:text-[48px]">
-              Built by people who{" "}
+              {t("Built by people who")}{" "}
               <span className="bg-gradient-to-r from-emerald-400 to-cyan-400 bg-clip-text text-transparent">
-                believe
+                {t("believe")}
               </span>{" "}
-              in Pakistan&apos;s potential.
+              {t("in Pakistan's potential.")}
             </h1>
             <p className="mt-5 text-[15px] leading-relaxed text-text-secondary">
-              We&apos;re a small, focused team building Pakistan&apos;s Financial Intelligence
-              Terminal — combining live PSX data, personal finance, and AI insight into a single
-              experience designed for the realities of investing in Pakistan.
+              {t(
+                "We're a small, focused team building Pakistan's Financial Intelligence Terminal — combining live PSX data, personal finance, and AI insight into a single experience designed for the realities of investing in Pakistan.",
+              )}
             </p>
           </div>
         </Reveal>
@@ -309,13 +316,13 @@ function TeamPage() {
                   className="mt-2.5 text-[16px] font-medium"
                   style={{ color: `hsla(${member.accent.hue}, 65%, 65%, 1)` }}
                 >
-                  {member.role}
+                  {t(member.role)}
                 </p>
 
                 <p className="mt-2 text-[14px] font-medium text-text-muted">{member.university}</p>
 
                 <p className="mt-5 max-w-[38ch] text-[15px] leading-[1.7] text-text-secondary">
-                  {member.bio}
+                  {t(member.bio)}
                 </p>
 
                 {/* social icons */}
@@ -355,12 +362,12 @@ function TeamPage() {
         <div
           className={`mx-auto flex max-w-[1200px] flex-col gap-2 px-6 py-5 text-xs sm:flex-row sm:items-center sm:justify-between ${isLight ? "text-text-muted" : "text-[#94A3B8]"}`}
         >
-          <span>&copy; 2026 NafaIQ &middot; Built in Pakistan</span>
+          <span>© 2026 NafaIQ · {t("Built in Pakistan")}</span>
           <Link
             to="/"
             className={`${isLight ? "text-text-muted hover:text-text-primary" : "text-[#94A3B8] hover:text-[#F8FAFC]"} transition`}
           >
-            Back to homepage
+            {t("Back to homepage")}
           </Link>
         </div>
       </footer>

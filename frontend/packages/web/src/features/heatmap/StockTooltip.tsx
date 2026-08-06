@@ -53,7 +53,7 @@ export function StockTooltip({
         {stock.sector && (
           <div className="flex items-center justify-between gap-3">
             <span className="text-text-muted">{t("Sector")}</span>
-            <span className="truncate text-right text-text-secondary">{t(stock.sector)}</span>
+            <span className="truncate text-end text-text-secondary">{t(stock.sector)}</span>
           </div>
         )}
         <div className="flex items-center justify-between">
@@ -84,7 +84,7 @@ export function StockTooltip({
         <div className="flex items-center justify-between gap-2">
           <span className="text-text-muted">{isVolumeProxy ? t("Tile size") : t("Mkt Cap")}</span>
           {isVolumeProxy ? (
-            <span className="text-right text-text-secondary">{t("Volume-based estimate")}</span>
+            <span className="text-end text-text-secondary">{t("Volume-based estimate")}</span>
           ) : (
             <span className="font-mono tabular-nums text-text-secondary">
               {stock.market_cap != null ? formatCompact(stock.market_cap) : "—"}

@@ -97,7 +97,7 @@ export function AdminAudit() {
     () => [
       {
         id: "created_at",
-        header: "When",
+        header: t("When"),
         width: "w-36",
         hideable: false,
         exportValue: (r) => r.created_at,
@@ -109,7 +109,7 @@ export function AdminAudit() {
       },
       {
         id: "actor",
-        header: "Actor",
+        header: t("Actor"),
         exportValue: (r) => r.actor_email ?? "system",
         cell: (r) => (
           <div className="flex min-w-0 items-center gap-2">
@@ -126,14 +126,14 @@ export function AdminAudit() {
                 {r.actor_email ?? r.actor_user_id}
               </button>
             ) : (
-              <span className="truncate text-text-muted">system</span>
+              <span className="truncate text-text-muted">{t("system")}</span>
             )}
           </div>
         ),
       },
       {
         id: "action",
-        header: "Action",
+        header: t("Action"),
         hideable: false,
         exportValue: (r) => r.action,
         cell: (r) => (
@@ -145,7 +145,7 @@ export function AdminAudit() {
       },
       {
         id: "resource",
-        header: "Resource",
+        header: t("Resource"),
         secondary: true,
         exportValue: (r) => (r.resource_type ? `${r.resource_type}:${r.resource_id ?? ""}` : ""),
         cell: (r) =>
@@ -162,7 +162,7 @@ export function AdminAudit() {
       },
       {
         id: "status",
-        header: "Status",
+        header: t("Status"),
         exportValue: (r) => r.status,
         cell: (r) => <StatusBadge status={r.status} />,
       },
@@ -173,12 +173,12 @@ export function AdminAudit() {
         hideable: false,
         cell: (r) => (
           <Button size="sm" variant="ghost" onClick={() => setDetail(r)}>
-            Details
+            {t("Details")}
           </Button>
         ),
       },
     ],
-    [],
+    [t, filterByActor],
   );
 
   return (
@@ -186,13 +186,15 @@ export function AdminAudit() {
       <PageHeader
         title={t("Audit Log")}
         breadcrumbs={[{ label: t("Admin"), to: "/admin" }, { label: t("Audit Log") }]}
-        description="Every administrative action, append-only and immutable. Written in the same transaction as the change it records, so the log can never drift from reality. All times in PKT."
+        description={t(
+          "Every administrative action, append-only and immutable. Written in the same transaction as the change it records, so the log can never drift from reality. All times in PKT.",
+        )}
         meta={q.data && <Badge tone="neutral">{q.data.meta.total.toLocaleString()} entries</Badge>}
       />
 
       <Panel flush>
         <DataTable
-          label="Audit log"
+          label={t("Audit log")}
           columns={columns}
           rows={q.data?.items ?? []}
           getRowId={(r) => String(r.id)}
@@ -205,8 +207,8 @@ export function AdminAudit() {
           onClearFilters={clearFilters}
           emptyState={
             <EmptyBlock
-              label="No admin actions recorded yet"
-              hint="Suspensions, tier changes, role grants and flag edits all land here."
+              label={t("No admin actions recorded yet")}
+              hint={t("Suspensions, tier changes, role grants and flag edits all land here.")}
             />
           }
           toolbar={
@@ -215,11 +217,11 @@ export function AdminAudit() {
                 value={action}
                 // replace: don't push a history entry per keystroke.
                 onChange={(v) => setFilter({ action: v || undefined }, { replace: true })}
-                placeholder="Filter by action, e.g. admin.user.tier"
+                placeholder={t("Filter by action, e.g. admin.user.tier")}
                 className="max-w-xs"
               />
               <FilterSelect
-                label="Status"
+                label={t("Status")}
                 allLabel="All statuses"
                 value={status}
                 onChange={(v) =>
@@ -238,7 +240,7 @@ export function AdminAudit() {
                   Actor: <span className="max-w-[12rem] truncate">{actor.label}</span>
                   <button
                     onClick={() => setFilter({ actor: undefined, actorLabel: undefined })}
-                    aria-label="Clear actor filter"
+                    aria-label={t("Clear actor filter")}
                     className="cursor-pointer rounded hover:opacity-70"
                   >
                     <X className="h-3 w-3" aria-hidden />
@@ -276,6 +278,7 @@ function AuditDetail({
   onClose: () => void;
   onFilterActor: (a: { id: string; label: string }) => void;
 }) {
+  const { t } = useLang();
   return (
     <Drawer
       open={!!entry}
@@ -291,10 +294,10 @@ function AuditDetail({
           </div>
 
           <div>
-            <SectionLabel className="mb-1.5">Who & when</SectionLabel>
+            <SectionLabel className="mb-1.5">{t("Who & when")}</SectionLabel>
             <dl className="rounded-lg border border-border bg-surface-alt px-3 py-1">
               <DataRow
-                label="Actor"
+                label={t("Actor")}
                 value={
                   entry.actor_user_id ? (
                     <button
@@ -316,7 +319,7 @@ function AuditDetail({
               />
               {entry.actor_roles.length > 0 && (
                 <DataRow
-                  label="Actor roles"
+                  label={t("Actor roles")}
                   value={
                     <span className="flex flex-wrap justify-end gap-1">
                       {entry.actor_roles.map((r) => (
@@ -326,13 +329,13 @@ function AuditDetail({
                   }
                 />
               )}
-              <DataRow label="Timestamp" value={formatPkt(entry.created_at)} />
+              <DataRow label={t("Timestamp")} value={formatPkt(entry.created_at)} />
               {entry.ip && (
-                <DataRow label="IP" value={<code className="text-xs">{entry.ip}</code>} />
+                <DataRow label={t("IP")} value={<code className="text-xs">{entry.ip}</code>} />
               )}
               {entry.request_id && (
                 <DataRow
-                  label="Request ID"
+                  label={t("Request ID")}
                   value={<code className="text-xs">{entry.request_id}</code>}
                 />
               )}
@@ -341,17 +344,17 @@ function AuditDetail({
 
           {(entry.resource_id || entry.target_user_id) && (
             <div>
-              <SectionLabel className="mb-1.5">Target</SectionLabel>
+              <SectionLabel className="mb-1.5">{t("Target")}</SectionLabel>
               <dl className="rounded-lg border border-border bg-surface-alt px-3 py-1">
                 {entry.resource_id && (
                   <DataRow
-                    label="Resource ID"
+                    label={t("Resource ID")}
                     value={<code className="text-xs">{entry.resource_id}</code>}
                   />
                 )}
                 {entry.target_user_id && (
                   <DataRow
-                    label="Target user"
+                    label={t("Target user")}
                     value={
                       <Link
                         to="/admin/users/$userId"
@@ -370,7 +373,7 @@ function AuditDetail({
 
           {entry.reason && (
             <div>
-              <SectionLabel className="mb-1.5">Reason</SectionLabel>
+              <SectionLabel className="mb-1.5">{t("Reason")}</SectionLabel>
               <p className="rounded-lg border border-border bg-surface-alt px-3 py-2.5 text-sm text-text-primary">
                 {entry.reason}
               </p>
@@ -379,8 +382,8 @@ function AuditDetail({
 
           {(entry.before != null || entry.after != null) && (
             <div className="grid gap-3 sm:grid-cols-2">
-              {entry.before != null && <CodeBlock label="Before" value={entry.before} />}
-              {entry.after != null && <CodeBlock label="After" value={entry.after} />}
+              {entry.before != null && <CodeBlock label={t("Before")} value={entry.before} />}
+              {entry.after != null && <CodeBlock label={t("After")} value={entry.after} />}
             </div>
           )}
         </div>

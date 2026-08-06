@@ -59,12 +59,12 @@ export function DividendCalendar() {
       <div className="overflow-x-auto rounded-[8px] border border-border">
         <table className="w-full text-xs">
           <thead>
-            <tr className="border-b border-border bg-surface-alt text-left text-text-muted">
+            <tr className="border-b border-border bg-surface-alt text-start text-text-muted">
               <th className="px-3 py-2.5 font-semibold">{t("Symbol")}</th>
               <th className="px-3 py-2.5 font-semibold">{t("Ex-Date")}</th>
               <th className="px-3 py-2.5 font-semibold">{t("Type")}</th>
-              <th className="px-3 py-2.5 text-right font-semibold">{t("Per Share")}</th>
-              <th className="px-3 py-2.5 text-right font-semibold">{t("Bonus %")}</th>
+              <th className="px-3 py-2.5 text-end font-semibold">{t("Per Share")}</th>
+              <th className="px-3 py-2.5 text-end font-semibold">{t("Bonus %")}</th>
               <th className="px-3 py-2.5 font-semibold">{t("Announcement Date")}</th>
             </tr>
           </thead>
@@ -85,10 +85,10 @@ export function DividendCalendar() {
                 </td>
                 <td className="px-3 py-2 font-mono text-text-primary">{d.ex_date ?? "—"}</td>
                 <td className="px-3 py-2 text-text-secondary">{t(d.payout_type)}</td>
-                <td className="px-3 py-2 text-right font-mono tabular-nums text-text-secondary">
+                <td className="px-3 py-2 text-end font-mono tabular-nums text-text-secondary">
                   {d.per_share != null ? d.per_share.toFixed(2) : "—"}
                 </td>
-                <td className="px-3 py-2 text-right font-mono tabular-nums text-text-secondary">
+                <td className="px-3 py-2 text-end font-mono tabular-nums text-text-secondary">
                   {d.bonus_pct != null ? `${d.bonus_pct}%` : "—"}
                 </td>
                 <td className="px-3 py-2 font-mono text-text-muted">

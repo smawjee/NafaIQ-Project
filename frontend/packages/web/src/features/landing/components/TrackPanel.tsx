@@ -4,7 +4,7 @@ export function TrackPanel() {
       <div className="flex items-center gap-1.5">
         <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-bull" />
         <span className="text-[10px] font-bold tracking-widest text-bull">LIVE</span>
-        <span className="ml-auto text-[10px] font-semibold uppercase tracking-widest text-text-muted">
+        <span className="ms-auto text-[10px] font-semibold uppercase tracking-widest text-text-muted">
           PSX Market
         </span>
       </div>

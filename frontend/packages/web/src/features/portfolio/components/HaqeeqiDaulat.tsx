@@ -122,7 +122,7 @@ export function HaqeeqiDaulat() {
                   key={a.title}
                   onClick={() => toggle(i)}
                   className={cn(
-                    "flex w-full items-start gap-3 rounded-[8px] border p-3 text-left transition",
+                    "flex w-full items-start gap-3 rounded-[8px] border p-3 text-start transition",
                     active
                       ? "border-gold/50 bg-gold/[0.1]"
                       : "border-border bg-surface-alt hover:border-white/20",

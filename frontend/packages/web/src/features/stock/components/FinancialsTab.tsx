@@ -69,24 +69,24 @@ export function FinancialsTab({ symbol }: { symbol: string }) {
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-border text-left text-[11px] text-text-muted">
-                  <th className="py-2 pr-3 font-medium">{t("Period")}</th>
-                  <th className="py-2 pr-3 text-right font-medium">{t("Sales")}</th>
-                  <th className="py-2 pr-3 text-right font-medium">{t("Net Income")}</th>
-                  <th className="py-2 pr-3 text-right font-medium">{t("EPS")}</th>
+                <tr className="border-b border-border text-start text-[11px] text-text-muted">
+                  <th className="py-2 pe-3 font-medium">{t("Period")}</th>
+                  <th className="py-2 pe-3 text-end font-medium">{t("Sales")}</th>
+                  <th className="py-2 pe-3 text-end font-medium">{t("Net Income")}</th>
+                  <th className="py-2 pe-3 text-end font-medium">{t("EPS")}</th>
                 </tr>
               </thead>
               <tbody>
                 {quarterlyRows.map((r) => (
                   <tr key={r.label} className="border-b border-border/50">
-                    <td className="py-2 pr-3 font-mono text-text-primary">{r.label}</td>
-                    <td className="py-2 pr-3 text-right font-mono tabular-nums text-text-secondary">
+                    <td className="py-2 pe-3 font-mono text-text-primary">{r.label}</td>
+                    <td className="py-2 pe-3 text-end font-mono tabular-nums text-text-secondary">
                       {r.sales == null ? "—" : localizeDigits(r.sales.toFixed(0))}
                     </td>
-                    <td className="py-2 pr-3 text-right font-mono tabular-nums text-text-secondary">
+                    <td className="py-2 pe-3 text-end font-mono tabular-nums text-text-secondary">
                       {r.net_income == null ? "—" : localizeDigits(r.net_income.toFixed(0))}
                     </td>
-                    <td className="py-2 pr-3 text-right font-mono tabular-nums text-text-secondary">
+                    <td className="py-2 pe-3 text-end font-mono tabular-nums text-text-secondary">
                       {r.eps == null ? "—" : localizeDigits(r.eps.toFixed(2))}
                     </td>
                   </tr>

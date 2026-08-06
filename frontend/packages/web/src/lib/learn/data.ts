@@ -33,7 +33,12 @@ export interface LessonContent {
   level: "Beginner" | "Intermediate" | "Advanced";
   origin?: "official" | "generated";
   language?: "en" | "ur";
-  sources?: Array<{ sourceId: string; title: string; heading?: string | null; lessonId?: string | null }>;
+  sources?: Array<{
+    sourceId: string;
+    title: string;
+    heading?: string | null;
+    lessonId?: string | null;
+  }>;
   projectId?: string;
   videoStatus?: string;
   rewardMode?: "xp" | "practice";

@@ -29,7 +29,7 @@ export function AiProse({ content }: { content: string }) {
     <div className="space-y-2">
       {parseAiText(content).map((b, i) =>
         b.kind === "ul" ? (
-          <ul key={i} className="list-disc space-y-1 pl-4 marker:text-text-muted">
+          <ul key={i} className="list-disc space-y-1 ps-4 marker:text-text-muted">
             {b.items.map((item, j) => (
               <li key={j}>{renderSpans(item)}</li>
             ))}

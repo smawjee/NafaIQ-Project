@@ -4,6 +4,7 @@ import { cn } from "@/lib/utils";
 import { useStockSearch } from "@/hooks/psx/use-stock-search";
 import type { StockSearchResult } from "@/lib/psx/stock-search";
 import { StockLogo } from "@/components/search/StockLogo";
+import { useLang } from "@/hooks/use-lang";
 
 export interface StockSearchBoxProps {
   /** "add" shows a plus / Added state; "navigate" is a suggestion list. */
@@ -33,6 +34,7 @@ export function StockSearchBox({
   autoFocus,
   className,
 }: StockSearchBoxProps) {
+  const { t } = useLang();
   const [query, setQuery] = useState("");
   const [active, setActive] = useState(0);
   const [open, setOpen] = useState(variant === "inline");
@@ -94,14 +96,15 @@ export function StockSearchBox({
     <div ref={listRef} className="max-h-72 overflow-y-auto py-1">
       {loading ? (
         <div className="flex items-center justify-center gap-2 py-6 text-xs text-text-muted">
-          <Loader2 className="h-4 w-4 animate-spin" /> Loading stocks…
+          <Loader2 className="h-4 w-4 animate-spin" />
+          {t("Loading stocks…")}
         </div>
       ) : error ? (
         <div className="py-6 text-center text-xs text-bear">
-          Couldn't load stocks. Please try again.
+          {t("Couldn't load stocks. Please try again.")}
         </div>
       ) : isEmpty ? (
-        <div className="py-6 text-center text-xs text-text-muted">No stocks found</div>
+        <div className="py-6 text-center text-xs text-text-muted">{t("No stocks found")}</div>
       ) : (
         results.map((r, i) => {
           const isAdded = mode === "add" && added.has(r.symbol.toUpperCase());
@@ -114,7 +117,7 @@ export function StockSearchBox({
               onMouseEnter={() => setActive(i)}
               onClick={() => choose(r)}
               className={cn(
-                "flex w-full items-center gap-2 rounded-[6px] px-2 py-1.5 text-left transition-colors",
+                "flex w-full items-center gap-2 rounded-[6px] px-2 py-1.5 text-start transition-colors",
                 i === active ? "bg-white/[0.06]" : "hover:bg-hover",
                 isAdded && "opacity-50",
               )}
@@ -123,7 +126,7 @@ export function StockSearchBox({
               <span className="shrink-0 text-sm font-semibold text-bull">{r.symbol}</span>
               <span className="flex-1 truncate text-[11px] text-text-muted">{r.name}</span>
               {r.price != null ? (
-                <span className="shrink-0 text-right">
+                <span className="shrink-0 text-end">
                   <span className="block font-mono text-[12px] tabular-nums text-text-primary">
                     {r.price.toFixed(2)}
                   </span>
@@ -144,7 +147,7 @@ export function StockSearchBox({
                 isAdded ? (
                   <span className="flex shrink-0 items-center gap-1 text-[10px] text-text-muted">
                     <Check className="h-3.5 w-3.5" />
-                    Added
+                    {t("Added")}
                   </span>
                 ) : (
                   <Plus className="h-4 w-4 shrink-0 text-bull" />
@@ -167,8 +170,8 @@ export function StockSearchBox({
           onKeyDown={onKeyDown}
           onFocus={() => setOpen(true)}
           autoFocus={autoFocus}
-          aria-label="Search stocks"
-          placeholder={placeholder ?? "Search stocks (e.g. HBL, Engro)…"}
+          aria-label={t("Search stocks")}
+          placeholder={placeholder ?? t("Search stocks (e.g. HBL, Engro)…")}
           className="h-9 w-full rounded-[8px] border border-border bg-surface ps-8 pe-3 text-[13px] text-text-primary outline-none transition-colors placeholder:text-text-muted focus:border-bull"
         />
       </div>

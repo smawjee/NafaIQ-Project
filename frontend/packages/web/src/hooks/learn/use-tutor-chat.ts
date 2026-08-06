@@ -113,11 +113,17 @@ export function useTutorChat(opts: UseTutorChatOptions) {
           history: history.filter((m, i) => !(i === 0 && m.role === "assistant")).slice(-6, -1),
           lang,
         })
-          .then((result) => replaceLast(result.answer ?? "This lesson does not cover that question."))
+          .then((result) =>
+            replaceLast(result.answer ?? "This lesson does not cover that question."),
+          )
           .catch((error: unknown) => {
             const message = error instanceof Error ? error.message : "";
             if (/\b429\b/.test(message)) setQuotaExceeded(true);
-            replaceLast(/\b429\b/.test(message) ? "Daily LearnHub AI limit reached." : "The lesson tutor is unavailable right now.");
+            replaceLast(
+              /\b429\b/.test(message)
+                ? "Daily LearnHub AI limit reached."
+                : "The lesson tutor is unavailable right now.",
+            );
           })
           .finally(() => setLoading(false));
         return;
@@ -150,7 +156,16 @@ export function useTutorChat(opts: UseTutorChatOptions) {
         controller.signal,
       );
     },
-    [messages, loading, quotaExceeded, signedOut, lang, opts.lessonTitle, opts.lessonContext, opts.projectId],
+    [
+      messages,
+      loading,
+      quotaExceeded,
+      signedOut,
+      lang,
+      opts.lessonTitle,
+      opts.lessonContext,
+      opts.projectId,
+    ],
   );
 
   return { messages, loading, quotaExceeded, signedOut, send };

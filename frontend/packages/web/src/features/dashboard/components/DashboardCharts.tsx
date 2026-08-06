@@ -103,7 +103,7 @@ export function DashboardCharts({
 
       <DonutBreakdownCard
         className="lg:col-span-2"
-        title="Spending Breakdown"
+        title={t("Spending Breakdown")}
         loading={!useShowcaseDashboard && spendingByCatLoading}
         loadingLabel="Loading spending breakdown..."
         data={spendingData}

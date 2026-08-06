@@ -49,7 +49,7 @@ export function UnusualActivityWidget() {
                   </div>
                   <div
                     className={cn(
-                      "text-right font-mono text-sm font-semibold tabular-nums",
+                      "text-end font-mono text-sm font-semibold tabular-nums",
                       positive ? "text-bull" : "text-bear",
                     )}
                   >

@@ -1,5 +1,6 @@
 import { motion, useReducedMotion } from "framer-motion";
 import { useEffect, useRef } from "react";
+import { useLang } from "@/hooks/use-lang";
 
 const tickerItems = [
   { sym: "OGDC", price: "142.50", chg: "+2.3%", up: true },
@@ -10,6 +11,7 @@ const tickerItems = [
 ];
 
 function TickerCSS() {
+  const { t } = useLang();
   return (
     <style>{`
 @keyframes ticker-marquee {
@@ -29,6 +31,7 @@ interface PhoneMockupProps {
 }
 
 export function PhoneMockup({ className, startDelay = 0 }: PhoneMockupProps) {
+  const { t } = useLang();
   const reduce = useReducedMotion();
   const ref = useRef<HTMLDivElement>(null);
 
@@ -138,7 +141,7 @@ export function PhoneMockup({ className, startDelay = 0 }: PhoneMockupProps) {
             }}
           >
             <div style={{ color: "#14b894", fontSize: 13, fontWeight: 700, letterSpacing: -0.2 }}>
-              NafaIQ
+              {t("NafaIQ")}
             </div>
             <svg width="16" height="16" viewBox="0 0 16 16">
               <path
@@ -161,13 +164,13 @@ export function PhoneMockup({ className, startDelay = 0 }: PhoneMockupProps) {
             }}
           >
             <div style={{ fontSize: 13, fontWeight: 600, color: "#fff" }}>
-              Asalam-o-Alaikum, Usman
+              {t("Asalam-o-Alaikum, Usman")}
             </div>
             <div style={{ fontSize: 10, color: "rgba(255,255,255,0.4)", marginTop: 4 }}>
               Wed, Jul 1 · KSE-100 <span style={{ color: "#14b894" }}>+0.62%</span>
             </div>
             <div style={{ fontSize: 10, color: "rgba(255,255,255,0.4)", marginTop: 14 }}>
-              Net Worth
+              {t("Net Worth")}
             </div>
             <div
               style={{
@@ -179,7 +182,7 @@ export function PhoneMockup({ className, startDelay = 0 }: PhoneMockupProps) {
                 marginTop: 2,
               }}
             >
-              PKR 5,840,000
+              {t("PKR 5,840,000")}
             </div>
             <svg
               width="248"
@@ -225,7 +228,7 @@ export function PhoneMockup({ className, startDelay = 0 }: PhoneMockupProps) {
                 letterSpacing: 0.5,
               }}
             >
-              Portfolio Value
+              {t("Portfolio Value")}
             </div>
             <div
               style={{
@@ -236,9 +239,9 @@ export function PhoneMockup({ className, startDelay = 0 }: PhoneMockupProps) {
                 marginTop: 4,
               }}
             >
-              PKR 4.25M
+              {t("PKR 4.25M")}
             </div>
-            <div style={{ fontSize: 11, color: "#14b894", marginTop: 2 }}>+2.4% today</div>
+            <div style={{ fontSize: 11, color: "#14b894", marginTop: 2 }}>{t("+2.4% today")}</div>
           </div>
 
           <div style={{ display: "flex", gap: 8, padding: "8px 8px 0", flexShrink: 0 }}>
@@ -251,7 +254,7 @@ export function PhoneMockup({ className, startDelay = 0 }: PhoneMockupProps) {
                 border: "1px solid rgba(255,255,255,0.03)",
               }}
             >
-              <div style={{ fontSize: 10, color: "rgba(255,255,255,0.4)" }}>Spending</div>
+              <div style={{ fontSize: 10, color: "rgba(255,255,255,0.4)" }}>{t("Spending")}</div>
               <div
                 style={{
                   fontSize: 15,
@@ -261,7 +264,7 @@ export function PhoneMockup({ className, startDelay = 0 }: PhoneMockupProps) {
                   marginTop: 4,
                 }}
               >
-                PKR 185K
+                {t("PKR 185K")}
               </div>
               <div style={{ fontSize: 11, color: "#ef4444", marginTop: 2 }}>-8.2%</div>
             </div>
@@ -284,7 +287,7 @@ export function PhoneMockup({ className, startDelay = 0 }: PhoneMockupProps) {
                   marginTop: 4,
                 }}
               >
-                +PKR 28.4K
+                {t("+PKR 28.4K")}
               </div>
               <div style={{ fontSize: 11, color: "#14b894", marginTop: 2 }}>+0.68%</div>
             </div>
@@ -337,7 +340,7 @@ export function PhoneMockup({ className, startDelay = 0 }: PhoneMockupProps) {
                 gap: 24,
                 whiteSpace: "nowrap",
                 width: "max-content",
-                paddingLeft: 12,
+                paddingInlineStart: 12,
               }}
             >
               <div style={{ display: "flex", gap: 24 }}>

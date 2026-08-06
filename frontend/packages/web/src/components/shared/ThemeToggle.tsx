@@ -1,4 +1,5 @@
 import { Sun, Moon } from "lucide-react";
+import { useLang } from "@/hooks/use-lang";
 
 interface ThemeToggleProps {
   isDark: boolean;
@@ -14,10 +15,11 @@ export function ThemeToggle({
   label = "Toggle theme",
   className = "",
 }: ThemeToggleProps) {
+  const { t } = useLang();
   return (
     <button
       onClick={onToggle}
-      aria-label={label}
+      aria-label={t(label)}
       className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-[9px] text-text-secondary transition-colors hover:bg-hover hover:text-text-primary ${className}`}
     >
       {isDark ? (

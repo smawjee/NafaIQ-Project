@@ -114,7 +114,7 @@ function FilingRow({
         type="button"
         onClick={onToggle}
         className={cn(
-          "flex w-full items-start gap-2 rounded-[8px] p-3 text-left transition-colors",
+          "flex w-full items-start gap-2 rounded-[8px] p-3 text-start transition-colors",
           "hover:bg-hover",
         )}
       >
@@ -148,7 +148,7 @@ function FilingRow({
       </button>
       {isOpen && isLoading && (
         <div className="flex items-center justify-center border-t border-border px-4 py-6 text-text-muted text-sm">
-          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+          <Loader2 className="me-2 h-4 w-4 animate-spin" />
           {t("Loading filing text...")}
         </div>
       )}

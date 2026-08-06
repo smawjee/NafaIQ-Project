@@ -1,6 +1,7 @@
 import { Card } from "@/components/shared/Card";
 import { SignalRecommendation } from "@/features/signals/SignalRecommendation";
 import type { ApiSignalDetail } from "@/lib/psx/signals";
+import { useLang } from "@/hooks/use-lang";
 
 const tone: Record<string, string> = {
   "Strong Bullish": "text-bull",
@@ -41,6 +42,7 @@ function billions(pkr?: number): string {
 }
 
 export function SignalPanel({ signal }: { signal?: ApiSignalDetail | null }) {
+  const { t } = useLang();
   const setup = signal?.technical_setup;
   const ctx = signal?.context;
   const flow = ctx?.flow;
@@ -56,9 +58,9 @@ export function SignalPanel({ signal }: { signal?: ApiSignalDetail | null }) {
         className={`flex items-start justify-between gap-4 ${signal?.recommendation ? "mt-4" : ""}`}
       >
         <div>
-          <h3 className="text-sm font-semibold text-text-primary">Technical Setup</h3>
+          <h3 className="text-sm font-semibold text-text-primary">{t("Technical Setup")}</h3>
           <p className="mt-1 text-xs text-text-muted">
-            What indicators read right now — not a forecast
+            {t("What indicators read right now — not a forecast")}
           </p>
         </div>
         {setup?.status === "available" ? (
@@ -66,7 +68,7 @@ export function SignalPanel({ signal }: { signal?: ApiSignalDetail | null }) {
             {setup.rating}
           </span>
         ) : (
-          <span className="text-xs text-text-muted">Setup unavailable</span>
+          <span className="text-xs text-text-muted">{t("Setup unavailable")}</span>
         )}
       </div>
 
@@ -76,7 +78,7 @@ export function SignalPanel({ signal }: { signal?: ApiSignalDetail | null }) {
           {ctx?.relative_rank?.composite_percentile != null ? (
             <span className="rounded-[6px] border border-primary/40 bg-primary/10 px-2 py-1 font-medium text-primary">
               Top {Math.round(100 - ctx.relative_rank.composite_percentile)}% of PSX
-              <span className="ml-1 text-text-muted">
+              <span className="ms-1 text-text-muted">
                 ({Math.round(ctx.relative_rank.composite_percentile)}th pct ·{" "}
                 {ctx.relative_rank.universe_size})
               </span>
@@ -106,15 +108,15 @@ export function SignalPanel({ signal }: { signal?: ApiSignalDetail | null }) {
           <div className="mt-4 grid grid-cols-3 gap-2 text-center text-xs">
             <div className="rounded-[7px] border border-border bg-surface-alt p-2">
               <div className="font-mono text-bull">{setup.bullish_count}</div>
-              <div className="mt-1 text-text-muted">Bullish</div>
+              <div className="mt-1 text-text-muted">{t("Bullish")}</div>
             </div>
             <div className="rounded-[7px] border border-border bg-surface-alt p-2">
               <div className="font-mono text-text-muted">{setup.neutral_count}</div>
-              <div className="mt-1 text-text-muted">Neutral</div>
+              <div className="mt-1 text-text-muted">{t("Neutral")}</div>
             </div>
             <div className="rounded-[7px] border border-border bg-surface-alt p-2">
               <div className="font-mono text-bear">{setup.bearish_count}</div>
-              <div className="mt-1 text-text-muted">Bearish</div>
+              <div className="mt-1 text-text-muted">{t("Bearish")}</div>
             </div>
           </div>
           <div className="mt-3 text-xs text-text-muted">
@@ -152,7 +154,7 @@ export function SignalPanel({ signal }: { signal?: ApiSignalDetail | null }) {
         <div className="mt-4 grid grid-cols-2 gap-2 text-xs">
           {ctx.trend_state ? (
             <div className="rounded-[7px] border border-border bg-surface-alt p-2">
-              <div className="text-text-muted">Trend</div>
+              <div className="text-text-muted">{t("Trend")}</div>
               <div className="mt-0.5 font-medium text-text-primary">
                 {trendLabel[ctx.trend_state] ?? ctx.trend_state}
               </div>
@@ -160,19 +162,19 @@ export function SignalPanel({ signal }: { signal?: ApiSignalDetail | null }) {
           ) : null}
           {ctx.regime ? (
             <div className="rounded-[7px] border border-border bg-surface-alt p-2">
-              <div className="text-text-muted">Market regime</div>
+              <div className="text-text-muted">{t("Market regime")}</div>
               <div className="mt-0.5 font-medium text-text-primary">{ctx.regime}</div>
             </div>
           ) : null}
           {ctx.risk_level ? (
             <div className="rounded-[7px] border border-border bg-surface-alt p-2">
-              <div className="text-text-muted">Risk</div>
+              <div className="text-text-muted">{t("Risk")}</div>
               <div className="mt-0.5 font-medium text-text-primary">{ctx.risk_level}</div>
             </div>
           ) : null}
           {flow ? (
             <div className="rounded-[7px] border border-border bg-surface-alt p-2">
-              <div className="text-text-muted">Foreign flow</div>
+              <div className="text-text-muted">{t("Foreign flow")}</div>
               <div className="mt-0.5 font-medium text-text-primary">
                 {flowLabel[flow.trend ?? ""] ?? flow.trend ?? "—"}
               </div>
@@ -188,7 +190,7 @@ export function SignalPanel({ signal }: { signal?: ApiSignalDetail | null }) {
       {ctx?.risk_metrics ? (
         <div className="mt-4 border-t border-border pt-3 text-xs">
           <div className="flex items-center justify-between text-text-muted">
-            <span>Risk</span>
+            <span>{t("Risk")}</span>
             <span className="font-mono text-text-secondary">
               {ctx.risk_metrics.suggested_stop_pct != null
                 ? `stop ${(ctx.risk_metrics.suggested_stop_pct * 100).toFixed(1)}%`
@@ -247,7 +249,7 @@ export function SignalPanel({ signal }: { signal?: ApiSignalDetail | null }) {
                   ? `${(ctx.earnings.eps_change * 100).toFixed(0)}%`
                   : "—"}
               </div>
-              <div className="mt-1 text-text-muted">EPS YoY</div>
+              <div className="mt-1 text-text-muted">{t("EPS YoY")}</div>
             </div>
             <div className="rounded-[7px] border border-border bg-surface-alt p-2">
               <div className="font-mono text-text-secondary">
@@ -255,7 +257,7 @@ export function SignalPanel({ signal }: { signal?: ApiSignalDetail | null }) {
                   ? `${ctx.earnings.earnings_surprise.toFixed(1)}σ`
                   : "—"}
               </div>
-              <div className="mt-1 text-text-muted">Surprise</div>
+              <div className="mt-1 text-text-muted">{t("Surprise")}</div>
             </div>
             <div className="rounded-[7px] border border-border bg-surface-alt p-2">
               <div className="font-mono text-text-secondary">
@@ -263,7 +265,7 @@ export function SignalPanel({ signal }: { signal?: ApiSignalDetail | null }) {
                   ? `${(ctx.earnings.profitability_quality * 100).toFixed(0)}%`
                   : "—"}
               </div>
-              <div className="mt-1 text-text-muted">ROE</div>
+              <div className="mt-1 text-text-muted">{t("ROE")}</div>
             </div>
           </div>
         </div>
@@ -272,12 +274,12 @@ export function SignalPanel({ signal }: { signal?: ApiSignalDetail | null }) {
       {/* Recent corporate events — factual disclosures, not predictions */}
       {ctx?.recent_events && ctx.recent_events.length > 0 ? (
         <div className="mt-4 border-t border-border pt-3">
-          <div className="text-xs text-text-muted">Recent disclosures</div>
+          <div className="text-xs text-text-muted">{t("Recent disclosures")}</div>
           <div className="mt-2 space-y-1.5">
             {ctx.recent_events.slice(0, 3).map((event, i) => (
               <div key={i} className="flex items-start justify-between gap-3 text-xs">
                 <div className="min-w-0">
-                  <span className="mr-2 inline-block rounded-[4px] border border-border bg-surface-alt px-1.5 py-0.5 text-[10px] uppercase text-text-muted">
+                  <span className="me-2 inline-block rounded-[4px] border border-border bg-surface-alt px-1.5 py-0.5 text-[10px] uppercase text-text-muted">
                     {eventTypeLabel[event.event_type] ?? event.event_type}
                   </span>
                   <span className="text-text-secondary">{event.title || "—"}</span>
@@ -294,7 +296,7 @@ export function SignalPanel({ signal }: { signal?: ApiSignalDetail | null }) {
       {/* Honest forecast slot */}
       <div className="mt-4 border-t border-border pt-3 text-xs">
         <div className="flex items-center justify-between">
-          <span className="text-text-muted">20-day event outlook</span>
+          <span className="text-text-muted">{t("20-day event outlook")}</span>
           <span className="font-medium text-text-primary">
             {signal?.forecast.status === "published"
               ? signal.forecast.direction

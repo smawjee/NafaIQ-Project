@@ -52,7 +52,7 @@ export function Header({
         <button
           onClick={onExpand}
           className="hidden text-text-secondary transition-colors hover:text-text-primary lg:inline-flex"
-          aria-label="Show menu"
+          aria-label={t("Show menu")}
         >
           {isUrdu ? (
             <PanelRight className="h-5 w-5" strokeWidth={1.75} />
@@ -83,7 +83,7 @@ export function Header({
             </Link>
             <Link
               to="/plans"
-              aria-label={cta.label}
+              aria-label={t(cta.label)}
               className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[9px] border border-bull/40 bg-bull/10 text-bull sm:hidden"
             >
               <Sparkles className="h-4 w-4" />

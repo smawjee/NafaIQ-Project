@@ -90,7 +90,7 @@ export function PsxIndexOverview({
               type="button"
               onClick={() => scrollRail(-1)}
               disabled={!canScrollLeft}
-              className="absolute -left-6 top-1/2 z-20 hidden h-9 w-9 -translate-y-1/2 items-center justify-center rounded-[8px] border border-border bg-surface/95 text-text-secondary shadow-sm backdrop-blur transition hover:bg-hover hover:text-text-primary disabled:cursor-not-allowed disabled:opacity-40 sm:inline-flex"
+              className="absolute -start-6 top-1/2 z-20 hidden h-9 w-9 -translate-y-1/2 items-center justify-center rounded-[8px] border border-border bg-surface/95 text-text-secondary shadow-sm backdrop-blur transition hover:bg-hover hover:text-text-primary disabled:cursor-not-allowed disabled:opacity-40 sm:inline-flex"
               aria-label={t("Scroll indices left")}
             >
               <ChevronLeft className="h-4 w-4" />
@@ -99,7 +99,7 @@ export function PsxIndexOverview({
               type="button"
               onClick={() => scrollRail(1)}
               disabled={!canScrollRight}
-              className="absolute right-2 top-1/2 z-20 hidden h-9 w-9 -translate-y-1/2 items-center justify-center rounded-[8px] border border-border bg-surface/95 text-text-secondary shadow-sm backdrop-blur transition hover:bg-hover hover:text-text-primary disabled:cursor-not-allowed disabled:opacity-40 sm:inline-flex"
+              className="absolute end-2 top-1/2 z-20 hidden h-9 w-9 -translate-y-1/2 items-center justify-center rounded-[8px] border border-border bg-surface/95 text-text-secondary shadow-sm backdrop-blur transition hover:bg-hover hover:text-text-primary disabled:cursor-not-allowed disabled:opacity-40 sm:inline-flex"
               aria-label={t("Scroll indices right")}
             >
               <ChevronRight className="h-4 w-4" />

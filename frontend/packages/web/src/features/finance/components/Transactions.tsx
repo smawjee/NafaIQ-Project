@@ -350,7 +350,7 @@ export function Transactions() {
 
       {Object.entries(grouped).map(([date, items]) => (
         <div key={date}>
-          <div className="mb-1.5 text-xs font-semibold text-text-muted">{date}</div>
+          <div className="mb-1.5 text-xs font-semibold text-text-muted">{tr(date)}</div>
           <Card className="divide-y divide-border/50 p-0" hover={false}>
             {items.map((t) => (
               <div key={t.id} className="flex items-center gap-3 px-3 py-2.5">
@@ -364,7 +364,9 @@ export function Transactions() {
                   />
                 </div>
                 <div className="min-w-0 flex-1">
-                  <div className="truncate text-sm text-text-primary">{t.merchant}</div>
+                  {/* Real merchants are user data and pass straight through;
+                      the demo fixture ships English names that do translate. */}
+                  <div className="truncate text-sm text-text-primary">{tr(t.merchant)}</div>
                   <div className="flex flex-wrap items-center gap-1.5 text-[11px] text-text-muted">
                     <span className="rounded-[4px] bg-elevated px-1.5 py-0.5">
                       {tr(t.category)}

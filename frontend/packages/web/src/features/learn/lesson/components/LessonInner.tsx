@@ -147,7 +147,7 @@ export function LessonInner({
             </button>
             <button
               onClick={() => toggleBookmark(lesson.id)}
-              aria-label="Bookmark"
+              aria-label={t("Bookmark")}
               className="shrink-0 text-text-secondary hover:text-bull"
             >
               {bookmarked ? (
@@ -181,13 +181,13 @@ export function LessonInner({
                   ariaLabel={t("Collapse table of contents")}
                 />
               </div>
-              <nav className="mt-3 space-y-1 border-l border-border">
+              <nav className="mt-3 space-y-1 border-s border-border">
                 {lesson.sections.map((s) => (
                   <button
                     key={s.id}
                     onClick={() => scrollToSection(s.id)}
                     className={cn(
-                      "-ml-px block border-l-2 py-1 pl-3 text-left text-xs transition-colors",
+                      "-ms-px block border-s-2 py-1 ps-3 text-start text-xs transition-colors",
                       activeSection === s.id
                         ? "border-bull font-medium text-bull"
                         : "border-transparent text-text-secondary hover:text-text-primary",
@@ -304,7 +304,7 @@ export function LessonInner({
           >
             <div className="sticky top-[var(--sticky-panel)] h-[calc(100dvh-var(--sticky-panel)-20px)]">
               <div className="relative h-full">
-                <div className="absolute -left-2.5 top-2 z-10">
+                <div className="absolute -start-2.5 top-2 z-10">
                   <CollapseHandle
                     side="right"
                     onClick={() => setChatCollapsed(true)}
@@ -347,7 +347,7 @@ export function LessonInner({
               <span className="inline-flex items-center gap-1.5 text-sm font-semibold text-text-primary">
                 <Cpu className="h-4 w-4 text-ai" strokeWidth={1.5} /> {t("Ask AI Tutor")}
               </span>
-              <button onClick={() => setChatOpen(false)} aria-label="Close">
+              <button onClick={() => setChatOpen(false)} aria-label={t("Close")}>
                 <X className="h-5 w-5 text-text-secondary" />
               </button>
             </div>

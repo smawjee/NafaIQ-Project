@@ -4,8 +4,10 @@ import { cn } from "@/lib/utils";
 import { Reveal } from "@/components/shared/animations";
 import { SectionLabel } from "@/features/landing/components/SectionLabel";
 import { FAQS } from "@/features/landing/landing.data";
+import { useLang } from "@/hooks/use-lang";
 
 export function FAQ() {
+  const { t } = useLang();
   const [open, setOpen] = useState<number | null>(0);
 
   return (
@@ -14,13 +16,13 @@ export function FAQ() {
         {/* Left: heading + contact */}
         <Reveal>
           <div className="lg:sticky lg:top-28">
-            <SectionLabel>FAQ</SectionLabel>
+            <SectionLabel>{t("FAQ")}</SectionLabel>
             <h2 className="mt-4 text-[34px] font-bold leading-[1.05] tracking-tight sm:text-[46px]">
               Got questions?
               <br />
-              <span className="text-bull">We&apos;ve got answers.</span>
+              <span className="text-bull">{t("We've got answers.")}</span>
             </h2>
-            <p className="mt-6 text-sm text-text-secondary">Didn&apos;t find your answer?</p>
+            <p className="mt-6 text-sm text-text-secondary">{t("Didn't find your answer?")}</p>
             <div className="mt-4 h-px w-16 bg-white/10" />
             <a
               href="#contact"
@@ -41,7 +43,7 @@ export function FAQ() {
                   type="button"
                   onClick={() => setOpen(isOpen ? null : i)}
                   aria-expanded={isOpen}
-                  className="group flex w-full items-center justify-between gap-6 py-6 text-left"
+                  className="group flex w-full items-center justify-between gap-6 py-6 text-start"
                 >
                   <span className="flex items-center gap-4">
                     <span
@@ -80,7 +82,7 @@ export function FAQ() {
                   }}
                 >
                   <div className="overflow-hidden">
-                    <p className="pb-6 pl-[52px] pr-6 text-sm leading-relaxed text-text-secondary">
+                    <p className="pb-6 pl-[52px] pe-6 text-sm leading-relaxed text-text-secondary">
                       {f.a}
                     </p>
                   </div>

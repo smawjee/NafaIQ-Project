@@ -37,7 +37,7 @@ export function DashboardWatchlistStrip({
   // where there is no hover — the card could never be removed from a phone.
   // Show it always on coarse pointers, keep the hover reveal on mice.
   const removeButtonClass =
-    "absolute right-1 top-1 flex h-6 w-6 items-center justify-center rounded-full text-text-muted transition hover:bg-surface-hover hover:text-text-primary " +
+    "absolute end-1 top-1 flex h-6 w-6 items-center justify-center rounded-full text-text-muted transition hover:bg-surface-hover hover:text-text-primary " +
     "opacity-100 [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover:opacity-100 [@media(hover:hover)]:focus-visible:opacity-100";
   return (
     <section>

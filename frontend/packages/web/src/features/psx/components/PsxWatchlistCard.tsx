@@ -110,7 +110,7 @@ export function PsxWatchlistCard({
                   <div className="wl-symbol text-sm font-semibold text-bull">{tk}</div>
                   <div className="text-[10px] text-text-muted">{t(liveName)}</div>
                 </div>
-                <div className="text-right">
+                <div className="text-end">
                   {hasPrice ? (
                     <>
                       <div className="font-mono text-sm tabular-nums text-text-primary">

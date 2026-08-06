@@ -11,7 +11,7 @@ export function CompletionRing({ status }: { status: string }) {
   if (status === "in-progress") {
     return (
       <span className="relative h-6 w-6 rounded-full border-2 border-warning">
-        <span className="absolute inset-y-0 left-0 w-1/2 rounded-l-full bg-warning/70" />
+        <span className="absolute inset-y-0 start-0 w-1/2 rounded-s-full bg-warning/70" />
       </span>
     );
   }

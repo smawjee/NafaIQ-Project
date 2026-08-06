@@ -16,9 +16,11 @@ import { useLandingTheme } from "@/hooks/use-landing-theme";
 import { ScatteredTickers } from "@/features/landing/components/ScatteredTickers";
 import { StoreButtons } from "@/features/landing/components/StoreButtons";
 import { ScrollCue } from "@/features/landing/components/ScrollCue";
+import { useLang } from "@/hooks/use-lang";
 
 /* ---------- hero with mouse-following glows + scroll parallax ---------- */
 export function Hero() {
+  const { t } = useLang();
   const reduce = useReducedMotion();
   const ref = useRef<HTMLDivElement>(null);
   const { scrollYProgress } = useScroll({ target: ref, offset: ["start start", "end start"] });
@@ -141,7 +143,8 @@ export function Hero() {
         >
           <Reveal as="span">
             <span className="inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/[0.06] px-4 py-1.5 text-xs tracking-[0.08em] text-primary">
-              <PkBadge /> Built for the Pakistani Investor
+              <PkBadge />
+              {t("Built for the Pakistani Investor")}
             </span>
           </Reveal>
           <Reveal delay={0.05}>
@@ -152,14 +155,15 @@ export function Hero() {
                 className="text-bull text-glow-heading"
                 style={{ textShadow: "0 0 60px rgba(0,212,170,0.3)" }}
               >
-                One Terminal.
+                {t("One Terminal.")}
               </span>
             </h1>
           </Reveal>
           <Reveal delay={0.12}>
             <p className="mt-5 max-w-[480px] text-base text-text-secondary sm:text-lg">
-              Track markets, manage money, and get AI insights — built around Pakistan's financial
-              reality.
+              {t(
+                "Track markets, manage money, and get AI insights — built around Pakistan's financial reality.",
+              )}
             </p>
           </Reveal>
           <Reveal delay={0.18}>
@@ -170,12 +174,12 @@ export function Hero() {
           <Reveal delay={0.24}>
             <p className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-text-muted">
               <span className="inline-flex items-center gap-1.5">
-                <Check className="h-3.5 w-3.5 text-bull" strokeWidth={1.5} /> No account required to
-                explore
+                <Check className="h-3.5 w-3.5 text-bull" strokeWidth={1.5} />
+                {t("No account required to explore")}
               </span>
               <span className="inline-flex items-center gap-1.5">
-                <Check className="h-3.5 w-3.5 text-bull" strokeWidth={1.5} /> Works on iOS, Android
-                &amp; Desktop
+                <Check className="h-3.5 w-3.5 text-bull" strokeWidth={1.5} />{" "}
+                {t("Works on iOS, Android & Desktop")}
               </span>
             </p>
           </Reveal>

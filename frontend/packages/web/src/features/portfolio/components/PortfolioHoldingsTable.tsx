@@ -39,16 +39,16 @@ export function PortfolioHoldingsTable({
       <div className="scrollbar-none overflow-x-auto">
         <table className="w-full min-w-[760px] text-xs">
           <thead>
-            <tr className="border-b border-border text-left text-text-muted">
+            <tr className="border-b border-border text-start text-text-muted">
               <th className="py-2">{t("Stock")}</th>
               <th>{t("Sector")}</th>
-              <th className="text-right">{t("Shares")}</th>
-              <th className="text-right">{t("Avg Cost")}</th>
-              <th className="text-right">{t("Current")}</th>
-              <th className="text-right">{t("Mkt Value")}</th>
-              <th className="text-right">{t("Gain/Loss")}</th>
+              <th className="text-end">{t("Shares")}</th>
+              <th className="text-end">{t("Avg Cost")}</th>
+              <th className="text-end">{t("Current")}</th>
+              <th className="text-end">{t("Mkt Value")}</th>
+              <th className="text-end">{t("Gain/Loss")}</th>
               <th className="text-center">{t("Signal")}</th>
-              <th className="text-right">{t("Action")}</th>
+              <th className="text-end">{t("Action")}</th>
             </tr>
           </thead>
           <tbody>
@@ -76,19 +76,19 @@ export function PortfolioHoldingsTable({
                     {h.ticker}
                   </td>
                   <td className="text-text-secondary">{t(h.sector)}</td>
-                  <td className="text-right font-mono tabular-nums text-text-primary">
+                  <td className="text-end font-mono tabular-nums text-text-primary">
                     {h.shares.toLocaleString()}
                   </td>
-                  <td className="text-right font-mono tabular-nums text-text-secondary">
+                  <td className="text-end font-mono tabular-nums text-text-secondary">
                     {fmtNum(h.avgCost)}
                   </td>
-                  <td className="text-right font-mono tabular-nums text-text-primary">
+                  <td className="text-end font-mono tabular-nums text-text-primary">
                     {fmtNum(h.current)}
                   </td>
-                  <td className="text-right font-mono tabular-nums text-text-primary">
+                  <td className="text-end font-mono tabular-nums text-text-primary">
                     {fmtPKR(mv)}
                   </td>
-                  <td className="text-right font-mono tabular-nums">
+                  <td className="text-end font-mono tabular-nums">
                     <span className={gain >= 0 ? "text-bull" : "text-bear"}>
                       {gain >= 0 ? "+" : ""}
                       {fmtPKR(gain)} ({gainPct >= 0 ? "+" : ""}
@@ -98,7 +98,7 @@ export function PortfolioHoldingsTable({
                   <td className="text-center">
                     <SignalBadge signal={h.signal} />
                   </td>
-                  <td className="text-right">
+                  <td className="text-end">
                     <div className="flex justify-end gap-2 text-text-muted">
                       <button
                         onClick={() => onEdit(idx)}

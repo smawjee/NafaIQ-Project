@@ -9,6 +9,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import { Search, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button, Select } from "./primitives";
+import { useLang } from "@/hooks/use-lang";
 
 /**
  * Search box with an internal debounce.
@@ -32,6 +33,7 @@ export function SearchInput({
   className?: string;
   autoFocus?: boolean;
 }) {
+  const { t } = useLang();
   const [local, setLocal] = useState(value);
 
   useEffect(() => {
@@ -58,8 +60,8 @@ export function SearchInput({
         value={local}
         autoFocus={autoFocus}
         onChange={(e) => setLocal(e.target.value)}
-        placeholder={placeholder}
-        aria-label={placeholder}
+        placeholder={t(placeholder)}
+        aria-label={t(placeholder)}
         className={cn(
           "h-9 w-full rounded-lg border border-border bg-surface-alt ps-8 pe-8 text-sm",
           "text-text-primary placeholder:text-text-muted transition-colors duration-150",
@@ -70,7 +72,7 @@ export function SearchInput({
         <button
           type="button"
           onClick={() => setLocal("")}
-          aria-label="Clear search"
+          aria-label={t("Clear search")}
           className="absolute end-2 top-1/2 -translate-y-1/2 cursor-pointer rounded text-text-muted transition-colors hover:text-text-primary"
         >
           <X className="h-3.5 w-3.5" />
@@ -101,17 +103,18 @@ export function FilterSelect({
   allLabel?: string;
   className?: string;
 }) {
+  const { t } = useLang();
   return (
     <Select
       value={value}
-      aria-label={label}
+      aria-label={t(label)}
       onChange={(e) => onChange(e.target.value)}
       className={cn("w-auto min-w-[9rem]", value && "border-primary/40 text-primary", className)}
     >
-      <option value="">{allLabel}</option>
+      <option value="">{t(allLabel)}</option>
       {options.map((o) => (
         <option key={o.value} value={o.value}>
-          {o.label}
+          {t(o.label)}
         </option>
       ))}
     </Select>

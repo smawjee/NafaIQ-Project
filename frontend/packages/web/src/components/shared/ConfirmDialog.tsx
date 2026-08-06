@@ -11,6 +11,7 @@ import {
   AlertDialogCancel,
   AlertDialogAction,
 } from "@/components/ui/alert-dialog";
+import { useLang } from "@/hooks/use-lang";
 
 interface ConfirmDialogProps {
   open: boolean;
@@ -41,6 +42,9 @@ export function ConfirmDialog({
   variant = "destructive",
   loading,
 }: ConfirmDialogProps) {
+  // Translate here rather than at each call site: callers pass English source
+  // strings, which are exactly the dictionary keys.
+  const { t } = useLang();
   const managed = loading !== undefined;
   return (
     <AlertDialog
@@ -52,11 +56,11 @@ export function ConfirmDialog({
     >
       <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle>{title}</AlertDialogTitle>
-          <AlertDialogDescription>{description}</AlertDialogDescription>
+          <AlertDialogTitle>{t(title)}</AlertDialogTitle>
+          <AlertDialogDescription>{t(description)}</AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel disabled={loading}>{cancelText}</AlertDialogCancel>
+          <AlertDialogCancel disabled={loading}>{t(cancelText)}</AlertDialogCancel>
           <AlertDialogAction
             disabled={loading}
             onClick={(e) => {
@@ -71,8 +75,8 @@ export function ConfirmDialog({
                 : undefined
             }
           >
-            {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            {confirmText}
+            {loading && <Loader2 className="me-2 h-4 w-4 animate-spin" />}
+            {t(confirmText)}
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>
