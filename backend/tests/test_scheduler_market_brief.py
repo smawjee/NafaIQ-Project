@@ -8,6 +8,7 @@ tests/test_reports_api.py.
 from __future__ import annotations
 
 import contextlib
+from datetime import date, datetime
 
 from apscheduler.triggers.cron import CronTrigger
 
@@ -85,9 +86,40 @@ async def test_job_generates_and_persists_shared_brief(monkeypatch):
     assert saved["verified"] is True
     assert saved["provider"] == "gemini"
     assert saved["model"] == "flash"
-    # trading_date is an ISO date string, context_hash a sha256 hex digest
-    assert isinstance(saved["trading_date"], str) and len(saved["trading_date"]) == 10
+    # trading_date MUST be a date, not an isoformat string. This assertion used
+    # to require `str` — it pinned the bug in place. asyncpg binds this to a
+    # DATE column and raises "'str' object has no attribute 'toordinal'" on a
+    # string, so the job threw on every single run and
+    # psx_data_source_health.market_brief carried last_success = NULL, while the
+    # brief users actually saw was written as a side effect of whoever opened
+    # the dashboard first that day.
+    assert isinstance(saved["trading_date"], date)
+    assert not isinstance(saved["trading_date"], datetime)
     assert isinstance(saved["context_hash"], str) and len(saved["context_hash"]) == 64
+    # The morning run must not clobber an existing row — that is the dashboard
+    # stampede guard.
+    assert saved.get("replace") is False
+
+
+async def test_postclose_run_replaces_the_days_row(monkeypatch):
+    """The 16:05 PKT run exists to overwrite a partial-day brief.
+
+    Without replace=True it would generate against the closing tape and then
+    have ON CONFLICT DO NOTHING discard it, leaving the morning's brief — which
+    on 2026-08-06 claimed the index closed at 180740.72 when it closed at
+    181776.59.
+    """
+    _patch_engine(monkeypatch, _gen_result())
+    saved = {}
+
+    async def _fake_get_or_create_shared(conn, **kw):
+        saved.update(kw)
+        return {"id": "abc", "created_at": "2026-08-06"}
+
+    monkeypatch.setattr(sched.reports_repo, "get_or_create_shared", _fake_get_or_create_shared)
+
+    await sched.job_generate_market_brief(replace=True)
+    assert saved["replace"] is True
 
 
 # --------------------------------------------------------------------------- #
@@ -153,5 +185,16 @@ def test_init_scheduler_registers_market_brief_job(monkeypatch):
         # all original jobs are preserved (8 existing + this new one)
         assert sched.scheduler.get_job("check_alerts") is not None
         assert len(sched.scheduler.get_jobs()) >= 9
+
+        # The post-close run is what makes the brief describe the finished
+        # session; it must be registered, on Karachi time, and must pass
+        # replace=True or it regenerates and then discards the result.
+        post = sched.scheduler.get_job("generate_market_brief_postclose")
+        assert post is not None
+        assert post.func is sched.job_generate_market_brief
+        assert "Karachi" in str(post.trigger.timezone)
+        assert post.kwargs == {"replace": True}
+        # After the 15:30 PKT close, not before it.
+        assert str(post.trigger.fields[post.trigger.FIELD_NAMES.index("hour")]) == "16"
     finally:
         sched.scheduler.remove_all_jobs()

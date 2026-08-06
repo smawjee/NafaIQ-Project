@@ -215,6 +215,7 @@ async def _generate_once(
             # On any failure, regenerate exactly once.
             if not vr.verified or violations:
                 regenerated = True
+                first_report, first_vr, first_violations = report, vr, violations
                 retry_messages = messages + [
                     {"role": "assistant", "content": report.model_dump_json()},
                     {"role": "user", "content": _correction_message(vr, violations)},
@@ -230,6 +231,31 @@ async def _generate_once(
                 report = _stamp_requested_lang(report, lang)
                 vr = verify_report(report, bundle)
                 violations = check_report(report)
+
+                # Keep the BETTER draft, not simply the latest one. A correction
+                # can come back worse than what it was correcting: an observed
+                # portfolio run produced a complete, guardrail-clean first draft,
+                # failed it on one imprecise citation, and got back a second
+                # draft MISSING a required section — so a good report was thrown
+                # away and the surface hard-failed. Ranking by
+                # (violations, mismatches) means a regression falls back instead.
+                def _cost(found_violations: list, verification) -> tuple[int, int]:
+                    """Rank a draft: fewer compliance violations first, then
+                    fewer numeric mismatches. Violations outrank mismatches
+                    because a mismatch can still be stripped, a violation cannot."""
+                    return (len(found_violations), len(verification.mismatches))
+
+                second_cost = _cost(violations, vr)
+                first_cost = _cost(first_violations, first_vr)
+                if second_cost > first_cost:
+                    log.info(
+                        "report_correction_regressed report_type=%s kept=first_draft "
+                        "first=%s second=%s",
+                        spec.report_type,
+                        first_cost,
+                        second_cost,
+                    )
+                    report, vr, violations = first_report, first_vr, first_violations
 
             # Spec §5 step 2: if the second draft still fails verification, try to
             # strip orphan numbers and bad citations from the rendered prose. The

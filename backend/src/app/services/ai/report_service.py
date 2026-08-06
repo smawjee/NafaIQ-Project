@@ -250,6 +250,9 @@ async def serve(
             spec, mode=mode, user_id=user_id, subject=subject, days=days,
             lang=lang, today=today, ckey=ckey,
             count_usage=force and mode == USER_DAILY,
+            # A forced SHARED refresh must overwrite the day's row, not dedupe
+            # against it — see _generate_and_store's `replace`.
+            replace=force and mode == SHARED,
         )
 
 
@@ -264,11 +267,16 @@ async def _generate_and_store(
     ckey: tuple[Any, ...],
     today: date,
     count_usage: bool = False,
+    replace: bool = False,
 ) -> ReportResponse:
     """Generate one report and persist it. Callers hold the single-flight lock.
 
     `count_usage` charges the quota counter for a mode that normally doesn't —
     i.e. a forced USER_DAILY refresh.
+
+    `replace` overwrites an existing SHARED row instead of deduping against it.
+    Set it only for a deliberate regeneration (`?refresh=true`): the default
+    get-or-create is what collapses a dashboard stampede into one write.
     """
     # Refuse cheaply if this exact report just failed, rather than rebuilding
     # context and hitting the provider again.
@@ -308,6 +316,13 @@ async def _generate_and_store(
                 verified=gen.verification.verified,
                 provider=gen.provider,
                 model=gen.model,
+                # An explicit refresh must overwrite the day's row. Without
+                # this, `force` skipped the cache and paid for a full ~13s
+                # generation, then ON CONFLICT DO NOTHING threw the result away
+                # and returned the existing row — so the user pressed refresh,
+                # waited, and saw the same stale brief. Non-forced calls keep
+                # DO NOTHING so a dashboard stampede still dedupes to one write.
+                replace=replace,
             )
         if row:
             return _from_row(row, spec.report_type)

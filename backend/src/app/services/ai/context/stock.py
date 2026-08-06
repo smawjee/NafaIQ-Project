@@ -29,21 +29,35 @@ async def build_stock_analysis_context(
     evidence: EvidenceRetriever = NullEvidenceRetriever(),
 ) -> dict[str, Any]:
     symbol = (subject or "").upper()
-    bars_n = int(days or 60)
+    window_n = int(days or 60)
+    # SMA200 needs 200 closes. Fetching only the display window meant the
+    # deepest indicator the prompt asks for was null on EVERY stock report — the
+    # 60 bars on hand could never produce it. The display window stays
+    # `window_n`; only the indicator input is deepened.
+    fetch_n = max(window_n, 260)
 
     quote = await market_quotes.quote(symbol)
     fundamentals = await market_quotes.fundamentals(symbol)
     profile = await market_quotes.profile(symbol)
-    hist = await market_history.history(symbol, bars_n)
+    raw_hist = await market_history.history(symbol, fetch_n)
     announcements = await market_quotes.announcements(symbol, 10)
     # Cap the dividend history in the prompt (recent ~6 years). Real PSX history
     # is small, but this keeps the one remaining uncapped list bounded.
     dividends = (await market_quotes.dividends(symbol) or [])[:24]
     ev = await evidence.retrieve(f"{symbol} announcements", symbol)
 
-    # Deterministic technical indicators from the OHLCV bars.
+    # `history()` returns NEWEST-FIRST. Sort ascending once, here, so every
+    # slice below means what it reads like: `hist[-30:]` was silently handing
+    # the model the THIRTY OLDEST bars of the window and calling them the recent
+    # trend — on 2026-08-06 that was 2026-05-07 to 2026-06-22, listed backwards
+    # and ending two months before the report date.
+    hist_all = sorted(raw_hist, key=lambda b: str(b.get("date") or ""))
+    hist = hist_all[-window_n:]
+
+    # Deterministic technical indicators, computed over the FULL fetched depth
+    # so the long moving averages resolve; the bundle still shows `window_n`.
     bars: list[OHLCVBar] = []
-    for b in hist:
+    for b in hist_all:
         try:
             bars.append(OHLCVBar(**b))
         except Exception:

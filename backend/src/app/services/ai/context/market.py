@@ -48,7 +48,23 @@ async def build_market_brief_context(
                 }
         return None
 
-    priced = [s for s in snapshot if _finite(s.get("change_pct")) is not None]
+    # "Traded today", not merely "carries a change_pct". A halted or stale
+    # listing keeps a last-known change_pct while reporting price 0 and volume
+    # 0, and because that stale figure sits at the extremes it wins a top-5 slot
+    # outright: TCORPR2 was ranked the day's BIGGEST LOSER at -24.79% having not
+    # traded at all, and IDSM appeared among the top gainers on the same basis.
+    # Only 2 of 511 symbols are affected, but they land in exactly the five rows
+    # the brief names aloud, so the model was reporting non-events as headlines.
+    #
+    # Breadth uses the same filter: a stock with no trades is neither an
+    # advancer nor a decliner.
+    priced = [
+        s
+        for s in snapshot
+        if _finite(s.get("change_pct")) is not None
+        and (_finite(s.get("price")) or 0) > 0
+        and (_finite(s.get("volume")) or 0) > 0
+    ]
     by_move = sorted(priced, key=lambda s: float(s["change_pct"]))
 
     def _mover(s: dict[str, Any]) -> dict[str, Any]:
@@ -89,8 +105,23 @@ async def build_market_brief_context(
             "decliners": sum(1 for s in priced if float(s["change_pct"]) < 0),
             "unchanged": sum(1 for s in priced if float(s["change_pct"]) == 0),
         },
+        # `sector_averages()` returns rows keyed 'sector' / 'avg_change_pct' —
+        # NOT 'name' / 'pct'. Reading the wrong keys turned all 42 rows into
+        # {name: null, pct: null}, so the brief's SECTOR ROTATION section was
+        # being written from nothing but nulls every day while the real figures
+        # (POWER GENERATION +3.00%, TEXTILE SPINNING +2.34%, …) sat unused.
+        #
+        # `stock_count` rides along because breadth changes the meaning of a
+        # move: +1.5% across a 4-name sector is not the rotation signal that the
+        # same number across 35 names is.
         "sectors": [
-            {"name": s.get("name"), "pct": _finite(s.get("pct"))} for s in sectors
+            {
+                "name": s.get("sector"),
+                "pct": _finite(s.get("avg_change_pct")),
+                "stock_count": s.get("stock_count"),
+            }
+            for s in sectors
+            if s.get("sector")
         ],
         "announcements": [
             {

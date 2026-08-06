@@ -106,6 +106,48 @@ async def test_market_brief_generates_on_cache_miss(monkeypatch):
     assert body["provider"] == "gemini"
     assert body["verified"] is True
     assert created["trading_date"] == __import__("datetime").date.today()
+    # An auto-load must never overwrite the day's row — that is the stampede guard.
+    assert created.get("replace") is False
+
+
+async def test_market_brief_refresh_replaces_the_stored_row(monkeypatch):
+    """`?refresh=true` must overwrite, not dedupe.
+
+    The reported bug: pressing refresh regenerated the brief (the call showed up
+    in Langfuse with the correct closing figures) and then ON CONFLICT DO
+    NOTHING returned the row already stored, so the card kept showing a stale
+    mid-session brief no matter how many times the user refreshed.
+    """
+    from app.services.ai import report_service as reports_api
+
+    _patch_engine(monkeypatch, _gen_result())
+    today = __import__("datetime").date.today()
+
+    async def _has_todays_row(conn, **kw):
+        return {
+            "content": {"headline": "Stale mid-session brief"},
+            "provider": "gemini", "model": "flash", "verified": True,
+            "trading_date": today, "created_at": "2026-08-06T07:42:00",
+        }
+
+    saved = {}
+
+    async def _create_shared(conn, **kw):
+        saved.update(kw)
+        return {"content": kw["content"], "provider": kw["provider"],
+                "model": kw["model"], "verified": kw["verified"],
+                "created_at": "2026-08-06T11:05:00"}
+
+    monkeypatch.setattr(reports_api.reports_repo, "get_latest_report", _has_todays_row)
+    monkeypatch.setattr(reports_api.reports_repo, "get_or_create_shared", _create_shared)
+
+    async with _client() as c:
+        res = await c.get("/api/ai/report/market-brief?refresh=true")
+
+    assert res.status_code == 200
+    assert saved["replace"] is True
+    # The response carries the NEW content, not the row that was already there.
+    assert res.json()["content"]["headline"] == "Market brief"
 
 
 async def test_market_brief_serves_shared_cache(monkeypatch):

@@ -22,9 +22,17 @@ from app.schemas.reports import Mismatch, VerificationResult
 _REL_TOL = 1e-3
 _ABS_TOL = 0.01
 
-# A standalone number: not glued to a letter/digit/hyphen (so "KSE-100"/"v2" don't
-# yield 100/2), optional sign, digit groups, optional decimal and trailing percent.
-_NUMBER_RE = re.compile(r"(?<![A-Za-z0-9\-.])[-+]?\d[\d,]*(?:\.\d+)?%?")
+# A standalone number: not glued to a letter/digit/hyphen/underscore, and not
+# followed by one either (so "KSE-100", "v2" and "next_30_days" don't yield
+# 100/2/30), optional sign, digit groups, optional decimal and trailing percent.
+#
+# The underscore and the trailing guard matter: without them the schema's own
+# enum value `next_30_days` yielded a bare 30, which the orphan-number check then
+# rejected as an uncited claim. Every finance/portfolio report whose action plan
+# chose a 30- or 90-day timeframe failed verification, and the single retry only
+# passed when the model happened to pick "now" or "ongoing" instead — which is
+# exactly why the failure looked intermittent.
+_NUMBER_RE = re.compile(r"(?<![A-Za-z0-9\-._])[-+]?\d[\d,]*(?:\.\d+)?%?(?![A-Za-z_])")
 
 # ISO dates from the bundle. Their y/m/d are grounded facts, so prose echoing a
 # bundle date ("...for July 15, 2026") isn't flagged — but a hallucinated date,
@@ -41,6 +49,13 @@ _SKIP_KEYS = {
     "source_key",
     "source_keys",
     "as_of",
+    # A structural enum the model picks from a fixed Literal, never prose the
+    # user reads as a claim: Literal["now", "next_30_days", "next_90_days",
+    # "ongoing"]. Scanning it made the schema's own vocabulary look like an
+    # uncited number. Deliberately the ONLY enum skipped here — fields like
+    # `category` carry model-written text where a fabricated figure still has to
+    # be caught, so they stay in scope.
+    "timeframe",
 }
 
 _MISSING = object()
@@ -163,6 +178,25 @@ def verify_report(report: BaseModel, bundle: dict[str, Any]) -> VerificationResu
                 mismatches.append(Mismatch(
                     field=f"citations[{i}]", source_key=source_key,
                     expected=resolved_f, actual=cited_f,
+                ))
+        elif cited_f is not None and isinstance(resolved, (dict, list, tuple)):
+            # The key resolves to a CONTAINER and the citation is a number —
+            # the model cited `allocation.by_stock` where it meant
+            # `allocation.by_stock.0.value`. That is an imprecise pointer, not a
+            # fabricated figure: accept it when the number genuinely occurs
+            # inside that subtree, and reject it otherwise.
+            #
+            # Worth being exact about, because rejecting it was expensive. A
+            # complete, guardrail-clean portfolio draft was being discarded over
+            # one such citation, and the forced regeneration came back MISSING a
+            # required section — so a good report was replaced by a worse one
+            # and the surface then failed outright.
+            subtree: list[float] = []
+            _collect_bundle_numbers(resolved, subtree)
+            if not any(_is_close(cited_f, v) for v in subtree):
+                mismatches.append(Mismatch(
+                    field=f"citations[{i}]", source_key=source_key,
+                    expected=None, actual=cited_f,
                 ))
         else:
             # non-numeric citation: require exact string match

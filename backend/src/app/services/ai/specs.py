@@ -25,7 +25,7 @@ from app.schemas.reports import (
     StockAnalysisReport,
 )
 from app.services.ai import context as ctx
-from app.services.ai.prompts import load_prompt, security_rules
+from app.services.ai.prompts import load_prompt, report_security_rules
 
 ContextBuilder = Callable[..., Awaitable[dict]]
 
@@ -48,8 +48,18 @@ class ReportSpec:
 # are left literal (double-braced in the file) for the engine to fill at
 # generation time. Surface bodies must stay brace-free so that second .format
 # stays safe.
+#
+# Reports carry the REDUCED ruleset (see prompts.report_security_rules). None of
+# these surfaces takes a user turn — they are button- or scheduler-triggered,
+# the model sees only a system prompt and a fixed bundle, and the output is
+# schema-validated then number-verified. The conversational clauses (refusing
+# role-play, declining to confirm what is confidential, redirecting off-topic
+# chit-chat) have no channel to fire on here and only compete for attention with
+# the citation rules the verifier actually enforces. The prompt-injection clause
+# is kept, because bundle strings include merchant names parsed from third-party
+# email.
 def _prompt(role: str, surface_instructions: str) -> str:
-    return (security_rules() + "\n\n" + load_prompt("report_scaffold")).format(
+    return (report_security_rules() + "\n\n" + load_prompt("report_scaffold")).format(
         role=role,
         surface_instructions=surface_instructions,
         DEFAULT_DISCLAIMER=DEFAULT_DISCLAIMER,

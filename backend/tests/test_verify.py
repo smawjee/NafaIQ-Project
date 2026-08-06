@@ -164,3 +164,64 @@ def test_hallucinated_date_still_rejected():
     result = verify_report(r, bundle)
     assert result.verified is False
     assert any(m.actual == 1999.0 for m in result.mismatches)
+
+
+# --------------------------------------------------------------------------- #
+# schema vocabulary must not be read as a numeric claim                        #
+# --------------------------------------------------------------------------- #
+def test_snake_case_identifier_is_not_an_orphan_number():
+    """`next_30_days` is a Literal the schema offers, not a claim about 30.
+
+    This was the live bug: ActionItem.timeframe is
+    Literal["now", "next_30_days", "next_90_days", "ongoing"], and the orphan
+    scan pulled 30/90 out of the enum value and rejected the whole report as
+    uncited. Every finance/portfolio report whose action plan picked a 30- or
+    90-day timeframe failed verification; the single retry only passed when the
+    model happened to choose "now" or "ongoing", which made it look flaky.
+    """
+    from app.services.ai.verify import _NUMBER_RE
+
+    assert _NUMBER_RE.findall("next_30_days") == []
+    assert _NUMBER_RE.findall("next_90_days") == []
+    assert _NUMBER_RE.findall("ongoing") == []
+
+
+def test_identifier_digits_stay_unscanned_in_a_narrative_string():
+    bundle = {"x": {"y": 1.0}}
+    r = _report(observations=["Reviewed under next_30_days and next_90_days."])
+    assert verify_report(r, bundle).verified is True
+
+
+def test_real_numbers_in_prose_are_still_required_to_be_cited():
+    """The relaxation must not blunt the actual hallucination control."""
+    bundle = {"x": {"y": 1.0}}
+    r = _report(observations=["Spending rose to 45000 this month."])
+    result = verify_report(r, bundle)
+    assert result.verified is False
+    assert any(m.actual == 45000.0 for m in result.mismatches)
+
+
+def test_a_number_followed_by_a_word_is_still_scanned_when_spaced():
+    """"30 days" as real prose is still a claim and still needs backing —
+    only the glued identifier form is exempt."""
+    bundle = {"x": {"y": 1.0}}
+    r = _report(observations=["Review this over the next 30 days."])
+    assert verify_report(r, bundle).verified is False
+
+
+def test_units_glued_to_a_number_are_not_silently_dropped():
+    # "5k" must not become an unscanned token that hides a fabricated figure.
+    from app.services.ai.verify import _NUMBER_RE
+
+    assert _NUMBER_RE.findall("5k") == []  # glued -> skipped, same as before
+    assert _NUMBER_RE.findall("PKR 5,000 today") == ["5,000"]
+    assert _NUMBER_RE.findall("83.8%") == ["83.8%"]
+
+
+def test_timeframe_field_is_not_scanned_as_narrative():
+    from app.services.ai.verify import _SKIP_KEYS
+
+    assert "timeframe" in _SKIP_KEYS
+    # Fields carrying model-written text must stay in scope.
+    for still_checked in ("category", "summary", "observations"):
+        assert still_checked not in _SKIP_KEYS
