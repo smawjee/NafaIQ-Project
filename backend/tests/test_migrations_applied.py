@@ -346,6 +346,27 @@ CHECKS: List[MigrationCheck] = [
         ],
     ),
     MigrationCheck(
+        filename="20260806170000_finance_opening_balance.sql",
+        description="Opening balance anchoring the carried-forward finance balance",
+        checks=[
+            Check("user_settings.opening_balance column",
+                  "SELECT 1 FROM information_schema.columns WHERE table_name='user_settings' AND column_name='opening_balance'",
+                  "Without it finance.summary() cannot carry a balance across "
+                  "months and every month silently restarts from zero."),
+            Check("user_settings.opening_balance_date column",
+                  "SELECT 1 FROM information_schema.columns WHERE table_name='user_settings' AND column_name='opening_balance_date'",
+                  "Months strictly before this date are excluded from the running "
+                  "total; without it they would double-count money already inside "
+                  "the user's own opening figure."),
+            Check("opening_balance defaults to 0 and is NOT NULL",
+                  "SELECT (is_nullable='NO' AND column_default IS NOT NULL) "
+                  "FROM information_schema.columns "
+                  "WHERE table_name='user_settings' AND column_name='opening_balance'",
+                  "A user who never sets one must keep the previous behaviour "
+                  "(open at 0), not get NULL propagating through the summary."),
+        ],
+    ),
+    MigrationCheck(
         filename="20260728120000_email_import_correlation.sql",
         description=(
             "Email-import correlation: staging ledger, learned merchant aliases, "
