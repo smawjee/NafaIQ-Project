@@ -1,4 +1,4 @@
-import { Link } from "@tanstack/react-router";
+import { Link, useNavigate } from "@tanstack/react-router";
 import { Filter, Info } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Card } from "@/components/shared/Card";
@@ -46,6 +46,17 @@ export function PsxScreenerCard({
   onSignalChange: (value: string) => void;
 }) {
   const { t } = useLang();
+  const navigate = useNavigate();
+
+  /** The row has always looked clickable (`cursor-pointer`) but only the
+   *  ticker cell actually navigated. Clicking anywhere else now opens the
+   *  stock — except on nested controls (the signal popover, links), which
+   *  handle their own clicks. */
+  const openStock = (ticker: string) => navigate({ to: "/stock/$ticker", params: { ticker } });
+
+  const isInteractive = (target: EventTarget | null) =>
+    target instanceof Element && target.closest("a,button,select,input,[role='button']") !== null;
+
   const renderSignal = (s: PsxScreenRow) => {
     if (!s.signal) {
       return (
@@ -188,7 +199,14 @@ export function PsxScreenerCard({
             {rows.map((s, i) => (
               <tr
                 key={s.ticker}
-                className={cn("cursor-pointer hover:bg-hover", i % 2 ? "bg-surface-alt" : "")}
+                onClick={(e) => {
+                  if (isInteractive(e.target)) return;
+                  openStock(s.ticker);
+                }}
+                className={cn(
+                  "cursor-pointer hover:bg-hover focus-within:bg-hover",
+                  i % 2 ? "bg-surface-alt" : "",
+                )}
               >
                 <td className="py-2">
                   <Link

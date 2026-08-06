@@ -19,9 +19,26 @@ export function DashboardWatchlistStrip({
   watchlistLoading: boolean;
   watchlist: string[] | EnrichedWatchlistItem[];
   useShowcaseDashboard: boolean;
-  onRemove: (symbol: string) => void;
+  // Async-aware: useWatchlist rolls back and rethrows when the server refuses.
+  onRemove: (symbol: string) => void | Promise<void>;
 }) {
   const { t } = useLang();
+
+  const removeSymbol = async (symbol: string) => {
+    try {
+      await onRemove(symbol);
+      toast(`${symbol} ${t("removed from watchlist")}`);
+    } catch {
+      toast.error(`${t("Could not remove")} ${symbol}. ${t("Please try again.")}`);
+    }
+  };
+
+  // `opacity-0 group-hover:opacity-100` hid this control completely on touch,
+  // where there is no hover — the card could never be removed from a phone.
+  // Show it always on coarse pointers, keep the hover reveal on mice.
+  const removeButtonClass =
+    "absolute right-1 top-1 flex h-6 w-6 items-center justify-center rounded-full text-text-muted transition hover:bg-surface-hover hover:text-text-primary " +
+    "opacity-100 [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover:opacity-100 [@media(hover:hover)]:focus-visible:opacity-100";
   return (
     <section>
       <h3 className="mb-3 text-sm font-semibold text-text-primary">{t("Watchlist")}</h3>
@@ -47,7 +64,8 @@ export function DashboardWatchlistStrip({
             return (
               <div key={tk} className="group relative w-[160px] shrink-0">
                 <Link
-                  to="/psx"
+                  to="/stock/$ticker"
+                  params={{ ticker: tk }}
                   className="block rounded-[8px] border border-border bg-surface p-3 transition hover:border-border-hover"
                 >
                   <div className="flex items-center justify-between">
@@ -69,14 +87,14 @@ export function DashboardWatchlistStrip({
                   </div>
                 </Link>
                 <button
+                  type="button"
                   onClick={(e) => {
                     e.preventDefault();
                     e.stopPropagation();
-                    onRemove(tk);
-                    toast(`${tk} ${t("removed from watchlist")}`);
+                    void removeSymbol(tk);
                   }}
-                  aria-label={`Remove ${tk} from watchlist`}
-                  className="absolute right-1 top-1 flex h-5 w-5 items-center justify-center rounded-full text-text-muted opacity-0 transition hover:bg-surface-hover hover:text-text-primary group-hover:opacity-100"
+                  aria-label={`${t("Remove")} ${tk} ${t("from watchlist")}`}
+                  className={removeButtonClass}
                 >
                   <X className="h-3 w-3" />
                 </button>
@@ -92,7 +110,8 @@ export function DashboardWatchlistStrip({
             return (
               <div key={item.symbol} className="group relative w-[160px] shrink-0">
                 <Link
-                  to={"/stock/" + item.symbol}
+                  to="/stock/$ticker"
+                  params={{ ticker: item.symbol }}
                   className="block rounded-[8px] border border-border bg-surface p-3 transition hover:border-border-hover"
                 >
                   <div className="flex items-center justify-between">
@@ -121,14 +140,14 @@ export function DashboardWatchlistStrip({
                   )}
                 </Link>
                 <button
+                  type="button"
                   onClick={(e) => {
                     e.preventDefault();
                     e.stopPropagation();
-                    onRemove(item.symbol);
-                    toast(`${item.symbol} ${t("removed from watchlist")}`);
+                    void removeSymbol(item.symbol);
                   }}
-                  aria-label={`Remove ${item.symbol} from watchlist`}
-                  className="absolute right-1 top-1 flex h-5 w-5 items-center justify-center rounded-full text-text-muted opacity-0 transition hover:bg-surface-hover hover:text-text-primary group-hover:opacity-100"
+                  aria-label={`${t("Remove")} ${item.symbol} ${t("from watchlist")}`}
+                  className={removeButtonClass}
                 >
                   <X className="h-3 w-3" />
                 </button>

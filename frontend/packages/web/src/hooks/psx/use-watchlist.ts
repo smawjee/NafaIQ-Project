@@ -52,6 +52,13 @@ export function useWatchlist() {
         dispatch(addWatchlistSymbol(sym));
         return;
       }
+      // `symbols` is plain useState, NOT React Query — invalidateQueries below
+      // cannot repair it. So an optimistic update that fails must be rolled
+      // back here, and the error rethrown so the caller can tell the user.
+      // Swallowing it showed the symbol as added while the server had rejected
+      // it (max_watchlist quota, unknown symbol), and it silently vanished on
+      // the next reload.
+      const snapshot = symbols;
       setSymbols((prev) => {
         if (prev.includes(sym)) return prev;
         return [...prev, sym];
@@ -63,13 +70,15 @@ export function useWatchlist() {
         // backend endpoint runs as service_role and applies require_known_symbol
         // + the max_watchlist quota.
         await userPost("/api/watchlist", { symbol: sym });
-      } catch {
-        // Best-effort: the optimistic local update above already applied.
+      } catch (err) {
+        setSymbols(snapshot);
+        throw err;
+      } finally {
+        qc.invalidateQueries({ queryKey: ["watchlist"] });
+        qc.invalidateQueries({ queryKey: ["enriched-watchlist"] });
       }
-      qc.invalidateQueries({ queryKey: ["watchlist"] });
-      qc.invalidateQueries({ queryKey: ["enriched-watchlist"] });
     },
-    [useLocal, user, qc, dispatch],
+    [useLocal, symbols, qc, dispatch],
   );
 
   const remove = useCallback(
@@ -79,16 +88,21 @@ export function useWatchlist() {
         dispatch(removeWatchlistSymbol(sym));
         return;
       }
+      // Same rollback contract as `add` — a failed DELETE used to leave the row
+      // gone from the UI but still on the server, reappearing on next reload.
+      const snapshot = symbols;
       setSymbols((prev) => prev.filter((s) => s !== sym));
       try {
         await userDelete(`/api/watchlist/${encodeURIComponent(sym)}`);
-      } catch {
-        // Best-effort: the optimistic local update above already applied.
+      } catch (err) {
+        setSymbols(snapshot);
+        throw err;
+      } finally {
+        qc.invalidateQueries({ queryKey: ["watchlist"] });
+        qc.invalidateQueries({ queryKey: ["enriched-watchlist"] });
       }
-      qc.invalidateQueries({ queryKey: ["watchlist"] });
-      qc.invalidateQueries({ queryKey: ["enriched-watchlist"] });
     },
-    [useLocal, user, qc, dispatch],
+    [useLocal, symbols, qc, dispatch],
   );
 
   const clear = useCallback(async () => {

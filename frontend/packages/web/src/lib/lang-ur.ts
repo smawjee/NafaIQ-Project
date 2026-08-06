@@ -151,6 +151,14 @@ export const UR: Record<string, string> = {
   "Mkt Cap": "مارکیٹ کیپ",
   "Sector Heatmap": "سیکٹر ہیٹ میپ",
   "Add Stock": "اسٹاک شامل کریں",
+  // Watchlist row delete button, e.g. "Remove HBL from watchlist".
+  Remove: "ہٹائیں",
+  "from watchlist": "واچ لسٹ سے",
+  // Shown when the server refuses an add/remove and the optimistic update is
+  // rolled back — the user must know the row snapped back on purpose.
+  "Could not remove": "ہٹایا نہیں جا سکا",
+  "Could not add": "شامل نہیں کیا جا سکا",
+  "Please try again.": "براہ کرم دوبارہ کوشش کریں۔",
   // Heatmap tiles are sized by size_metric — a real market cap where we have
   // listed_shares, a volume proxy otherwise. "By Size" over "By Market Cap".
   "By Size": "سائز کے حساب سے",
