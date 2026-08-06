@@ -236,3 +236,7 @@ Repo-wide; the canonical copy is the root `CLAUDE.md`.
 3. **One working tree, multiple agents.** Never `reset`, `checkout -- .` or `stash`
    the shared tree to tidy your own work — it destroys someone else's. Use
    `git worktree add` or a throwaway clone when a clean tree is required.
+4. **Never spawn subagents without asking.** Do not use the Agent/Task tool
+   (`Explore`, `Plan`, `general-purpose`, or any other subagent type) unless the
+   user asked for it in that message — plan mode's default fan-out included.
+   Explore directly with `Glob`/`Grep`/`Read`.

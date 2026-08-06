@@ -1,7 +1,6 @@
 import { API_BASE_URL } from "@/lib/api";
 
 import type {
-  ApiTrackRecord,
   ApiMarketSnapshotItem,
   ApiOHLCVBar,
   ApiSymbolInfo,
@@ -15,11 +14,7 @@ import type {
   ApiSectorDataItem,
   ApiTreemap,
   ApiIndicatorPayload,
-  ApiSignal,
-  ApiSignalV2,
   BatchSignalsResponse,
-  BatchSignalsV2Response,
-  SignalHorizon,
   ScreenerRequest,
   ScreenerResponse,
   BacktestRequest,
@@ -27,8 +22,8 @@ import type {
   ApiMutualFund,
   ApiFundNavHistory,
 } from "./types";
-import type { ApiSignalV4, BatchSignalsV4Response } from "./signals-v4";
-import { toLegacyBatch, toLegacySignal } from "./signals-v4-adapter";
+import type { ApiSignalDetail, BatchSignalsDetailResponse } from "./signals";
+import { toLegacyBatch } from "./signals-adapter";
 
 // Re-export mutual fund types for use in hooks
 export type { ApiMutualFund, ApiFundNavHistory, ApiDividendEvent };
@@ -36,11 +31,58 @@ export type { ApiMutualFund, ApiFundNavHistory, ApiDividendEvent };
 const BASE = API_BASE_URL;
 const TOKEN = import.meta.env.VITE_PSX_API_TOKEN || "";
 
+/**
+ * Throw an Error carrying the backend's own message when the response failed.
+ *
+ * FastAPI puts the human-readable reason in `{"detail": "..."}` — things like
+ * "Insufficient shares to sell: you hold 0 PRL, confirmation sells 90." Every
+ * caller here used to throw the status line alone, which reduced that to an
+ * opaque "/api/portfolio/broker-imports/2/approve: 400" and discarded the one
+ * piece of information the user could actually act on. Only `userPostForm`
+ * read `detail`; this makes every tier behave the same way.
+ */
+async function raiseForStatus(res: Response, path: string): Promise<void> {
+  if (res.ok) return;
+  let detail = "";
+  try {
+    const payload = (await res.json()) as { detail?: unknown };
+    if (typeof payload.detail === "string") {
+      detail = payload.detail;
+    } else if (Array.isArray(payload.detail)) {
+      // Pydantic validation failures arrive as a list of {loc, msg, type}.
+      detail = payload.detail
+        .map((d) =>
+          d && typeof d === "object" && "msg" in d ? String((d as { msg: unknown }).msg) : "",
+        )
+        .filter(Boolean)
+        .join("; ");
+    }
+  } catch {
+    // Not every error response is JSON (proxy/gateway pages); keep the status.
+  }
+  throw new Error(detail || `${path}: ${res.status} ${res.statusText}`);
+}
+
 async function get<T>(path: string): Promise<T> {
   const headers: Record<string, string> = {};
   if (TOKEN) headers["Authorization"] = `Bearer ${TOKEN}`;
   const res = await fetch(`${BASE}${path}`, { headers });
-  if (!res.ok) throw new Error(`${path}: ${res.status} ${res.statusText}`);
+  await raiseForStatus(res, path);
+  return res.json() as Promise<T>;
+}
+
+/**
+ * POST to an endpoint that takes no credential at all (backend PUBLIC_PATHS).
+ * Distinct from userPost, which attaches the session JWT — the callers here run
+ * for signed-out visitors, where there is no session to attach.
+ */
+export async function publicPost<T>(path: string, body: unknown): Promise<T> {
+  const res = await fetch(`${BASE}${path}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  await raiseForStatus(res, path);
   return res.json() as Promise<T>;
 }
 
@@ -58,7 +100,7 @@ async function userGet<T>(path: string): Promise<T> {
     Authorization: `Bearer ${session.access_token}`,
   };
   const res = await fetch(`${BASE}${path}`, { headers });
-  if (!res.ok) throw new Error(`${path}: ${res.status} ${res.statusText}`);
+  await raiseForStatus(res, path);
   return res.json() as Promise<T>;
 }
 
@@ -74,7 +116,19 @@ async function userPost<T>(path: string, body: unknown): Promise<T> {
     headers,
     body: JSON.stringify(body),
   });
-  if (!res.ok) throw new Error(`${path}: ${res.status} ${res.statusText}`);
+  await raiseForStatus(res, path);
+  return res.json() as Promise<T>;
+}
+
+async function userPostForm<T>(path: string, body: FormData): Promise<T> {
+  const session = await getSupabaseSession();
+  if (!session) throw new Error("Not authenticated");
+  const res = await fetch(`${BASE}${path}`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${session.access_token}` },
+    body,
+  });
+  await raiseForStatus(res, path);
   return res.json() as Promise<T>;
 }
 
@@ -90,7 +144,7 @@ async function userPatch<T>(path: string, body: unknown): Promise<T> {
     headers,
     body: JSON.stringify(body),
   });
-  if (!res.ok) throw new Error(`${path}: ${res.status} ${res.statusText}`);
+  await raiseForStatus(res, path);
   return res.json() as Promise<T>;
 }
 
@@ -106,7 +160,7 @@ async function userPut<T>(path: string, body: unknown): Promise<T> {
     headers,
     body: JSON.stringify(body),
   });
-  if (!res.ok) throw new Error(`${path}: ${res.status} ${res.statusText}`);
+  await raiseForStatus(res, path);
   return res.json() as Promise<T>;
 }
 
@@ -117,7 +171,8 @@ async function userDelete<T>(path: string): Promise<T> {
     Authorization: `Bearer ${session.access_token}`,
   };
   const res = await fetch(`${BASE}${path}`, { method: "DELETE", headers });
-  if (!res.ok) throw new Error(`${path}: ${res.status} ${res.statusText}`);
+  await raiseForStatus(res, path);
+  if (res.status === 204) return undefined as T;
   return res.json() as Promise<T>;
 }
 
@@ -129,7 +184,7 @@ async function post<T>(path: string, body: unknown): Promise<T> {
     headers,
     body: JSON.stringify(body),
   });
-  if (!res.ok) throw new Error(`${path}: ${res.status} ${res.statusText}`);
+  await raiseForStatus(res, path);
   return res.json() as Promise<T>;
 }
 
@@ -213,51 +268,17 @@ export function runBacktest(params: BacktestRequest): Promise<ApiBacktestResult>
   return post<ApiBacktestResult>("/api/backtest", params);
 }
 
-export function fetchSignal(symbol: string): Promise<ApiSignal> {
-  return get<ApiSignalV4>(`/api/signal/${symbol}`).then(toLegacySignal);
+export function fetchSignal(symbol: string): Promise<ApiSignalDetail> {
+  return get<ApiSignalDetail>(`/api/signals/${symbol}`);
 }
 
-export function fetchSignalV4(symbol: string): Promise<ApiSignalV4> {
-  return get<ApiSignalV4>(`/api/signals/v3/${symbol}`);
-}
-
-export function fetchBatchSignalsV4(limit = 50): Promise<BatchSignalsV4Response> {
-  return post<BatchSignalsV4Response>("/api/signals/v3/batch", { limit });
-}
-
+/** Batch still maps to the legacy row shape the screener and watchlist render. */
 export function fetchBatchSignals(limit = 50): Promise<BatchSignalsResponse> {
-  return post<BatchSignalsV4Response>("/api/signals/batch", { limit }).then(toLegacyBatch);
-}
-
-export function fetchSignalV2(
-  symbol: string,
-  horizon: SignalHorizon = "20D",
-): Promise<ApiSignalV2> {
-  return get<ApiSignalV2>(`/api/signals/v2/${symbol}?horizon=${horizon}`);
-}
-
-export function fetchBatchSignalsV2(
-  limit = 50,
-  horizon: SignalHorizon = "20D",
-): Promise<BatchSignalsV2Response> {
-  return post<BatchSignalsV2Response>("/api/signals/v2/batch", { limit, horizon });
-}
-
-export function fetchSignalTrackRecord(): Promise<ApiTrackRecord> {
-  return get<ApiTrackRecord>("/api/signals/v2/track-record");
-}
-
-export function fetchSignalLeaderboardV2(
-  limit = 50,
-  horizon: SignalHorizon = "20D",
-): Promise<BatchSignalsV2Response> {
-  return get<BatchSignalsV2Response>(
-    `/api/signals/v2/leaderboard?horizon=${horizon}&limit=${limit}`,
-  );
+  return post<BatchSignalsDetailResponse>("/api/signals/batch", { limit }).then(toLegacyBatch);
 }
 
 // === User-authenticated request exports ===
-export { userGet, userPost, userPatch, userPut, userDelete };
+export { userGet, userPost, userPostForm, userPatch, userPut, userDelete };
 
 // === Bulk "delete all" (user-scoped; server deletes only the caller's rows) ===
 export function deleteAllFinance(

@@ -25,6 +25,7 @@ import { useTheme, type Theme } from "@/hooks/use-theme";
 import { useLang, type Lang } from "@/hooks/use-lang";
 import { useAuth } from "@/hooks/use-auth";
 import { useDemo } from "@/hooks/use-demo";
+import { ChangePasswordCard } from "@/features/settings/ChangePasswordCard";
 import {
   useFinanceSettings,
   useUpdateFinanceSettings,
@@ -38,6 +39,13 @@ import {
   useDisconnectEmail,
   useSyncEmail,
 } from "@/hooks/use-email-integration";
+import {
+  useApproveBrokerImport,
+  useBrokerAccounts,
+  useBrokerImports,
+  useRejectBrokerImport,
+} from "@/hooks/use-broker-imports";
+import { usePortfolioList } from "@/hooks/use-portfolio";
 
 export const Route = createFileRoute("/settings")({
   head: () => ({
@@ -322,6 +330,7 @@ function Settings() {
 
       {/* Bank email import (logged-in only) */}
       <BankEmailCard isLoggedIn={isLoggedIn} t={t} />
+      {isLoggedIn ? <BrokerImportsReviewCard t={t} /> : null}
 
       {/* Account */}
       <Card className="p-5">
@@ -345,6 +354,11 @@ function Settings() {
           </div>
         </dl>
       </Card>
+
+      {/* Password — real accounts only. The demo account's credentials are
+          shared, so letting anyone rotate them would lock out every other
+          visitor trying the demo. */}
+      {isLoggedIn && user?.email && <ChangePasswordCard email={user.email} t={t} />}
     </div>
   );
 }
@@ -356,6 +370,8 @@ function Settings() {
  */
 function BankEmailCard({ isLoggedIn, t }: { isLoggedIn: boolean; t: (s: string) => string }) {
   const status = useEmailIntegration(isLoggedIn);
+  const brokerAccounts = useBrokerAccounts(isLoggedIn);
+  const pendingBrokerImports = useBrokerImports("pending_review", isLoggedIn);
   const connect = useConnectGmail();
   const disconnect = useDisconnectEmail();
   const sync = useSyncEmail();
@@ -366,6 +382,7 @@ function BankEmailCard({ isLoggedIn, t }: { isLoggedIn: boolean; t: (s: string) 
   // an actionable reconnect rather than a silent stall.
   const needsReconnect = !!status.data?.last_error;
   const unparsedCount = status.data?.unparsed_count ?? 0;
+  const brokerCounts = status.data?.broker_confirmations;
 
   // The backend's OAuth callback redirects here with ?gmail=<result>.
   useEffect(() => {
@@ -392,6 +409,8 @@ function BankEmailCard({ isLoggedIn, t }: { isLoggedIn: boolean; t: (s: string) 
       const notes: string[] = [];
       if (r.merged > 0) notes.push(`${r.merged} ${t("merged into existing")}`);
       if (r.parse_errors > 0) notes.push(`${r.parse_errors} ${t("could not be read")}`);
+      if (r.broker_pending > 0) notes.push(`${r.broker_pending} ${t("broker confirmation(s) need review")}`);
+      if (r.broker_imported > 0) notes.push(`${r.broker_imported} ${t("broker confirmation(s) imported")}`);
       const detail = notes.length ? ` (${notes.join(", ")})` : "";
       toast.success(
         (r.imported > 0
@@ -416,7 +435,7 @@ function BankEmailCard({ isLoggedIn, t }: { isLoggedIn: boolean; t: (s: string) 
     <Card className="p-5">
       <div className="mb-4 flex items-center gap-2">
         <Inbox className="h-4 w-4 text-primary" strokeWidth={1.75} />
-        <h2 className="text-sm font-semibold text-text-primary">{t("Bank email import")}</h2>
+        <h2 className="text-sm font-semibold text-text-primary">{t("Bank & broker email import")}</h2>
       </div>
       <p className="mb-4 text-[13px] text-text-secondary">
         {t(
@@ -450,6 +469,36 @@ function BankEmailCard({ isLoggedIn, t }: { isLoggedIn: boolean; t: (s: string) 
               <p className="mt-1 flex items-start gap-1 text-[11px] text-warning">
                 <ShieldAlert className="mt-[1px] h-3 w-3 shrink-0" strokeWidth={1.75} />
                 {`${unparsedCount} ${t("email(s) could not be read and were skipped. They stay on record and are retried.")}`}
+              </p>
+            ) : null}
+            {brokerCounts ? (
+              <div className="mt-3 grid grid-cols-2 gap-2 text-[11px] text-text-secondary sm:grid-cols-4">
+                <span>{`${t("Pending")}: ${brokerCounts.pending}`}</span>
+                <span>{`${t("Imported")}: ${brokerCounts.imported}`}</span>
+                <span>{`${t("Unsupported")}: ${brokerCounts.unsupported}`}</span>
+                <span>{`${t("Failed")}: ${brokerCounts.failed}`}</span>
+              </div>
+            ) : null}
+            {brokerAccounts.data?.length ? (
+              <div className="mt-3 space-y-2">
+                {brokerAccounts.data.map((account) => (
+                  <div
+                    key={account.id}
+                    className="flex items-center justify-between gap-3 rounded-[8px] border border-border/70 px-2.5 py-2 text-[11px]"
+                  >
+                    <span className="font-semibold text-text-primary">
+                      {`${account.broker_code.replace("_", " ")} ${account.account_mask}`}
+                    </span>
+                    <span className="text-text-muted">
+                      {`${account.portfolio_name ?? t("No portfolio")} · ${account.mode}`}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            ) : null}
+            {(pendingBrokerImports.data?.items.length ?? 0) > 0 ? (
+              <p className="mt-2 text-[11px] font-semibold text-warning">
+                {`${pendingBrokerImports.data?.items.length ?? 0} ${t("broker confirmation(s) waiting for review.")}`}
               </p>
             ) : null}
           </div>
@@ -514,6 +563,142 @@ function BankEmailCard({ isLoggedIn, t }: { isLoggedIn: boolean; t: (s: string) 
               "You'll see a Google warning that the app isn't verified — that's expected while NafaIQ is in testing. Choose Advanced, then continue.",
             )}
           </p>
+        </div>
+      )}
+    </Card>
+  );
+}
+
+function BrokerImportsReviewCard({ t }: { t: (s: string) => string }) {
+  const imports = useBrokerImports("pending_review");
+  const portfolios = usePortfolioList();
+  const approve = useApproveBrokerImport();
+  const reject = useRejectBrokerImport();
+  const [autoImport, setAutoImport] = useState(false);
+  const portfolioId = portfolios.data?.[0]?.id;
+  const rows = imports.data?.items ?? [];
+
+  const onApprove = async (importId: number) => {
+    if (!portfolioId) {
+      toast.error(t("Create a portfolio before approving broker imports."));
+      return;
+    }
+    try {
+      await approve.mutateAsync({ importId, portfolioId, enableAuto: autoImport });
+      toast.success(t("Broker confirmation imported"));
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : t("Could not approve import"));
+    }
+  };
+
+  const onReject = async (importId: number) => {
+    try {
+      await reject.mutateAsync(importId);
+      toast.success(t("Broker confirmation rejected"));
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : t("Could not reject import"));
+    }
+  };
+
+  if (imports.isLoading) return null;
+
+  return (
+    <Card className="p-5">
+      <div className="mb-4 flex items-center justify-between gap-3">
+        <div className="flex items-center gap-2">
+          <Wallet className="h-4 w-4 text-primary" strokeWidth={1.75} />
+          <h2 className="text-sm font-semibold text-text-primary">{t("Broker imports")}</h2>
+        </div>
+        {rows.length ? (
+          <span className="rounded-full bg-warning/15 px-2.5 py-1 text-[11px] font-semibold text-warning">
+            {`${rows.length} ${t("pending")}`}
+          </span>
+        ) : null}
+      </div>
+      {!rows.length ? (
+        <p className="text-[13px] text-text-muted">
+          {t("No broker confirmations are waiting for review.")}
+        </p>
+      ) : (
+        <div className="space-y-3">
+          <label className="flex items-center gap-2 text-[12px] text-text-secondary">
+            <input
+              type="checkbox"
+              checked={autoImport}
+              onChange={(event) => setAutoImport(event.target.checked)}
+            />
+            {t("Automatically import future confirmations from this broker account after approval")}
+          </label>
+          {rows.map((item) => (
+            <div key={item.id} className="rounded-[10px] border border-border bg-surface p-3">
+              <div className="flex flex-wrap items-start justify-between gap-2">
+                <div>
+                  <p className="text-[13px] font-semibold text-text-primary">
+                    {`${item.broker_code.replace("_", " ")} ${item.account_mask ?? ""}`}
+                  </p>
+                  <p className="text-[11px] text-text-muted">
+                    {`${item.trade_date ?? t("No trade date")} · ${item.item_count ?? 0} ${t("trade(s)")}`}
+                  </p>
+                </div>
+                <p className="text-[12px] font-semibold text-text-primary">
+                  {item.total_net_amount == null
+                    ? t("Needs review")
+                    : `PKR ${Number(item.total_net_amount).toLocaleString()}`}
+                </p>
+              </div>
+              <div className="mt-3 flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() => onApprove(item.id)}
+                  disabled={approve.isPending || !portfolioId}
+                  className="rounded-[8px] bg-primary px-3 py-2 text-[12px] font-semibold text-background disabled:opacity-50"
+                >
+                  {t("Approve")}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onReject(item.id)}
+                  disabled={reject.isPending}
+                  className="rounded-[8px] border border-border px-3 py-2 text-[12px] font-semibold text-text-primary disabled:opacity-50"
+                >
+                  {t("Reject")}
+                </button>
+                <span className="self-center text-[11px] text-text-muted">
+                  {portfolioId
+                    ? `${t("Destination")}: ${portfolios.data?.[0]?.name ?? t("Portfolio")}`
+                    : t("No portfolio available")}
+                </span>
+              </div>
+              {item.items?.length ? (
+                <div className="mt-3 overflow-x-auto rounded-[8px] border border-border/70">
+                  <table className="min-w-full text-left text-[11px]">
+                    <thead className="bg-background/40 text-text-muted">
+                      <tr>
+                        <th className="px-2 py-1.5 font-medium">{t("Symbol")}</th>
+                        <th className="px-2 py-1.5 font-medium">{t("Side")}</th>
+                        <th className="px-2 py-1.5 font-medium">{t("Qty")}</th>
+                        <th className="px-2 py-1.5 font-medium">{t("Rate")}</th>
+                        <th className="px-2 py-1.5 font-medium">{t("Fees")}</th>
+                        <th className="px-2 py-1.5 font-medium">{t("Net")}</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {item.items.map((trade) => (
+                        <tr key={trade.id} className="border-t border-border/70">
+                          <td className="px-2 py-1.5 font-semibold text-text-primary">{trade.symbol}</td>
+                          <td className="px-2 py-1.5 text-text-secondary">{trade.side}</td>
+                          <td className="px-2 py-1.5 text-text-secondary">{trade.quantity}</td>
+                          <td className="px-2 py-1.5 text-text-secondary">{Number(trade.price).toLocaleString()}</td>
+                          <td className="px-2 py-1.5 text-text-secondary">{Number(trade.fees).toLocaleString()}</td>
+                          <td className="px-2 py-1.5 text-text-secondary">{Number(trade.net_amount).toLocaleString()}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : null}
+            </div>
+          ))}
         </div>
       )}
     </Card>

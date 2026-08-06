@@ -1,0 +1,94 @@
+{
+  "entry_q": 0.9,
+  "exit_q": 0.7,
+  "runs": [
+    {
+      "periods": 111,
+      "gross_per_period": 0.012,
+      "net_per_period": 0.00301,
+      "net_annualised": 0.038,
+      "sharpe": 0.124,
+      "avg_turnover": 1.762,
+      "win_rate": 0.396,
+      "horizon": 20,
+      "buffered": false
+    },
+    {
+      "periods": 111,
+      "gross_per_period": 0.01026,
+      "net_per_period": 0.00272,
+      "net_annualised": 0.0343,
+      "sharpe": 0.13,
+      "avg_turnover": 1.483,
+      "win_rate": 0.378,
+      "horizon": 20,
+      "buffered": true
+    },
+    {
+      "periods": 55,
+      "gross_per_period": 0.01583,
+      "net_per_period": 0.00671,
+      "net_annualised": 0.0423,
+      "sharpe": 0.135,
+      "avg_turnover": 1.808,
+      "win_rate": 0.291,
+      "horizon": 40,
+      "buffered": false
+    },
+    {
+      "periods": 55,
+      "gross_per_period": 0.00832,
+      "net_per_period": 0.00099,
+      "net_annualised": 0.0062,
+      "sharpe": 0.026,
+      "avg_turnover": 1.455,
+      "win_rate": 0.309,
+      "horizon": 40,
+      "buffered": true
+    },
+    {
+      "periods": 36,
+      "gross_per_period": 0.01521,
+      "net_per_period": 0.00619,
+      "net_annualised": 0.026,
+      "sharpe": 0.145,
+      "avg_turnover": 1.812,
+      "win_rate": 0.472,
+      "horizon": 60,
+      "buffered": false
+    },
+    {
+      "periods": 36,
+      "gross_per_period": 0.00639,
+      "net_per_period": -0.00081,
+      "net_annualised": -0.0034,
+      "sharpe": -0.021,
+      "avg_turnover": 1.438,
+      "win_rate": 0.417,
+      "horizon": 60,
+      "buffered": true
+    },
+    {
+      "periods": 17,
+      "gross_per_period": -0.0228,
+      "net_per_period": -0.03154,
+      "net_annualised": -0.0662,
+      "sharpe": -0.284,
+      "avg_turnover": 1.737,
+      "win_rate": 0.235,
+      "horizon": 120,
+      "buffered": false
+    },
+    {
+      "periods": 17,
+      "gross_per_period": -0.03429,
+      "net_per_period": -0.04112,
+      "net_annualised": -0.0864,
+      "sharpe": -0.439,
+      "avg_turnover": 1.354,
+      "win_rate": 0.294,
+      "horizon": 120,
+      "buffered": true
+    }
+  ]
+}

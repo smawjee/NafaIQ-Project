@@ -223,6 +223,7 @@ async def search(
     mode: str = MODE_ALL,
     lesson_id: Optional[str] = None,
     limit: int = 8,
+    approved_only: bool = False,
 ) -> list[dict[str, Any]]:
     """Hybrid search. Returns [] on any failure — never raises to the caller."""
     q = (query or "").strip()
@@ -231,6 +232,12 @@ async def search(
 
     started = time.perf_counter()
     clause, params = _mode_clause(mode, lesson_id)
+    if approved_only:
+        clause += """ AND EXISTS (
+            SELECT 1 FROM learnhub_sources approved_source
+            WHERE approved_source.source_key = learnhub_knowledge_chunks.source_key
+              AND approved_source.approved
+        )"""
     try:
         async with asyncio.timeout(settings.learnhub_retrieval_timeout_s):
             vector_rows, fts_rows = await asyncio.gather(
@@ -270,8 +277,7 @@ async def search(
     for entry in ranked:
         row = entry["row"]
         snippet_en, snippet_ur = _snippet(row)
-        results.append(
-            {
+        result = {
                 "lesson_id": row.get("lesson_id"),
                 "section_id": row.get("section_id"),
                 "source_type": row["source_type"],
@@ -288,7 +294,12 @@ async def search(
                 "text_ur": row.get("text_ur"),
                 "score": round(entry["score"], 6),
             }
-        )
+        # Source registry keys are internal grounding metadata. Preserve the
+        # existing public retrieval contract unless an approved-only caller
+        # explicitly needs stable citation IDs.
+        if approved_only:
+            result["source_id"] = row.get("source_id")
+        results.append(result)
 
     # Metadata only — never log user query text or chunk bodies.
     log.info(

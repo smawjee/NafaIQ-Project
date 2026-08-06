@@ -44,6 +44,15 @@ class GmailError(Exception):
 
 
 @dataclass(frozen=True)
+class RawAttachment:
+    attachment_id: str
+    filename: str
+    mime_type: str
+    size: int
+    part_id: str | None = None
+
+
+@dataclass(frozen=True)
 class RawMessage:
     """Provider-agnostic message — the shape the pipeline consumes.
 
@@ -61,6 +70,7 @@ class RawMessage:
     # thread — free correlation evidence for those legs. The bank's alert is
     # always a separate thread, which is why this can never be the only signal.
     thread_id: Optional[str] = None
+    attachments: tuple[RawAttachment, ...] = ()
 
 
 def _b64url(data: str) -> str:
@@ -109,6 +119,30 @@ def _extract_body(payload: dict[str, Any]) -> str:
     return ""
 
 
+def _extract_attachments(payload: dict[str, Any]) -> tuple[RawAttachment, ...]:
+    attachments: list[RawAttachment] = []
+
+    def walk(part: dict[str, Any]) -> None:
+        body = part.get("body") or {}
+        attachment_id = body.get("attachmentId")
+        filename = part.get("filename") or ""
+        if attachment_id and filename:
+            attachments.append(
+                RawAttachment(
+                    attachment_id=attachment_id,
+                    filename=filename,
+                    mime_type=part.get("mimeType") or "",
+                    size=int(body.get("size") or 0),
+                    part_id=part.get("partId"),
+                )
+            )
+        for sub in part.get("parts") or []:
+            walk(sub)
+
+    walk(payload)
+    return tuple(attachments)
+
+
 async def _get(client: httpx.AsyncClient, path: str, params: dict | None = None) -> dict:
     res = await client.get(f"{API_BASE}{path}", params=params)
     if res.status_code == 401:
@@ -118,6 +152,25 @@ async def _get(client: httpx.AsyncClient, path: str, params: dict | None = None)
     if res.status_code != 200:
         raise GmailError(f"Gmail API {path}: HTTP {res.status_code}: {res.text[:200]}")
     return res.json()
+
+
+async def download_attachment(
+    access_token: str, message_id: str, attachment_id: str
+) -> bytes:
+    headers = {"Authorization": f"Bearer {access_token}"}
+    try:
+        async with httpx.AsyncClient(timeout=_TIMEOUT_S, headers=headers) as client:
+            payload = await _get(
+                client, f"/messages/{message_id}/attachments/{attachment_id}"
+            )
+    except httpx.HTTPError as e:
+        raise GmailError(f"Gmail attachment download failed: {e}") from e
+    data = payload.get("data") or ""
+    try:
+        padded = data + "=" * (-len(data) % 4)
+        return base64.urlsafe_b64decode(padded)
+    except (binascii.Error, ValueError) as e:
+        raise GmailError("Gmail returned an invalid attachment payload") from e
 
 
 async def fetch_new_messages(
@@ -187,6 +240,7 @@ async def fetch_new_messages(
                         received_at=received,
                         internal_date=internal_date,
                         thread_id=full.get("threadId"),
+                        attachments=_extract_attachments(payload),
                     )
                 )
     except httpx.HTTPError as e:

@@ -1,0 +1,113 @@
+{
+  "arm": "C''",
+  "pre_reg": {
+    "arm": "C''",
+    "confirmatory_of": "C' (pilot_insider_purchases_v2.json, verdict AMBER)",
+    "document": "docs/superpowers/specs/2026-08-05-pilot-cpp-preregistration.md",
+    "primary_horizons": [
+      63
+    ],
+    "net_horizons": [
+      63,
+      126
+    ],
+    "t_crit": 1.96,
+    "max_ece": 0.05,
+    "exclusion_top_n": 4,
+    "min_events": 30,
+    "min_dates": 10,
+    "min_symbols": 8,
+    "min_clusters": 15
+  },
+  "pre_reg_sha256": "c456740872a3b47edfe3a8aa0ac0eaedcc933b0bad164e2156fed6cde1a7cf13",
+  "imported_design_sha256": "278486bbe12970eb83f7b0d22eb5056b01c0e2ac3de5eb22f3b2018f5ed53b2b",
+  "periods": {
+    "explore": {
+      "events": 283,
+      "rows": [
+        {
+          "horizon": 63,
+          "events": 260,
+          "dates": 221,
+          "symbols": 42,
+          "clusters": 236,
+          "gross_car": 0.031498,
+          "gross_t_twoway": 2.002,
+          "gross_t_date": 4.422,
+          "net_car": 0.02261,
+          "net_t": 1.437,
+          "net_t_date": 3.41,
+          "mean_cost": 0.008887
+        },
+        {
+          "horizon": 126,
+          "events": 216,
+          "dates": 182,
+          "symbols": 37,
+          "clusters": 194,
+          "gross_car": 0.059554,
+          "gross_t_twoway": 2.583,
+          "gross_t_date": 4.107,
+          "net_car": 0.050854,
+          "net_t": 2.217,
+          "net_t_date": 3.556,
+          "mean_cost": 0.0087
+        }
+      ]
+    },
+    "holdout": {
+      "events": 169,
+      "rows": [
+        {
+          "horizon": 63,
+          "events": 164,
+          "dates": 135,
+          "symbols": 25,
+          "clusters": 151,
+          "gross_car": 0.044442,
+          "gross_t_twoway": 2.933,
+          "gross_t_date": 3.14,
+          "net_car": 0.033968,
+          "net_t": 2.229,
+          "net_t_date": 2.366,
+          "mean_cost": 0.010473
+        },
+        {
+          "horizon": 126,
+          "events": 149,
+          "dates": 128,
+          "symbols": 25,
+          "clusters": 136,
+          "gross_car": 0.045489,
+          "gross_t_twoway": 0.857,
+          "gross_t_date": 1.748,
+          "net_car": 0.034867,
+          "net_t": 0.655,
+          "net_t_date": 1.341,
+          "mean_cost": 0.010622
+        }
+      ]
+    }
+  },
+  "exclusion": {
+    "top_symbols": [
+      "MARI",
+      "NICL",
+      "UBL",
+      "AHL"
+    ],
+    "net_63s": -0.015535
+  },
+  "ece_63s": 0.010131,
+  "power": {
+    "events": 169,
+    "dates": 138,
+    "symbols": 26,
+    "clusters": 155,
+    "span_ok": true
+  },
+  "verdict": "AMBER",
+  "reasons": [
+    "ex-top-4 63s net -0.0155 <= 0"
+  ]
+}

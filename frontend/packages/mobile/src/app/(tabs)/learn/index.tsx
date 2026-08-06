@@ -19,6 +19,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { TutorMessage as TutorBubble } from "@/components/ai/AiText";
 import { GlassCard } from "@/components/glass/GlassCard";
 import { GlassScreen } from "@/components/glass/GlassScreen";
+import { LearnStudioCard } from "@/components/learn/LearnStudioCard";
 import { Button, Text } from "@/components/ui";
 import { ProgressBar } from "@/components/ui/ProgressBar";
 import { fonts, radii, type ThemeColors } from "@/constants/theme";
@@ -102,6 +103,9 @@ export default function LearnHub() {
             <StatChip icon={<Trophy color="#8b5cf6" size={13} />} label={t(level)} color="#8b5cf6" />
           </View>
         </GlassCard>
+
+        {/* LearnHub Studio — topic/PDF creation, project library and secure generated lessons. */}
+        <LearnStudioCard />
 
         {/* AI content search (RAG) — only renders when the backend flag is on */}
         <LearnSearchBox />

@@ -69,9 +69,20 @@ export function Portfolio() {
   const sellHoldingApi = useSellHolding(portfolioId);
   const createPortfolio = useCreatePortfolio();
 
+  // Real PSX sectors, keyed by symbol. STOCKS is the ~20-symbol static demo
+  // dataset, so looking sectors up there labelled every genuine PSX holding
+  // outside that handful "Other" — MEHT (TEXTILE COMPOSITE), OBOY (OIL & GAS
+  // MARKETING COMPANIES) and TSBL all fell through while OGDC happened to be
+  // in the fixture. /api/symbols carries the sector for all ~1077 tickers, and
+  // the allocation donut below was already using it; only this table wasn't.
+  const sectorMap = useMemo(
+    () => new Map((symbols ?? []).map((s) => [s.symbol, s.sector ?? "Other"])),
+    [symbols],
+  );
+
   const apiPortfolioHoldings: Holding[] = (apiHoldings ?? []).map((h) => ({
     ticker: h.symbol,
-    sector: STOCKS[h.symbol]?.sector ?? "Other",
+    sector: sectorMap.get(h.symbol) ?? "Other",
     shares: h.shares,
     avgCost: h.avg_cost,
     current: portfolioValue?.holdings.find((v) => v.id === h.id)?.current_price ?? h.avg_cost,
@@ -82,7 +93,6 @@ export function Portfolio() {
   const sectorAllocData = useMemo(() => {
     if (useDemoPortfolio) return local.sectorAllocation;
     if (!holdings.length || !symbols) return [];
-    const sectorMap = new Map((symbols ?? []).map((s) => [s.symbol, s.sector ?? "Other"]));
     const totals = new Map<string, number>();
     for (const h of holdings) {
       const sector = sectorMap.get(h.ticker) ?? "Other";
@@ -99,7 +109,7 @@ export function Portfolio() {
         value: Math.round((value / grand) * 100),
         color: palette[i % palette.length],
       }));
-  }, [useDemoPortfolio, local.sectorAllocation, holdings, symbols]);
+  }, [useDemoPortfolio, local.sectorAllocation, holdings, symbols, sectorMap]);
 
   const stockAllocData = useMemo(() => {
     if (useDemoPortfolio) return local.stockAllocation;

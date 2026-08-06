@@ -39,7 +39,7 @@ from app.scrapers.mufap import BotChallengeError, MUFAPScraper
 from app.scrapers.brecorder import BRecorderScraper
 from app.scrapers.pdf_fetcher import PDFFetcher
 from app.scrapers.financials_psx import FinancialsPSXScraper
-from app.services.signals.volume_spikes import VolumeSpikeDetector
+from app.services.market.volume_spikes import VolumeSpikeDetector
 import os
 from app.services.market._base import get_cache, ALL_PSX_INDICES
 from app.api.health import set_market_refresh_time
@@ -59,7 +59,23 @@ log = structlog.get_logger()
 # steady state, so 10% flags a real regression without crying wolf nightly.
 DIVIDENDS_MAX_FAILURE_RATIO = 0.10
 
-scheduler = AsyncIOScheduler()
+# APScheduler's built-in default is `misfire_grace_time=1` — a job whose trigger
+# time is reached while the event loop is busy for even one second is dropped
+# silently, not run late. Most daily jobs below pass an explicit grace, but any
+# that forgot inherited the 1s default: that is how the 18:00 PKT
+# `refresh_index_eod_postclose` run vanished on 2026-08-05 with no error and no
+# health row, leaving 17 of 18 index cards showing the previous day's close.
+# A floor of 300s here means a missed beat is served late instead of skipped;
+# `coalesce` collapses a backlog into a single catch-up run so a stalled loop
+# can't stampede on recovery, and `max_instances=1` keeps a slow job from
+# overlapping itself. Jobs needing a wider window still override per-job.
+scheduler = AsyncIOScheduler(
+    job_defaults={
+        "misfire_grace_time": 300,
+        "coalesce": True,
+        "max_instances": 1,
+    }
+)
 ahletrade = AhleTradePoller()
 dps = DPSScraper()
 tv = TradingViewScraper()
@@ -216,8 +232,8 @@ async def job_refresh_announcements():
 
 
 async def job_precompute_cross_section():
-    """Daily cross-sectional factor ranks for the liquid universe (V4 analytics)."""
-    from app.services.signals_v4.cross_section_job import precompute_cross_section
+    """Daily cross-sectional factor ranks for the liquid universe (cross-sectional analytics)."""
+    from app.services.signals.cross_section_job import precompute_cross_section
 
     try:
         log.info("job:cross_section:start")
@@ -230,6 +246,50 @@ async def job_precompute_cross_section():
         await _record_health("psx_signal_cross_section", success=False, error=str(e))
 
 
+async def job_record_signal_recommendations():
+    """Snapshot today's calibrated call for every ranked symbol.
+
+    Must run AFTER job_precompute_cross_section: the reversal percentile the
+    recommendation conditions on is produced there, and without it the lookup
+    falls back to a coarser cohort.
+    """
+    from app.services.signals.track_record_job import record_todays_recommendations
+
+    try:
+        log.info("job:record_recommendations:start")
+        result = await record_todays_recommendations()
+        log.info("job:record_recommendations:done", **result)
+        await _record_health("psx_signal_recommendations",
+                             success=result.get("recorded", 0) > 0,
+                             rows_updated=result.get("recorded", 0))
+    except Exception as e:
+        log.exception("job:record_recommendations:failed")
+        await _record_health("psx_signal_recommendations", success=False, error=str(e))
+
+
+async def job_mature_signal_recommendations():
+    """Measure predictions whose horizon has elapsed, then roll them up.
+
+    Writes outcomes once and never revises them — a revisable track record is
+    marketing, not measurement. Raw rows are pruned past the retention window;
+    the per-bucket rollup is the permanent record.
+    """
+    from app.services.signals.track_record_job import mature_recommendations
+
+    try:
+        log.info("job:mature_recommendations:start")
+        result = await mature_recommendations()
+        log.info("job:mature_recommendations:done", **result)
+        # Zero matured is normal (nothing reached its horizon today), so this
+        # must not be judged on row count.
+        await _record_health("psx_signal_calibration", success=True,
+                             rows_updated=result.get("matured", 0),
+                             allow_zero_rows=True)
+    except Exception as e:
+        log.exception("job:mature_recommendations:failed")
+        await _record_health("psx_signal_calibration", success=False, error=str(e))
+
+
 async def job_ingest_signal_events():
     """Fold psx_announcements + psx_dividends into canonical psx_signal_events.
 
@@ -237,7 +297,7 @@ async def job_ingest_signal_events():
     event id, so it is idempotent and never touches the technical/context
     serving path. Foundation for the (still dormant) event-forecast track.
     """
-    from app.services.signals_v4.ingest import ingest_events
+    from app.services.signals.ingest import ingest_events
 
     try:
         log.info("job:ingest_signal_events:start")
@@ -710,32 +770,6 @@ async def job_purge_error_events():
     except Exception as e:
         log.exception("job:purge_error_events:failed")
         await _record_health("error_retention", success=False, error=str(e))
-
-
-async def job_snapshot_signals():
-    """Immutable daily snapshot of current technical signals (track-record input)."""
-    from app.services.signals_v2.outcomes import snapshot_current_signals
-
-    try:
-        result = await snapshot_current_signals()
-        await _record_health("signal_snapshot", success=True,
-                             rows_updated=int(result.get("rows") or 0))
-    except Exception as e:
-        log.warning("job_snapshot_signals_failed", exc_info=True)
-        await _record_health("signal_snapshot", success=False, error=str(e))
-
-
-async def job_signal_outcomes():
-    """Mature snapshotted signals whose horizon elapsed; insert-only outcomes."""
-    from app.services.signals_v2.outcomes import evaluate_pending_outcomes
-
-    try:
-        result = await evaluate_pending_outcomes()
-        await _record_health("signal_outcomes", success=True,
-                             rows_updated=int(result.get("outcomes_inserted") or 0))
-    except Exception as e:
-        log.warning("job_signal_outcomes_failed", exc_info=True)
-        await _record_health("signal_outcomes", success=False, error=str(e))
 
 
 async def job_refresh_fipi():
@@ -1419,8 +1453,24 @@ def init_scheduler():
     # the 15:30 PKT session ends, so the 18:00 run puts it in the table the same
     # evening instead of ~7 hours later. The 01:00 run stays as the safety net
     # that also catches a late DPS publish. Both are idempotent upserts.
-    scheduler.add_job(job_refresh_index_eod, CronTrigger(day_of_week="mon-fri", hour=18, minute=0, timezone="Asia/Karachi"), id="refresh_index_eod_postclose", replace_existing=True)
-    scheduler.add_job(job_refresh_index_eod, CronTrigger(hour=1, minute=0, timezone="Asia/Karachi"), id="refresh_index_eod", replace_existing=True)
+    # Both runs carry an hour of grace, matching every other daily job. Without
+    # it they inherited APScheduler's 1s default and a momentarily busy loop
+    # dropped the run outright — the table then sat a full day stale, which is
+    # exactly the failure the twice-daily schedule exists to prevent.
+    scheduler.add_job(
+        job_refresh_index_eod,
+        CronTrigger(day_of_week="mon-fri", hour=18, minute=0, timezone="Asia/Karachi"),
+        id="refresh_index_eod_postclose",
+        replace_existing=True,
+        misfire_grace_time=3600,
+    )
+    scheduler.add_job(
+        job_refresh_index_eod,
+        CronTrigger(hour=1, minute=0, timezone="Asia/Karachi"),
+        id="refresh_index_eod",
+        replace_existing=True,
+        misfire_grace_time=3600,
+    )
     # Live index snapshot: every 5 min during market hours (Mon-Fri 09:00-17:00 PKT).
     # Runs during market hours + buffer so the last snapshot before EOD is captured.
     scheduler.add_job(
@@ -1428,7 +1478,12 @@ def init_scheduler():
         CronTrigger(day_of_week="mon-fri", hour="9-16", minute="*/5", timezone="Asia/Karachi"),
         id="refresh_index_snapshot",
         replace_existing=True,
-        misfire_grace_time=120,
+        # 120s covered a single missed beat but nothing worse: on 2026-08-05 the
+        # last eight slots of the day (16:20–16:55 PKT) were all dropped, so the
+        # final snapshot of the session — the one the cards fall back on after
+        # close — was never taken. 600s survives a longer stall, and coalesce
+        # keeps the catch-up to one run.
+        misfire_grace_time=600,
     )
     scheduler.add_job(job_check_alerts, IntervalTrigger(seconds=60), id="check_alerts", replace_existing=True)
     # Keep-alive: the always-on worker pings the API so Railway can't cold-start
@@ -1455,23 +1510,6 @@ def init_scheduler():
         id="refresh_fipi",
         replace_existing=True,
     )
-    # DISABLED 2026-07-24: legacy V2 track-record jobs. Serving moved to Signals
-    # V4 (/api/signal -> signals_v4), so the psx_signals_v2 cache these snapshot is
-    # no longer populated and the old track-record card is unmounted in the UI.
-    # Kept as code (not deleted) pending the deliberate v2->v4 backend migration;
-    # re-enable by uncommenting if the legacy track record is ever needed again.
-    # scheduler.add_job(
-    #     job_snapshot_signals,
-    #     CronTrigger(day_of_week="mon-fri", hour=17, minute=45, timezone="Asia/Karachi"),
-    #     id="snapshot_signals",
-    #     replace_existing=True,
-    # )
-    # scheduler.add_job(
-    #     job_signal_outcomes,
-    #     CronTrigger(day_of_week="mon-fri", hour=19, minute=30, timezone="Asia/Karachi"),
-    #     id="signal_outcomes",
-    #     replace_existing=True,
-    # )
     # Shared, once-per-trading-day Market Brief — weekdays ~09:45 PKT, after the
     # morning market data refresh (§11). Runs in Asia/Karachi (PSX) time.
     scheduler.add_job(
@@ -1565,6 +1603,23 @@ def init_scheduler():
         job_precompute_cross_section,
         CronTrigger(hour=20, minute=0, timezone="Asia/Karachi"),
         id="precompute_cross_section",
+        replace_existing=True,
+        misfire_grace_time=3600,
+    )
+    # Live track record. Recording runs 30 min after the cross-section job so
+    # the reversal percentile it conditions on is fresh; maturation runs later
+    # still and is independent of both.
+    scheduler.add_job(
+        job_record_signal_recommendations,
+        CronTrigger(hour=20, minute=30, timezone="Asia/Karachi"),
+        id="record_signal_recommendations",
+        replace_existing=True,
+        misfire_grace_time=3600,
+    )
+    scheduler.add_job(
+        job_mature_signal_recommendations,
+        CronTrigger(hour=21, minute=15, timezone="Asia/Karachi"),
+        id="mature_signal_recommendations",
         replace_existing=True,
         misfire_grace_time=3600,
     )

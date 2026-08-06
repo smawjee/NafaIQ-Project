@@ -4,6 +4,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { fetchTutorHistory, streamTutor } from "@/lib/ai/tutor-client";
 import { useLang } from "@/hooks/use-lang";
+import { askStudioTutor } from "@/lib/learn/studio-client";
 
 export interface TutorChatMsg {
   role: "user" | "assistant";
@@ -16,6 +17,8 @@ export interface UseTutorChatOptions {
   greeting: string;
   /** Load recent server-side history on mount (hub panel). */
   hydrate?: boolean;
+  /** Generated lessons use their private, source-grounded Studio endpoint. */
+  projectId?: string;
 }
 
 export function useTutorChat(opts: UseTutorChatOptions) {
@@ -104,6 +107,22 @@ export function useTutorChat(opts: UseTutorChatOptions) {
           return next;
         });
 
+      if (opts.projectId) {
+        void askStudioTutor(opts.projectId, {
+          message: trimmed,
+          history: history.filter((m, i) => !(i === 0 && m.role === "assistant")).slice(-6, -1),
+          lang,
+        })
+          .then((result) => replaceLast(result.answer ?? "This lesson does not cover that question."))
+          .catch((error: unknown) => {
+            const message = error instanceof Error ? error.message : "";
+            if (/\b429\b/.test(message)) setQuotaExceeded(true);
+            replaceLast(/\b429\b/.test(message) ? "Daily LearnHub AI limit reached." : "The lesson tutor is unavailable right now.");
+          })
+          .finally(() => setLoading(false));
+        return;
+      }
+
       void streamTutor(
         {
           lessonTitle: opts.lessonTitle,
@@ -131,7 +150,7 @@ export function useTutorChat(opts: UseTutorChatOptions) {
         controller.signal,
       );
     },
-    [messages, loading, quotaExceeded, signedOut, lang, opts.lessonTitle, opts.lessonContext],
+    [messages, loading, quotaExceeded, signedOut, lang, opts.lessonTitle, opts.lessonContext, opts.projectId],
   );
 
   return { messages, loading, quotaExceeded, signedOut, send };

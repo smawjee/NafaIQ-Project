@@ -38,6 +38,7 @@ import { StatPill } from "@/features/learn/hub/components/StatPill";
 import { CompletionRing } from "@/features/learn/hub/components/CompletionRing";
 import { HubChatPanel } from "@/features/learn/hub/components/HubChatPanel";
 import { FlashcardModal } from "@/features/learn/hub/components/FlashcardModal";
+import { StudioCreateCard } from "@/features/learn/studio/StudioCreateCard";
 
 export function LearnHub() {
   const { xp, statusOf, pathProgress } = useLearn();
@@ -85,6 +86,7 @@ export function LearnHub() {
         onAskAi={() => setChatOpen(true)}
         onFlashcards={() => setFlashcards(true)}
       />
+      <StudioCreateCard />
       <Card hover={false} className="hidden bg-gradient-to-br from-ai-tint to-surface">
         <h1 className="font-nastaliq text-2xl text-text-primary">سمجھو، سیکھو، بڑھو</h1>
         <p className="text-sm font-semibold text-text-primary">Samjho, Seekho, Barho</p>

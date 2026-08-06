@@ -22,10 +22,8 @@ import type {
   ApiHeatmapResponse,
   ApiIndicatorPayload,
   ApiSignal,
-  ApiSignalV2,
   ApiTrackRecord,
   BatchSignalsResponse,
-  SignalHorizon,
   ScreenerRequest,
   ScreenerResponse,
   BacktestRequest,
@@ -33,8 +31,8 @@ import type {
 } from "@nafaiq/shared";
 
 import { supabase } from "./supabase";
-import type { ApiSignalV4 } from "./signals-v4";
-import { toLegacySignal } from "./signals-v4";
+import type { ApiSignalDetail } from "./signals";
+import { toLegacySignal } from "./signals";
 
 const EXPLICIT_URL = process.env.EXPO_PUBLIC_API_URL;
 const PSX_TOKEN = process.env.EXPO_PUBLIC_PSX_API_TOKEN || "";
@@ -65,8 +63,19 @@ async function request<T>(
   init: RequestInit & { headers?: Record<string, string> } = {},
 ): Promise<T> {
   const res = await fetch(apiUrl(path), init);
-  if (!res.ok) throw new Error(`${path}: ${res.status} ${res.statusText}`);
-  return res.json() as Promise<T>;
+  const payload = await res.text();
+  if (!res.ok) {
+    let detail = payload;
+    try {
+      const parsed = JSON.parse(payload) as { detail?: string };
+      detail = parsed.detail ?? payload;
+    } catch {
+      // Preserve the plain response body when the server did not return JSON.
+    }
+    throw new Error(detail || `${path}: ${res.status} ${res.statusText}`);
+  }
+  if (!payload) return undefined as T;
+  return JSON.parse(payload) as T;
 }
 
 // === Public requests (optional shared PSX token) ===
@@ -96,9 +105,17 @@ export function publicGet<T>(path: string): Promise<T> {
   return get<T>(path);
 }
 
-/** Public JSON POST for anonymous-safe endpoints such as client telemetry. */
+/**
+ * POST to an endpoint that takes no credential at all (backend PUBLIC_PATHS,
+ * e.g. password recovery and client telemetry). Distinct from userPost, which
+ * attaches the session JWT — these callers can run for signed-out users.
+ */
 export function publicPost<T>(path: string, body: unknown): Promise<T> {
-  return post<T>(path, body);
+  return request<T>(path, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
 }
 
 // === User-authenticated requests (Supabase session JWT) ===
@@ -130,6 +147,15 @@ export async function userPatch<T>(path: string, body: unknown): Promise<T> {
     method: "PATCH",
     headers: await userHeaders(true),
     body: JSON.stringify(body),
+  });
+}
+
+/** Authenticated multipart upload. The runtime supplies the boundary header. */
+export async function userUpload<T>(path: string, body: FormData): Promise<T> {
+  return request<T>(path, {
+    method: "POST",
+    headers: await userHeaders(),
+    body,
   });
 }
 
@@ -215,22 +241,20 @@ export function runBacktest(params: BacktestRequest): Promise<ApiBacktestResult>
   return post<ApiBacktestResult>("/api/backtest", params);
 }
 
+/** Compact row shape for list surfaces (screener, watchlist). */
 export function fetchSignal(symbol: string): Promise<ApiSignal> {
-  return get<ApiSignalV4>(`/api/signal/${symbol}`).then(toLegacySignal);
+  return get<ApiSignalDetail>(`/api/signals/${symbol}`).then(toLegacySignal);
 }
 
 export function fetchBatchSignals(limit = 50): Promise<BatchSignalsResponse> {
-  return post<{ signals: ApiSignalV4[]; count: number }>("/api/signals/batch", { limit }).then((response) => ({ signals: response.signals.map(toLegacySignal), count: response.count }));
+  return post<{ signals: ApiSignalDetail[]; count: number }>("/api/signals/batch", { limit }).then((response) => ({ signals: response.signals.map(toLegacySignal), count: response.count }));
 }
 
-export function fetchSignalV2(symbol: string, horizon: SignalHorizon = "20D"): Promise<ApiSignalV2> {
-  return get<ApiSignalV2>(`/api/signals/v2/${symbol}?horizon=${horizon}`);
-}
-
-export function fetchSignalV4(symbol: string): Promise<ApiSignalV4> {
-  return get<ApiSignalV4>(`/api/signals/v3/${symbol}`);
+/** Full engine response — technical setup, measurement quality and context. */
+export function fetchSignalDetail(symbol: string): Promise<ApiSignalDetail> {
+  return get<ApiSignalDetail>(`/api/signals/${symbol}`);
 }
 
 export function fetchSignalTrackRecord(): Promise<ApiTrackRecord> {
-  return get<ApiTrackRecord>("/api/signals/v2/track-record");
+  return get<ApiTrackRecord>("/api/signals/track-record");
 }

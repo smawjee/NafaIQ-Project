@@ -112,6 +112,7 @@ async def record_trade_atomic(
     executed: datetime,
     apply_holding: bool = True,
     reflect_finance: bool = True,
+    broker_import_item_id: int | None = None,
 ) -> dict[str, Any]:
     """Reusable, atomic core shared by every write path that touches a position.
 
@@ -134,6 +135,7 @@ async def record_trade_atomic(
         executed_at=executed,
         notes=body.notes,
         source=body.source,
+        broker_import_item_id=broker_import_item_id,
     )
     if apply_holding:
         await _apply_holding_change(conn, body, executed)

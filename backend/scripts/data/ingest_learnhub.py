@@ -8,7 +8,7 @@ corpus JSON is a generated artifact (gitignored) — regenerating it here is wha
 makes drift from the TypeScript source structurally impossible, since this repo
 has no CI to enforce a committed artifact stays fresh.
 
-    cd backend && python scripts/ingest_learnhub.py [--skip-export]
+    cd backend && python scripts/data/ingest_learnhub.py
 
 Needs Node/pnpm on PATH (dev machine — the backend Docker image never runs
 ingest), GEMINI_API_KEY, and the DB credentials. Apply migration
@@ -24,7 +24,7 @@ import sys
 from pathlib import Path
 from typing import Any
 
-BACKEND = Path(__file__).resolve().parents[1]
+BACKEND = Path(__file__).resolve().parents[2]
 REPO = BACKEND.parent
 CORPUS = BACKEND / "data" / "learn_corpus.json"
 
@@ -179,6 +179,48 @@ async def main() -> int:
     for c in chunks:
         c["content_hash"] = content_hash(c)
 
+    # The bundled LearnHub corpus is operator-reviewed. Register every chunk as
+    # an approved source snapshot before embedding so Studio retrieval can fail
+    # closed instead of silently using unapproved or legacy rows.
+    async with begin() as conn:
+        for c in chunks:
+            await conn.execute(
+                text(
+                    """
+                    INSERT INTO learnhub_sources
+                        (source_key, publisher, title, approved, content_hash,
+                         corpus_version, metadata, updated_at)
+                    VALUES
+                        (:source_key, 'NafaIQ LearnHub', :title, true, :content_hash,
+                         :corpus_version, CAST(:metadata AS jsonb), now())
+                    ON CONFLICT (source_key) DO UPDATE SET
+                        title=EXCLUDED.title, approved=true,
+                        content_hash=EXCLUDED.content_hash,
+                        corpus_version=EXCLUDED.corpus_version,
+                        metadata=EXCLUDED.metadata, updated_at=now()
+                    """
+                ),
+                {
+                    "source_key": c["source_id"],
+                    "title": c.get("title") or c.get("heading") or c["source_id"],
+                    "content_hash": c["content_hash"],
+                    "corpus_version": settings.learn_studio_corpus_version,
+                    "metadata": json.dumps({
+                        "sourceType": c["source_type"],
+                        "lessonId": c.get("lesson_id"),
+                        "sectionId": c.get("section_id"),
+                    }),
+                },
+            )
+        await conn.execute(
+            text("""
+                UPDATE learnhub_knowledge_chunks
+                SET source_key=source_id
+                WHERE source_id = ANY(:source_ids)
+            """),
+            {"source_ids": [c["source_id"] for c in chunks]},
+        )
+
     async with connect() as conn:
         res = await conn.execute(
             text(
@@ -220,16 +262,17 @@ async def main() -> int:
                     text(
                         """
                         INSERT INTO learnhub_knowledge_chunks
-                            (source_type, source_id, lesson_id, section_id, title,
+                            (source_type, source_id, source_key, lesson_id, section_id, title,
                              heading, text_en, text_ur, metadata, content_hash,
                              embedding_model, embedding, is_active, updated_at)
                         VALUES
-                            (:source_type, :source_id, :lesson_id, :section_id, :title,
+                            (:source_type, :source_id, :source_id, :lesson_id, :section_id, :title,
                              :heading, :text_en, :text_ur, CAST(:metadata AS jsonb),
                              :content_hash, :embedding_model,
                              CAST(:embedding AS extensions.vector), true, now())
                         ON CONFLICT (source_id) DO UPDATE SET
                             source_type = EXCLUDED.source_type,
+                            source_key = EXCLUDED.source_key,
                             lesson_id = EXCLUDED.lesson_id,
                             section_id = EXCLUDED.section_id,
                             title = EXCLUDED.title,

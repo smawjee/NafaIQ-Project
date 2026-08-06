@@ -15,16 +15,17 @@ from app.config import settings
 from app.api import (
     ai,
     assistant,
+    auth as auth_api,
     health,
     market,
     signals,
-    signals_v4,
     portfolio,
     notifications,
     finance,
     portfolio_extended,
     finance_extended,
     alerts,
+    broker_imports,
     market_v2,
     finance_sync,
     profile,
@@ -38,6 +39,7 @@ from app.api import (
     integrations,
     learn,
     learn_ai,
+    learn_studio,
     telemetry as telemetry_api,
 )
 from app.api.admin import router as admin_router
@@ -418,15 +420,16 @@ _reports_gate = flags.require_flag(
 )
 
 app.include_router(health.router, prefix="/api")
+app.include_router(auth_api.router, prefix="/api")
 app.include_router(market.router, prefix="/api")
 app.include_router(signals.router, prefix="/api", dependencies=[_signals_gate])
-app.include_router(signals_v4.router, prefix="/api", dependencies=[_signals_gate])
 app.include_router(portfolio.router, prefix="/api")
 app.include_router(notifications.router, prefix="/api")
 app.include_router(finance.router, prefix="/api")
 app.include_router(portfolio_extended.router, prefix="/api")
 app.include_router(finance_extended.router, prefix="/api")
 app.include_router(alerts.router, prefix="/api")
+app.include_router(broker_imports.router, prefix="/api")
 app.include_router(market_v2.router, prefix="/api")
 app.include_router(finance_sync.router, prefix="/api")
 app.include_router(profile.router, prefix="/api")
@@ -436,6 +439,7 @@ app.include_router(reports.router, prefix="/api", dependencies=[_reports_gate])
 app.include_router(macro.router, prefix="/api")
 app.include_router(learn.router, prefix="/api")
 app.include_router(learn_ai.router, prefix="/api", dependencies=[_ai_gate])
+app.include_router(learn_studio.router, prefix="/api", dependencies=[_ai_gate])
 app.include_router(news.router, prefix="/api")
 app.include_router(filings.router, prefix="/api")
 app.include_router(unusual.router, prefix="/api")

@@ -1,0 +1,224 @@
+{
+  "strip_coverage": {
+    "B75": {
+      "candidates": 3314,
+      "stripped": 39,
+      "kept": 2186,
+      "stripped_frac": 0.0118
+    },
+    "B95": {
+      "candidates": 1660,
+      "stripped": 25,
+      "kept": 1150,
+      "stripped_frac": 0.0151
+    }
+  },
+  "B75": {
+    "events": 2186,
+    "strip_coverage": {
+      "candidates": 3314,
+      "stripped": 39,
+      "kept": 2186,
+      "stripped_frac": 0.0118
+    },
+    "explore": {
+      "events": 4068,
+      "rows": [
+        {
+          "horizon": 5,
+          "events": 1105,
+          "dates": 487,
+          "gross_excess": -0.004117,
+          "gross_clustered_t": -1.259,
+          "net_excess": -0.015421,
+          "net_clustered_t": -4.712,
+          "mean_cost": 0.011234
+        },
+        {
+          "horizon": 11,
+          "events": 1041,
+          "dates": 481,
+          "gross_excess": -0.008729,
+          "gross_clustered_t": -2.006,
+          "net_excess": -0.019932,
+          "net_clustered_t": -4.58,
+          "mean_cost": 0.011131
+        },
+        {
+          "horizon": 21,
+          "events": 1009,
+          "dates": 473,
+          "gross_excess": -0.014347,
+          "gross_clustered_t": -2.267,
+          "net_excess": -0.025521,
+          "net_clustered_t": -4.029,
+          "mean_cost": 0.01109
+        },
+        {
+          "horizon": 41,
+          "events": 913,
+          "dates": 440,
+          "gross_excess": -0.003886,
+          "gross_clustered_t": -0.269,
+          "net_excess": -0.014878,
+          "net_clustered_t": -1.029,
+          "mean_cost": 0.010891
+        }
+      ]
+    },
+    "holdout": {
+      "events": 3393,
+      "rows": [
+        {
+          "horizon": 5,
+          "events": 905,
+          "dates": 227,
+          "gross_excess": -0.011891,
+          "gross_clustered_t": -2.037,
+          "net_excess": -0.023901,
+          "net_clustered_t": -4.078,
+          "mean_cost": 0.011228
+        },
+        {
+          "horizon": 11,
+          "events": 876,
+          "dates": 221,
+          "gross_excess": -0.026668,
+          "gross_clustered_t": -3.224,
+          "net_excess": -0.03863,
+          "net_clustered_t": -4.649,
+          "mean_cost": 0.011211
+        },
+        {
+          "horizon": 21,
+          "events": 828,
+          "dates": 215,
+          "gross_excess": -0.03704,
+          "gross_clustered_t": -3.06,
+          "net_excess": -0.049013,
+          "net_clustered_t": -4.037,
+          "mean_cost": 0.011225
+        },
+        {
+          "horizon": 41,
+          "events": 784,
+          "dates": 200,
+          "gross_excess": -0.045346,
+          "gross_clustered_t": -2.416,
+          "net_excess": -0.057199,
+          "net_clustered_t": -3.041,
+          "mean_cost": 0.011162
+        }
+      ]
+    },
+    "verdict": "RED",
+    "reasons": [
+      "B75 21s net excess -0.0490 not > one round trip (0.0112)",
+      "B75 21s clustered t -4.037 <= 1.96"
+    ]
+  },
+  "B95": {
+    "events": 1150,
+    "strip_coverage": {
+      "candidates": 1660,
+      "stripped": 25,
+      "kept": 1150,
+      "stripped_frac": 0.0151
+    },
+    "explore": {
+      "events": 1879,
+      "rows": [
+        {
+          "horizon": 5,
+          "events": 518,
+          "dates": 305,
+          "gross_excess": -0.002437,
+          "gross_clustered_t": -0.53,
+          "net_excess": -0.01408,
+          "net_clustered_t": -3.068,
+          "mean_cost": 0.011645
+        },
+        {
+          "horizon": 11,
+          "events": 482,
+          "dates": 297,
+          "gross_excess": -0.006138,
+          "gross_clustered_t": -0.984,
+          "net_excess": -0.017719,
+          "net_clustered_t": -2.841,
+          "mean_cost": 0.011566
+        },
+        {
+          "horizon": 21,
+          "events": 466,
+          "dates": 292,
+          "gross_excess": -0.001133,
+          "gross_clustered_t": -0.091,
+          "net_excess": -0.012712,
+          "net_clustered_t": -1.019,
+          "mean_cost": 0.011525
+        },
+        {
+          "horizon": 41,
+          "events": 413,
+          "dates": 268,
+          "gross_excess": -0.001577,
+          "gross_clustered_t": -0.08,
+          "net_excess": -0.012942,
+          "net_clustered_t": -0.66,
+          "mean_cost": 0.011277
+        }
+      ]
+    },
+    "holdout": {
+      "events": 1924,
+      "rows": [
+        {
+          "horizon": 5,
+          "events": 504,
+          "dates": 141,
+          "gross_excess": -0.01837,
+          "gross_clustered_t": -2.345,
+          "net_excess": -0.030427,
+          "net_clustered_t": -3.873,
+          "mean_cost": 0.011193
+        },
+        {
+          "horizon": 11,
+          "events": 489,
+          "dates": 134,
+          "gross_excess": -0.040101,
+          "gross_clustered_t": -3.699,
+          "net_excess": -0.052047,
+          "net_clustered_t": -4.783,
+          "mean_cost": 0.011152
+        },
+        {
+          "horizon": 21,
+          "events": 480,
+          "dates": 130,
+          "gross_excess": -0.045503,
+          "gross_clustered_t": -2.876,
+          "net_excess": -0.05742,
+          "net_clustered_t": -3.622,
+          "mean_cost": 0.01113
+        },
+        {
+          "horizon": 41,
+          "events": 451,
+          "dates": 116,
+          "gross_excess": -0.041677,
+          "gross_clustered_t": -1.389,
+          "net_excess": -0.053382,
+          "net_clustered_t": -1.777,
+          "mean_cost": 0.01104
+        }
+      ]
+    },
+    "verdict": "RED",
+    "reasons": [
+      "B95 41s net excess -0.0534 not > one round trip (0.0110)",
+      "B95 41s clustered t -1.777 <= 1.96"
+    ]
+  }
+}

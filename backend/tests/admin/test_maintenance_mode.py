@@ -16,9 +16,15 @@ from app.services import flags
 
 
 @pytest.fixture
-def client():
+def client(isolate_shared_db_pool):
     # No lifespan: these assertions only exercise middleware, and running
     # startup would try to reflect the live schema and start the scheduler.
+    #
+    # isolate_shared_db_pool is not optional. test_traffic_flows_when_
+    # maintenance_is_off deliberately lets a request through to a real route,
+    # which opens a pooled asyncpg connection on the private event loop
+    # TestClient closes at teardown. Without the guard that dead connection is
+    # handed to a later test as "Event loop is closed".
     return TestClient(app)
 
 

@@ -31,6 +31,14 @@ type AuthContextValue = {
   signInWithGoogle: () => Promise<Result>;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
+  /**
+   * True while a password reset is mid-flight. Verifying the emailed code
+   * establishes a real session BEFORE the new password is set, so the root
+   * layout's "signed in? go to the tabs" redirect must stand down until the
+   * reset finishes — otherwise the user is thrown out of the flow at step 2.
+   */
+  recoveryInProgress: boolean;
+  setRecoveryInProgress: (value: boolean) => void;
 };
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
@@ -68,6 +76,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
+  const [recoveryInProgress, setRecoveryInProgress] = useState(false);
 
   useEffect(() => {
     const { data: sub } = supabase.auth.onAuthStateChange((_event, newSession) => {
@@ -157,6 +166,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         signInWithGoogle,
         signOut,
         refreshProfile,
+        recoveryInProgress,
+        setRecoveryInProgress,
       }}
     >
       {children}

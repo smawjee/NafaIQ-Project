@@ -5,11 +5,11 @@ export type {
   ApiIndicatorVote,
   ApiSignalConsensus,
   ApiSignalRiskMetrics,
-  ApiSignalV2,
+  ApiSignalBreakdown,
   ApiTrackRecord,
   ApiTrackRecordEntry,
   SignalHorizon,
-  SignalV2Label,
+  SignalLabel,
 } from "./api";
 export type { ApiSymbolInfo, ApiCompanyProfile, ApiFundamentalsData } from "./api";
 export type { ApiAnnouncementItem, ApiDividendEvent, ApiIndexBar, ApiIndexCard } from "./api";
@@ -24,6 +24,7 @@ export * from "./data";
 export * from "./finance-data";
 export * from "./learn-data";
 export * from "./lesson-content";
+export * from "./learn-studio";
 
 // Price-alert condition metadata — shared so web and mobile cannot drift.
 export type { PriceCondition, PriceConditionSpec } from "./alerts";
@@ -33,3 +34,5 @@ export {
   conditionSpec,
   describeCondition,
 } from "./alerts";
+export type { ForgotPasswordRequest, ForgotPasswordResponse } from "./api";
+export { RECOVERY_CODE_MIN_LENGTH, RECOVERY_CODE_MAX_LENGTH } from "./api";

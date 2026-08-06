@@ -19,6 +19,12 @@ PUBLIC_PATHS = {
     # nothing the caller controls unredacted, is rate-limited per caller, and
     # returns a bare acknowledgement — see api/telemetry.py.
     "/api/telemetry/errors",
+    # Password recovery. Anonymous by necessity — a user who has forgotten their
+    # password has no credential to present. Exact match, never an "/api/auth"
+    # prefix: a prefix would silently open every future auth route too. The
+    # endpoint is rate-limited per IP and per mailbox and returns a fixed 202
+    # that reveals nothing about whether the address is registered.
+    "/api/auth/forgot-password",
     "/docs",
     "/openapi.json",
     "/redoc",
@@ -32,6 +38,7 @@ USER_PATHS_PREFIXES = (
     # paths first, which is what keeps these authenticated while plain
     # /api/learn search stays open.
     "/api/learn/ai",
+    "/api/learn/studio",
     # NafaIQ Assistant: every route reads or writes the caller's own finance
     # data, so the shared PSX API token must never satisfy it — JWT only.
     "/api/assistant",

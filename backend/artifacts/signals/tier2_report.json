@@ -1,0 +1,153 @@
+{
+  "horizon": 20,
+  "samples": 340640,
+  "features": 49,
+  "base_rate": 0.4982,
+  "mean_uniqueness": 0.048,
+  "explore_end": "2025-01-01",
+  "tier1_holdout_ece": 0.0237,
+  "ladder": [
+    {
+      "model": "logistic",
+      "n": 262160,
+      "ic_mean": 0.09129,
+      "ic_positive_frac": 0.6459,
+      "ece": 0.00481,
+      "brier_skill_vs_base_rate": 0.00771,
+      "top_decile_net_mean": -0.009132,
+      "top_decile_net_sharpe": -0.184,
+      "rebalances": 1850
+    },
+    {
+      "model": "lightgbm",
+      "n": 262160,
+      "ic_mean": 0.10127,
+      "ic_positive_frac": 0.6978,
+      "ece": 0.02763,
+      "brier_skill_vs_base_rate": 0.0058,
+      "top_decile_net_mean": -0.000399,
+      "top_decile_net_sharpe": -0.0079,
+      "rebalances": 1850
+    },
+    {
+      "model": "lgbm_ensemble_3",
+      "n": 262160,
+      "ic_mean": 0.10125,
+      "ic_positive_frac": 0.6957,
+      "ece": 0.02707,
+      "brier_skill_vs_base_rate": 0.00609,
+      "top_decile_net_mean": -0.000649,
+      "top_decile_net_sharpe": -0.0131,
+      "rebalances": 1850
+    }
+  ],
+  "leakage_control_ic": 0.01369,
+  "pbo": 0.1667,
+  "dsr": 0.0009,
+  "best_explore_model": "lightgbm",
+  "top_features": [
+    {
+      "feature": "log_price",
+      "gain_share": 0.0934
+    },
+    {
+      "feature": "std_60",
+      "gain_share": 0.0918
+    },
+    {
+      "feature": "beta_60",
+      "gain_share": 0.0667
+    },
+    {
+      "feature": "from_high_252",
+      "gain_share": 0.0627
+    },
+    {
+      "feature": "from_low_252",
+      "gain_share": 0.0547
+    },
+    {
+      "feature": "kurt_60",
+      "gain_share": 0.0531
+    },
+    {
+      "feature": "amihud",
+      "gain_share": 0.045
+    },
+    {
+      "feature": "skew_60",
+      "gain_share": 0.0432
+    },
+    {
+      "feature": "amihud_rank",
+      "gain_share": 0.0405
+    },
+    {
+      "feature": "ret_120",
+      "gain_share": 0.0339
+    },
+    {
+      "feature": "std_20_rank",
+      "gain_share": 0.0322
+    },
+    {
+      "feature": "std_30",
+      "gain_share": 0.0318
+    }
+  ],
+  "holdout": [
+    {
+      "model": "logistic",
+      "n": 78480,
+      "ic_mean": 0.13461,
+      "ic_positive_frac": 0.7694,
+      "ece": 0.01374,
+      "brier_skill_vs_base_rate": 0.01262,
+      "top_decile_net_mean": -0.002274,
+      "top_decile_net_sharpe": -0.0683,
+      "rebalances": 373
+    },
+    {
+      "model": "lightgbm",
+      "n": 78480,
+      "ic_mean": 0.13838,
+      "ic_positive_frac": 0.8794,
+      "ece": 0.01514,
+      "brier_skill_vs_base_rate": 0.01328,
+      "top_decile_net_mean": 0.008582,
+      "top_decile_net_sharpe": 0.2577,
+      "rebalances": 373
+    },
+    {
+      "model": "lgbm_ensemble_3",
+      "n": 78480,
+      "ic_mean": 0.13719,
+      "ic_positive_frac": 0.8713,
+      "ece": 0.01539,
+      "brier_skill_vs_base_rate": 0.01314,
+      "top_decile_net_mean": 0.008442,
+      "top_decile_net_sharpe": 0.2623,
+      "rebalances": 373
+    }
+  ],
+  "promotion": {
+    "manifest": {
+      "status": "EVALUATED",
+      "eligible_events": 340640,
+      "symbols": 391,
+      "holdout_forecasts": 78480,
+      "positive_folds": 5,
+      "precision": 0.6978,
+      "ece": 0.02763,
+      "dsr": 0.0009351773471446439,
+      "pbo": 0.16666666666666666
+    },
+    "allowed": false,
+    "status": "RED",
+    "reasons": [
+      "deflated Sharpe ratio below 0.95",
+      "ECE 0.02763 worse than Tier 1's 0.0237"
+    ],
+    "beats_tier1_calibration": false
+  }
+}

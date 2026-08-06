@@ -26,7 +26,7 @@ THREE LAYERS OF DEDUP, EACH CATCHING WHAT THE OTHERS CANNOT
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import date, datetime, timedelta, timezone
 
 from app.config import settings
@@ -35,12 +35,19 @@ from app.repositories import email_integrations as integrations_repo
 from app.repositories import finance as finance_repo
 from app.repositories.base import begin, connect
 from app.services import notifier
+from app.services import broker_imports
 from app.services.crypto import CryptoError, decrypt
 from app.services.email_import import correlate, llm, reconcile, rules, senders
+from app.services.email_import.attachments import (
+    MAX_BILL_PDF_BYTES,
+    MAX_BILL_PDF_PAGES,
+    extract_pdf_text,
+)
 from app.services.finance.categories import canonical_category
 from app.services.email_import.gmail_client import (
     GmailError,
     RawMessage,
+    download_attachment,
     fetch_new_messages,
 )
 from app.services.email_import.models import ParsedBill, ParsedEmailItem, ParsedTransaction
@@ -113,6 +120,10 @@ class SyncResult:
     # Transient failures left in the retry queue.
     parse_errors: int = 0
     reconnect_required: bool = False
+    broker_pending: int = 0
+    broker_imported: int = 0
+    broker_unsupported: int = 0
+    broker_failed: int = 0
 
 
 class _BudgetExhausted(Exception):
@@ -148,6 +159,83 @@ async def _parse_message(msg: RawMessage, llm_budget: list[int]) -> ParsedEmailI
         raise _BudgetExhausted
     llm_budget[0] -= 1
     return await llm.parse(msg.subject, msg.body, msg.sender, msg.received_at)
+
+
+async def _with_bill_attachment_text(
+    msg: RawMessage, access_token: str
+) -> RawMessage:
+    """Append PDF invoice text for bill parsing, without retaining the PDF.
+
+    Every early return here is a silent "no bill will be found", because the
+    covering email of an attached invoice carries no amount and no due date —
+    all of that lives in the PDF. Two Optix invoices were filed as
+    `not_transaction` with no error while the attached PDF parsed perfectly
+    offline (Rs 3,686 due 2026-08-10), and nothing in the logs said which of
+    these branches had swallowed it. Each exit is now recorded at INFO with the
+    message id, so one poll is enough to tell them apart.
+    """
+    if not msg.attachments:
+        log.info("bill pdf: message %s has no attachments", msg.message_id)
+        return msg
+    if not senders.looks_like_bill(msg.subject, msg.body):
+        log.info(
+            "bill pdf: message %s has %d attachment(s) but the subject/body did "
+            "not look like a bill, so the PDF was never opened",
+            msg.message_id,
+            len(msg.attachments),
+        )
+        return msg
+    snippets: list[str] = []
+    for attachment in msg.attachments:
+        filename = (attachment.filename or "").lower()
+        if not filename.endswith(".pdf"):
+            log.info(
+                "bill pdf: skipping non-PDF attachment %r on %s",
+                attachment.filename,
+                msg.message_id,
+            )
+            continue
+        try:
+            data = await download_attachment(
+                access_token, msg.message_id, attachment.attachment_id
+            )
+        except GmailError:
+            log.info("could not download bill PDF attachment %s", msg.message_id, exc_info=True)
+            continue
+        text = extract_pdf_text(data)
+        if text:
+            snippets.append(text)
+        else:
+            # extract_pdf_text swallows its own failures, so distinguish the
+            # reasons it can legitimately return "" from a genuine parse error.
+            log.info(
+                "bill pdf: no text extracted from %r (%d bytes) on %s — "
+                "image-only scan, over %d bytes, or over %d pages",
+                attachment.filename,
+                len(data),
+                msg.message_id,
+                MAX_BILL_PDF_BYTES,
+                MAX_BILL_PDF_PAGES,
+            )
+    if not snippets:
+        log.info("bill pdf: no usable PDF text for %s", msg.message_id)
+        return msg
+    # Attachment text goes FIRST, ahead of the covering email.
+    #
+    # Both parsers run the body through `strip_boilerplate`, which truncates at
+    # the first footer phrase past a minimum keep length. Optix wraps its
+    # invoice mail in ~3KB of payment-channel marketing, so with the PDF text
+    # appended the combined 5,110-char body was cut to 1,214 — the covering
+    # note survived and the entire invoice was thrown away. Every field that
+    # matters (Due Date, Total Service Charges) sits in the first few lines of
+    # the PDF, so leading with it keeps them on the near side of any cut.
+    body = "\n\n".join(snippets) + f"\n\n{msg.body}"
+    log.info(
+        "bill pdf: prepended %d chars of PDF text to %s",
+        sum(len(s) for s in snippets),
+        msg.message_id,
+    )
+    return replace(msg, body=body[:80_000])
 
 
 def _extract_signals(msg: RawMessage, parsed: ParsedEmailItem | None) -> dict:
@@ -541,6 +629,20 @@ async def sync_user(integration: dict) -> SyncResult:
             continue
         result.candidates += 1
 
+        if senders.is_broker_sender(msg.sender) and senders.looks_like_broker_confirmation(
+            msg.subject, msg.body
+        ):
+            counts = await broker_imports.process_broker_message(user_id, msg, access_token)
+            result.broker_pending += counts.get("queued", 0)
+            result.broker_imported += counts.get("imported", 0)
+            result.broker_unsupported += counts.get("unsupported", 0)
+            result.broker_failed += counts.get("failed", 0)
+            if not blocked:
+                watermark = max(watermark, msg.internal_date)
+            continue
+
+        msg = await _with_bill_attachment_text(msg, access_token)
+
         staged, created = await _stage(user_id, msg)
         if not created:
             disposition = _prior_disposition(staged)
@@ -659,6 +761,10 @@ async def sync_all() -> dict[str, int]:
         "merged": 0,
         "failed_txn": 0,
         "parse_errors": 0,
+        "broker_pending": 0,
+        "broker_imported": 0,
+        "broker_unsupported": 0,
+        "broker_failed": 0,
     }
     for integration in integrations:
         try:
@@ -671,6 +777,10 @@ async def sync_all() -> dict[str, int]:
             totals["merged"] += r.merged
             totals["failed_txn"] += r.failed_txn
             totals["parse_errors"] += r.parse_errors
+            totals["broker_pending"] += r.broker_pending
+            totals["broker_imported"] += r.broker_imported
+            totals["broker_unsupported"] += r.broker_unsupported
+            totals["broker_failed"] += r.broker_failed
         except Exception:
             log.exception("sync failed for user %s", integration.get("user_id"))
     return totals

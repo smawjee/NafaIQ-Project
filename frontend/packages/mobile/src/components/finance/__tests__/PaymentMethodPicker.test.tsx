@@ -55,6 +55,22 @@ describe("PaymentMethodPicker", () => {
     expect(onChange).toHaveBeenCalledWith("Easypaisa");
   });
 
+  it("relabels an option for display but still selects its stored value", () => {
+    // "stock_trade" is a backend-generated source sharing this field with real
+    // payment methods. It must read as "Stock trade" but round-trip untouched:
+    // the finance summaries filter on source = 'stock_trade' to keep share
+    // purchases out of expense totals.
+    const { getByText, queryByText, onChange } = renderPicker({
+      options: ["HBL Current", "stock_trade"],
+      formatLabel: (v) => (v === "stock_trade" ? "Stock trade" : v),
+    });
+
+    expect(queryByText("stock_trade")).toBeNull();
+    fireEvent.press(getByText("Stock trade"));
+
+    expect(onChange).toHaveBeenCalledWith("stock_trade");
+  });
+
   it("ignores saving an empty label", () => {
     const { getByText, onCreate, onChange } = renderPicker();
     fireEvent.press(getByText("+ New"));

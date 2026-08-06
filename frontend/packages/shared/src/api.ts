@@ -180,12 +180,12 @@ export interface BatchSignalsResponse {
   count: number;
 }
 
-/* ── Signals v2 (backend api/signals.py /signals/v2/*) ──────────────────── */
+/* ── Signal breakdown (optional detail fields on list rows) ─────────────── */
 
 export type SignalHorizon = "5D" | "20D" | "60D";
 
 /** v2 can decline to call a setup; the 5-value `Signal` stays badge-safe. */
-export type SignalV2Label = Signal | "NO SIGNAL";
+export type SignalLabel = Signal | "NO SIGNAL";
 
 export interface ApiIndicatorVote {
   name: string;
@@ -228,13 +228,13 @@ export interface ApiFlowContext {
   source: string;
 }
 
-export interface ApiSignalV2 {
+export interface ApiSignalBreakdown {
   symbol: string;
   horizon: SignalHorizon;
-  signal: SignalV2Label;
+  signal: SignalLabel;
   confidence: number;
   rank_score: number;
-  technical_signal: SignalV2Label;
+  technical_signal: SignalLabel;
   technical_score: number;
   ml_signal: Signal | null;
   ml_confidence: number | null;
@@ -257,7 +257,7 @@ export interface ApiSignalV2 {
   predicted_at: string;
 }
 
-/* ── Signal track record (/signals/v2/track-record) ─────────────────────── */
+/* ── Signal track record (/api/signals/track-record) ────────────────────── */
 
 export interface ApiTrackRecordEntry {
   n: number;
@@ -275,3 +275,37 @@ export interface ApiTrackRecord {
   pending_maturity: number;
   note: string;
 }
+
+/* ── Password recovery (/api/auth/forgot-password) ──────────────────────── */
+
+/**
+ * Request a password-reset code. The backend mints a Supabase recovery OTP and
+ * mails the 6-digit code itself; the client then calls
+ * `supabase.auth.verifyOtp({ type: "recovery" })` with what the user types.
+ */
+export interface ForgotPasswordRequest {
+  email: string;
+  /** Language of the emailed code, not of the response. */
+  lang?: "en" | "ur";
+}
+
+/**
+ * Always `{ status: "sent" }`, whether or not the address has an account —
+ * the endpoint is deliberately silent so it cannot be used to enumerate users.
+ */
+export interface ForgotPasswordResponse {
+  status: "sent";
+}
+
+/**
+ * Bounds on the emailed recovery code.
+ *
+ * The code is minted by Supabase GoTrue, whose `MAILER_OTP_LENGTH` is a project
+ * setting in the range 6–10 (the NafaIQ project currently issues 8). The
+ * clients must therefore NOT hard-code a single width: an input capped at 6
+ * makes the flow impossible to complete the moment that setting is anything
+ * else, and it fails silently — the user simply cannot type the whole code.
+ * Accept the whole range and let Supabase judge the value.
+ */
+export const RECOVERY_CODE_MIN_LENGTH = 6;
+export const RECOVERY_CODE_MAX_LENGTH = 10;

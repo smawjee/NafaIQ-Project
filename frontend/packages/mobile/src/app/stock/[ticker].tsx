@@ -12,7 +12,8 @@ import { PriceLineChart } from "@/components/charts/PriceLineChart";
 import { AiReportSheet } from "@/components/ai/AiReportSheet";
 import { GlassSheet } from "@/components/glass/GlassSheet";
 import { Field } from "@/components/Modal";
-import { SignalV4Panel } from "@/components/psx/SignalV4Panel";
+import { SignalContextTiles } from "@/components/psx/SignalContextTiles";
+import { SignalRecommendationCard } from "@/components/psx/SignalRecommendationCard";
 import { SignalTrackRecordCard } from "@/components/psx/SignalTrackRecordCard";
 import { Button, Card, Change, SignalBadge, Text } from "@/components/ui";
 import { ChipRow, Segmented } from "@/components/ui/controls";
@@ -22,7 +23,7 @@ import {
   usePsxFundamentals,
   usePsxHistory,
   usePsxQuote,
-  usePsxSignalV4,
+  usePsxSignalDetail,
   usePsxSymbols,
 } from "@/hooks/queries/use-market";
 import { useWatchlist } from "@/hooks/queries/use-watchlist";
@@ -36,6 +37,7 @@ import { useSymbolDividends } from "@/hooks/queries/use-dividends";
 import { useAnnualFinancials, useQuarterlyFinancials } from "@/hooks/queries/use-financials";
 import { useFilingDetail, useFilings, type Filing } from "@/hooks/queries/use-filings";
 import { useStockAnalysisReport } from "@/hooks/ai/use-stock-analysis-report";
+import { ratingToLegacySignal, recommendationToBadge } from "@/lib/signals";
 import { useLang } from "@/hooks/use-lang";
 import { useTheme } from "@/hooks/use-theme";
 import { ExternalLink, FileText } from "@/lib/icons";
@@ -95,7 +97,7 @@ export default function StockDetailScreen() {
   const { data: profile } = usePsxCompanyProfile(upper);
   const { data: fundamentals } = usePsxFundamentals(upper);
   const { data: announcements, isPending: newsPending } = usePsxAnnouncements(upper, 5);
-  const signalV4 = usePsxSignalV4(upper);
+  const { data: signal } = usePsxSignalDetail(upper);
   const { data: symbolsData } = usePsxSymbols();
   const wl = useWatchlist();
   const [wlBusy, setWlBusy] = useState(false);
@@ -114,33 +116,71 @@ export default function StockDetailScreen() {
   const price = quote?.price ?? null;
   const changePct = quote?.change_pct ?? null;
 
-  const modelReady = signalV4.data?.technical_setup.status === "available";
-  const legacySignal = useMemo<Signal>(() => {
-    const rating = signalV4.data?.technical_setup.rating;
-    return rating === "Strong Bullish" ? "STRONG BUY" : rating === "Bullish" ? "BUY" : rating === "Bearish" ? "SELL" : rating === "Strong Bearish" ? "STRONG SELL" : "HOLD";
-  }, [signalV4.data?.technical_setup.rating]);
-  const maConfig = useMemo(() => movingAverages.map((period, index) => ({ period, color: colors.chart[index % colors.chart.length] })), [movingAverages, colors.chart]);
+  // The engine declines rather than guessing, so a setup is only shown when it
+  // reports status "available" — no fabricated call (same rule as web).
+  const setup = signal?.technical_setup;
+  const modelReady = setup?.status === "available";
+  // The badge shows the calibrated call, not the indicator posture. Mapping
+  // "Strong Bullish" straight to STRONG BUY asserts a direction the measured
+  // base rates contradict (see backend/scripts/signals/RESEARCH_LOG.md); the
+  // posture itself is still rendered below, labelled as posture.
+  const ratingLabel = signal?.recommendation
+    ? recommendationToBadge(signal.recommendation.rating)
+    : ratingToLegacySignal(setup?.rating ?? null);
+  // V4 replaced the invented confidence % with measurement quality, which is
+  // an honest statement about the data rather than about the direction.
+  const qualityLabel = signal?.quality?.label ?? null;
+  const components = setup?.components ?? [];
+  const keyDrivers = components
+    .slice(0, 3)
+    .map((c) => c.name)
+    .join(", ");
+  const setupReasons = components
+    .filter((c) => c.vote !== 0 && c.reason)
+    .slice(0, 3)
+    .map((c) => c.reason);
+  const maConfig = useMemo(
+    () =>
+      movingAverages.map((period, index) => ({
+        period,
+        color: colors.chart[index % colors.chart.length],
+      })),
+    [movingAverages, colors.chart],
+  );
 
   useEffect(() => {
     const key = `stock-chart:${upper}`;
     AsyncStorage.getItem(key).then((raw) => {
       if (!raw) return;
       try {
-        const saved = JSON.parse(raw) as { range?: string; chartType?: "Candles" | "Line"; movingAverages?: number[] };
+        const saved = JSON.parse(raw) as {
+          range?: string;
+          chartType?: "Candles" | "Line";
+          movingAverages?: number[];
+        };
         if (saved.range && RANGE_DAYS[saved.range]) setRange(saved.range);
         if (saved.chartType) setChartType(saved.chartType);
         if (saved.movingAverages) setMovingAverages(saved.movingAverages);
-      } catch { /* ignore a corrupt local preference */ }
+      } catch {
+        // Ignore a corrupt local preference and keep the safe defaults.
+      }
     });
   }, [upper]);
 
   useEffect(() => {
-    void AsyncStorage.setItem(`stock-chart:${upper}`, JSON.stringify({ range, chartType, movingAverages }));
+    void AsyncStorage.setItem(
+      `stock-chart:${upper}`,
+      JSON.stringify({ range, chartType, movingAverages }),
+    );
   }, [upper, range, chartType, movingAverages]);
 
   function toggleMa(label: string) {
     const period = Number(label.replace("MA", ""));
-    setMovingAverages((current) => current.includes(period) ? current.filter((item) => item !== period) : [...current, period].sort((a, b) => a - b));
+    setMovingAverages((current) =>
+      current.includes(period)
+        ? current.filter((item) => item !== period)
+        : [...current, period].sort((a, b) => a - b),
+    );
   }
 
   const marketCap =
@@ -288,7 +328,7 @@ export default function StockDetailScreen() {
         </View>
         <View style={styles.between}>
           {modelReady ? (
-            <SignalBadge signal={legacySignal} />
+            <SignalBadge signal={ratingLabel as Signal} />
           ) : (
             <Text variant="muted">{t("Signal unavailable")}</Text>
           )}
@@ -336,9 +376,51 @@ export default function StockDetailScreen() {
         </View>
       </Card>
 
-      <SignalV4Panel signal={signalV4.data} loading={signalV4.isPending} />
+      <Card style={{ gap: 8 }}>
+        <Text variant="title">{t("NafaIQ Technical Setup")}</Text>
+        {modelReady ? (
+          <>
+            <View style={[styles.verdict, { borderColor: colors.ai + "44" }]}>
+              <Text style={{ color: colors.ai, fontWeight: "700" }}>
+                {t("Overall")}: {t(setup!.rating ?? "")}
+                {qualityLabel ? ` · ${t("Signal quality")} ${t(qualityLabel)}` : ""}
+              </Text>
+              <Text variant="secondary">
+                {`${upper} — ${t("NafaIQ rates this technical setup")} ${t(setup!.rating ?? "")}. ${t("Key drivers")}: ${
+                  keyDrivers || t("technical indicators")
+                }.`}
+              </Text>
+            </View>
+            {setupReasons.length ? (
+              <View style={{ gap: 4 }}>
+                {setupReasons.map((reason) => (
+                  <Text key={reason} variant="muted" numberOfLines={2}>
+                    · {reason}
+                  </Text>
+                ))}
+              </View>
+            ) : null}
+            <Text variant="muted" style={{ fontStyle: "italic" }}>
+              {t("Technical analysis only. Not financial advice.")}
+            </Text>
+          </>
+        ) : (
+          <View style={[styles.pending, { borderColor: colors.border }]}>
+            <Text variant="secondary" style={{ fontWeight: "600" }}>
+              {t("Signal unavailable — setup pending")}
+            </Text>
+            <Text variant="muted">
+              {t("NafaIQ has not produced a technical setup for this stock yet.")}
+            </Text>
+          </View>
+        )}
+        {signal ? <SignalContextTiles signal={signal} /> : null}
+      </Card>
 
-      {/* Audited hit rates of published signals — new v2 outcomes store */}
+      {/* Calibrated base-rate call — leads the analysis section */}
+      <SignalRecommendationCard signal={signal} />
+
+      {/* Out-of-sample reliability of those probabilities */}
       <SignalTrackRecordCard />
 
       {/* LLM deep-dive report — verified & cited, separate from the technical setup above */}

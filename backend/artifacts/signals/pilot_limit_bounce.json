@@ -1,0 +1,198 @@
+{
+  "B75": {
+    "events": 2204,
+    "explore": {
+      "events": 4820,
+      "rows": [
+        {
+          "horizon": 5,
+          "events": 1211,
+          "dates": 506,
+          "gross_excess": -0.002581,
+          "gross_clustered_t": -0.753,
+          "net_excess": -0.014016,
+          "net_clustered_t": -4.085,
+          "mean_cost": 0.011397
+        },
+        {
+          "horizon": 11,
+          "events": 1206,
+          "dates": 504,
+          "gross_excess": -0.007046,
+          "gross_clustered_t": -1.615,
+          "net_excess": -0.01847,
+          "net_clustered_t": -4.231,
+          "mean_cost": 0.011385
+        },
+        {
+          "horizon": 21,
+          "events": 1204,
+          "dates": 505,
+          "gross_excess": -0.009698,
+          "gross_clustered_t": -1.535,
+          "net_excess": -0.021123,
+          "net_clustered_t": -3.34,
+          "mean_cost": 0.011376
+        },
+        {
+          "horizon": 41,
+          "events": 1199,
+          "dates": 503,
+          "gross_excess": 0.00274,
+          "gross_clustered_t": 0.207,
+          "net_excess": -0.008674,
+          "net_clustered_t": -0.655,
+          "mean_cost": 0.011365
+        }
+      ]
+    },
+    "holdout": {
+      "events": 3841,
+      "rows": [
+        {
+          "horizon": 5,
+          "events": 986,
+          "dates": 241,
+          "gross_excess": -0.010751,
+          "gross_clustered_t": -1.85,
+          "net_excess": -0.022677,
+          "net_clustered_t": -3.889,
+          "mean_cost": 0.011248
+        },
+        {
+          "horizon": 11,
+          "events": 981,
+          "dates": 238,
+          "gross_excess": 0.00444,
+          "gross_clustered_t": 0.134,
+          "net_excess": -0.007465,
+          "net_clustered_t": -0.225,
+          "mean_cost": 0.011245
+        },
+        {
+          "horizon": 21,
+          "events": 948,
+          "dates": 233,
+          "gross_excess": -0.010756,
+          "gross_clustered_t": -0.394,
+          "net_excess": -0.022674,
+          "net_clustered_t": -0.83,
+          "mean_cost": 0.011262
+        },
+        {
+          "horizon": 41,
+          "events": 926,
+          "dates": 221,
+          "gross_excess": -0.016783,
+          "gross_clustered_t": -0.556,
+          "net_excess": -0.028625,
+          "net_clustered_t": -0.948,
+          "mean_cost": 0.011233
+        }
+      ]
+    },
+    "verdict": "AMBER",
+    "reasons": [
+      "B75 21s net excess -0.0227 not > one round trip (0.0113)",
+      "B75 21s clustered t -0.83 <= 1.96"
+    ]
+  },
+  "B95": {
+    "events": 1163,
+    "explore": {
+      "events": 2362,
+      "rows": [
+        {
+          "horizon": 5,
+          "events": 593,
+          "dates": 331,
+          "gross_excess": -0.000372,
+          "gross_clustered_t": -0.075,
+          "net_excess": -0.012193,
+          "net_clustered_t": -2.477,
+          "mean_cost": 0.011824
+        },
+        {
+          "horizon": 11,
+          "events": 592,
+          "dates": 330,
+          "gross_excess": 0.000203,
+          "gross_clustered_t": 0.032,
+          "net_excess": -0.011623,
+          "net_clustered_t": -1.801,
+          "mean_cost": 0.011828
+        },
+        {
+          "horizon": 21,
+          "events": 590,
+          "dates": 330,
+          "gross_excess": 0.005497,
+          "gross_clustered_t": 0.469,
+          "net_excess": -0.006323,
+          "net_clustered_t": -0.539,
+          "mean_cost": 0.011808
+        },
+        {
+          "horizon": 41,
+          "events": 587,
+          "dates": 329,
+          "gross_excess": 0.006118,
+          "gross_clustered_t": 0.353,
+          "net_excess": -0.005697,
+          "net_clustered_t": -0.329,
+          "mean_cost": 0.0118
+        }
+      ]
+    },
+    "holdout": {
+      "events": 2219,
+      "rows": [
+        {
+          "horizon": 5,
+          "events": 565,
+          "dates": 150,
+          "gross_excess": -0.009874,
+          "gross_clustered_t": -1.132,
+          "net_excess": -0.021904,
+          "net_clustered_t": -2.509,
+          "mean_cost": 0.011229
+        },
+        {
+          "horizon": 11,
+          "events": 560,
+          "dates": 147,
+          "gross_excess": 0.029053,
+          "gross_clustered_t": 0.55,
+          "net_excess": 0.017043,
+          "net_clustered_t": 0.323,
+          "mean_cost": 0.01122
+        },
+        {
+          "horizon": 21,
+          "events": 554,
+          "dates": 144,
+          "gross_excess": 0.009262,
+          "gross_clustered_t": 0.22,
+          "net_excess": -0.002743,
+          "net_clustered_t": -0.065,
+          "mean_cost": 0.011204
+        },
+        {
+          "horizon": 41,
+          "events": 540,
+          "dates": 134,
+          "gross_excess": 0.002773,
+          "gross_clustered_t": 0.06,
+          "net_excess": -0.009127,
+          "net_clustered_t": -0.198,
+          "mean_cost": 0.011163
+        }
+      ]
+    },
+    "verdict": "AMBER",
+    "reasons": [
+      "B95 21s net excess -0.0027 not > one round trip (0.0112)",
+      "B95 21s clustered t -0.065 <= 1.96"
+    ]
+  }
+}

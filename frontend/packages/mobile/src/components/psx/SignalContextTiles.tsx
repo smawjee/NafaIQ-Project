@@ -1,13 +1,12 @@
-// Context tiles under the Technical Setup verdict. Mirrors web
-// src/features/signals/SignalContextTiles.tsx: an external TradingView
-// cross-check, the trend state (with suggested stop / volatility), and the
-// market-wide FIPI foreign-flow read — each only when the backend sent it.
+// Context tiles under the Technical Setup verdict: measurement quality, the
+// trend state (with suggested stop / volatility), and the market-wide FIPI
+// foreign-flow read — each rendered only when the engine sent it.
 import { StyleSheet, View } from "react-native";
 
 import { Text } from "@/components/ui";
 import { useLang } from "@/hooks/use-lang";
 import { useTheme } from "@/hooks/use-theme";
-import type { ApiSignalV2 } from "@nafaiq/shared";
+import type { ApiSignalDetail } from "@/lib/signals";
 
 const TREND_LABELS: Record<string, string> = {
   UPTREND: "Uptrend",
@@ -58,32 +57,23 @@ function Tile({ label, value, detail, tone }: { label: string; value: string; de
   );
 }
 
-export function SignalContextTiles({ signal }: { signal: ApiSignalV2 }) {
+export function SignalContextTiles({ signal }: { signal: ApiSignalDetail }) {
   const { t } = useLang();
-  const consensus = signal.consensus ?? null;
-  const trend = signal.trend_state ?? null;
-  const risk = signal.risk_metrics ?? null;
-  const flow = signal.flow_context ?? null;
-  if (!consensus && !trend && !flow) return null;
-
-  const agreement = signal.consensus_agreement ?? null;
-  const agreementValue =
-    agreement === "AGREES"
-      ? t("Aligned")
-      : agreement === "DISAGREES"
-        ? t("Divergent")
-        : agreement === "MIXED"
-          ? t("Mixed")
-          : t("Available");
+  const context = signal.context ?? null;
+  const trend = context?.trend_state ?? null;
+  const risk = context?.risk_metrics ?? null;
+  const flow = context?.flow ?? null;
+  const quality = signal.quality ?? null;
+  if (!quality && !trend && !flow) return null;
 
   return (
     <View style={styles.row}>
-      {consensus ? (
+      {quality ? (
         <Tile
-          label={t("External check")}
-          value={agreementValue}
-          detail={t("TradingView technicals")}
-          tone={agreement === "AGREES" ? "bull" : agreement === "DISAGREES" ? "bear" : "muted"}
+          label={t("Signal quality")}
+          value={t(quality.label)}
+          detail={t("Reliability of the measurement")}
+          tone={quality.label === "High" ? "bull" : quality.label === "Low" ? "bear" : "muted"}
         />
       ) : null}
       {trend ? (

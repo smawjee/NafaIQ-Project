@@ -97,6 +97,7 @@ export function HubChatPanel() {
           <button
             onClick={() => submit(input)}
             disabled={loading || quotaExceeded}
+            aria-label={t("Send")}
             className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[8px] bg-bull text-bull-foreground disabled:opacity-50"
           >
             <Send className="h-4 w-4" />

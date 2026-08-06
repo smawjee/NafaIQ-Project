@@ -15,6 +15,12 @@ export interface EmailIntegrationStatus {
    * receipt never made it in.
    */
   unparsed_count?: number;
+  broker_confirmations?: {
+    pending: number;
+    imported: number;
+    unsupported: number;
+    failed: number;
+  };
 }
 
 export interface EmailSyncResult {
@@ -29,6 +35,10 @@ export interface EmailSyncResult {
   failed_txn: number;
   /** Emails still owed a retry. */
   parse_errors: number;
+  broker_pending: number;
+  broker_imported: number;
+  broker_unsupported: number;
+  broker_failed: number;
 }
 
 export function useEmailIntegration(enabled: boolean = true) {
@@ -72,7 +82,10 @@ export function useSyncEmail() {
     onSuccess: () => {
       // A sync can create transactions — refresh finance and the status row.
       qc.invalidateQueries({ queryKey: ["email_integration"] });
+      qc.invalidateQueries({ queryKey: ["broker_imports"] });
+      qc.invalidateQueries({ queryKey: ["broker_accounts"] });
       qc.invalidateQueries({ queryKey: ["finance"] });
+      qc.invalidateQueries({ queryKey: ["portfolio"] });
     },
   });
 }

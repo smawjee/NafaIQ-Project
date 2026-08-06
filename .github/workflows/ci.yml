@@ -40,6 +40,33 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm turbo run typecheck
 
+  web-build:
+    name: web-build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Build production web application
+        working-directory: frontend/packages/web
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
+          VITE_PSX_API_TOKEN: ${{ secrets.VITE_PSX_API_TOKEN }}
+        run: pnpm run build
+      - name: Upload deployable web build
+        uses: actions/upload-artifact@v4
+        with:
+          name: web-production-build
+          path: frontend/packages/web/.output/
+          retention-days: 7
+
   web-unit:
     name: web-unit
     runs-on: ubuntu-latest
@@ -218,7 +245,7 @@ jobs:
   ci-required:
     name: ci-required
     if: always()
-    needs: [node-checks, web-unit, mobile-unit, backend-tests, e2e]
+    needs: [node-checks, web-build, web-unit, mobile-unit, backend-tests, e2e]
     runs-on: ubuntu-latest
     steps:
       - name: Fail if anything upstream failed or was cancelled

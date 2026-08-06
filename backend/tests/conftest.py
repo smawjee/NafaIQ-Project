@@ -121,3 +121,30 @@ def _isolate_key_cooldowns():
     providers._KEY_COOLDOWNS.clear()
     yield
     providers._KEY_COOLDOWNS.clear()
+
+
+@pytest.fixture
+def isolate_shared_db_pool():
+    """Abandon the process-global engine's pooled connections after this test.
+
+    Starlette's ``TestClient`` drives the ASGI app on a PRIVATE event loop and
+    closes it on exit. Any asyncpg connection the app opened while it ran is
+    bound to that now-dead loop but survives in the module-global SQLAlchemy
+    pool — so the next DB-touching test checks one out and dies with
+    ``RuntimeError: Event loop is closed``, hundreds of tests away from the
+    cause. (That is exactly how test_add_holding_records_trade started failing
+    only in a full-suite run.)
+
+    ``dispose(close=False)`` swaps in a fresh pool and leaves the old
+    connections to the garbage collector. Abandoning rather than closing is the
+    only option available: closing them would require the event loop that has
+    already gone.
+
+    Use this on any fixture that points a TestClient at the real ``app``.
+    """
+    yield
+
+    from app.db import sqlalchemy as db
+
+    if db._engine is not None:
+        db._engine.sync_engine.dispose(close=False)

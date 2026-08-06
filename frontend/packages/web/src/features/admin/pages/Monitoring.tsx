@@ -281,7 +281,7 @@ export function AdminSignals() {
     <MonitoringView
       title="Signals"
       breadcrumb="Signals"
-      description="Signals model registry and computed-table volumes. Read-only — the serving path is V4 under the /api/signals/v3 URL."
+      description="Signals model registry and computed-table volumes. Read-only — the serving path is /api/signals."
       query={q}
     />
   );

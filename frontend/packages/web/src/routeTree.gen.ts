@@ -45,6 +45,7 @@ import { Route as AdminAuditRouteImport } from './routes/admin.audit'
 import { Route as AdminAlertsRouteImport } from './routes/admin.alerts'
 import { Route as AdminAiRouteImport } from './routes/admin.ai'
 import { Route as LearnLessonIdRouteImport } from './routes/learn.lesson.$id'
+import { Route as LearnGeneratedProjectIdRouteImport } from './routes/learn.generated.$projectId'
 import { Route as AdminUsersUserIdRouteImport } from './routes/admin.users.$userId'
 
 const WatchlistRoute = WatchlistRouteImport.update({
@@ -227,6 +228,11 @@ const LearnLessonIdRoute = LearnLessonIdRouteImport.update({
   path: '/lesson/$id',
   getParentRoute: () => LearnRoute,
 } as any)
+const LearnGeneratedProjectIdRoute = LearnGeneratedProjectIdRouteImport.update({
+  id: '/generated/$projectId',
+  path: '/generated/$projectId',
+  getParentRoute: () => LearnRoute,
+} as any)
 const AdminUsersUserIdRoute = AdminUsersUserIdRouteImport.update({
   id: '/$userId',
   path: '/$userId',
@@ -270,6 +276,7 @@ export interface FileRoutesByFullPath {
   '/admin/': typeof AdminIndexRoute
   '/learn/': typeof LearnIndexRoute
   '/admin/users/$userId': typeof AdminUsersUserIdRoute
+  '/learn/generated/$projectId': typeof LearnGeneratedProjectIdRoute
   '/learn/lesson/$id': typeof LearnLessonIdRoute
 }
 export interface FileRoutesByTo {
@@ -307,6 +314,7 @@ export interface FileRoutesByTo {
   '/admin': typeof AdminIndexRoute
   '/learn': typeof LearnIndexRoute
   '/admin/users/$userId': typeof AdminUsersUserIdRoute
+  '/learn/generated/$projectId': typeof LearnGeneratedProjectIdRoute
   '/learn/lesson/$id': typeof LearnLessonIdRoute
 }
 export interface FileRoutesById {
@@ -347,6 +355,7 @@ export interface FileRoutesById {
   '/admin/': typeof AdminIndexRoute
   '/learn/': typeof LearnIndexRoute
   '/admin/users/$userId': typeof AdminUsersUserIdRoute
+  '/learn/generated/$projectId': typeof LearnGeneratedProjectIdRoute
   '/learn/lesson/$id': typeof LearnLessonIdRoute
 }
 export interface FileRouteTypes {
@@ -388,6 +397,7 @@ export interface FileRouteTypes {
     | '/admin/'
     | '/learn/'
     | '/admin/users/$userId'
+    | '/learn/generated/$projectId'
     | '/learn/lesson/$id'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -425,6 +435,7 @@ export interface FileRouteTypes {
     | '/admin'
     | '/learn'
     | '/admin/users/$userId'
+    | '/learn/generated/$projectId'
     | '/learn/lesson/$id'
   id:
     | '__root__'
@@ -464,6 +475,7 @@ export interface FileRouteTypes {
     | '/admin/'
     | '/learn/'
     | '/admin/users/$userId'
+    | '/learn/generated/$projectId'
     | '/learn/lesson/$id'
   fileRoutesById: FileRoutesById
 }
@@ -745,6 +757,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LearnLessonIdRouteImport
       parentRoute: typeof LearnRoute
     }
+    '/learn/generated/$projectId': {
+      id: '/learn/generated/$projectId'
+      path: '/generated/$projectId'
+      fullPath: '/learn/generated/$projectId'
+      preLoaderRoute: typeof LearnGeneratedProjectIdRouteImport
+      parentRoute: typeof LearnRoute
+    }
     '/admin/users/$userId': {
       id: '/admin/users/$userId'
       path: '/$userId'
@@ -803,11 +822,13 @@ const AdminRouteWithChildren = AdminRoute._addFileChildren(AdminRouteChildren)
 
 interface LearnRouteChildren {
   LearnIndexRoute: typeof LearnIndexRoute
+  LearnGeneratedProjectIdRoute: typeof LearnGeneratedProjectIdRoute
   LearnLessonIdRoute: typeof LearnLessonIdRoute
 }
 
 const LearnRouteChildren: LearnRouteChildren = {
   LearnIndexRoute: LearnIndexRoute,
+  LearnGeneratedProjectIdRoute: LearnGeneratedProjectIdRoute,
   LearnLessonIdRoute: LearnLessonIdRoute,
 }
 

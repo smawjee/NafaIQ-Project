@@ -13,11 +13,11 @@ import {
   usePsxProfile,
   usePsxFundamentals,
   usePsxAnnouncements,
-  usePsxSignalV4,
+  usePsxSignal,
   usePsxSymbols,
   usePsxRealtime,
 } from "@/hooks/psx/use-psx";
-import { SignalV4Panel } from "@/features/signals/SignalV4Panel";
+import { SignalPanel } from "@/features/signals/SignalPanel";
 import { usePersistedTfMap } from "@/hooks/psx/use-persisted-tf-map";
 import { useWatchlist } from "@/hooks/psx/use-watchlist";
 import { useDemo } from "@/hooks/use-demo";
@@ -48,7 +48,7 @@ export function StockDetail() {
   const { data: profile } = usePsxProfile(ticker);
   const { data: fundamentals } = usePsxFundamentals(ticker);
   const { data: announcements } = usePsxAnnouncements(ticker, 5);
-  const { data: signal } = usePsxSignalV4(ticker);
+  const { data: signal } = usePsxSignal(ticker);
   const setupRating = signal?.technical_setup?.rating ?? null;
   const setupSignal =
     setupRating === "Strong Bullish"
@@ -252,7 +252,7 @@ export function StockDetail() {
 
       <StockAnalysisReportCard symbol={upper} />
 
-      <SignalV4Panel signal={signal} />
+      <SignalPanel signal={signal} />
 
       <StockTabs tab={tab} onTabChange={setTab} announcements={announcements} symbol={upper} />
 
