@@ -46,6 +46,9 @@ def repo(monkeypatch):
         "month_totals": {},          # month -> {"income": x, "expense": y}
         "settings": None,            # settings row or None
         "income_expense_rows": [],
+        # Per-month nets BEFORE the requested month, feeding the carried-forward
+        # balance. Empty by default so these tests keep describing one month.
+        "prior_month_nets": [],
     }
 
     async def fetch_month_totals(_conn, _uid, month):
@@ -57,9 +60,13 @@ def repo(monkeypatch):
     async def fetch_income_expense(_conn, _uid, _months):
         return state["income_expense_rows"]
 
+    async def fetch_month_nets_before(_conn, _uid, _month, since=None):
+        return state["prior_month_nets"]
+
     monkeypatch.setattr(summary_svc.repo, "fetch_month_totals", fetch_month_totals)
     monkeypatch.setattr(summary_svc.repo, "get_settings_row", get_settings_row)
     monkeypatch.setattr(summary_svc.repo, "fetch_income_expense", fetch_income_expense)
+    monkeypatch.setattr(summary_svc.repo, "fetch_month_nets_before", fetch_month_nets_before)
     monkeypatch.setattr(summary_svc, "connect", _fake_conn)
     return state
 
@@ -111,47 +118,94 @@ async def test_response_carries_every_field_the_clients_read(repo):
         "last_month_income",
         "last_month_expense",
         "last_month_savings",
+        "opening_balance",
+        "carried_over",
+        "available_balance",
     }
 
 
 # --------------------------- fixed-income maths ----------------------------
 
 
-async def test_fixed_income_is_added_on_top_of_earned_income(repo):
+async def test_an_unrecorded_salary_is_added_to_incidental_income(repo):
+    """Recorded income BELOW the salary means the salary never landed as a
+    transaction, so it is added on top rather than replaced.
+
+    Treating the salary as a pure fallback here let one small credit suppress
+    it outright — a user with PKR 32,887 of incidental income against a 215,000
+    salary was reported at a -22% savings rate.
+    """
     repo["month_totals"] = {"2026-07": {"income": 45_000.0, "expense": 120_000.0}}
     repo["settings"] = {"monthly_income": 250_000.0}
 
     body = await _summary()
 
-    assert body["income"] == 45_000.0        # variable, from transactions
-    assert body["fixed_income"] == 250_000.0  # standing salary
+    assert body["income"] == 45_000.0         # variable, from transactions
+    assert body["fixed_income"] == 250_000.0  # still reported, for display
     assert body["total_income"] == 295_000.0
 
 
-async def test_savings_and_rate_are_derived_from_total_not_variable_income(repo):
-    repo["month_totals"] = {"2026-07": {"income": 45_000.0, "expense": 120_000.0}}
+async def test_a_recorded_salary_is_not_counted_twice(repo):
+    """Recorded income at or above the salary already contains it."""
+    repo["month_totals"] = {"2026-07": {"income": 260_000.0, "expense": 120_000.0}}
     repo["settings"] = {"monthly_income": 250_000.0}
 
     body = await _summary()
 
-    assert body["savings"] == 175_000.0  # 295_000 - 120_000
-    assert body["savings_rate"] == pytest.approx(59.3, abs=0.05)
+    assert body["total_income"] == 260_000.0  # NOT 510_000
 
 
-async def test_the_salary_also_applies_to_last_month(repo):
-    """Otherwise the salary "appears out of nowhere" and every month-on-month
-    delta is wrong by exactly one salary."""
+async def test_the_salary_stands_in_when_nothing_was_recorded(repo):
+    repo["month_totals"] = {"2026-07": {"income": 0.0, "expense": 120_000.0}}
+    repo["settings"] = {"monthly_income": 250_000.0}
+
+    body = await _summary()
+
+    assert body["total_income"] == 250_000.0
+
+
+async def test_savings_and_rate_are_derived_from_total_income(repo):
+    repo["month_totals"] = {"2026-07": {"income": 0.0, "expense": 120_000.0}}
+    repo["settings"] = {"monthly_income": 250_000.0}
+
+    body = await _summary()
+
+    assert body["savings"] == 130_000.0  # 250_000 - 120_000
+    assert body["savings_rate"] == pytest.approx(52.0, abs=0.05)
+
+
+async def test_last_month_resolves_by_the_same_rule(repo):
+    """Both months must use the same income rule, or every month-on-month delta
+    compares like with unlike."""
     repo["month_totals"] = {
         "2026-07": {"income": 45_000.0, "expense": 120_000.0},
-        "2026-06": {"income": 30_000.0, "expense": 130_000.0},
+        "2026-06": {"income": 30_000.0, "expense": 10_000.0},
     }
     repo["settings"] = {"monthly_income": 250_000.0}
 
     body = await _summary()
 
-    assert body["last_month_income"] == 280_000.0  # 30_000 + 250_000
-    assert body["last_month_expense"] == 130_000.0
-    assert body["last_month_savings"] == 150_000.0
+    assert body["last_month_income"] == 280_000.0  # 30_000 + the 250_000 salary
+    assert body["last_month_expense"] == 10_000.0
+    assert body["last_month_savings"] == 270_000.0
+
+
+async def test_carried_forward_balance_rolls_prior_months_into_this_one(repo):
+    """Without this the app resets to zero every month and can only ever
+    describe the current one — July's unspent balance vanished on 1 August."""
+    repo["month_totals"] = {"2026-07": {"income": 50_000.0, "expense": 20_000.0}}
+    repo["settings"] = {"monthly_income": 0.0, "opening_balance": 10_000.0}
+    repo["prior_month_nets"] = [
+        {"month": "2026-05", "income": 40_000.0, "expense": 15_000.0},
+        {"month": "2026-06", "income": 60_000.0, "expense": 25_000.0},
+    ]
+
+    body = await _summary()
+
+    assert body["opening_balance"] == 10_000.0
+    assert body["carried_over"] == pytest.approx(70_000.0, abs=0.01)  # 10k + 25k + 35k
+    assert body["savings"] == 30_000.0                                # this month alone
+    assert body["available_balance"] == pytest.approx(100_000.0, abs=0.01)
 
 
 async def test_nothing_changes_for_a_user_with_no_salary_set(repo):
@@ -249,8 +303,13 @@ def _month_ago(n: int) -> str:
     return f"{y:04d}-{m:02d}"
 
 
-async def test_series_folds_the_salary_into_every_point(repo):
-    """The trend chart must not show a salary spike only in the current month."""
+async def test_series_reconciles_the_salary_per_month(repo):
+    """Each month reconciles independently, so the bars vary.
+
+    This used to assert every point was >= the salary because the salary was
+    added to all of them unconditionally — which is why six months of the chart
+    rendered as six identical bars no matter what happened in each.
+    """
     repo["settings"] = {"monthly_income": 100_000.0}
     repo["income_expense_rows"] = [
         {"month": _month_ago(1), "transaction_type": "income", "total": 5_000.0},
@@ -264,8 +323,16 @@ async def test_series_folds_the_salary_into_every_point(repo):
     assert r.status_code == 200
     series = r.json()["series"]
     assert len(series) == 3
-    for point in series:
-        assert point["income"] >= 100_000.0, point
+    by_month = {p["month"]: p for p in series}
+    # Recorded income below the salary means the salary never landed as a
+    # transaction, so it is added on top.
+    assert by_month[_month_ago(1)]["income"] == 105_000.0
+    assert by_month[_month_ago(0)]["income"] == 107_000.0
+    # The month with nothing recorded is the salary alone.
+    assert by_month[_month_ago(2)]["income"] == 100_000.0
+    # The bars must not all be identical — that was the visible symptom of the
+    # old unconditional-add rule.
+    assert len({p["income"] for p in series}) > 1
 
 
 async def test_series_length_is_capped_at_twelve_months(repo):

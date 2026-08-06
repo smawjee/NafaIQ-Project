@@ -326,6 +326,26 @@ CHECKS: List[MigrationCheck] = [
         ],
     ),
     MigrationCheck(
+        filename="20260806140000_create_psx_intraday.sql",
+        description="5-minute intraday bars backing the chart's 1D timeframe",
+        checks=[
+            Check("psx_intraday table exists",
+                  "SELECT to_regclass('public.psx_intraday') IS NOT NULL"),
+            Check("psx_intraday.session_date column",
+                  "SELECT 1 FROM information_schema.columns WHERE table_name='psx_intraday' AND column_name='session_date'",
+                  "The nightly prune filters on this; without it retention "
+                  "never runs and the table grows by ~39k rows per session."),
+            Check("psx_intraday.cum_volume column",
+                  "SELECT 1 FROM information_schema.columns WHERE table_name='psx_intraday' AND column_name='cum_volume'"),
+            Check("psx_intraday symbol+ts index",
+                  "SELECT to_regclass('public.idx_psx_intraday_symbol_ts') IS NOT NULL"),
+            Check("psx_intraday session_date index",
+                  "SELECT to_regclass('public.idx_psx_intraday_session_date') IS NOT NULL"),
+            Check("psx_intraday has RLS enabled",
+                  "SELECT relrowsecurity FROM pg_class WHERE relname='psx_intraday'"),
+        ],
+    ),
+    MigrationCheck(
         filename="20260728120000_email_import_correlation.sql",
         description=(
             "Email-import correlation: staging ledger, learned merchant aliases, "

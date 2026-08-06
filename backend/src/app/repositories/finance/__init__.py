@@ -47,6 +47,7 @@ from app.repositories.finance.settings import (  # noqa: F401
 )
 from app.repositories.finance.summary import (  # noqa: F401
     fetch_income_expense,
+    fetch_month_nets_before,
     fetch_month_totals,
     fetch_spending,
 )

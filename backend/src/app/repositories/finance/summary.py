@@ -26,6 +26,50 @@ async def fetch_month_totals(conn: Executor, uid: str, month: str) -> dict[str, 
     return {r["transaction_type"].lower(): float(r["total"]) for r in result.mappings().all()}
 
 
+async def fetch_month_nets_before(
+    conn: Executor, uid: str, month: str, since: Any = None
+) -> list[dict[str, Any]]:
+    """Per-month income/expense totals for every month STRICTLY BEFORE `month`.
+
+    Feeds the carried-forward balance. Months before `since` (the user's
+    opening-balance date) are excluded: they predate the figure the user
+    entered, so counting them would double-count money already inside it.
+
+    Excludes stock trades for the same reason the chart does — moving cash into
+    a holding is investment activity, not spending.
+    """
+    result = await conn.execute(
+        text(
+            """
+            SELECT
+                TO_CHAR(DATE_TRUNC('month', transaction_date), 'YYYY-MM') AS month,
+                COALESCE(SUM(amount) FILTER (WHERE LOWER(transaction_type) = 'income'), 0)::numeric  AS income,
+                COALESCE(SUM(amount) FILTER (WHERE LOWER(transaction_type) = 'expense'), 0)::numeric AS expense
+            FROM user_transactions
+            WHERE user_id = :uid
+              AND (source IS DISTINCT FROM 'stock_trade')
+              AND transaction_date < TO_DATE(:month, 'YYYY-MM')
+              -- CAST(), not `:since::date` — SQLAlchemy's text() reads `::` as
+              -- the start of another bind parameter and the statement fails to
+              -- parse with "syntax error at or near :".
+              AND (CAST(:since AS DATE) IS NULL
+                   OR transaction_date >= DATE_TRUNC('month', CAST(:since AS DATE)))
+            GROUP BY 1
+            ORDER BY 1 ASC
+            """
+        ),
+        {"uid": uid, "month": month, "since": since},
+    )
+    return [
+        {
+            "month": r["month"],
+            "income": float(r["income"]),
+            "expense": float(r["expense"]),
+        }
+        for r in result.mappings().all()
+    ]
+
+
 async def fetch_income_expense(conn: Executor, uid: str, months: int) -> list[dict[str, Any]]:
     result = await conn.execute(
         text(

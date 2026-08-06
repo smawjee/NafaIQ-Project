@@ -10,6 +10,7 @@ import { useDemo } from "@/hooks/use-demo";
 import { useFinanceData } from "@/hooks/use-demo-data";
 import { useFinanceSummary } from "@/hooks/use-finance-summary";
 import { useIncomeExpenseSeries } from "@/hooks/use-finance-series";
+import { monthRangeLabel } from "@/lib/finance/range";
 import { useCountUp, emptyIncomeExpenseSeries } from "@/features/finance/finance.utils";
 
 /* ---------- glass KPI card ---------- */
@@ -74,6 +75,8 @@ export function Overview() {
   const expensesVal = useShowcaseFinance ? local.summary.expenses : (summary?.expenses ?? 0);
   const savingsVal = useShowcaseFinance ? local.summary.savings : (summary?.savings ?? 0);
   const rateVal = useShowcaseFinance ? local.summary.savingsRate : (summary?.savings_rate ?? 0);
+  const carriedOverVal = summary?.carried_over ?? 0;
+  const availableVal = summary?.available_balance ?? carriedOverVal + savingsVal;
   const lastIncomeVal = useShowcaseFinance
     ? local.lastMonth.income
     : (summary?.last_month_income ?? 0);
@@ -134,6 +137,7 @@ export function Overview() {
       ? 0
       : Math.round(local.series.reduce((a, b) => a + b.expense, 0));
   const totalSavings = totalIncome - totalExpense;
+  const chartRangeLabel = monthRangeLabel(chartData.map((d) => d.month));
 
   return (
     <div className="relative space-y-4">
@@ -154,9 +158,19 @@ export function Overview() {
           >
             PKR <span ref={income.ref}>{income.formatted}</span>
           </div>
-          {fixedIncomeVal > 0 && (
+          {/* The salary is a FALLBACK for months with no recorded income, not
+              an addend. This line used to read "X earned + Y salary", which
+              described a sum the backend no longer computes — and which
+              double-counted a salary credit that also arrived as an imported
+              bank email. */}
+          {fixedIncomeVal > 0 && variableIncome <= 0 && (
             <div dir="ltr" className="mt-1 text-[10px] text-text-muted sm:text-[11px]">
-              {formatPKR(variableIncome)} {t("earned")} + {formatPKR(fixedIncomeVal)} {t("salary")}
+              {t("From your monthly salary")}
+            </div>
+          )}
+          {variableIncome > 0 && (
+            <div dir="ltr" className="mt-1 text-[10px] text-text-muted sm:text-[11px]">
+              {t("Recorded this month")}
             </div>
           )}
           <div className="mt-3 h-1 w-full overflow-hidden rounded-full bg-white/5">
@@ -276,6 +290,35 @@ export function Overview() {
         </KpiCard>
       </div>
 
+      {/* Running balance. The KPI cards above describe THIS month in isolation
+          — which is all the app used to know. Without this strip a user could
+          not see what they actually had available, because every month reset to
+          zero and last month's unspent balance simply vanished. */}
+      {!useShowcaseFinance && summary && (
+        <div className="relative z-10 rounded-3xl border border-white/10 bg-surface/60 p-4 backdrop-blur-xl sm:p-5">
+          <div className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-2">
+            <div>
+              <div className="text-[11px] font-bold uppercase tracking-[0.14em] text-text-secondary">
+                {t("Available Balance")}
+              </div>
+              <div
+                dir="ltr"
+                className={cn(
+                  "mt-1 font-mono text-xl font-semibold tabular-nums tracking-tight sm:text-2xl",
+                  availableVal >= 0 ? "text-bull" : "text-bear",
+                )}
+              >
+                {formatPKR(availableVal)}
+              </div>
+            </div>
+            <div dir="ltr" className="text-[11px] text-text-muted">
+              {formatPKR(carriedOverVal)} {t("carried over")} {savingsVal >= 0 ? "+" : "−"}{" "}
+              {formatPKR(Math.abs(savingsVal))} {t("this month")}
+            </div>
+          </div>
+        </div>
+      )}
+
       <motion.div
         initial={{ opacity: 0, y: 24 }}
         whileInView={{ opacity: 1, y: 0 }}
@@ -289,7 +332,11 @@ export function Overview() {
             <div className="text-[11px] font-bold uppercase tracking-[0.14em] text-text-secondary">
               {t("6-Month Overview")}
             </div>
-            <div className="mt-0.5 text-[11px] text-text-muted">Jan 2026 — Jun 2026</div>
+            {/* Derived from the series, not hard-coded. This used to read a
+                literal "Jan 2026 — Jun 2026" — the month names of the DEMO
+                fixture — so a real user saw a caption claiming Jan–Jun above an
+                axis running Mar–Aug. */}
+            <div className="mt-0.5 text-[11px] text-text-muted">{chartRangeLabel}</div>
           </div>
           <div className="flex items-center gap-3 text-[11px] font-medium text-text-secondary">
             <span className="flex items-center gap-1.5">
