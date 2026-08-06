@@ -20,7 +20,9 @@ import {
   MIN_CANDLE_BODY_PX,
   formatAxisTick,
   priceDecimals,
-  scaleFor,
+  pickTickValues,
+  resolveScale,
+  scaleForTicks,
 } from "@/components/charts/chart-format";
 import { useLang } from "@/hooks/use-lang";
 
@@ -104,7 +106,6 @@ export function CandlestickChart({
 }) {
   const ct = useChartTheme();
   const { t } = useLang();
-  const scale = scaleFor(tf);
 
   // Drag-to-zoom. `zoom` is the committed window; `drag` is the selection in
   // progress. Both are timestamps so they survive a data refresh (a live tick
@@ -189,6 +190,15 @@ export function CandlestickChart({
   const span = highs - lows;
   const pad = span > 0 ? span * 0.08 : Math.abs(highs) * 0.02 || 1;
   const dp = priceDecimals(span);
+  // Derived from the bars on screen, not from `tf`: 1D/1W fall back to
+  // daily candles when there is no intraday data, and labelling those with
+  // the clock formatter rendered every tick as "05:00".
+  const scale = resolveScale(tf, visible);
+  // Ticks are chosen here, not by minTickGap, so the label format can be
+  // validated against them: a 6M window put two ticks in each month and the
+  // axis read "Mar 26, Mar 26, Apr 26, Apr 26".
+  const tickValues = pickTickValues(visible);
+  const tickScale = scaleForTicks(scale, tickValues);
 
   return (
     // dir="ltr": time runs left-to-right on a financial chart in every locale,
@@ -221,11 +231,12 @@ export function CandlestickChart({
           <CartesianGrid stroke={ct.grid} vertical={false} />
           <XAxis
             dataKey="t"
+            ticks={tickValues}
             tick={{ fill: ct.tick, fontSize: 10 }}
-            minTickGap={48}
+            minTickGap={24}
             axisLine={{ stroke: ct.grid }}
             tickLine={false}
-            tickFormatter={(v) => formatAxisTick(Number(v), scale)}
+            tickFormatter={(v) => formatAxisTick(Number(v), tickScale)}
           />
           <YAxis
             yAxisId="price"

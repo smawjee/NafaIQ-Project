@@ -3,6 +3,7 @@ import {
   formatAxisTick,
   formatTooltipLabel,
   priceDecimals,
+  resolveScale,
   scaleFor,
 } from "@/components/charts/chart-format";
 
@@ -87,5 +88,68 @@ describe("priceDecimals", () => {
     // Every bar at the same price — a suspended stock, or a single bar.
     expect(priceDecimals(0)).toBe(2);
     expect(priceDecimals(NaN)).toBe(2);
+  });
+});
+
+describe("resolveScale — the axis must follow the DATA, not the label", () => {
+  const DAY = 86_400_000;
+  /** Daily bars parse from "YYYY-MM-DD" => exactly UTC midnight. */
+  const daily = (n: number) =>
+    Array.from({ length: n }, (_, i) => ({ t: Date.parse("2026-08-06") - (n - 1 - i) * DAY }));
+  /** 5-minute bars from the 09:30 PKT open (04:30 UTC). */
+  const intraday = (n: number) =>
+    Array.from({ length: n }, (_, i) => ({ t: Date.UTC(2026, 7, 6, 4, 30) + i * 300_000 }));
+
+  it("labels 1D/1W with the clock when real intraday bars are present", () => {
+    expect(resolveScale("1D", intraday(78))).toBe("intraday");
+    expect(resolveScale("1W", intraday(390))).toBe("intraday");
+  });
+
+  it("labels 1D/1W with DATES when they fall back to daily candles", () => {
+    // The reported bug: psx_intraday fills forward only, so 1D/1W draw daily
+    // bars. A daily bar is UTC midnight = 05:00 in Karachi, so the intraday
+    // formatter rendered EVERY tick as "05:00" and the readout claimed
+    // "16 Jul 2026 · 05:00 PKT" for a whole session's candle.
+    expect(resolveScale("1D", daily(10))).toBe("day");
+    expect(resolveScale("1W", daily(20))).toBe("day");
+  });
+
+  it("produces real dates, not 05:00, for a fallback window", () => {
+    const bars = daily(20);
+    const scale = resolveScale("1W", bars);
+    const ticks = bars.map((b) => formatAxisTick(b.t, scale));
+    expect(ticks.every((t) => /^\d{1,2} [A-Z][a-z]{2}$/.test(t))).toBe(true);
+    expect(ticks.some((t) => t.includes(":"))).toBe(false);
+    expect(new Set(ticks).size).toBe(ticks.length); // every tick distinct
+  });
+
+  it("keeps each longer timeframe's own granularity on daily bars", () => {
+    expect(resolveScale("1M", daily(22))).toBe("day");
+    expect(resolveScale("3M", daily(65))).toBe("day");
+    expect(resolveScale("6M", daily(130))).toBe("month");
+    expect(resolveScale("1Y", daily(250))).toBe("month");
+    expect(resolveScale("All", daily(2500))).toBe("year");
+  });
+
+  it("handles a single bar without falling back to clock time", () => {
+    expect(resolveScale("1D", daily(1))).toBe("day");
+    expect(resolveScale("1D", intraday(1))).toBe("intraday");
+  });
+
+  it("handles an empty series", () => {
+    expect(resolveScale("1D", [])).toBe("day");
+    expect(resolveScale("3M", [])).toBe("day");
+  });
+
+  it("widens to months if an intraday timeframe ever falls back to a long window", () => {
+    expect(resolveScale("1W", daily(600))).toBe("month");
+  });
+
+  it("readout text carries no PKT clock for a daily fallback bar", () => {
+    const bars = daily(20);
+    const label = formatTooltipLabel(bars[0].t, resolveScale("1W", bars));
+    expect(label).not.toContain("PKT");
+    expect(label).not.toContain("05:00");
+    expect(label).toContain("2026");
   });
 });

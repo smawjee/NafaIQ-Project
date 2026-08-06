@@ -46,6 +46,7 @@ import { PsxMoversCard } from "@/features/psx/components/PsxMoversCard";
 import { PsxSectorHeatmap } from "@/features/psx/components/PsxSectorHeatmap";
 import {
   fetchDaysFor,
+  indexBarsHaveNoRange,
   intradayFallbackBars,
   reconcileLiveCandle,
   symbolMeta,
@@ -215,16 +216,20 @@ export function PSX() {
     return [];
   }, [selectedIndexCode, selectedIndexData, sym, ohlcvData, chartLiveCandle, isDemo]);
 
-  // Phase 0 / B3: detect "OHLC columns are all-null" (true for many index EOD
-  // rows from DPS). In that case, fall back to a line chart so the user sees a
-  // real curve instead of a row of flat dojis.
-  const allIndexOhlcNull = useMemo(() => {
+  // Phase 0 / B3: index EOD rows carry no intraday range, so a candlestick has
+  // nothing to draw — fall back to a line chart and show a real curve.
+  //
+  // This used to test only for NULL open/high/low. The API never returns nulls:
+  // it coalesces the missing columns to the close, so every KSE-100 bar arrives
+  // as open == high == low == close. The guard therefore never fired and the
+  // index chart rendered 1,000 zero-range dojis — a row of 1px dashes. Testing
+  // for "no range" catches both shapes, and a genuine OHLC index (any bar with
+  // a high above its low) still draws as candles.
+  const indexHasNoCandleRange = useMemo(() => {
     if (!selectedIndexCode) return false;
-    if (!selectedIndexData || selectedIndexData.length === 0) return false;
-    // Any non-null open/high/low means we have real candles.
-    return selectedIndexData.every((b) => b.open == null && b.high == null && b.low == null);
+    return indexBarsHaveNoRange(selectedIndexData ?? []);
   }, [selectedIndexCode, selectedIndexData]);
-  const effectiveType = allIndexOhlcNull ? "line" : type;
+  const effectiveType = indexHasNoCandleRange ? "line" : type;
 
   // 1D/1W draw 5-minute bars when there are any. Indices never have them, and
   // equities won't before the market has been open with the capture job
@@ -536,7 +541,20 @@ export function PSX() {
                     />
                   )}
                 </div>
-                {allIndexOhlcNull && selectedIndexCard?.value != null && (
+                {/* Say WHY 1D/1W are showing daily candles. Without this the
+                    chart silently swaps series and the timeframe button reads
+                    as broken. Indices never have intraday bars at all —
+                    psx_intraday is fed from the equity snapshot. */}
+                {spec.kind === "intraday" && !hasIntraday && (
+                  <p className="mt-2 text-[11px] text-text-muted">
+                    {selectedIndexCode
+                      ? t("Intraday bars aren't available for indices — showing daily candles.")
+                      : t(
+                          "Intraday bars aren't available for this symbol yet — showing daily candles instead.",
+                        )}
+                  </p>
+                )}
+                {indexHasNoCandleRange && selectedIndexCard?.value != null && (
                   <p className="mt-2 text-[11px] text-text-muted">
                     {t(
                       "Index OHLC is daily-only — showing a close line. Live tick is the latest point.",

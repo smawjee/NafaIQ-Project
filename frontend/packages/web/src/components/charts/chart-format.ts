@@ -30,6 +30,42 @@ export function scaleFor(tf: string): ChartScale {
   return SCALE_BY_TF[tf] ?? "day";
 }
 
+const DAY_MS = 24 * 60 * 60 * 1000;
+/** A daily-bar window wider than this reads better labelled by month. */
+const LONG_WINDOW_MS = 400 * DAY_MS;
+
+/**
+ * The scale to actually draw with, decided by the DATA rather than the label.
+ *
+ * 1D and 1W ask for intraday bars but fall back to daily ones whenever
+ * `psx_intraday` has nothing yet — a fresh deployment, a symbol that has not
+ * traded, or any index (the snapshot carries no index rows). The timeframe
+ * still said "intraday", so daily bars were formatted with the clock formatter:
+ * a daily bar's timestamp is UTC midnight, which in Asia/Karachi is 05:00, so
+ * EVERY tick on the axis rendered "05:00" and the readout claimed
+ * "16 Jul 2026 · 05:00 PKT" for a whole session's candle.
+ *
+ * Deriving the scale from the bar spacing means the axis cannot disagree with
+ * what is on screen, whichever series the chart ended up with.
+ */
+export function resolveScale(tf: string, bars: readonly { t: number }[]): ChartScale {
+  const declared = scaleFor(tf);
+  if (bars.length === 0) return declared === "intraday" ? "day" : declared;
+
+  // A daily bar is parsed from "YYYY-MM-DD", so its instant is EXACTLY UTC
+  // midnight; a 5-minute bar never is. That is an exact discriminator rather
+  // than a guess from bar spacing, and it still works when only one bar is on
+  // screen.
+  const isIntradayData = bars.some((b) => Number.isFinite(b.t) && b.t % DAY_MS !== 0);
+  if (isIntradayData) return "intraday";
+
+  // Daily bars. Honour the timeframe's own granularity, except when it asked
+  // for intraday — then pick by how much calendar the fallback window covers.
+  if (declared !== "intraday") return declared;
+  const span = bars[bars.length - 1].t - bars[0].t;
+  return span > LONG_WINDOW_MS ? "month" : "day";
+}
+
 const formatters = new Map<string, Intl.DateTimeFormat>();
 
 function df(options: Intl.DateTimeFormatOptions): Intl.DateTimeFormat {
@@ -71,6 +107,52 @@ export function formatTooltipLabel(t: number, scale: ChartScale): string {
     return `${day} · ${time} PKT`;
   }
   return df({ weekday: "short", day: "numeric", month: "short", year: "numeric" }).format(d);
+}
+
+/** Next finer granularity, for resolving duplicate axis labels. */
+const FINER: Record<ChartScale, ChartScale | null> = {
+  year: "month",
+  month: "day",
+  day: "intraday",
+  intraday: null,
+};
+
+/**
+ * Evenly spaced tick values across the visible bars, endpoints included.
+ *
+ * Choosing the ticks ourselves (rather than leaving it to `minTickGap`) is what
+ * makes `scaleForTicks` possible: the label format can only be validated once
+ * it is known which instants will actually be labelled.
+ */
+export function pickTickValues(bars: readonly { t: number }[], maxTicks = 7): number[] {
+  if (bars.length === 0) return [];
+  if (bars.length <= maxTicks) return bars.map((b) => b.t);
+  const step = (bars.length - 1) / (maxTicks - 1);
+  const out: number[] = [];
+  for (let i = 0; i < maxTicks; i++) out.push(bars[Math.round(i * step)].t);
+  return Array.from(new Set(out));
+}
+
+/**
+ * The coarsest granularity that still labels every tick distinctly.
+ *
+ * A 6-month window puts roughly two ticks inside each month, so a "MMM yy"
+ * label rendered the axis as "Feb 26, Mar 26, Mar 26, Apr 26, Apr 26, …" —
+ * adjacent ticks carrying the same text, which tells the reader nothing about
+ * where they are and looks like a rendering fault. Stepping to the next finer
+ * format until the labels are unique fixes it for every window rather than
+ * hand-tuning a threshold per timeframe.
+ */
+export function scaleForTicks(scale: ChartScale, tickValues: readonly number[]): ChartScale {
+  let current: ChartScale | null = scale;
+  while (current) {
+    const labels = tickValues.map((t) => formatAxisTick(t, current as ChartScale));
+    if (new Set(labels).size === labels.length) return current;
+    const next: ChartScale | null = FINER[current];
+    if (!next) return current;
+    current = next;
+  }
+  return scale;
 }
 
 /**

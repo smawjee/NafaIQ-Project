@@ -71,13 +71,39 @@ describe("CandlestickChart time axis", () => {
     expect(ticks.every((v) => /^\d{1,2}[A-Z][a-z]{2}$/.test(v))).toBe(true);
   });
 
-  it("labels an All window with years only", () => {
+  it("labels a multi-year All window with years only", () => {
+    // Weekly steps over ~8 years — the real "All" shape (psx_ohlcv reaches
+    // back to 2016) without rendering 2,900 bars in jsdom.
+    const end = Date.UTC(2026, 7, 6);
+    const bars = Array.from({ length: 416 }, (_, i) =>
+      candle(end - (415 - i) * 7 * 86_400_000, 2.38 + i * 0.01),
+    );
     const { container } = render(
-      <CandlestickChart data={dailyBars(400)} height={400} tf="All" mas={[]} />,
+      <CandlestickChart data={bars} height={400} tf="All" mas={[]} />,
     );
     const ticks = xAxisTicks(container);
     expect(ticks.length).toBeGreaterThan(0);
     expect(ticks.every((v) => /^\d{4}$/.test(v))).toBe(true);
+  });
+
+  it("never repeats an axis label, whatever the window", () => {
+    // A 400-day window cannot be labelled by year without repeating, so the
+    // formatter steps to the next finer granularity. This is what stopped a 6M
+    // chart rendering "Mar 26, Mar 26, Apr 26, Apr 26".
+    for (const [tf, bars] of [
+      ["All", dailyBars(400)],
+      ["1Y", dailyBars(250)],
+      ["6M", dailyBars(130)],
+      ["3M", dailyBars(65)],
+      ["1M", dailyBars(22)],
+    ] as const) {
+      const { container, unmount } = render(
+        <CandlestickChart data={bars} height={400} tf={tf} mas={[]} />,
+      );
+      const ticks = xAxisTicks(container);
+      expect(new Set(ticks).size, `${tf}: ${ticks.join(", ")}`).toBe(ticks.length);
+      unmount();
+    }
   });
 });
 
@@ -136,14 +162,84 @@ describe("CandlestickChart edge cases", () => {
     expect(container.textContent).not.toContain("NaN");
   });
 
-  it("renders the intraday series without a timeframe prop defaulting to dates", () => {
-    // `tf` defaults to 6M; passing 1D must actually change the axis scale.
+  it("labels intraday bars by the clock even when tf says otherwise", () => {
+    // The scale is derived from the DATA, not the timeframe label — that is
+    // what stops a daily-bar fallback being labelled with clock times. The
+    // converse must hold too: intraday bars stay clock-labelled even under the
+    // default tf ("6M"), so the axis can never contradict what is drawn.
     const { container: withTf } = render(
       <CandlestickChart data={intradaySession()} height={400} tf="1D" mas={[]} />,
     );
     const { container: withoutTf } = render(
       <CandlestickChart data={intradaySession()} height={400} mas={[]} />,
     );
-    expect(xAxisTicks(withTf)).not.toEqual(xAxisTicks(withoutTf));
+    expect(xAxisTicks(withTf).every((t) => /^\d{2}:\d{2}$/.test(t))).toBe(true);
+    expect(xAxisTicks(withoutTf)).toEqual(xAxisTicks(withTf));
+  });
+});
+
+describe("CandlestickChart 1D/1W fallback to daily candles", () => {
+  /** Exactly what the PSX page draws when psx_intraday is still empty. */
+  function dailyFallback(count: number): Candle[] {
+    const end = Date.parse("2026-08-06");
+    return Array.from({ length: count }, (_, i) => {
+      const t = end - (count - 1 - i) * 86_400_000;
+      return {
+        date: new Date(t).toISOString().slice(0, 10),
+        t,
+        open: 25 + i * 0.1,
+        high: 26 + i * 0.1,
+        low: 24 + i * 0.1,
+        close: 25.5 + i * 0.1,
+        volume: 1_800_000,
+      };
+    });
+  }
+
+  it("does not render every tick as 05:00 on 1W", () => {
+    // The reported bug. A daily bar is UTC midnight, which is 05:00 in
+    // Karachi, so the intraday formatter collapsed the whole axis to one
+    // repeated clock time.
+    const { container } = render(
+      <CandlestickChart data={dailyFallback(20)} height={400} tf="1W" mas={[]} />,
+    );
+    const ticks = xAxisTicks(container);
+    expect(ticks.length).toBeGreaterThan(0);
+    expect(ticks).not.toContain("05:00");
+    expect(ticks.every((t) => !t.includes(":"))).toBe(true);
+    expect(ticks.every((t) => /^\d{1,2}[A-Z][a-z]{2}$/.test(t))).toBe(true);
+  });
+
+  it("does not render every tick as 05:00 on 1D", () => {
+    const { container } = render(
+      <CandlestickChart data={dailyFallback(10)} height={400} tf="1D" mas={[]} />,
+    );
+    const ticks = xAxisTicks(container);
+    expect(ticks.every((t) => !t.includes(":"))).toBe(true);
+  });
+
+  it("the readout shows a date, not a 05:00 PKT clock time", () => {
+    render(<CandlestickChart data={dailyFallback(20)} height={400} tf="1W" mas={[]} />);
+    expect(screen.queryByText(/PKT/)).toBeNull();
+    expect(screen.queryByText(/05:00/)).toBeNull();
+    expect(screen.getByText(/2026/)).toBeInTheDocument();
+  });
+
+  it("still uses clock time when real intraday bars arrive on 1W", () => {
+    const open = Date.UTC(2026, 7, 6, 4, 30);
+    const bars: Candle[] = Array.from({ length: 40 }, (_, i) => {
+      const t = open + i * 300_000;
+      return {
+        date: new Date(t).toISOString(),
+        t,
+        open: 25,
+        high: 26,
+        low: 24,
+        close: 25.5,
+        volume: 1000,
+      };
+    });
+    const { container } = render(<CandlestickChart data={bars} height={400} tf="1W" mas={[]} />);
+    expect(xAxisTicks(container).every((t) => /^\d{2}:\d{2}$/.test(t))).toBe(true);
   });
 });

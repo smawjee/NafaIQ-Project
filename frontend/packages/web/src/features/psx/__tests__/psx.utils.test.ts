@@ -4,6 +4,7 @@ import {
   DAILY_FETCH_DAYS,
   FULL_FETCH_DAYS,
   fetchDaysFor,
+  indexBarsHaveNoRange,
   tfSpec,
   windowBars,
   windowStartIndex,
@@ -143,5 +144,45 @@ describe("windowStartIndex", () => {
     expect(windowBars(intraday, "1D")).toHaveLength(4);
     // 1W spans five sessions, so three sessions of data all survive.
     expect(windowBars(intraday, "1W")).toHaveLength(12);
+  });
+});
+
+describe("indexBarsHaveNoRange", () => {
+  it("detects the coalesced shape the API actually returns", () => {
+    // Every KSE-100 bar arrives as open == high == low == close, because the
+    // API fills the missing columns from the close. The old null-only check
+    // never fired and the chart drew 1,000 zero-range dojis.
+    const bars = Array.from({ length: 5 }, (_, i) => ({
+      open: 180000 + i,
+      high: 180000 + i,
+      low: 180000 + i,
+      close: 180000 + i,
+    }));
+    expect(indexBarsHaveNoRange(bars)).toBe(true);
+  });
+
+  it("detects the all-null shape too", () => {
+    const bars = [{ open: null, high: null, low: null, close: 180000 }];
+    expect(indexBarsHaveNoRange(bars)).toBe(true);
+  });
+
+  it("keeps candles when the bars carry a real range", () => {
+    const bars = [
+      { open: 100, high: 110, low: 95, close: 105 },
+      { open: 105, high: 112, low: 101, close: 108 },
+    ];
+    expect(indexBarsHaveNoRange(bars)).toBe(false);
+  });
+
+  it("keeps candles when even one bar has a range", () => {
+    const bars = [
+      { open: 100, high: 100, low: 100, close: 100 },
+      { open: 100, high: 110, low: 95, close: 105 },
+    ];
+    expect(indexBarsHaveNoRange(bars)).toBe(false);
+  });
+
+  it("is false for an empty series so an empty chart is not forced to a line", () => {
+    expect(indexBarsHaveNoRange([])).toBe(false);
   });
 });

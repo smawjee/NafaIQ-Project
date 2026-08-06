@@ -136,6 +136,32 @@ export function windowBars<T extends { t: number }>(bars: readonly T[], tf: stri
 }
 
 /**
+ * True when index bars carry no intraday range, so a candlestick has nothing
+ * to draw and the chart should show a line instead.
+ *
+ * Two shapes reach this. DPS omits open/high/low on some index rows, and the
+ * API coalesces those missing columns to the close — so bars arrive either with
+ * nulls or, far more often, as open == high == low == close. Testing only for
+ * null (as this once did) missed the second shape entirely, and the KSE-100
+ * chart rendered 1,000 zero-range dojis: a row of 1px dashes where a curve
+ * belonged. Any bar with a high above its low still means real candles.
+ */
+export function indexBarsHaveNoRange(
+  bars: readonly {
+    open?: number | null;
+    high?: number | null;
+    low?: number | null;
+    close: number;
+  }[],
+): boolean {
+  if (bars.length === 0) return false;
+  return bars.every((b) => {
+    if (b.open == null && b.high == null && b.low == null) return true;
+    return (b.high ?? b.close) === (b.low ?? b.close);
+  });
+}
+
+/**
  * Daily bars to draw when an intraday timeframe has no intraday data.
  *
  * `psx_intraday` only accumulates while the market is open and is pruned to a
