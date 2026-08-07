@@ -219,6 +219,14 @@ export function CandlestickChart({
       <ResponsiveContainer width="100%" height={height >= 9999 ? "100%" : height}>
         <ComposedChart
           data={visible}
+          // Volume and price are the SAME column on a financial chart, not two
+          // neighbours. Recharts groups multiple <Bar> series side by side by
+          // default and splits the category band between them, which left the
+          // candle 5px of a 19.5px slot (measured) — a third of its width, and
+          // under MIN_CANDLE_BODY_PX on any denser window, which is why every
+          // bar collapsed to a hairline. A -100% gap overlays them so the
+          // candle gets the whole band (17px on the same data).
+          barGap="-100%"
           margin={{ top: 22, right: 8, left: 0, bottom: 0 }}
           onMouseDown={onMouseDown}
           onMouseMove={onMouseMove}
