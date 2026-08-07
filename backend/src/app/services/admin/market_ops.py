@@ -33,12 +33,21 @@ async def refresh_market_snapshot(*, actor: AdminContext, meta: RequestMeta) -> 
 
     from app.api.health import set_market_refresh_time
     from app.db.supabase import async_execute
-    from app.jobs.scheduler import _record_health
+    from app.jobs.scheduler import _market_watch_tv_fallback, _record_health
     from app.scrapers import dps
 
     rows_written = 0
+    source = "dps"
     try:
         items = await dps.fetch_market_watch()
+    except Exception:
+        # DPS /market-watch drops datacenter egress connections (2026-08-06);
+        # the TradingView scanner keeps working from the same host. Fall back
+        # so an admin refresh can still land fresh prices.
+        log.warning("admin market refresh: DPS failed, using TradingView fallback", exc_info=True)
+        source = "tv"
+        items = await _market_watch_tv_fallback()
+    try:
         if items:
             now = datetime.now(timezone.utc).isoformat()
             rows = [
@@ -54,6 +63,12 @@ async def refresh_market_snapshot(*, actor: AdminContext, meta: RequestMeta) -> 
                 }
                 for item in items
             ]
+            if source == "tv":
+                # TV rows carry no session extremes; omitting the columns keeps
+                # the last DPS-derived day_high/day_low on the upsert.
+                for r in rows:
+                    r.pop("day_high", None)
+                    r.pop("day_low", None)
             await async_execute(
                 lambda c: c.table("psx_market_snapshot").upsert(rows, on_conflict="symbol")
             )

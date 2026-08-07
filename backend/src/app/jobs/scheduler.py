@@ -39,6 +39,7 @@ from app.scrapers.mufap import BotChallengeError, MUFAPScraper
 from app.scrapers.brecorder import BRecorderScraper
 from app.scrapers.pdf_fetcher import PDFFetcher
 from app.scrapers.financials_psx import FinancialsPSXScraper
+from app.schemas.market import MarketSnapshotItem
 from app.services.market.volume_spikes import VolumeSpikeDetector
 import os
 from app.services.market._base import get_cache, ALL_PSX_INDICES
@@ -175,13 +176,68 @@ async def _get_all_symbols() -> list[str]:
 
 # ----- jobs -----
 
+async def _market_watch_tv_fallback() -> list[MarketSnapshotItem]:
+    """TradingView scanner as the market-watch source of last resort.
+
+    DPS started dropping the /market-watch connection entirely from Railway's
+    egress IP on 2026-08-06 (httpx.RemoteProtocolError — the server closed the
+    connection without a single response header), while the DPS homepage and
+    the TradingView scanner kept working from the same host. Rather than let
+    the whole snapshot freeze on yesterday's close, the job serves the
+    scanner's price/change/volume for every symbol.
+
+    The scanner has no day_high/day_low — callers must OMIT those columns when
+    writing, so the upsert preserves the last DPS-derived extremes instead of
+    NULLing them.
+    """
+    items = await tv.fetch_market_data()
+    out: list[MarketSnapshotItem] = []
+    for r in items:
+        price = r.get("close")
+        if price is None or price <= 0:
+            continue
+        out.append(
+            MarketSnapshotItem(
+                symbol=r["symbol"].upper(),
+                price=price,
+                change=r.get("change_abs"),
+                change_pct=r.get("change_pct"),
+                volume=int(r.get("volume") or 0),
+            )
+        )
+    return out
+
+
 async def job_refresh_market():
     if not await _is_market_open():
         return
     try:
         log.info("job:refresh_market:start")
-        items = await dps.fetch_market_watch()
+        source = "dps"
+        try:
+            # Bound the DPS attempt: ResilientHTTP retries 4x with backoff
+            # (~22s+) while the worker overruns this 10s trigger and every run
+            # logs a full traceback. If the connection is dropped (see
+            # _market_watch_tv_fallback), the fallback takes over within the
+            # budget instead of stalling the interval.
+            items = await asyncio.wait_for(dps.fetch_market_watch(), timeout=12.0)
+        except Exception:
+            source = "tv"
+            items = await _market_watch_tv_fallback()
+            log.warning("job:refresh_market:dps_failed_using_tv", symbols=len(items))
         if not items:
+            # Both sources came back empty. `tv.fetch_market_data` swallows its
+            # own exceptions and returns [], so without this the job returned
+            # silently and `psx_data_source_health` kept showing whatever it
+            # last recorded. That is how the snapshot sat frozen from
+            # 2026-08-06 10:30 UTC through the whole of the next session with
+            # nothing in the health table pointing at the market-watch path.
+            log.warning("job:refresh_market:no_items", source=source)
+            await _record_health(
+                "market_snapshot",
+                success=False,
+                error=f"both DPS and the {source} fallback returned no rows",
+            )
             return
         now = datetime.now(timezone.utc).isoformat()
         rows = [
@@ -197,9 +253,14 @@ async def job_refresh_market():
             }
             for item in items
         ]
+        if source == "tv":
+            # Keep the last DPS-derived session extremes (see helper docstring).
+            for r in rows:
+                r.pop("day_high", None)
+                r.pop("day_low", None)
         await async_execute(lambda c: c.table("psx_market_snapshot").upsert(rows, on_conflict="symbol"))
         set_market_refresh_time()
-        log.info("job:refresh_market:done", symbols=len(items))
+        log.info("job:refresh_market:done", symbols=len(items), source=source)
         await _record_health("market_snapshot", success=True, rows_updated=len(items))
     except Exception as e:
         log.exception("job:refresh_market:failed")
@@ -332,16 +393,22 @@ async def job_poll_ahletrade():
         async def _poll(sym: str) -> None:
             try:
                 trades = await ahletrade.fetch_trades(sym)
-                if trades:
-                    last = trades[-1]
-                    # append from concurrent workers is safe: asyncio does not
-                    # preempt between the await and this line.
-                    rows_to_write.append({
-                        "symbol": sym,
-                        "price": last["price"],
-                        "volume": last.get("volume", 0),
-                        "refreshed_at": now,
-                    })
+                if not trades:
+                    return
+                last = trades[-1]
+                price = last.get("price")
+                # PriceVolume can emit 0.0 for a symbol with no trade yet; a
+                # zero would read as a crash in the UI and poison the sector
+                # aggregates. Never write it.
+                if price is None or price <= 0:
+                    return
+                # append from concurrent workers is safe: asyncio does not
+                # preempt between the await and this line.
+                rows_to_write.append({
+                    "symbol": sym,
+                    "price": price,
+                    "refreshed_at": now,
+                })
             except Exception:
                 log.debug("ahletrade_poll_symbol_failed", symbol=sym)
 
@@ -351,9 +418,14 @@ async def job_poll_ahletrade():
         await _run_concurrently(top_symbols, _poll, max_concurrent=5)
 
         if rows_to_write:
-            # Phase 0 / B1: AHL writes only {price, volume, refreshed_at}.
-            # Use the partial-update RPC so we never clobber the DPS-derived
-            # change/change_pct/day_high/day_low that job_refresh_market owns.
+            # AHL owns only the live `price` (last trade) plus refreshed_at.
+            # `volume` is deliberately NOT written: the PriceVolume feed's
+            # volume is per-trade, not day-cumulative, and overwriting the
+            # cumulative figure with the last print (previously an ask quote
+            # from the misparsed BuySell feed — CNERGY showed volume 11 vs a
+            # real 42.2M) corrupts the volume column market-wide. The
+            # partial-update RPC never clobbers the DPS-derived
+            # change/change_pct/day_high/day_low either.
             await async_execute(
                 lambda c: c.rpc("patch_market_snapshot", {"rows": rows_to_write})
             )

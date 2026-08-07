@@ -43,9 +43,19 @@ class AhleTradePoller:
         return list(self._subscribed)
 
     async def fetch_quotes(self, symbol: str, market: str = "REG") -> list[dict]:
-        """Returns L1 bid/ask snapshots."""
+        """Returns L1 bid/ask snapshots.
+
+        The AhleTrade feed identifiers were reversed here until 2026-08-07:
+        ``BuySell`` is the quote tape (``time;bid;ask``) and ``PriceVolume`` is
+        the trade tape (``time;price;volume``). ``fetch_quotes`` used
+        PriceVolume — so "bid/ask" pairs were really price/volume rows — and
+        ``fetch_trades`` parsed the BuySell quote tape as trades, storing an
+        ask quote as the price and rounding the other quote into the volume
+        column (observed: CNERGY volume of 11 vs a real 42.2M shares). Both
+        identifiers are now on the feed they were named for.
+        """
         client = await self._get_client()
-        url = f"{settings.ahletrade_base_url}?action=Market&identifier=PriceVolume&market={market}&symbol={symbol.upper()}"
+        url = f"{settings.ahletrade_base_url}?action=Market&identifier=BuySell&market={market}&symbol={symbol.upper()}"
         r = await client.get(url)
         records = []
         for rec in r.text.split("|"):
@@ -62,9 +72,9 @@ class AhleTradePoller:
         return records
 
     async def fetch_trades(self, symbol: str, market: str = "REG") -> list[dict]:
-        """Returns trade tape."""
+        """Returns trade tape (time;price;volume from the PriceVolume feed)."""
         client = await self._get_client()
-        url = f"{settings.ahletrade_base_url}?action=Market&identifier=BuySell&market={market}&symbol={symbol.upper()}"
+        url = f"{settings.ahletrade_base_url}?action=Market&identifier=PriceVolume&market={market}&symbol={symbol.upper()}"
         r = await client.get(url)
         records = []
         for rec in r.text.split("|"):

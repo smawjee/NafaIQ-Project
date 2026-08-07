@@ -10,6 +10,7 @@ import structlog
 from app.config import settings
 from app.db.supabase import async_execute, get_supabase, select_all
 from app.scrapers.dps import DPSScraper
+from app.scrapers.tradingview import get_scanner
 from app.models import (
     MarketSnapshotItem,
     OHLCVBar,
@@ -126,7 +127,32 @@ class CacheLayer:
         return await self._scrape_market_snapshot()
 
     async def _scrape_market_snapshot(self) -> list[MarketSnapshotItem]:
-        items = await self.dps.fetch_market_watch()
+        """Scrape the market watch, falling back to the TradingView scanner.
+
+        DPS has dropped the /market-watch connection entirely from datacenter
+        egress IPs since 2026-08-06 (RemoteProtocolError, no response headers)
+        while the scanner keeps working. When DPS fails, TV rows are served
+        with day_high/day_low absent so the writer below does not NULL them —
+        PostgREST upsert only touches the columns present in the payload.
+        """
+        try:
+            items = await self.dps.fetch_market_watch()
+        except Exception:
+            log.warning("cache_market_dps_failed_tv_fallback", exc_info=True)
+            items = []
+            for r in await get_scanner().fetch_market_data():
+                price = r.get("close")
+                if price is None or price <= 0:
+                    continue
+                items.append(
+                    MarketSnapshotItem(
+                        symbol=r["symbol"].upper(),
+                        price=price,
+                        change=r.get("change_abs"),
+                        change_pct=r.get("change_pct"),
+                        volume=int(r.get("volume") or 0),
+                    )
+                )
         if items:
             rows = [
                 {
@@ -135,12 +161,14 @@ class CacheLayer:
                     "change": i.change,
                     "change_pct": i.change_pct,
                     "volume": i.volume,
-                    "day_high": i.day_high,
-                    "day_low": i.day_low,
                     "refreshed_at": datetime.now(timezone.utc).isoformat(),
                 }
                 for i in items
             ]
+            if items[0].day_high is not None:
+                for r, i in zip(rows, items):
+                    r["day_high"] = i.day_high
+                    r["day_low"] = i.day_low
             try:
                 await async_execute(lambda c: c.table("psx_market_snapshot").upsert(rows, on_conflict="symbol"))
             except Exception:
