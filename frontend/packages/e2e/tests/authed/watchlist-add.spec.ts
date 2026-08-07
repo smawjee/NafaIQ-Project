@@ -41,7 +41,10 @@ test.describe("watchlist additions", () => {
     await result.click();
 
     await expect(page.getByText(/PSO added to watchlist/)).toBeVisible();
-    await expect(page.getByRole("button", { name: /^remove pso$/i })).toBeVisible();
+    // Prefix match, not anchored: the button's accessible name is the full
+    // i18n'd "Remove PSO from watchlist", and the `$` anchor could never match
+    // the trailing "from watchlist" once the label gained that suffix.
+    await expect(page.getByRole("button", { name: /^remove pso/i })).toBeVisible();
   });
 
   test("an unknown symbol yields no results to add", async ({ page }) => {
