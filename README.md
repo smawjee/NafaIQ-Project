@@ -372,20 +372,60 @@ is covered by a pytest suite.
 - **Web app** — a TanStack Start / Nitro build (deployed to a serverless host).
   Set production environment variables (notably `VITE_API_URL`) in the hosting
   provider; local `.env` files are not shipped.
-- **Backend on Railway** — deploy two services from the same `backend/` root and
-  the same Dockerfile/config:
+- **Backend on Railway** — deploy three services from the same `backend/` root:
   - API service: set `PROCESS_ROLE=web`, generate the public Railway domain, and
     set `CORS_ORIGINS` to the web app origin.
   - Scheduler service: set `PROCESS_ROLE=worker`, do not use it as the public API
     URL, and set `API_KEEPALIVE_URL` to the API service's Railway URL after the
     domain is generated.
-  Both services need the shared backend secrets (`SUPABASE_*`,
+  - LearnHub Studio service: select `railway.studio-worker.json` as its config
+    file. It builds `Dockerfile.studio-worker`, runs one durable queue consumer,
+    and does not need a public domain.
+  All services need the shared backend secrets (`SUPABASE_*`,
   `PSX_SUPABASE_*`, `SUPABASE_POOLER_*`, AI/email keys as enabled). The scheduler
   is advisory-lock gated, so the split cannot run duplicate jobs.
   The advanced ML libraries (LightGBM/XGBoost/CatBoost) are not in the deployed
   `requirements.txt`; production serves signals from the technical baseline while
   ML runs in shadow mode.
 - **Database** — a managed Supabase project.
+
+### LearnHub Studio video generation
+
+Bootstrap and verify the database, private Storage bucket, embedded corpus, and
+worker prerequisites before enabling the feature:
+
+```bash
+cd backend
+.venv/bin/python scripts/apply_learnhub_studio_migrations.py
+.venv/bin/python scripts/data/ingest_learnhub.py
+LEARNHUB_RAG_ENABLED=true LEARN_STUDIO_ENABLED=true \
+  .venv/bin/python scripts/run_learnhub_studio_worker.py --check
+```
+
+Set these backend-only variables on both the API and Studio worker services:
+
+```text
+LEARNHUB_RAG_ENABLED=true
+LEARN_STUDIO_ENABLED=true
+GEMINI_API_KEY=<server-side key>
+SUPABASE_URL=<project URL>
+SUPABASE_SECRET_KEY=<server-side service key>
+SUPABASE_DATABASE_PASSWORD=<database password>
+SUPABASE_POOLER_HOST=<transaction pooler host>
+SUPABASE_POOLER_PORT=6543
+SUPABASE_POOLER_USER=<transaction pooler user>
+```
+
+Do not expose the Gemini or Supabase service/database credentials through
+`VITE_` or `EXPO_PUBLIC_` variables. The `learnhub-studio` bucket must remain
+private; the API verifies ownership and returns 15-minute signed playback URLs.
+For a real disposable-user smoke test against the deployed API:
+
+```bash
+cd backend
+.venv/bin/python scripts/verify_learnhub_studio_pdf.py \
+  --api https://<your-api>.up.railway.app
+```
 
 ---
 

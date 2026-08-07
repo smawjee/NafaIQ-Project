@@ -476,6 +476,28 @@ CHECKS: List[MigrationCheck] = [
             ),
         ],
     ),
+    MigrationCheck(
+        filename="20260807110000_learnhub_studio_media_bucket.sql",
+        description="Private, MIME-restricted LearnHub Studio media bucket",
+        checks=[
+            Check(
+                "learnhub-studio bucket is private",
+                "SELECT EXISTS (SELECT 1 FROM storage.buckets "
+                "WHERE id='learnhub-studio' AND public=false)",
+                "Generated media and uploaded PDFs must only be reachable through signed URLs.",
+            ),
+            Check(
+                "learnhub-studio bucket MIME allowlist",
+                "SELECT allowed_mime_types @> ARRAY['application/pdf','video/mp4','text/vtt','image/png']::text[] "
+                "FROM storage.buckets WHERE id='learnhub-studio'",
+            ),
+            Check(
+                "learnhub-studio bucket object limit",
+                "SELECT file_size_limit >= 104857600 FROM storage.buckets "
+                "WHERE id='learnhub-studio'",
+            ),
+        ],
+    ),
 ]
 
 

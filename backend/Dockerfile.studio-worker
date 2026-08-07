@@ -7,4 +7,7 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/* \
     && pip install --no-cache-dir -e .
 
+ENV MALLOC_ARENA_MAX=2
+ENV PYTHONUNBUFFERED=1
+
 CMD ["python", "scripts/run_learnhub_studio_worker.py"]

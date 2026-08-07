@@ -1,15 +1,20 @@
 """Durable LearnHub Studio worker entrypoint for a dedicated Railway service."""
 from __future__ import annotations
 
+import argparse
 import asyncio
 import os
+import shutil
 import socket
 
 import structlog
+from PIL import features
+from sqlalchemy import text
 
 from app.config import settings
 from app.db.supabase import get_supabase
 from app.repositories import learnhub_studio as repo
+from app.repositories.base import connect
 from app.services.learnhub.studio import (
     artifact_fingerprint,
     generate_study_pack,
@@ -20,6 +25,67 @@ from app.services.learnhub.studio_media import render_study_pack_video
 from app.services.learnhub.studio_pdf import StudioPdfError, extract_pdf_sources
 
 log = structlog.get_logger(__name__)
+
+
+async def _database_readiness() -> tuple[int, int]:
+    async with connect() as connection:
+        row = (await connection.execute(text("""
+            SELECT count(*) FILTER (WHERE is_active) AS active,
+                   count(*) FILTER (WHERE is_active AND embedding IS NOT NULL) AS embedded
+            FROM learnhub_knowledge_chunks
+        """))).mappings().one()
+    return int(row["active"]), int(row["embedded"])
+
+
+async def _storage_ready() -> None:
+    await asyncio.to_thread(
+        get_supabase().storage.get_bucket,
+        settings.learn_studio_media_bucket,
+    )
+
+
+async def preflight() -> dict[str, object]:
+    """Fail fast when a worker deployment cannot complete a real Studio job."""
+    problems: list[str] = []
+    if not settings.learnhub_rag_enabled:
+        problems.append("LEARNHUB_RAG_ENABLED must be true")
+    if not settings.learn_studio_enabled:
+        problems.append("LEARN_STUDIO_ENABLED must be true")
+    if not settings.gemini_api_key_pool:
+        problems.append("GEMINI_API_KEY or GEMINI_API_KEYS is required")
+    for binary in ("ffmpeg", "ffprobe"):
+        if not shutil.which(binary):
+            problems.append(f"{binary} is not installed")
+    if not features.check_feature("raqm"):
+        problems.append("Pillow RAQM support is required for correctly shaped Urdu slides")
+
+    active = embedded = 0
+    try:
+        active, embedded = await _database_readiness()
+        if active <= 0:
+            problems.append("LearnHub corpus is empty; run scripts/data/ingest_learnhub.py")
+        elif embedded <= 0:
+            problems.append("LearnHub corpus has no embeddings; rerun corpus ingest")
+    except Exception as exc:
+        problems.append(f"LearnHub database readiness failed: {type(exc).__name__}: {exc}")
+
+    try:
+        await _storage_ready()
+    except Exception as exc:
+        problems.append(
+            f"private storage bucket {settings.learn_studio_media_bucket!r} is unavailable: "
+            f"{type(exc).__name__}: {exc}"
+        )
+
+    if problems:
+        raise RuntimeError("LearnHub Studio worker is not ready:\n- " + "\n- ".join(problems))
+    return {
+        "bucket": settings.learn_studio_media_bucket,
+        "active_corpus_chunks": active,
+        "embedded_corpus_chunks": embedded,
+        "urdu_shaping": "RAQM",
+        "tts_model": settings.learn_studio_tts_model,
+    }
 
 
 async def process(job: dict) -> None:
@@ -127,9 +193,15 @@ async def process(job: dict) -> None:
     await repo.complete_video(job_id=job_id, project_id=project_id, **media)
 
 
-async def main() -> None:
+async def main(*, check_only: bool = False) -> None:
+    readiness = await preflight()
+    if check_only:
+        print("LearnHub Studio worker readiness: PASS")
+        for name, value in readiness.items():
+            print(f"  {name}: {value}")
+        return
     worker_id = f"{socket.gethostname()}:{os.getpid()}"
-    log.info("learn_studio_worker_started", worker_id=worker_id)
+    log.info("learn_studio_worker_started", worker_id=worker_id, **readiness)
     while True:
         cleanup = await repo.claim_cleanup()
         if cleanup:
@@ -155,4 +227,11 @@ async def main() -> None:
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--check",
+        action="store_true",
+        help="Validate flags, AI keys, FFmpeg, database corpus, and storage, then exit.",
+    )
+    args = parser.parse_args()
+    asyncio.run(main(check_only=args.check))
