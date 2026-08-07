@@ -26,7 +26,7 @@ export function Change({
         className,
       )}
     >
-      {displayValue !== undefined && <span className="mr-1">{displayValue}</span>}
+      {displayValue !== undefined && <span className="me-1">{displayValue}</span>}
       {text}
     </span>
   );

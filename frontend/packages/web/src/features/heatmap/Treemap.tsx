@@ -189,7 +189,9 @@ export function Treemap({
 
   if (!hasData) {
     return (
-      <div className="flex h-full items-center justify-center text-text-muted text-sm">No data</div>
+      <div className="flex h-full items-center justify-center text-text-muted text-sm">
+        {t("No data")}
+      </div>
     );
   }
 
@@ -294,7 +296,7 @@ export function Treemap({
       aria-label={`Sector treemap, ${sectorCount} sectors, ${totalStocks} stocks`}
     >
       {drilledSector && onDrillUp && (
-        <div className="absolute left-3 top-3 z-10">
+        <div className="absolute start-3 top-3 z-10">
           <button
             type="button"
             onClick={onDrillUp}
@@ -306,7 +308,7 @@ export function Treemap({
       )}
 
       {drilledSector && (
-        <div className="absolute right-3 top-3 z-10 rounded-[6px] border border-border bg-surface px-2.5 py-1 text-xs font-semibold text-text-primary">
+        <div className="absolute end-3 top-3 z-10 rounded-[6px] border border-border bg-surface px-2.5 py-1 text-xs font-semibold text-text-primary">
           {t(drilledSector)}
         </div>
       )}

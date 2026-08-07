@@ -4,6 +4,7 @@ from fastapi import APIRouter, Query, Request
 from app.middleware.rate_limit import limiter
 from app.schemas.market import BacktestParams, ScreenerParams
 from app.services import market as market_service
+from app.services.market import intraday as intraday_service
 
 router = APIRouter(tags=["market"])
 
@@ -33,6 +34,25 @@ async def history(
     days: int = Query(250, ge=1, le=3650),
 ):
     return await market_service.history(symbol, days)
+
+
+@router.get("/quote/{symbol}/intraday")
+@limiter.limit("60/minute")
+async def intraday(
+    request: Request,
+    symbol: str,
+    # Trading sessions, not calendar days. psx_intraday is pruned to ~10 days,
+    # so anything past MAX_SESSIONS would return a ragged window.
+    sessions: int = Query(1, ge=1, le=5),
+):
+    """5-minute intraday bars, oldest first.
+
+    Returns `[]` rather than 404 when there is no intraday data for the symbol:
+    the table only accumulates while the market is open, so an empty result is
+    the normal state outside a session and on a freshly-deployed environment.
+    The chart treats empty as "fall back to daily bars".
+    """
+    return await intraday_service.intraday(symbol, sessions)
 
 
 # ---------- symbols ----------

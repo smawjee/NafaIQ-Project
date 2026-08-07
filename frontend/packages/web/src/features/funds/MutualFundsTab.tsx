@@ -70,7 +70,7 @@ function FundRow({
         type="button"
         onClick={onToggle}
         className={cn(
-          "flex w-full items-start gap-2 rounded-[8px] p-3 text-left transition-colors",
+          "flex w-full items-start gap-2 rounded-[8px] p-3 text-start transition-colors",
           "hover:bg-hover",
         )}
       >
@@ -87,7 +87,7 @@ function FundRow({
             {fund.shariah ? " \u00b7 Shariah" : ""}
           </div>
         </div>
-        <div className="shrink-0 self-start text-right">
+        <div className="shrink-0 self-start text-end">
           <div className="text-sm font-semibold tabular-nums text-text-primary">
             {fund.latest_nav != null ? `PKR ${fund.latest_nav.toFixed(2)}` : "\u2014"}
           </div>
@@ -106,7 +106,7 @@ function NavHistory({ fundCode }: { fundCode: string }) {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center border-t border-border px-4 py-6 text-text-muted text-sm">
-        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+        <Loader2 className="me-2 h-4 w-4 animate-spin" />
         {t("Loading NAV history...")}
       </div>
     );
@@ -124,9 +124,9 @@ function NavHistory({ fundCode }: { fundCode: string }) {
     <div className="max-h-60 overflow-auto border-t border-border">
       <table className="w-full text-xs">
         <thead>
-          <tr className="border-b border-border text-left text-text-muted">
+          <tr className="border-b border-border text-start text-text-muted">
             <th className="px-3 py-2 font-medium">{t("Date")}</th>
-            <th className="px-3 py-2 text-right font-medium">{t("NAV")}</th>
+            <th className="px-3 py-2 text-end font-medium">{t("NAV")}</th>
           </tr>
         </thead>
         <tbody>
@@ -136,7 +136,7 @@ function NavHistory({ fundCode }: { fundCode: string }) {
             .map((row) => (
               <tr key={row.date} className="border-b border-border/50">
                 <td className="px-3 py-1.5 font-mono text-text-primary">{row.date}</td>
-                <td className="px-3 py-1.5 text-right font-mono tabular-nums text-text-secondary">
+                <td className="px-3 py-1.5 text-end font-mono tabular-nums text-text-secondary">
                   {row.nav != null ? `PKR ${row.nav.toFixed(2)}` : "\u2014"}
                 </td>
               </tr>

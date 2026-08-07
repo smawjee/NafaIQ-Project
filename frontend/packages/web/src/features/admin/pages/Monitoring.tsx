@@ -58,6 +58,7 @@ type Row = Record<string, unknown>;
  * inherits sorting, column control and CSV export like every other screen.
  */
 function Block({ name, block }: { name: string; block: MetricBlockLike }) {
+  const { t } = useLang();
   const title = humanizeKey(name);
   const items = block.data?.items;
   const isList = Array.isArray(items);
@@ -94,8 +95,10 @@ function Block({ name, block }: { name: string; block: MetricBlockLike }) {
     return (
       <Panel title={title}>
         <EmptyBlock
-          label="Unavailable"
-          hint="This metric couldn't be computed on the last request. It is not a zero — the query failed."
+          label={t("Unavailable")}
+          hint={t(
+            "This metric couldn't be computed on the last request. It is not a zero — the query failed.",
+          )}
         />
       </Panel>
     );
@@ -110,7 +113,7 @@ function Block({ name, block }: { name: string; block: MetricBlockLike }) {
           columns={columns}
           rows={rows}
           getRowId={(r) => String(r.id ?? r.symbol ?? r.name ?? r.source ?? JSON.stringify(r))}
-          emptyState={<EmptyBlock label="No records" />}
+          emptyState={<EmptyBlock label={t("No records")} />}
         />
       </Panel>
     );
@@ -120,7 +123,7 @@ function Block({ name, block }: { name: string; block: MetricBlockLike }) {
   if (entries.length === 0) {
     return (
       <Panel title={title}>
-        <EmptyBlock label="No data" />
+        <EmptyBlock label={t("No data")} />
       </Panel>
     );
   }
@@ -189,7 +192,7 @@ function MonitoringView({
               loading={query.isFetching}
               onClick={() => void query.refetch()}
             >
-              Refresh
+              {t("Refresh")}
             </Button>
           </>
         }
@@ -221,6 +224,7 @@ function MonitoringView({
 /* -------------------------------------------------------------------------- */
 
 export function AdminMarketData() {
+  const { t } = useLang();
   const qc = useQueryClient();
   const confirm = useConfirm();
   const { can } = useAdmin();
@@ -245,9 +249,11 @@ export function AdminMarketData() {
 
   return (
     <MonitoringView
-      title="Market Data"
+      title={t("Market Data")}
       breadcrumb="Market Data"
-      description="Health of the PSX ingestion pipeline — per-source status, the live index snapshot and the market snapshot table."
+      description={t(
+        "Health of the PSX ingestion pipeline — per-source status, the live index snapshot and the market snapshot table.",
+      )}
       query={q}
       actions={
         can("market_data.refresh") && (
@@ -267,7 +273,7 @@ export function AdminMarketData() {
               })
             }
           >
-            Refresh now
+            {t("Refresh now")}
           </Button>
         )
       }
@@ -276,24 +282,30 @@ export function AdminMarketData() {
 }
 
 export function AdminSignals() {
+  const { t } = useLang();
   const q = useQuery({ queryKey: ["admin-signals"], queryFn: adminApi.signals, staleTime: 20_000 });
   return (
     <MonitoringView
-      title="Signals"
+      title={t("Signals")}
       breadcrumb="Signals"
-      description="Signals model registry and computed-table volumes. Read-only — the serving path is /api/signals."
+      description={t(
+        "Signals model registry and computed-table volumes. Read-only — the serving path is /api/signals.",
+      )}
       query={q}
     />
   );
 }
 
 export function AdminAiOps() {
+  const { t } = useLang();
   const q = useQuery({ queryKey: ["admin-ai"], queryFn: adminApi.aiOps, staleTime: 20_000 });
   return (
     <MonitoringView
-      title="AI Operations"
+      title={t("AI Operations")}
       breadcrumb="AI Operations"
-      description="Usage counts for the assistant, LearnHub and report generators. No API keys, prompts or user conversations are exposed here."
+      description={t(
+        "Usage counts for the assistant, LearnHub and report generators. No API keys, prompts or user conversations are exposed here.",
+      )}
       query={q}
     />
   );
@@ -310,7 +322,9 @@ export function AdminSystem() {
       <PageHeader
         title={t("System Health")}
         breadcrumbs={[{ label: t("Admin"), to: "/admin" }, { label: t("System Health") }]}
-        description="Database connectivity and deployment metadata. No secrets, stack traces or environment values are ever returned by this endpoint."
+        description={t(
+          "Database connectivity and deployment metadata. No secrets, stack traces or environment values are ever returned by this endpoint.",
+        )}
         actions={
           <Button
             variant="outline"
@@ -318,7 +332,7 @@ export function AdminSystem() {
             loading={q.isFetching}
             onClick={() => void q.refetch()}
           >
-            Refresh
+            {t("Refresh")}
           </Button>
         }
       />
@@ -336,6 +350,7 @@ export function AdminSystem() {
 }
 
 function SystemView({ health }: { health: SystemHealth }) {
+  const { t } = useLang();
   const dbOk = health.database.available;
   return (
     <div className="space-y-4">
@@ -352,19 +367,19 @@ function SystemView({ health }: { health: SystemHealth }) {
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <KpiCard
-          label="Database"
+          label={t("Database")}
           value={<StatusBadge status={dbOk ? "healthy" : "down"} />}
           icon={<Database className="h-4 w-4" />}
-          hint="Supabase transaction pooler"
+          hint={t("Supabase transaction pooler")}
         />
         <KpiCard
-          label="Process role"
+          label={t("Process role")}
           value={health.deployment.process_role}
           icon={<Server className="h-4 w-4" />}
-          hint="PROCESS_ROLE"
+          hint={t("PROCESS_ROLE")}
         />
         <KpiCard
-          label="Scheduler"
+          label={t("Scheduler")}
           value={
             <StatusBadge status={health.deployment.scheduler_enabled ? "enabled" : "suspended"} />
           }
@@ -376,21 +391,27 @@ function SystemView({ health }: { health: SystemHealth }) {
           }
         />
         <KpiCard
-          label="Environment"
+          label={t("Environment")}
           value={<Badge tone="accent">{health.deployment.environment}</Badge>}
           icon={<Activity className="h-4 w-4" />}
-          hint="Derived from CORS config"
+          hint={t("Derived from CORS config")}
         />
       </div>
 
       <Panel
-        title="What this page does not cover"
-        description="Being explicit about monitoring gaps is more useful than implying full coverage."
+        title={t("What this page does not cover")}
+        description={t(
+          "Being explicit about monitoring gaps is more useful than implying full coverage.",
+        )}
       >
         <ul className="space-y-1.5 text-sm text-text-secondary">
-          <li>• Per-job scheduler run history — jobs report into Market Data, not here.</li>
-          <li>• Upstream provider health (Gemini, Groq) — see AI Operations for usage volume.</li>
-          <li>• Application error rates — no error-tracking sink is wired to this console yet.</li>
+          <li>{t("• Per-job scheduler run history — jobs report into Market Data, not here.")}</li>
+          <li>
+            {t("• Upstream provider health (Gemini, Groq) — see AI Operations for usage volume.")}
+          </li>
+          <li>
+            {t("• Application error rates — no error-tracking sink is wired to this console yet.")}
+          </li>
         </ul>
       </Panel>
     </div>

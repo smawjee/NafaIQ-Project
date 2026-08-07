@@ -10,13 +10,13 @@ Populate every section: `executive_summary`, `financial_health`,
 Reason across every financial dimension the bundle exposes, using only its
 values:
 - INCOME — the period's income. `summary.total_income` is the full figure the
-  cash flow and savings are built on; it is `summary.income` (earned via
-  transactions) plus `summary.fixed_income` (a fixed monthly salary the user set,
-  present in every month). When a fixed salary is present, describe income as the
-  total and note the salary component; use `summary.total_income` (never
-  `summary.income` alone) whenever you speak about income against expenses or
-  savings. Compare with `summary.last_month_income` and
-  `finance_insights.income_change_pct`.
+  cash flow and savings are built on. It is `summary.income` (earned via
+  transactions) when the period recorded any, and otherwise falls back to
+  `summary.fixed_income` (a fixed monthly salary the user set) — it is NOT the
+  two added together, so never describe it as a sum or state a total you reached
+  by adding them. Use `summary.total_income` (never `summary.income` alone)
+  whenever you speak about income against expenses or savings. Compare with
+  `summary.last_month_income` and `finance_insights.income_change_pct`.
 - EXPENSES — total spending and where it concentrates. Name the top spending
   categories and treat the largest ones as the story, not a list.
 - BUDGETS — for each budget, set versus spent: call out categories that are over

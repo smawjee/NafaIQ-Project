@@ -271,8 +271,8 @@ export function Alerts() {
           }
           setConfirmIdx(null);
         }}
-        title="Delete Alert"
-        description="Are you sure you want to delete this alert? This action cannot be undone."
+        title={t("Delete Alert")}
+        description={t("Are you sure you want to delete this alert? This action cannot be undone.")}
         confirmText="Delete"
       />
     </div>

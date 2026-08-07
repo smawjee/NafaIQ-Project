@@ -379,7 +379,7 @@ export function Zakat() {
             </p>
           ) : null}
           {history.data && history.data.length > 0 ? (
-            <div className="mt-4 border-t border-border pt-3 text-left">
+            <div className="mt-4 border-t border-border pt-3 text-start">
               <div className="text-[11px] font-semibold uppercase tracking-wide text-text-muted">
                 {t("History")}
               </div>
@@ -478,7 +478,7 @@ function MetalAssetRow({
           />
           <span className="text-xs text-text-muted">{t("tola")}</span>
         </div>
-        <div className="min-w-[150px] rounded-[8px] border border-border bg-elevated/60 px-3 py-2 text-right font-mono text-sm font-semibold tabular-nums text-text-primary">
+        <div className="min-w-[150px] rounded-[8px] border border-border bg-elevated/60 px-3 py-2 text-end font-mono text-sm font-semibold tabular-nums text-text-primary">
           PKR {formatNumber(computedValue, 0)}
         </div>
       </div>

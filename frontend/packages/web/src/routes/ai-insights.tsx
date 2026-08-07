@@ -71,19 +71,19 @@ function AiInsightsRoute() {
       <div className="grid gap-4 md:grid-cols-3">
         <InsightShortcut
           icon={ChartCandlestick}
-          title="Market brief"
+          title={t("Market brief")}
           copy="Open the AI read on today's PSX conditions."
           to="/psx"
         />
         <InsightShortcut
           icon={BriefcaseBusiness}
-          title="Portfolio report"
+          title={t("Portfolio report")}
           copy="Analyze diversification, risk, and rebalancing opportunities."
           to="/portfolio"
         />
         <InsightShortcut
           icon={Wallet}
-          title="Finance report"
+          title={t("Finance report")}
           copy="Review spending, budgets, savings, and money habits."
           to="/finance"
         />

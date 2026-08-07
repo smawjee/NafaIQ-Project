@@ -84,9 +84,9 @@ export function MacroWidget() {
 
         <section className="space-y-1.5">
           <GroupHeader icon={Wallet} title={t("Exchange Rates")} />
-          <StatRow label="USD / PKR" value={fx(snap?.usd_pkr)} />
-          <StatRow label="EUR / PKR" value={fx(eur)} />
-          <StatRow label="GBP / PKR" value={fx(gbp)} />
+          <StatRow label={t("USD / PKR")} value={fx(snap?.usd_pkr)} />
+          <StatRow label={t("EUR / PKR")} value={fx(eur)} />
+          <StatRow label={t("GBP / PKR")} value={fx(gbp)} />
         </section>
 
         <section className="space-y-1.5">

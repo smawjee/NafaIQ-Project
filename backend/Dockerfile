@@ -17,6 +17,13 @@ RUN pip install --no-cache-dir -e ".[dev]"
 
 ENV PORT=8000
 
+# glibc gives each thread its own malloc arena and, once fragmented, effectively
+# never returns those pages to the OS — RSS only ratchets up. This service leans
+# on `asyncio.to_thread` (default executor: up to 32 threads), so it can hold 32
+# fragmenting arenas on a 1 GB container. Capping the arena count trades a little
+# allocator contention for a far flatter memory profile.
+ENV MALLOC_ARENA_MAX=2
+
 EXPOSE ${PORT}
 
 CMD uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}

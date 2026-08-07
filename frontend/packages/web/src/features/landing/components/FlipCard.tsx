@@ -2,9 +2,11 @@ import { useState } from "react";
 import { motion, useReducedMotion } from "framer-motion";
 import { Zap, AlertTriangle } from "lucide-react";
 import { SPRING_UI } from "@/components/shared/animations";
+import { useLang } from "@/hooks/use-lang";
 
 /* ---------- Haqeeqi Daulat 3D flip card ---------- */
 export function FlipCard() {
+  const { t } = useLang();
   const reduce = useReducedMotion();
   const [flipped, setFlipped] = useState(false);
   return (
@@ -36,17 +38,17 @@ export function FlipCard() {
           }}
         >
           <div className="text-[10px] font-semibold uppercase tracking-widest text-text-muted">
-            Haqeeqi Daulat™ — حقیقی دولت
+            {t("Haqeeqi Daulat™ — حقیقی دولت")}
           </div>
           <div className="mt-1 text-sm font-semibold text-text-primary">
-            Your Real Wealth Breakdown
+            {t("Your Real Wealth Breakdown")}
           </div>
           <div className="mt-8">
-            <div className="text-[11px] text-text-muted">PSX Shows You</div>
+            <div className="text-[11px] text-text-muted">{t("PSX Shows You")}</div>
             <div className="mt-1 font-mono text-[44px] font-bold leading-none text-bull">
               +12.73%
             </div>
-            <div className="mt-2 text-[11px] text-text-secondary">PKR 858,054 portfolio</div>
+            <div className="mt-2 text-[11px] text-text-secondary">{t("PKR 858,054 portfolio")}</div>
           </div>
           <div className="my-6 flex items-center gap-3">
             <span className="h-px flex-1" style={{ background: "rgba(245,158,11,0.3)" }} />
@@ -54,7 +56,8 @@ export function FlipCard() {
             <span className="h-px flex-1" style={{ background: "rgba(245,158,11,0.3)" }} />
           </div>
           <div className="text-[11px] text-text-muted">
-            Hover to reveal your <span className="text-warning">real</span> USD return →
+            Hover to reveal your <span className="text-warning">{t("real")}</span>
+            {t("USD return →")}
           </div>
         </div>
 
@@ -67,23 +70,25 @@ export function FlipCard() {
           }}
         >
           <div className="text-[10px] font-semibold uppercase tracking-widest text-warning">
-            The Reality — After PKR Decay
+            {t("The Reality — After PKR Decay")}
           </div>
           <div className="mt-8">
-            <div className="text-[11px] text-text-muted">Real USD Return</div>
+            <div className="text-[11px] text-text-muted">{t("Real USD Return")}</div>
             <div className="mt-1 font-mono text-[44px] font-bold leading-none text-bear">-3.2%</div>
-            <div className="mt-2 text-[11px] text-text-secondary">After 16.2% PKR devaluation</div>
+            <div className="mt-2 text-[11px] text-text-secondary">
+              {t("After 16.2% PKR devaluation")}
+            </div>
           </div>
           <div
             className="mt-8 rounded-[8px] p-3 text-[12px] text-warning"
             style={{ background: "rgba(245,158,11,0.1)" }}
           >
             <span className="inline-flex items-center gap-1.5">
-              <AlertTriangle className="h-3.5 w-3.5" strokeWidth={1.5} /> PKR 1,02,722 eroded by
-              devaluation this year
+              <AlertTriangle className="h-3.5 w-3.5" strokeWidth={1.5} />
+              {t("PKR 1,02,722 eroded by devaluation this year")}
             </span>
           </div>
-          <div className="mt-4 text-[11px] text-text-muted">Tap to flip back</div>
+          <div className="mt-4 text-[11px] text-text-muted">{t("Tap to flip back")}</div>
         </div>
       </motion.div>
     </div>

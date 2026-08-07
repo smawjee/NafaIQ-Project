@@ -21,6 +21,7 @@ import {
   usePsxLiveMarket,
   usePsxRealtime,
   usePsxHistory,
+  usePsxIntraday,
   usePsxSymbols,
   usePsxIndexData,
   usePsxBatchSignals,
@@ -44,9 +45,14 @@ import { PsxWatchlistCard } from "@/features/psx/components/PsxWatchlistCard";
 import { PsxMoversCard } from "@/features/psx/components/PsxMoversCard";
 import { PsxSectorHeatmap } from "@/features/psx/components/PsxSectorHeatmap";
 import {
+  fetchDaysFor,
+  indexBarsHaveNoRange,
+  intradayFallbackBars,
   reconcileLiveCandle,
-  tfDays,
   symbolMeta,
+  tfSpec,
+  windowBars,
+  windowStartIndex,
   type LiveCandleInput,
 } from "@/features/psx/psx.utils";
 
@@ -84,9 +90,17 @@ export function PSX() {
   // Scope realtime to this user's watchlist plus the active stock chart symbol,
   // so the chart/header and watchlist refresh from the same live tick.
   usePsxRealtime(realtimeSymbols);
-  const { data: ohlcvData } = usePsxHistory(
+  const spec = tfSpec(tf);
+  // One fetch depth covers 1D…1Y, so the toolbar re-slices cached bars instead
+  // of firing a request per button; only "All" pays for the full history.
+  const { data: ohlcvData } = usePsxHistory(selectedIndexCode ? undefined : sym, fetchDaysFor(tf));
+  // Intraday exists for equities only — `psx_intraday` is fed from
+  // `psx_market_snapshot`, which carries no index rows. An index on 1D/1W
+  // therefore falls through to the daily fallback below.
+  const { data: intradayData } = usePsxIntraday(
     selectedIndexCode ? undefined : sym,
-    Math.max(365, tfDays(tf)),
+    spec.sessions || 1,
+    spec.kind === "intraday" && !selectedIndexCode,
   );
   const { data: symbolsData } = usePsxSymbols();
   const { data: selectedIndexData } = usePsxIndexData(selectedIndexCode);
@@ -165,8 +179,6 @@ export function PSX() {
     }));
   }, [indexCards, getSparkline]);
 
-  const visibleCount = tfDays(tf);
-
   const full = useMemo(() => {
     const asc = <T extends { date: string }>(rows: T[]) =>
       [...rows].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
@@ -204,30 +216,51 @@ export function PSX() {
     return [];
   }, [selectedIndexCode, selectedIndexData, sym, ohlcvData, chartLiveCandle, isDemo]);
 
-  // Phase 0 / B3: detect "OHLC columns are all-null" (true for many index EOD
-  // rows from DPS). In that case, fall back to a line chart so the user sees a
-  // real curve instead of a row of flat dojis.
-  const allIndexOhlcNull = useMemo(() => {
+  // Phase 0 / B3: index EOD rows carry no intraday range, so a candlestick has
+  // nothing to draw — fall back to a line chart and show a real curve.
+  //
+  // This used to test only for NULL open/high/low. The API never returns nulls:
+  // it coalesces the missing columns to the close, so every KSE-100 bar arrives
+  // as open == high == low == close. The guard therefore never fired and the
+  // index chart rendered 1,000 zero-range dojis — a row of 1px dashes. Testing
+  // for "no range" catches both shapes, and a genuine OHLC index (any bar with
+  // a high above its low) still draws as candles.
+  const indexHasNoCandleRange = useMemo(() => {
     if (!selectedIndexCode) return false;
-    if (!selectedIndexData || selectedIndexData.length === 0) return false;
-    // Any non-null open/high/low means we have real candles.
-    return selectedIndexData.every((b) => b.open == null && b.high == null && b.low == null);
+    return indexBarsHaveNoRange(selectedIndexData ?? []);
   }, [selectedIndexCode, selectedIndexData]);
-  const effectiveType = allIndexOhlcNull ? "line" : type;
+  const effectiveType = indexHasNoCandleRange ? "line" : type;
 
-  const data = full.slice(-visibleCount);
+  // 1D/1W draw 5-minute bars when there are any. Indices never have them, and
+  // equities won't before the market has been open with the capture job
+  // running, so both fall back to a short window of daily candles.
+  const hasIntraday = spec.kind === "intraday" && (intradayData?.length ?? 0) > 0;
+  const data = useMemo(() => {
+    if (hasIntraday) return windowBars(intradayData!, tf);
+    if (spec.kind === "intraday") return full.slice(-intradayFallbackBars(tf));
+    // The window is measured in calendar time from the newest bar, not in
+    // bars: `slice(-tfDays(tf))` treated a calendar-day count as a bar count
+    // and over-rendered every timeframe by ~1.45x.
+    return windowBars(full, tf);
+  }, [full, hasIntraday, intradayData, spec.kind, tf]);
   const hasData = data.length > 0;
-  // Compute MAs over the full 250-point series (so MA200 warms up), then align
-  // to the visible window — otherwise short timeframes render an empty MA line.
+  // MAs are computed over the FULL fetched series (so MA200 is warmed up) and
+  // sliced with the same start index as the visible bars. Intraday passes
+  // `undefined` so the chart derives them from the 5-minute series instead —
+  // daily averages plotted against intraday bars would be meaningless.
   const maSeries = useMemo(() => {
-    const start = Math.max(0, full.length - visibleCount);
+    if (spec.kind === "intraday" && hasIntraday) return undefined;
+    const start =
+      spec.kind === "intraday"
+        ? Math.max(0, full.length - intradayFallbackBars(tf))
+        : windowStartIndex(full, tf);
     return {
       ma20: sma(full, 20).slice(start),
       ma50: sma(full, 50).slice(start),
       ma100: sma(full, 100).slice(start),
       ma200: sma(full, 200).slice(start),
     };
-  }, [full, visibleCount]);
+  }, [full, hasIntraday, spec.kind, tf]);
   const last = data[data.length - 1];
   const livePrice =
     chartLiveCandle?.price != null && Number.isFinite(chartLiveCandle.price)
@@ -494,6 +527,7 @@ export function PSX() {
                       mas={mas}
                       maSeries={maSeries}
                       currentPrice={!selectedIndexCode ? displayPrice : undefined}
+                      tf={tf}
                     />
                   ) : (
                     <CandlestickChart
@@ -503,10 +537,24 @@ export function PSX() {
                       mas={mas}
                       maSeries={maSeries}
                       currentPrice={!selectedIndexCode ? displayPrice : undefined}
+                      tf={tf}
                     />
                   )}
                 </div>
-                {allIndexOhlcNull && selectedIndexCard?.value != null && (
+                {/* Say WHY 1D/1W are showing daily candles. Without this the
+                    chart silently swaps series and the timeframe button reads
+                    as broken. Indices never have intraday bars at all —
+                    psx_intraday is fed from the equity snapshot. */}
+                {spec.kind === "intraday" && !hasIntraday && (
+                  <p className="mt-2 text-[11px] text-text-muted">
+                    {selectedIndexCode
+                      ? t("Intraday bars aren't available for indices — showing daily candles.")
+                      : t(
+                          "Intraday bars aren't available for this symbol yet — showing daily candles instead.",
+                        )}
+                  </p>
+                )}
+                {indexHasNoCandleRange && selectedIndexCard?.value != null && (
                   <p className="mt-2 text-[11px] text-text-muted">
                     {t(
                       "Index OHLC is daily-only — showing a close line. Live tick is the latest point.",

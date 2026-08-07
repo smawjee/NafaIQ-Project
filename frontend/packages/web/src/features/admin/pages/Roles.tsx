@@ -125,7 +125,9 @@ export function AdminRoles() {
       <PageHeader
         title={t("Roles & Access")}
         breadcrumbs={[{ label: t("Admin"), to: "/admin" }, { label: t("Roles & Access") }]}
-        description="Roles and their permission mapping are fixed in the database. To grant or revoke a role, open the administrator's profile — every change is written to the audit log."
+        description={t(
+          "Roles and their permission mapping are fixed in the database. To grant or revoke a role, open the administrator's profile — every change is written to the audit log.",
+        )}
         meta={adminsQ.data && <Badge tone="neutral">{adminsQ.data.length} administrators</Badge>}
       />
 
@@ -134,18 +136,18 @@ export function AdminRoles() {
         onValueChange={(v) => setSearch({ tab: v as AdminRolesSearch["tab"] })}
       >
         <Tabs.List
-          aria-label="Access sections"
+          aria-label={t("Access sections")}
           className="flex flex-wrap gap-1 border-b border-border"
         >
-          <TabTrigger value="admins">Administrators</TabTrigger>
-          <TabTrigger value="roles">Roles</TabTrigger>
-          <TabTrigger value="matrix">Permission matrix</TabTrigger>
+          <TabTrigger value="admins">{t("Administrators")}</TabTrigger>
+          <TabTrigger value="roles">{t("Roles")}</TabTrigger>
+          <TabTrigger value="matrix">{t("Permission matrix")}</TabTrigger>
         </Tabs.List>
 
         <Tabs.Content value="admins" className="pt-5 focus-visible:outline-none">
           <Panel flush>
             <DataTable
-              label="Administrators"
+              label={t("Administrators")}
               columns={adminColumns}
               rows={filteredAdmins}
               getRowId={(r) => r.user_id}
@@ -156,15 +158,17 @@ export function AdminRoles() {
               onClearFilters={() => setAdminQuery("")}
               emptyState={
                 <EmptyBlock
-                  label="No administrators found"
-                  hint="Bootstrap the first admin via ADMIN_BOOTSTRAP_EMAILS, then grant roles from a user profile."
+                  label={t("No administrators found")}
+                  hint={t(
+                    "Bootstrap the first admin via ADMIN_BOOTSTRAP_EMAILS, then grant roles from a user profile.",
+                  )}
                 />
               }
               toolbar={
                 <SearchInput
                   value={adminQuery}
                   onChange={setAdminQuery}
-                  placeholder="Filter administrators…"
+                  placeholder={t("Filter administrators…")}
                   className="max-w-xs"
                 />
               }
@@ -201,7 +205,7 @@ export function AdminRoles() {
                     </SectionLabel>
                     <div className="flex flex-wrap gap-1">
                       {r.permissions.length === 0 ? (
-                        <span className="text-xs text-text-muted">None</span>
+                        <span className="text-xs text-text-muted">{t("None")}</span>
                       ) : (
                         r.permissions.map((p) => (
                           <code
@@ -222,8 +226,10 @@ export function AdminRoles() {
 
         <Tabs.Content value="matrix" className="pt-5 focus-visible:outline-none">
           <Panel
-            title="Role × permission matrix"
-            description="The authoritative mapping the backend uses to authorize every admin request."
+            title={t("Role × permission matrix")}
+            description={t(
+              "The authoritative mapping the backend uses to authorize every admin request.",
+            )}
             flush
           >
             {rolesQ.isLoading || permsQ.isLoading ? (
@@ -257,6 +263,7 @@ function PermissionMatrix({
   roles: { slug: string; name: string; permissions: string[] }[];
   permissions: string[];
 }) {
+  const { t } = useLang();
   const sets = useMemo(() => new Map(roles.map((r) => [r.slug, new Set(r.permissions)])), [roles]);
   return (
     <div className="overflow-x-auto">
@@ -267,7 +274,7 @@ function PermissionMatrix({
               scope="col"
               className="sticky start-0 z-10 bg-card px-3 py-2.5 text-start text-[11px] font-semibold uppercase tracking-wide text-text-muted"
             >
-              Permission
+              {t("Permission")}
             </th>
             {roles.map((r) => (
               <th

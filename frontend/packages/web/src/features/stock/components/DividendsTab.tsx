@@ -9,7 +9,7 @@ export function DividendsTab({ symbol }: { symbol: string }) {
   if (isLoading) {
     return (
       <div className="py-6 text-center text-sm text-text-secondary">
-        <Loader2 className="mr-2 inline h-4 w-4 animate-spin" />
+        <Loader2 className="me-2 inline h-4 w-4 animate-spin" />
         {t("Loading dividends...")}
       </div>
     );
@@ -42,26 +42,26 @@ export function DividendsTab({ symbol }: { symbol: string }) {
     <div className="overflow-x-auto">
       <table className="w-full text-sm">
         <thead>
-          <tr className="border-b border-border text-left text-[11px] text-text-muted">
-            <th className="py-2 pr-3 font-medium">{t("Ex-Date")}</th>
-            <th className="py-2 pr-3 font-medium">{t("Type")}</th>
-            <th className="py-2 pr-3 text-right font-medium">{t("Per Share")}</th>
-            <th className="py-2 pr-3 text-right font-medium">{t("Bonus %")}</th>
-            <th className="py-2 pr-3 font-medium">{t("Ann. Date")}</th>
+          <tr className="border-b border-border text-start text-[11px] text-text-muted">
+            <th className="py-2 pe-3 font-medium">{t("Ex-Date")}</th>
+            <th className="py-2 pe-3 font-medium">{t("Type")}</th>
+            <th className="py-2 pe-3 text-end font-medium">{t("Per Share")}</th>
+            <th className="py-2 pe-3 text-end font-medium">{t("Bonus %")}</th>
+            <th className="py-2 pe-3 font-medium">{t("Ann. Date")}</th>
           </tr>
         </thead>
         <tbody>
           {data.map((d) => (
             <tr key={d.announcement_id} className="border-b border-border/50">
-              <td className="py-2 pr-3 font-mono text-text-primary">{d.ex_date ?? "—"}</td>
-              <td className="py-2 pr-3 text-text-secondary">{t(d.payout_type)}</td>
-              <td className="py-2 pr-3 text-right font-mono tabular-nums text-text-secondary">
+              <td className="py-2 pe-3 font-mono text-text-primary">{d.ex_date ?? "—"}</td>
+              <td className="py-2 pe-3 text-text-secondary">{t(d.payout_type)}</td>
+              <td className="py-2 pe-3 text-end font-mono tabular-nums text-text-secondary">
                 {d.per_share != null ? d.per_share.toFixed(2) : "—"}
               </td>
-              <td className="py-2 pr-3 text-right font-mono tabular-nums text-text-secondary">
+              <td className="py-2 pe-3 text-end font-mono tabular-nums text-text-secondary">
                 {d.bonus_pct != null ? `${d.bonus_pct}%` : "—"}
               </td>
-              <td className="py-2 pr-3 font-mono text-text-muted">{d.announcement_date ?? "—"}</td>
+              <td className="py-2 pe-3 font-mono text-text-muted">{d.announcement_date ?? "—"}</td>
             </tr>
           ))}
         </tbody>

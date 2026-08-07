@@ -25,7 +25,7 @@ export function DashboardGoals({ hasUser, goals }: { hasUser: boolean; goals: Da
                     <EmojiIcon emoji={g.emoji} size={16} />
                   </span>
                   <span className="font-semibold text-text-primary">{t(g.name)}</span>
-                  <span className="ml-auto font-mono text-sm font-bold tabular-nums text-bull">
+                  <span className="ms-auto font-mono text-sm font-bold tabular-nums text-bull">
                     {pct}%
                   </span>
                 </div>

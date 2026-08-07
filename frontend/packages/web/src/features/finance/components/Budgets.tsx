@@ -100,7 +100,7 @@ export function Budgets() {
                 <AnimatedBar value={Math.min(pct, 100)} className={color} />
               </div>
               {b.tip && (
-                <div className="mt-2 flex items-start gap-1.5 rounded-[6px] border-l-2 border-ai bg-ai-tint px-2.5 py-1.5 text-[11px] text-text-secondary">
+                <div className="mt-2 flex items-start gap-1.5 rounded-[6px] border-s-2 border-ai bg-ai-tint px-2.5 py-1.5 text-[11px] text-text-secondary">
                   <Lightbulb className="mt-0.5 h-3 w-3 shrink-0 text-ai" strokeWidth={1.5} />
                   {t(b.tip)}
                 </div>

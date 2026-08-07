@@ -82,7 +82,9 @@ export function StudioCreateCard() {
           </p>
           {disabledForBackend ? (
             <p className="mt-2 rounded-btn border border-warning/25 bg-warning/10 px-3 py-2 text-xs font-medium text-warning">
-              {t("LearnHub Studio is installed, but disabled on this backend. Enable LEARN_STUDIO_ENABLED and restart the API.")}
+              {t(
+                "LearnHub Studio is installed, but disabled on this backend. Enable LEARN_STUDIO_ENABLED and restart the API.",
+              )}
             </p>
           ) : null}
         </div>
@@ -100,7 +102,7 @@ export function StudioCreateCard() {
           disabled={disabledForBackend}
           className={`rounded-[6px] px-3 py-1.5 text-xs font-semibold ${mode === "topic" ? "bg-bull text-bull-foreground" : "text-text-secondary"}`}
         >
-          <BookOpen className="mr-1.5 inline h-3.5 w-3.5" /> {t("Choose a topic")}
+          <BookOpen className="me-1.5 inline h-3.5 w-3.5" /> {t("Choose a topic")}
         </button>
         <button
           type="button"
@@ -109,7 +111,7 @@ export function StudioCreateCard() {
           disabled={disabledForBackend}
           className={`rounded-[6px] px-3 py-1.5 text-xs font-semibold ${mode === "pdf" ? "bg-bull text-bull-foreground" : "text-text-secondary"}`}
         >
-          <FileUp className="mr-1.5 inline h-3.5 w-3.5" /> {t("Upload a PDF")}
+          <FileUp className="me-1.5 inline h-3.5 w-3.5" /> {t("Upload a PDF")}
         </button>
       </div>
 

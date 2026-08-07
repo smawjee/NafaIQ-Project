@@ -25,8 +25,10 @@ import { PasswordStrength } from "@/features/auth/components/PasswordStrength";
 import { AuthVisualPanel } from "@/features/auth/components/AuthVisualPanel";
 import { ForgotPasswordPanel } from "@/features/auth/ForgotPasswordPanel";
 import { MIN_PASSWORD_LENGTH } from "@/features/auth/password-rules";
+import { useLang } from "@/hooks/use-lang";
 
 export function AuthPage() {
+  const { t } = useLang();
   const {
     user,
     loading,
@@ -145,7 +147,7 @@ export function AuthPage() {
           className="group pointer-events-auto inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-surface/40 px-3.5 py-2 text-xs font-medium text-text-muted backdrop-blur-md transition-all duration-200 hover:border-white/20 hover:text-text-primary"
         >
           <ArrowLeft className="h-3.5 w-3.5 transition-transform duration-200 group-hover:-translate-x-0.5" />
-          Back to home
+          {t("Back to home")}
         </Link>
       </nav>
 
@@ -153,7 +155,7 @@ export function AuthPage() {
       <div className="relative z-10 flex flex-1 flex-col-reverse overflow-hidden md:flex-row-reverse">
         {/* Form column — solid dark panel, form sits directly inside */}
         <div
-          className={`relative flex flex-1 items-center justify-center overflow-hidden rounded-3xl px-4 py-8 sm:px-8 lg:px-12 md:rounded-l-none md:rounded-r-3xl ${isLight ? "bg-white" : "bg-zinc-950"}`}
+          className={`relative flex flex-1 items-center justify-center overflow-hidden rounded-3xl px-4 py-8 sm:px-8 lg:px-12 md:rounded-s-none md:rounded-e-3xl ${isLight ? "bg-white" : "bg-zinc-950"}`}
         >
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -173,12 +175,12 @@ export function AuthPage() {
                 </div>
                 <div className="space-y-2">
                   <h2 className="font-display text-2xl font-bold tracking-tight text-text-primary">
-                    Confirm your email
+                    {t("Confirm your email")}
                   </h2>
                   <p className="text-sm text-text-muted">
                     We sent a confirmation link to{" "}
-                    <span className="font-medium text-text-primary">{email}</span>. Click the link
-                    to activate your NafaIQ account, then sign in.
+                    <span className="font-medium text-text-primary">{email}</span>
+                    {t(". Click the link to activate your NafaIQ account, then sign in.")}
                   </p>
                 </div>
                 <button
@@ -188,7 +190,7 @@ export function AuthPage() {
                   }}
                   className="flex h-[52px] w-full items-center justify-center rounded-xl bg-primary py-3.5 font-semibold text-primary-foreground transition-all duration-200 hover:bg-primary/90 active:scale-[0.98]"
                 >
-                  Go to Sign In
+                  {t("Go to Sign In")}
                 </button>
               </motion.div>
             ) : mode === "forgot" ? (
@@ -208,14 +210,15 @@ export function AuthPage() {
 
                 {maintenanceMode && (
                   <div className="rounded-xl border border-warning/30 bg-warning/10 px-3 py-2.5 text-sm text-warning">
-                    NafaIQ is undergoing scheduled maintenance. You may not be able to sign in until
-                    it completes.
+                    {t(
+                      "NafaIQ is undergoing scheduled maintenance. You may not be able to sign in until it completes.",
+                    )}
                   </div>
                 )}
 
                 {!registrationEnabled && (
                   <div className="rounded-xl border border-border bg-surface-alt px-3 py-2.5 text-sm text-text-secondary">
-                    New sign-ups are temporarily closed. Existing accounts can still sign in.
+                    {t("New sign-ups are temporarily closed. Existing accounts can still sign in.")}
                   </div>
                 )}
 
@@ -224,7 +227,7 @@ export function AuthPage() {
                 <div className="relative flex items-center">
                   <div className="flex-1 border-t border-border" />
                   <span className="px-3 text-xs font-medium text-text-muted">
-                    Or continue with email
+                    {t("Or continue with email")}
                   </span>
                   <div className="flex-1 border-t border-border" />
                 </div>
@@ -308,7 +311,7 @@ export function AuthPage() {
                           onClick={() => setMode("forgot")}
                           className="text-sm font-medium text-primary transition-colors duration-200 hover:underline"
                         >
-                          Forgot password?
+                          {t("Forgot password?")}
                         </button>
                       </div>
                     )}
@@ -350,14 +353,14 @@ export function AuthPage() {
                         href="#"
                         className="text-text-secondary hover:text-primary hover:underline"
                       >
-                        Terms
+                        {t("Terms")}
                       </a>{" "}
                       &amp;{" "}
                       <a
                         href="#"
                         className="text-text-secondary hover:text-primary hover:underline"
                       >
-                        Privacy Policy
+                        {t("Privacy Policy")}
                       </a>
                       .
                     </p>
@@ -377,7 +380,7 @@ export function AuthPage() {
                     }}
                     className="group mt-1 flex h-11 w-full items-center justify-center gap-2 rounded-xl border border-border bg-surface text-sm font-medium text-text-secondary transition-all duration-200 hover:border-white/[0.12] hover:text-text-primary active:scale-[0.98]"
                   >
-                    Try Demo
+                    {t("Try Demo")}
                   </button>
                 </div>
               </div>

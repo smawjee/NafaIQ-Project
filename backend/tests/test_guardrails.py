@@ -153,3 +153,35 @@ def test_portfolio_holding_symbol_and_sources_required():
     })
     assert "missing_v2_holding_symbol:0" in violations
     assert "missing_v2_holding_sources:0" in violations
+
+
+# --------------------------------------------------------------------------- #
+# descriptive prose is not a directive                                        #
+# --------------------------------------------------------------------------- #
+def test_descriptive_market_prose_is_not_flagged_as_advice():
+    """`imperative-verb-amount` matched the NOUN forms too.
+
+    Any sentence containing "increase", "move", "shift" or "reduce" alongside a
+    number was rejected as a directive — which on a market brief is the entire
+    job. A live brief failed outright on "an increase, while the KSE-30 …".
+    """
+    for text in (
+        "The index posted an increase, while the KSE-30 gained 1.06%.",
+        "Spending saw a reduction of 12% versus last month.",
+        "A shift toward banking accounted for 40% of the move.",
+        "Your savings rate moved to 83.8% this month.",
+        "The 30-day trend shows a 2.5% increase in volume.",
+    ):
+        assert g.find_directives(text) == [], text
+
+
+def test_genuine_directives_are_still_caught():
+    for text in (
+        "You should reduce dining by 5000.",
+        "Increase your allocation to banks by 10%.",
+        "Sell 100 shares of HBL.",
+        "We recommend increasing your exposure.",
+        "You should buy 50 shares.",
+        "Buy OGDC.",
+    ):
+        assert g.find_directives(text), text

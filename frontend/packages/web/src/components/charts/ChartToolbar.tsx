@@ -38,7 +38,10 @@ export function symbolLabel(
   t: (k: string) => string,
   nameFor?: (sym: string) => string,
 ) {
-  if (INDEX_LABELS.has(sym)) return t(`${sym} Index`);
+  // Translate the word, not the interpolated string: `t(\`${sym} Index\`)` builds
+  // a key like "KSE100 Index" that can never exist in the dictionary, so it
+  // always fell back to English.
+  if (INDEX_LABELS.has(sym)) return `${sym} ${t("Index")}`;
   return nameFor ? `${sym} · ${t(nameFor(sym))}` : sym;
 }
 
@@ -87,7 +90,7 @@ export function ChartToolbar({
           <PopoverTrigger asChild>
             <button
               type="button"
-              className="flex min-w-0 items-center justify-between gap-2 rounded-[6px] border border-border bg-elevated px-3 py-2 text-left text-sm font-medium text-text-primary xl:w-[260px]"
+              className="flex min-w-0 items-center justify-between gap-2 rounded-[6px] border border-border bg-elevated px-3 py-2 text-start text-sm font-medium text-text-primary xl:w-[260px]"
               aria-label={t("Select symbol")}
             >
               <span className="truncate">{symbolLabel(sym, t, nameFor)}</span>
@@ -130,7 +133,7 @@ export function ChartToolbar({
         ))}
       </div>
 
-      <div className="scrollbar-none flex min-w-0 gap-1 overflow-x-auto xl:ml-auto">
+      <div className="scrollbar-none flex min-w-0 gap-1 overflow-x-auto xl:ms-auto">
         <button
           type="button"
           onClick={() => onTypeChange("candle")}

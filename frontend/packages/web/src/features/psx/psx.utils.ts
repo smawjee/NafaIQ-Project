@@ -29,16 +29,150 @@ export interface DisplayIndex {
 /** Matches the `days` upper bound on GET /api/quote/{symbol}/history. */
 export const MAX_HISTORY_DAYS = 3650;
 
-/** Trading days to request/render per timeframe. */
-export function tfDays(tf: string) {
-  // "All" was 250 — identical to "1Y" — so the deepest chart the UI could ever
-  // draw was one year, even though psx_ohlcv holds ~10 years (back to 2016).
-  // 3650 calendar days is the backend's MAX_HISTORY_DAYS bound; at ~250 trading
-  // days/year it resolves to roughly 2500 real bars.
-  return (
-    { "1D": 5, "1W": 14, "1M": 30, "3M": 90, "6M": 130, "1Y": 250, All: MAX_HISTORY_DAYS }[tf] ??
-    250
-  );
+/**
+ * Which series a timeframe reads from, and how much of it to show.
+ *
+ * This replaces `tfDays()`, which returned a single number that callers used
+ * for two incompatible things: as a CALENDAR-day count for the API request and
+ * as a BAR count for the render slice. PSX trades ~250 sessions per 365
+ * calendar days, so every window over-rendered by ~1.45x ("3M" drew 90 bars =
+ * ~4.3 months), and "1D" collapsed to `slice(-5)` — one full trading week of
+ * daily candles rather than a single day.
+ */
+export type TimeframeKind = "intraday" | "daily";
+
+export interface TimeframeSpec {
+  kind: TimeframeKind;
+  /** Trading sessions to show. Intraday only. */
+  sessions: number;
+  /** Calendar months to show, measured back from the newest bar. Daily only. */
+  months: number;
+}
+
+const TF_SPECS: Record<string, TimeframeSpec> = {
+  // 1D and 1W read `psx_intraday` (5-minute bars). Daily bars cannot express
+  // either window: one trading day is a single daily candle.
+  "1D": { kind: "intraday", sessions: 1, months: 0 },
+  "1W": { kind: "intraday", sessions: 5, months: 0 },
+  "1M": { kind: "daily", sessions: 0, months: 1 },
+  "3M": { kind: "daily", sessions: 0, months: 3 },
+  "6M": { kind: "daily", sessions: 0, months: 6 },
+  "1Y": { kind: "daily", sessions: 0, months: 12 },
+  // 0 months = unbounded; `windowStartIndex` returns 0 and the whole series draws.
+  All: { kind: "daily", sessions: 0, months: 0 },
+};
+
+export function tfSpec(tf: string): TimeframeSpec {
+  return TF_SPECS[tf] ?? TF_SPECS["6M"];
+}
+
+/**
+ * One fetch depth for every bounded timeframe.
+ *
+ * 655 days is a 1Y window (365) plus the ~290 calendar days of warmup MA200
+ * needs to be non-null at the window's left edge — the MAs are computed over
+ * the full series and sliced with it, so a short fetch would blank them.
+ * Rounding to 750 gives headroom over holiday-heavy stretches.
+ *
+ * Sharing one depth across 1D…1Y matters because the depth is part of the
+ * React Query key: distinct values per timeframe meant every toolbar click
+ * fired a fresh request for bars already in cache.
+ */
+export const DAILY_FETCH_DAYS = 750;
+export const FULL_FETCH_DAYS = MAX_HISTORY_DAYS;
+
+export function fetchDaysFor(tf: string): number {
+  return tfSpec(tf).months === 0 && tfSpec(tf).kind === "daily"
+    ? FULL_FETCH_DAYS
+    : DAILY_FETCH_DAYS;
+}
+
+const DAY_MS = 86_400_000;
+
+/**
+ * Index of the first bar inside `tf`'s window.
+ *
+ * The cutoff is measured from the NEWEST BAR, not from `Date.now()`. Measuring
+ * from now would shrink every window over a weekend or a holiday, and would
+ * empty the chart entirely for a symbol that has stopped trading.
+ *
+ * Returns 0 rather than an empty window when the whole series predates the
+ * cutoff: a chart with nothing in it reads as broken, not as "no recent trades".
+ */
+export function windowStartIndex(bars: readonly { t: number }[], tf: string): number {
+  if (bars.length === 0) return 0;
+  const spec = tfSpec(tf);
+  const last = bars[bars.length - 1].t;
+
+  let cutoff: number;
+  if (spec.kind === "intraday") {
+    // Sessions are counted by distinct local calendar days present in the data
+    // rather than by subtracting N*24h — PSX is closed at weekends, so five
+    // sessions can span nine calendar days.
+    const days: number[] = [];
+    for (let i = bars.length - 1; i >= 0; i--) {
+      const day = Math.floor(bars[i].t / DAY_MS);
+      if (days[days.length - 1] !== day) {
+        if (days.length === spec.sessions) return i + 1;
+        days.push(day);
+      }
+    }
+    return 0;
+  } else if (spec.months === 0) {
+    return 0;
+  } else {
+    const d = new Date(last);
+    d.setMonth(d.getMonth() - spec.months);
+    cutoff = d.getTime();
+  }
+
+  const start = bars.findIndex((b) => b.t >= cutoff);
+  return start <= 0 ? 0 : start;
+}
+
+/** The bars `tf` should draw. */
+export function windowBars<T extends { t: number }>(bars: readonly T[], tf: string): T[] {
+  return bars.slice(windowStartIndex(bars, tf));
+}
+
+/**
+ * True when index bars carry no intraday range, so a candlestick has nothing
+ * to draw and the chart should show a line instead.
+ *
+ * Two shapes reach this. DPS omits open/high/low on some index rows, and the
+ * API coalesces those missing columns to the close — so bars arrive either with
+ * nulls or, far more often, as open == high == low == close. Testing only for
+ * null (as this once did) missed the second shape entirely, and the KSE-100
+ * chart rendered 1,000 zero-range dojis: a row of 1px dashes where a curve
+ * belonged. Any bar with a high above its low still means real candles.
+ */
+export function indexBarsHaveNoRange(
+  bars: readonly {
+    open?: number | null;
+    high?: number | null;
+    low?: number | null;
+    close: number;
+  }[],
+): boolean {
+  if (bars.length === 0) return false;
+  return bars.every((b) => {
+    if (b.open == null && b.high == null && b.low == null) return true;
+    return (b.high ?? b.close) === (b.low ?? b.close);
+  });
+}
+
+/**
+ * Daily bars to draw when an intraday timeframe has no intraday data.
+ *
+ * `psx_intraday` only accumulates while the market is open and is pruned to a
+ * short window, so 1D/1W have nothing to show on a fresh deployment, outside
+ * trading hours on a symbol that never traded, or for a newly-listed ticker.
+ * Windowing the DAILY series by the intraday rule would be literally correct
+ * and useless — "1D" would resolve to a single candle. These counts give a
+ * legible fallback instead, and the UI says which series it is showing.
+ */
+export function intradayFallbackBars(tf: string): number {
+  return { "1D": 10, "1W": 20 }[tf] ?? 20;
 }
 
 export interface LiveCandleInput {

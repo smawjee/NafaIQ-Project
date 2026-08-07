@@ -33,8 +33,20 @@ DIRECTIVE_PATTERNS: list[tuple[str, re.Pattern[str]]] = [
      re.compile(r"\b(we\s+recommend|i\s+recommend|recommend(?:ed|ation)?)\s+"
                 r"(buying|selling|allocating|investing|reducing|increasing|"
                 r"rebalancing)\b", re.I)),
+    # A directive verb PLUS an amount, but only where the sentence actually
+    # instructs: at the start of a sentence (imperative), or aimed at the reader
+    # ("you should reduce ... by 10%").
+    #
+    # Without the leading context this matched the NOUN forms too, so any
+    # sentence containing "increase", "move", "shift" or "reduce" alongside a
+    # number was flagged as financial advice. On a market brief that is the
+    # entire job: "the index posted an increase, while the KSE-30 gained 1.06%"
+    # was rejected as a directive, failing the whole report after its one
+    # correction. Genuinely imperative forms are still caught here and by the
+    # you-should-act / we-recommend-act / imperative-sentence-start patterns.
     ("imperative-verb-amount",
-     re.compile(r"\b(buy|sell|purchase|allocate|move|shift|reduce|increase|"
+     re.compile(r"(?:(?:^|[.!?]\s+)|\byou\s+(?:should|must|need\s+to|ought\s+to)\s+)"
+                r"(?:buy|sell|purchase|allocate|move|shift|reduce|increase|"
                 r"rebalance|dump)\b[^.\n]*?\b\d+\s*%?", re.I)),
     ("imperative-sentence-start",
      re.compile(r"(?:^|[.!?]\s+)(buy|sell|purchase|allocate|dump|rebalance)\b", re.I)),

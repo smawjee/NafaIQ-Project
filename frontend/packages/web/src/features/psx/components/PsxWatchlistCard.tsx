@@ -1,5 +1,5 @@
 import { Link } from "@tanstack/react-router";
-import { Info, Plus, Star } from "lucide-react";
+import { Info, Plus, Star, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { StockSearchBox } from "@/components/search/StockSearchBox";
@@ -24,8 +24,10 @@ export function PsxWatchlistCard({
   batchSignals,
 }: {
   symbols: string[];
-  onAdd: (symbol: string) => void;
-  onRemove: (symbol: string) => void;
+  // Async-aware: the watchlist hook rolls back and rethrows on server refusal,
+  // so callers here must await before reporting the outcome.
+  onAdd: (symbol: string) => void | Promise<void>;
+  onRemove: (symbol: string) => void | Promise<void>;
   addOpen: boolean;
   onAddOpenChange: (open: boolean) => void;
   snapshot?: { symbol: string; price?: number | null; change_pct?: number | null }[];
@@ -52,13 +54,19 @@ export function PsxWatchlistCard({
               autoFocus
               addedSymbols={symbols}
               placeholder={t("Search stocks to add…")}
-              onSelect={(r) => {
+              onSelect={async (r) => {
                 if (symbols.includes(r.symbol)) {
                   toast(`${r.symbol} ${t("is already in your watchlist")}`);
                   return;
                 }
-                onAdd(r.symbol);
-                toast.success(`${r.symbol} ${t("added to watchlist")}`);
+                // The server enforces the max_watchlist quota and rejects
+                // unknown symbols — don't claim success before it answers.
+                try {
+                  await onAdd(r.symbol);
+                  toast.success(`${r.symbol} ${t("added to watchlist")}`);
+                } catch {
+                  toast.error(`${t("Could not add")} ${r.symbol}. ${t("Please try again.")}`);
+                }
               }}
             />
           </PopoverContent>
@@ -85,16 +93,14 @@ export function PsxWatchlistCard({
               key={tk}
               className="group flex items-center gap-2 rounded-[6px] px-2 py-1.5 hover:bg-hover"
             >
-              <button
-                onClick={() => {
-                  onRemove(tk);
-                  toast(`${tk} ${t("removed from watchlist")}`);
-                }}
-                aria-label={`Remove ${tk}`}
-                className="shrink-0"
-              >
-                <Star className="wl-star h-3.5 w-3.5 text-bull" fill="#00d4aa" />
-              </button>
+              {/* State indicator only. Removal is the explicit trash button at
+                  the end of the row — two controls that both remove (and both
+                  named "Remove HBL") made the star a hidden, guessable action. */}
+              <Star
+                aria-hidden="true"
+                className="wl-star h-3.5 w-3.5 shrink-0 text-bull"
+                fill="#00d4aa"
+              />
               <Link
                 to="/stock/$ticker"
                 params={{ ticker: tk }}
@@ -104,7 +110,7 @@ export function PsxWatchlistCard({
                   <div className="wl-symbol text-sm font-semibold text-bull">{tk}</div>
                   <div className="text-[10px] text-text-muted">{t(liveName)}</div>
                 </div>
-                <div className="text-right">
+                <div className="text-end">
                   {hasPrice ? (
                     <>
                       <div className="font-mono text-sm tabular-nums text-text-primary">
@@ -155,6 +161,29 @@ export function PsxWatchlistCard({
                   </span>
                 )}
               </Link>
+              {/* Sibling of the Link, never nested inside it — a button inside
+                  an anchor is invalid and swallows the click on some browsers.
+                  Always rendered rather than hover-only: hover does not exist
+                  on touch, which is where this shortcut matters most. */}
+              <button
+                type="button"
+                onClick={async () => {
+                  // Await it: onRemove rolls back and rethrows if the server
+                  // rejects, so confirming before it settles would claim a
+                  // removal that did not happen.
+                  try {
+                    await onRemove(tk);
+                    toast(`${tk} ${t("removed from watchlist")}`);
+                  } catch {
+                    toast.error(`${t("Could not remove")} ${tk}. ${t("Please try again.")}`);
+                  }
+                }}
+                aria-label={`${t("Remove")} ${tk} ${t("from watchlist")}`}
+                title={`${t("Remove")} ${tk} ${t("from watchlist")}`}
+                className="shrink-0 rounded-[6px] p-1 text-text-muted transition-colors hover:bg-bear/10 hover:text-bear focus-visible:ring-2 focus-visible:ring-bear/40 focus-visible:outline-none"
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+              </button>
             </div>
           );
         })}

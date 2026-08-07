@@ -24,7 +24,7 @@ export function Blocks({ blocks, accent }: { blocks: ContentBlock[]; accent: str
             <div
               key={i}
               className="my-6 rounded-btn p-4"
-              style={{ background: `${m.color}10`, borderLeft: `3px solid ${m.color}` }}
+              style={{ background: `${m.color}10`, borderInlineStart: `3px solid ${m.color}` }}
             >
               <div
                 className="flex items-center gap-1.5 text-xs font-bold"
@@ -71,7 +71,7 @@ export function Blocks({ blocks, accent }: { blocks: ContentBlock[]; accent: str
                   {b.head.map((h) => (
                     <th
                       key={h}
-                      className="border border-border bg-elevated px-3 py-2 text-left font-bold text-text-primary"
+                      className="border border-border bg-elevated px-3 py-2 text-start font-bold text-text-primary"
                     >
                       {t(h)}
                     </th>

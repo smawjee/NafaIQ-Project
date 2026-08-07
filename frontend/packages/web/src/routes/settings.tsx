@@ -409,8 +409,10 @@ function BankEmailCard({ isLoggedIn, t }: { isLoggedIn: boolean; t: (s: string) 
       const notes: string[] = [];
       if (r.merged > 0) notes.push(`${r.merged} ${t("merged into existing")}`);
       if (r.parse_errors > 0) notes.push(`${r.parse_errors} ${t("could not be read")}`);
-      if (r.broker_pending > 0) notes.push(`${r.broker_pending} ${t("broker confirmation(s) need review")}`);
-      if (r.broker_imported > 0) notes.push(`${r.broker_imported} ${t("broker confirmation(s) imported")}`);
+      if (r.broker_pending > 0)
+        notes.push(`${r.broker_pending} ${t("broker confirmation(s) need review")}`);
+      if (r.broker_imported > 0)
+        notes.push(`${r.broker_imported} ${t("broker confirmation(s) imported")}`);
       const detail = notes.length ? ` (${notes.join(", ")})` : "";
       toast.success(
         (r.imported > 0
@@ -435,7 +437,9 @@ function BankEmailCard({ isLoggedIn, t }: { isLoggedIn: boolean; t: (s: string) 
     <Card className="p-5">
       <div className="mb-4 flex items-center gap-2">
         <Inbox className="h-4 w-4 text-primary" strokeWidth={1.75} />
-        <h2 className="text-sm font-semibold text-text-primary">{t("Bank & broker email import")}</h2>
+        <h2 className="text-sm font-semibold text-text-primary">
+          {t("Bank & broker email import")}
+        </h2>
       </div>
       <p className="mb-4 text-[13px] text-text-secondary">
         {t(
@@ -671,7 +675,7 @@ function BrokerImportsReviewCard({ t }: { t: (s: string) => string }) {
               </div>
               {item.items?.length ? (
                 <div className="mt-3 overflow-x-auto rounded-[8px] border border-border/70">
-                  <table className="min-w-full text-left text-[11px]">
+                  <table className="min-w-full text-start text-[11px]">
                     <thead className="bg-background/40 text-text-muted">
                       <tr>
                         <th className="px-2 py-1.5 font-medium">{t("Symbol")}</th>
@@ -685,12 +689,20 @@ function BrokerImportsReviewCard({ t }: { t: (s: string) => string }) {
                     <tbody>
                       {item.items.map((trade) => (
                         <tr key={trade.id} className="border-t border-border/70">
-                          <td className="px-2 py-1.5 font-semibold text-text-primary">{trade.symbol}</td>
+                          <td className="px-2 py-1.5 font-semibold text-text-primary">
+                            {trade.symbol}
+                          </td>
                           <td className="px-2 py-1.5 text-text-secondary">{trade.side}</td>
                           <td className="px-2 py-1.5 text-text-secondary">{trade.quantity}</td>
-                          <td className="px-2 py-1.5 text-text-secondary">{Number(trade.price).toLocaleString()}</td>
-                          <td className="px-2 py-1.5 text-text-secondary">{Number(trade.fees).toLocaleString()}</td>
-                          <td className="px-2 py-1.5 text-text-secondary">{Number(trade.net_amount).toLocaleString()}</td>
+                          <td className="px-2 py-1.5 text-text-secondary">
+                            {Number(trade.price).toLocaleString()}
+                          </td>
+                          <td className="px-2 py-1.5 text-text-secondary">
+                            {Number(trade.fees).toLocaleString()}
+                          </td>
+                          <td className="px-2 py-1.5 text-text-secondary">
+                            {Number(trade.net_amount).toLocaleString()}
+                          </td>
                         </tr>
                       ))}
                     </tbody>

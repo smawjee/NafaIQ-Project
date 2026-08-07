@@ -47,9 +47,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           the whole primary nav before reaching content. Hidden until focused. */}
       <a
         href="#main-content"
-        className="sr-only focus:not-sr-only focus:absolute focus:left-3 focus:top-3 focus:z-[100] focus:rounded-md focus:bg-primary focus:px-4 focus:py-2 focus:text-sm focus:font-medium focus:text-primary-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+        className="sr-only focus:not-sr-only focus:absolute focus:start-3 focus:top-3 focus:z-[100] focus:rounded-md focus:bg-primary focus:px-4 focus:py-2 focus:text-sm focus:font-medium focus:text-primary-foreground focus:outline-none focus:ring-2 focus:ring-ring"
       >
-        Skip to main content
+        {t("Skip to main content")}
       </a>
 
       {/* ambient depth — very subtle brand wash */}

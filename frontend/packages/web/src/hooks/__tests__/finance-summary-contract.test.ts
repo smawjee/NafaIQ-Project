@@ -29,6 +29,9 @@ const CONTRACT_FIELDS = [
   "last_month_income",
   "last_month_expense",
   "last_month_savings",
+  "opening_balance",
+  "carried_over",
+  "available_balance",
 ] as const;
 
 beforeEach(() => {
@@ -58,7 +61,25 @@ describe("finance summary contract", () => {
     // If a field is dropped from the backend, this assignment still compiles but
     // the key check above fails — together they catch both directions of drift.
     const typed: FinanceSummary = financeSummary;
-    expect(typed.total_income).toBe(typed.income + typed.fixed_income);
+    expect(Number.isFinite(typed.total_income)).toBe(true);
+  });
+
+  it("reconciles the salary against recorded income rather than always adding", () => {
+    // Recorded below the salary => the salary never landed as a transaction,
+    // so it is added. Recorded at or above it => it is already inside, and
+    // adding again would double-count an imported salary credit.
+    const { income, fixed_income, total_income } = financeSummary;
+    const expected = income >= fixed_income ? income : income + fixed_income;
+    expect(total_income).toBe(expected);
+  });
+
+  it("the running balance is carried_over plus this month's savings", () => {
+    // Without these the app resets to zero every month and last month's
+    // unspent balance disappears.
+    const { carried_over, savings, available_balance, opening_balance } = financeSummary;
+    expect(available_balance).toBeCloseTo(carried_over + savings, 2);
+    expect(carried_over).toBeGreaterThanOrEqual(opening_balance);
+    expect(available_balance).toBeGreaterThan(savings);
   });
 
   it("resolves the payload through the hook unchanged", async () => {
@@ -84,11 +105,11 @@ describe("finance summary contract", () => {
   });
 
   it("Overview reads total_income, not income — the field added after ship", () => {
-    // src/features/finance/components/Overview.tsx:71 uses
-    // `summary?.total_income ?? variableIncome`. If the backend stopped sending
-    // total_income, the KPI would silently fall back to the variable income and
-    // under-report a salaried user's monthly income.
-    expect(financeSummary.total_income).toBeGreaterThan(financeSummary.income);
+    // Overview.tsx uses `summary?.total_income ?? variableIncome`. The field
+    // must still be present and numeric; it is no longer strictly greater than
+    // `income`, because the salary is a fallback rather than an addend.
+    expect(financeSummary).toHaveProperty("total_income");
+    expect(Number.isFinite(financeSummary.total_income)).toBe(true);
     expect(financeSummary.fixed_income).toBeGreaterThan(0);
   });
 

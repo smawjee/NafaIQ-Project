@@ -4,6 +4,7 @@ import { ArrowLeft, ArrowRight, Quote } from "lucide-react";
 import { Reveal } from "@/components/shared/animations";
 import { cn } from "@/lib/utils";
 import { useLandingTheme } from "@/hooks/use-landing-theme";
+import { useLang } from "@/hooks/use-lang";
 
 /* ---------- data shape ---------- */
 export type Testimonial = {
@@ -102,6 +103,7 @@ const METRIC_TONE: Record<Testimonial["metricTone"], string> = {
 
 /* ---------- sub-components ---------- */
 function TestimonialCard({ t }: { t: Testimonial }) {
+  const { t: tr } = useLang();
   return (
     <div className="grid grid-cols-1 gap-10 md:grid-cols-[1fr_260px] md:items-center">
       {/* Left: quote + attribution + nav lives in parent */}
@@ -145,7 +147,7 @@ function TestimonialCard({ t }: { t: Testimonial }) {
           </div>
           <div className="min-w-0">
             <div className="truncate text-sm font-semibold text-text-primary">{t.author}</div>
-            <div className="mt-0.5 truncate text-xs text-text-muted">{t.role}</div>
+            <div className="mt-0.5 truncate text-xs text-text-muted">{tr(t.role)}</div>
           </div>
         </div>
       </div>
@@ -189,6 +191,7 @@ function NavButton({
   label: string;
   icon: typeof ArrowLeft;
 }) {
+  const { t } = useLang();
   return (
     <button
       type="button"
@@ -209,6 +212,7 @@ function NavButton({
 
 /* ---------- main section ---------- */
 export function TestimonialsSection() {
+  const { t } = useLang();
   const [index, setIndex] = useState(0);
   const [direction, setDirection] = useState<1 | -1>(1);
   const reduceMotion = useReducedMotion();
@@ -261,7 +265,7 @@ export function TestimonialsSection() {
       ref={sectionRef}
       id="testimonials"
       aria-labelledby={`${regionId}-heading`}
-      aria-label="Customer testimonials"
+      aria-label={t("Customer testimonials")}
       role="region"
       tabIndex={-1}
       className="mx-auto max-w-[1040px] scroll-mt-[var(--nav-h)] border-t border-border px-6 py-[60px] lg:py-[100px] focus:outline-none"
@@ -271,7 +275,7 @@ export function TestimonialsSection() {
           id={`${regionId}-heading`}
           className="text-[28px] font-bold leading-[1.2] sm:text-[40px]"
         >
-          Trusted by Pakistani Investors
+          {t("Trusted by Pakistani Investors")}
         </h2>
       </Reveal>
 
@@ -315,9 +319,13 @@ export function TestimonialsSection() {
 
           {/* Navigation cluster — grouped as one unit, bottom-left */}
           <div className="mt-8 flex items-center gap-3 sm:gap-4">
-            <NavButton onClick={prev} label="Previous testimonial" icon={ArrowLeft} />
+            <NavButton onClick={prev} label={t("Previous testimonial")} icon={ArrowLeft} />
 
-            <div className="flex items-center gap-2" role="tablist" aria-label="Select testimonial">
+            <div
+              className="flex items-center gap-2"
+              role="tablist"
+              aria-label={t("Select testimonial")}
+            >
               {TESTIMONIALS.map((t, i) => {
                 const active = i === index;
                 return (
@@ -351,9 +359,9 @@ export function TestimonialsSection() {
               })}
             </div>
 
-            <NavButton onClick={next} label="Next testimonial" icon={ArrowRight} />
+            <NavButton onClick={next} label={t("Next testimonial")} icon={ArrowRight} />
 
-            <span className="ml-1 text-xs tabular-nums text-text-muted" aria-hidden="true">
+            <span className="ms-1 text-xs tabular-nums text-text-muted" aria-hidden="true">
               {index + 1} / {count}
             </span>
           </div>

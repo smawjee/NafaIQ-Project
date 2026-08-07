@@ -60,7 +60,7 @@ function HelpRoute() {
                 <span className="block text-[11px] font-semibold uppercase tracking-wide text-text-muted">
                   {t("Support email")}
                 </span>
-                <span className="break-all">usmankhalidj15@gmail.com</span>
+                <span className="break-all">{t("usmankhalidj15@gmail.com")}</span>
               </span>
             </a>
             <a

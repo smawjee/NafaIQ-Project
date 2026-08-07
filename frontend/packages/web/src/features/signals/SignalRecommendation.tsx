@@ -1,5 +1,6 @@
 import type { ApiRecommendation, ApiTechnicalSetup } from "@/lib/psx/signals";
 import { cn } from "@/lib/utils";
+import { useLang } from "@/hooks/use-lang";
 
 const ratingLabel: Record<string, string> = {
   STRONG_BUY: "Strong Buy",
@@ -60,6 +61,7 @@ export function SignalRecommendation({
   recommendation?: ApiRecommendation | null;
   setup?: ApiTechnicalSetup | null;
 }) {
+  const { t } = useLang();
   if (!recommendation) return null;
 
   const rec = recommendation;
@@ -80,7 +82,7 @@ export function SignalRecommendation({
     <div className="rounded-[9px] border border-border bg-surface-alt/60 p-3">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <h4 className="text-sm font-semibold text-text-primary">Recommendation</h4>
+          <h4 className="text-sm font-semibold text-text-primary">{t("Recommendation")}</h4>
           <p className="mt-0.5 text-[11px] text-text-muted">
             Based on {rec.sample_size.toLocaleString()} comparable cases in PSX history
           </p>
@@ -133,7 +135,7 @@ export function SignalRecommendation({
             <span>
               Range {pct(rec.p_lower!)}–{pct(rec.p_upper!)}
             </span>
-            <span>95% confidence</span>
+            <span>{t("95% confidence")}</span>
           </div>
         </div>
       ) : null}
@@ -153,7 +155,7 @@ export function SignalRecommendation({
       {disagrees && setup?.rating ? (
         <p className="mt-2 rounded-[6px] border border-primary/30 bg-primary/[0.06] p-2 text-[11px] text-text-secondary">
           Indicators currently read <strong>{setup.rating}</strong>, but this is about what happened{" "}
-          <em>next</em>: on PSX, stocks in this state went on to rise{" "}
+          <em>{t("next")}</em>: on PSX, stocks in this state went on to rise{" "}
           {rec.p != null ? pct(rec.p) : "—"} of the time over the following {rec.horizon_sessions}{" "}
           sessions. Measured, not a promise.
         </p>
@@ -180,8 +182,9 @@ export function SignalRecommendation({
 
       {rec.asymmetric ? (
         <p className="mt-2 text-[10px] italic text-text-muted">
-          Buy calls require stronger evidence than sell calls — on PSX the sell-side signal has
-          historically been the more reliable of the two.
+          {t(
+            "Buy calls require stronger evidence than sell calls — on PSX the sell-side signal has historically been the more reliable of the two.",
+          )}
         </p>
       ) : null}
     </div>

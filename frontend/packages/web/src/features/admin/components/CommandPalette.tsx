@@ -16,6 +16,7 @@ import { adminApi } from "@/features/admin/data/client";
 import { useAdmin } from "@/features/admin/data/useAdmin";
 import { ADMIN_NAV } from "@/features/admin/data/nav";
 import { Avatar, Kbd, StatusBadge } from "./primitives";
+import { useLang } from "@/hooks/use-lang";
 
 export function CommandPalette({
   open,
@@ -24,6 +25,7 @@ export function CommandPalette({
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
+  const { t } = useLang();
   const navigate = useNavigate();
   const { can } = useAdmin();
   const [query, setQuery] = useState("");
@@ -61,16 +63,16 @@ export function CommandPalette({
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm data-[state=open]:animate-in data-[state=open]:fade-in-0" />
         <Dialog.Content
-          aria-label="Admin command palette"
+          aria-label={t("Admin command palette")}
           className={cn(
             "admin-root fixed start-1/2 top-[12vh] z-50 w-[calc(100vw-2rem)] max-w-xl -translate-x-1/2 rtl:translate-x-1/2",
             "overflow-hidden rounded-2xl border border-border bg-popover shadow-[var(--admin-elev-3)]",
             "data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95 data-[state=open]:duration-150",
           )}
         >
-          <Dialog.Title className="sr-only">Search the admin console</Dialog.Title>
+          <Dialog.Title className="sr-only">{t("Search the admin console")}</Dialog.Title>
           <Dialog.Description className="sr-only">
-            Jump to an admin section or look up a user by email or name.
+            {t("Jump to an admin section or look up a user by email or name.")}
           </Dialog.Description>
 
           <Command shouldFilter={false} loop className="flex flex-col">
@@ -94,7 +96,7 @@ export function CommandPalette({
                 No matches for &ldquo;{trimmed}&rdquo;
               </Command.Empty>
 
-              <Group heading="Go to">
+              <Group heading={t("Go to")}>
                 {navItems
                   .filter(
                     (i) =>
@@ -112,7 +114,7 @@ export function CommandPalette({
               </Group>
 
               {canSearchUsers && trimmed.length >= 2 && (usersQ.data?.items.length ?? 0) > 0 && (
-                <Group heading="Users">
+                <Group heading={t("Users")}>
                   {usersQ.data!.items.map((u) => (
                     <Item key={u.id} onSelect={() => go("/admin/users/$userId", { userId: u.id })}>
                       <Avatar email={u.email} size="sm" />

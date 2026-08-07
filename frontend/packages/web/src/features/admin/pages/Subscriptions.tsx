@@ -221,19 +221,19 @@ export function AdminSubscriptions() {
           ) : (
             <div className="grid gap-3 sm:grid-cols-3">
               <KpiCard
-                label="Total users"
+                label={t("Total users")}
                 value={total.toLocaleString()}
                 available={tiers?.available}
-                hint="Across all tiers"
+                hint={t("Across all tiers")}
               />
               <KpiCard
-                label="Paid tiers"
+                label={t("Paid tiers")}
                 value={paidCount.toLocaleString()}
                 available={tiers?.available}
                 hint={total > 0 ? `${((paidCount / total) * 100).toFixed(1)}% of base` : undefined}
               />
               <KpiCard
-                label="Free tier"
+                label={t("Free tier")}
                 value={(tierData.Free ?? 0).toLocaleString()}
                 available={tiers?.available}
                 hint={
@@ -246,18 +246,18 @@ export function AdminSubscriptions() {
           )}
 
           <div className="grid gap-4">
-            <Panel title="Tier distribution">
+            <Panel title={t("Tier distribution")}>
               {overviewQ.isLoading ? (
                 <div className="h-[200px] animate-pulse rounded-lg bg-muted" />
               ) : !tiers?.available ? (
-                <EmptyBlock label="Tier data unavailable" />
+                <EmptyBlock label={t("Tier data unavailable")} />
               ) : (
                 <DonutChart data={segments} height={220} centerLabel="users" />
               )}
             </Panel>
 
             <Panel
-              title="Manage tiers"
+              title={t("Manage tiers")}
               description={
                 canWrite
                   ? "Change a user's plan directly from this list."
@@ -269,7 +269,7 @@ export function AdminSubscriptions() {
                 <PermissionDenied permission="users.read" />
               ) : (
                 <DataTable
-                  label="Subscriptions"
+                  label={t("Subscriptions")}
                   columns={columns}
                   rows={usersQ.data?.items ?? []}
                   getRowId={(r) => r.id}

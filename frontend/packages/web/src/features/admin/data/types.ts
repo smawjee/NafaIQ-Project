@@ -229,3 +229,34 @@ export interface TelemetrySummary {
   errors: { open_groups: number; active_24h: number; events_24h: number };
   reports: { open_reports: number; investigating: number; new_7d: number; total: number };
 }
+
+/** A LearnHub lecture managed from the admin console (learnhub_lectures). */
+export interface Lecture {
+  id: string;
+  slug: string;
+  title: string;
+  subtitle: string;
+  category: string;
+  level: "Beginner" | "Intermediate" | "Advanced";
+  duration: string;
+  emoji: string;
+  accent: string;
+  type: "article" | "video";
+  video_url: string | null;
+  /** LessonSection[] — same shape the lesson renderer already consumes. */
+  sections: unknown[];
+  /** QuizQuestion[] — same shape the quiz view already consumes. */
+  quiz: unknown[];
+  status: "draft" | "published" | "archived";
+  sort_order: number;
+  created_by: string | null;
+  updated_by: string | null;
+  created_at: string | null;
+  updated_at: string | null;
+}
+
+/** Create/patch payload. Everything optional on patch; the server writes only
+ *  the keys it receives. */
+export type LectureInput = Partial<
+  Omit<Lecture, "id" | "created_by" | "updated_by" | "created_at" | "updated_at">
+> & { reason?: string };

@@ -460,3 +460,60 @@ async def test_confidential_report_does_not_fail_over(monkeypatch):
             _spec(confidential=True, schema=PortfolioReport), lang="en"
         )
     assert gen.providers == ["groq"]  # only the primary attempt, no failover
+
+
+# --------------------------------------------------------------------------- #
+# a correction that comes back WORSE must not replace the first draft         #
+# --------------------------------------------------------------------------- #
+async def test_worse_correction_falls_back_to_the_first_draft(monkeypatch):
+    """The engine used to keep whatever the retry returned, however bad.
+
+    Observed on the live portfolio surface: draft 1 was complete and
+    guardrail-clean but failed on one imprecise citation; the forced correction
+    came back MISSING a required section. Taking the latest draft threw away a
+    good report and hard-failed the surface. Rank the drafts and keep the better.
+    """
+    first = MarketBriefReport(
+        headline="Daily market update",
+        # One orphan number -> fails verification, but compliance is clean.
+        observations=["The index moved to 100000 today, and 42 is unsupported."],
+        considerations=[],
+        disclaimer="Educational information only. Not financial advice.",
+        citations=[
+            Citation(value=100000.0, source_key="indices.kse100.close", as_of="2026-07-14")
+        ],
+    )
+    # The "correction" is strictly worse: a compliance violation AND an orphan.
+    worse = MarketBriefReport(
+        headline="Daily market update",
+        observations=["You should sell HBL right now.", "Also 42 is unsupported."],
+        considerations=[],
+        disclaimer="Educational information only. Not financial advice.",
+        citations=[
+            Citation(value=100000.0, source_key="indices.kse100.close", as_of="2026-07-14")
+        ],
+    )
+    gen = _FakeGen([first, worse])
+    _patch(monkeypatch, gen)
+
+    # The first draft's only problem is a strippable orphan, so once it is kept
+    # the strip path rescues it instead of the surface failing on the worse
+    # draft's directive.
+    result = await engine.generate_report(_spec(), lang="en")
+
+    assert len(gen.calls) == 2, "must still attempt exactly one correction"
+    assert result.verification.verified is True
+    assert "You should sell" not in " ".join(result.report.observations)
+
+
+async def test_better_correction_is_kept(monkeypatch):
+    """The normal path must be unaffected: a correction that fixes the problem
+    still wins."""
+    gen = _FakeGen([_orphan_report(), _clean_report()])
+    _patch(monkeypatch, gen)
+
+    result = await engine.generate_report(_spec(), lang="en")
+
+    assert len(gen.calls) == 2
+    assert result.verification.verified is True
+    assert result.report.headline == "Daily market update"

@@ -97,7 +97,11 @@ export function useRejectBrokerImport() {
 export function useUpdateBrokerAccount() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (data: { accountId: number; mapped_portfolio_id?: number; mode?: "review" | "auto" }) =>
+    mutationFn: (data: {
+      accountId: number;
+      mapped_portfolio_id?: number;
+      mode?: "review" | "auto";
+    }) =>
       userPatch<BrokerAccount>(`/api/portfolio/broker-accounts/${data.accountId}`, {
         mapped_portfolio_id: data.mapped_portfolio_id,
         mode: data.mode,

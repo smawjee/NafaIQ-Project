@@ -43,7 +43,7 @@ export function PortfolioStatCards({
   return (
     <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
       <StatCard
-        label="Portfolio Value"
+        label={t("Portfolio Value")}
         value={
           <CountUpNumber
             value={
@@ -57,7 +57,7 @@ export function PortfolioStatCards({
         sub={`${t("Total Invested")} ${fmtPKR(!useDemoPortfolio ? (portfolioValue?.totals.cost_basis ?? networth?.total_cost_basis ?? 0) : local.totalInvested)}`}
       />
       <StatCard
-        label="Total Invested"
+        label={t("Total Invested")}
         value={
           <CountUpNumber
             value={
@@ -70,8 +70,8 @@ export function PortfolioStatCards({
         }
       />
       <StatCard
-        label="Total Gain"
-        info="Unrealized profit or loss — your holdings' current value minus what you paid."
+        label={t("Total Gain")}
+        info={t("Unrealized profit or loss — your holdings' current value minus what you paid.")}
         value={
           <CountUpNumber
             value={
@@ -108,8 +108,8 @@ export function PortfolioStatCards({
         }
       />
       <StatCard
-        label="Today's P/L"
-        info="Change in your holdings' value today versus yesterday's closing prices."
+        label={t("Today's P/L")}
+        info={t("Change in your holdings' value today versus yesterday's closing prices.")}
         value={
           <CountUpNumber
             value={

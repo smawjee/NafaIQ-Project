@@ -3,6 +3,7 @@ import { useNavigate } from "@tanstack/react-router";
 import { Loader2, ShieldCheck } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { useAdmin } from "@/features/admin/data/useAdmin";
+import { useLang } from "@/hooks/use-lang";
 
 /**
  * Client-side gate for the admin surface. This is UX only — it decides whether
@@ -13,6 +14,7 @@ import { useAdmin } from "@/features/admin/data/useAdmin";
  * simply doesn't exist for them.
  */
 export function AdminGuard({ children }: { children: ReactNode }) {
+  const { t } = useLang();
   const { user, loading } = useAuth();
   const { isAdmin, isLoading } = useAdmin();
   const navigate = useNavigate();
@@ -45,7 +47,7 @@ export function AdminGuard({ children }: { children: ReactNode }) {
           aria-live="polite"
         >
           <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
-          Verifying administrator access…
+          {t("Verifying administrator access…")}
         </div>
       </div>
     );

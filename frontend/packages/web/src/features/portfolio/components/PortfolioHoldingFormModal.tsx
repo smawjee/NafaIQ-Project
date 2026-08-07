@@ -44,7 +44,7 @@ export function PortfolioHoldingFormModal({
             <StockLogo symbol={form.ticker} size={22} />
             <span className="text-sm font-semibold text-bull">{form.ticker}</span>
             {form.sector && (
-              <span className="ml-auto text-[11px] text-text-muted">{form.sector}</span>
+              <span className="ms-auto text-[11px] text-text-muted">{form.sector}</span>
             )}
           </div>
         ) : form.ticker ? (
@@ -56,7 +56,7 @@ export function PortfolioHoldingFormModal({
             <button
               type="button"
               onClick={onChangeSymbol}
-              className="ml-auto text-xs font-medium text-text-muted hover:text-text-primary"
+              className="ms-auto text-xs font-medium text-text-muted hover:text-text-primary"
             >
               {t("Change")}
             </button>

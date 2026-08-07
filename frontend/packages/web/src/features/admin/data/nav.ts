@@ -19,6 +19,7 @@ import {
   ShieldCheck,
   Users,
   LifeBuoy,
+  GraduationCap,
   Wallet,
 } from "lucide-react";
 
@@ -75,6 +76,18 @@ export const ADMIN_NAV: AdminNavSection[] = [
         icon: Wallet,
         permission: "users.tier.read",
         description: "Plan distribution and tier management",
+      },
+    ],
+  },
+  {
+    label: "Content",
+    items: [
+      {
+        to: "/admin/lectures",
+        label: "Lectures",
+        icon: GraduationCap,
+        permission: "learn.read",
+        description: "Add, edit and remove Learn Hub lectures",
       },
     ],
   },

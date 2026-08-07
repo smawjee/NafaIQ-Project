@@ -452,13 +452,14 @@ export function MeterBar({
   segments: { label: string; value: number; className: string }[];
   className?: string;
 }) {
+  const { t } = useLang();
   const total = segments.reduce((s, x) => s + x.value, 0);
   if (total <= 0) return null;
   return (
     <div
       className={cn("flex h-2 w-full overflow-hidden rounded-full bg-muted", className)}
       role="img"
-      aria-label={segments.map((s) => `${s.label}: ${s.value}`).join(", ")}
+      aria-label={segments.map((s) => `${t(s.label)}: ${s.value}`).join(", ")}
     >
       {segments.map((s) => (
         <div
@@ -473,9 +474,10 @@ export function MeterBar({
 
 /** Monospace JSON block for audit before/after payloads. */
 export function CodeBlock({ value, label }: { value: unknown; label?: string }) {
+  const { t } = useLang();
   return (
     <div className="min-w-0">
-      {label && <SectionLabel className="mb-1">{label}</SectionLabel>}
+      {label && <SectionLabel className="mb-1">{t(label)}</SectionLabel>}
       <pre className="max-h-64 overflow-auto rounded-lg border border-border bg-surface-alt p-2.5 text-[11px] leading-relaxed text-text-secondary">
         {JSON.stringify(value, null, 2)}
       </pre>

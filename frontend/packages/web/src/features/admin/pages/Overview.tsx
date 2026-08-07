@@ -78,7 +78,9 @@ export function AdminOverview() {
     <div className="space-y-6">
       <PageHeader
         title={t("Dashboard")}
-        description="Live operational snapshot. Every figure is a real count — a block that can't be computed is labelled, never estimated or faked."
+        description={t(
+          "Live operational snapshot. Every figure is a real count — a block that can't be computed is labelled, never estimated or faked.",
+        )}
         actions={
           <Button
             variant="outline"
@@ -86,7 +88,7 @@ export function AdminOverview() {
             onClick={() => void q.refetch()}
             loading={q.isFetching}
           >
-            Refresh
+            {t("Refresh")}
           </Button>
         }
       />
@@ -101,21 +103,21 @@ export function AdminOverview() {
         <>
           <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
             <KpiCard
-              label="Total users"
+              label={t("Total users")}
               value={formatNumber(u.total_users)}
               available={users?.available}
               icon={<UsersIcon className="h-4 w-4" />}
               hint={`${formatNumber(u.new_users_30d)} joined in 30d`}
             />
             <KpiCard
-              label="New this week"
+              label={t("New this week")}
               value={formatNumber(u.new_users_7d)}
               available={users?.available}
               icon={<UserPlus className="h-4 w-4" />}
-              hint="Sign-ups in the last 7 days"
+              hint={t("Sign-ups in the last 7 days")}
             />
             <KpiCard
-              label="Active this week"
+              label={t("Active this week")}
               value={formatNumber(u.active_users_7d)}
               available={users?.available}
               icon={<Activity className="h-4 w-4" />}
@@ -126,11 +128,11 @@ export function AdminOverview() {
               }
             />
             <KpiCard
-              label="Suspended"
+              label={t("Suspended")}
               value={formatNumber(u.suspended_users)}
               available={users?.available}
               icon={<ShieldAlert className="h-4 w-4" />}
-              hint="Blocked from authenticated actions"
+              hint={t("Blocked from authenticated actions")}
             />
           </div>
 
@@ -138,8 +140,8 @@ export function AdminOverview() {
 
           <div className="grid gap-4">
             <Panel
-              title="Subscription tiers"
-              description="Distribution across the whole user base"
+              title={t("Subscription tiers")}
+              description={t("Distribution across the whole user base")}
               actions={
                 can("users.tier.read") && (
                   <Link
@@ -153,8 +155,8 @@ export function AdminOverview() {
             >
               {!tiers?.available ? (
                 <EmptyBlock
-                  label="Tier data unavailable"
-                  hint="The aggregate query failed on this request."
+                  label={t("Tier data unavailable")}
+                  hint={t("The aggregate query failed on this request.")}
                 />
               ) : (
                 <DonutChart data={tierSegments} height={220} centerLabel="users" />
@@ -162,11 +164,11 @@ export function AdminOverview() {
             </Panel>
 
             <Panel
-              title="Platform engagement"
-              description="Lifetime totals across user-owned records"
+              title={t("Platform engagement")}
+              description={t("Lifetime totals across user-owned records")}
             >
               {!engagement?.available ? (
-                <EmptyBlock label="Engagement data unavailable" />
+                <EmptyBlock label={t("Engagement data unavailable")} />
               ) : (
                 <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
                   {ENGAGEMENT_ROWS.map((row) => {
@@ -179,7 +181,7 @@ export function AdminOverview() {
                       >
                         <div className="flex items-center gap-1.5 text-xs text-text-muted">
                           <row.icon className="h-3.5 w-3.5" aria-hidden />
-                          {row.label}
+                          {t(row.label)}
                         </div>
                         <div
                           className="tabular mt-1.5 text-xl font-semibold text-text-primary"
@@ -196,8 +198,8 @@ export function AdminOverview() {
           </div>
 
           <Panel
-            title="Recent admin activity"
-            description="Latest entries from the append-only audit log"
+            title={t("Recent admin activity")}
+            description={t("Latest entries from the append-only audit log")}
             flush
             actions={
               can("audit.read") && (
@@ -212,8 +214,8 @@ export function AdminOverview() {
           >
             {q.data!.recent_actions.length === 0 ? (
               <EmptyBlock
-                label="No admin actions recorded yet"
-                hint="Suspensions, tier changes, role grants and flag edits all appear here."
+                label={t("No admin actions recorded yet")}
+                hint={t("Suspensions, tier changes, role grants and flag edits all appear here.")}
               />
             ) : (
               <ul className="divide-y divide-border">
@@ -227,7 +229,7 @@ export function AdminOverview() {
       )}
 
       {q.isLoading && (
-        <Panel title="Recent admin activity">
+        <Panel title={t("Recent admin activity")}>
           <PanelSkeleton lines={5} />
         </Panel>
       )}

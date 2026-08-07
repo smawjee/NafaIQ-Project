@@ -58,13 +58,15 @@ export function AdminFlags() {
       <PageHeader
         title={t("Feature Flags")}
         breadcrumbs={[{ label: t("Admin"), to: "/admin" }, { label: t("Feature Flags") }]}
-        description="Typed, validated platform switches read by the backend at request time. Changing one takes effect immediately without a redeploy, and every edit is written to the audit log."
+        description={t(
+          "Typed, validated platform switches read by the backend at request time. Changing one takes effect immediately without a redeploy, and every edit is written to the audit log.",
+        )}
         meta={q.data && <Badge tone="neutral">{q.data.length} flags</Badge>}
         actions={
           <SearchInput
             value={filter}
             onChange={setFilter}
-            placeholder="Filter flags…"
+            placeholder={t("Filter flags…")}
             className="w-full sm:w-56"
           />
         }
@@ -73,7 +75,8 @@ export function AdminFlags() {
       {!canWrite && (
         <div className="rounded-xl border border-border bg-surface-alt px-4 py-3 text-sm text-text-muted">
           You have read-only access to feature flags. Editing requires the{" "}
-          <code className="rounded bg-muted px-1 py-0.5 text-xs">flags.write</code> permission.
+          <code className="rounded bg-muted px-1 py-0.5 text-xs">{t("flags.write")}</code>{" "}
+          permission.
         </div>
       )}
 
@@ -127,6 +130,7 @@ function FlagCard({
   onSave: (value: unknown) => void;
   onSetEnabled: (enabled: boolean) => void;
 }) {
+  const { t } = useLang();
   const confirm = useConfirm();
 
   return (
@@ -136,7 +140,7 @@ function FlagCard({
           <div className="flex flex-wrap items-center gap-2">
             <code className="font-mono text-sm font-semibold text-text-primary">{flag.key}</code>
             <Badge tone="neutral">{flag.type}</Badge>
-            {!flag.enabled && <Badge tone="warning">disabled</Badge>}
+            {!flag.enabled && <Badge tone="warning">{t("disabled")}</Badge>}
           </div>
           {flag.description && (
             <p className="mt-1 text-xs leading-relaxed text-text-muted">{flag.description}</p>
@@ -257,6 +261,7 @@ function ValueEditor({
   disabled: boolean;
   onSave: (value: unknown) => void;
 }) {
+  const { t } = useLang();
   const stored = flag.type === "string" ? String(flag.value ?? "") : String(flag.value ?? "");
   const [draft, setDraft] = useState(stored);
   const [error, setError] = useState<string | null>(null);
@@ -325,7 +330,7 @@ function ValueEditor({
               icon={<Check className="h-3.5 w-3.5" />}
               onClick={save}
             >
-              Save
+              {t("Save")}
             </Button>
             <Button
               size="sm"
@@ -336,7 +341,7 @@ function ValueEditor({
                 setError(null);
               }}
             >
-              Reset
+              {t("Reset")}
             </Button>
           </>
         )}

@@ -543,7 +543,7 @@ export function PsxSectorHeatmap({
               }}
               className="flex w-full items-center gap-2 rounded-[4px] px-2 py-1.5 text-xs hover:bg-hover"
             >
-              <span className="w-40 truncate text-left font-medium text-text-primary">
+              <span className="w-40 truncate text-start font-medium text-text-primary">
                 {t(s.name)}
               </span>
               <span className="text-text-muted">- {s.stock_count}</span>

@@ -10,6 +10,11 @@ from app.services.market._base import get_cache  # noqa: F401
 from app.services.market.heatmap import heatmap, sector_averages  # noqa: F401
 from app.services.market.history import history, history_coverage  # noqa: F401
 from app.services.market.indicators import indicators  # noqa: F401
+# `intraday` is deliberately NOT re-exported here. Binding the name on the
+# package would shadow the submodule of the same name, so
+# `from app.services.market import intraday` would hand back the function and
+# every `intraday.capture_snapshot` in the scheduler would fail at runtime.
+# Callers import the module: `from app.services.market import intraday`.
 from app.services.market.quotes import (  # noqa: F401
     announcements,
     dividends,

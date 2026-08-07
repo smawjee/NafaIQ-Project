@@ -51,7 +51,14 @@ async def test_market_brief_bundle_shape(monkeypatch):
         {"symbol": "HBL", "price": 100.0, "change_pct": -3.0, "volume": 800},
         {"symbol": "PSO", "price": 200.0, "change_pct": 0.0, "volume": 500},
     ]
-    sectors = [{"name": "Oil & Gas", "pct": 1.2}, {"name": "Banking", "pct": -0.5}]
+    # The REAL shape `sector_averages()` returns. This fixture previously used
+    # {"name", "pct"} — the keys the context builder mistakenly read — so the
+    # test agreed with the bug instead of with the producer and the all-null
+    # sector list sailed through CI for as long as it existed.
+    sectors = [
+        {"sector": "Oil & Gas", "avg_change_pct": 1.2, "stock_count": 12},
+        {"sector": "Banking", "avg_change_pct": -0.5, "stock_count": 20},
+    ]
     ann = [{"id": "1", "symbol": "OGDC", "title": "Board meeting", "posted_at": "2026-07-13"}]
 
     monkeypatch.setattr(ctx.market_quotes, "index_cards", _async(cards))

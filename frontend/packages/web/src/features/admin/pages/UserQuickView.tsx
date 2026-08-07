@@ -13,6 +13,7 @@ import { toast } from "sonner";
 import { useConfirm } from "@/components/shared/ConfirmDialog";
 import { adminApi } from "@/features/admin/data/client";
 import { useAdmin } from "@/features/admin/data/useAdmin";
+import { useLang } from "@/hooks/use-lang";
 import {
   Avatar,
   Badge,
@@ -30,6 +31,7 @@ import {
 } from "@/features/admin/components/ui";
 
 export function UserQuickView({ userId, onClose }: { userId: string | null; onClose: () => void }) {
+  const { t } = useLang();
   const qc = useQueryClient();
   const confirm = useConfirm();
   const { can } = useAdmin();
@@ -83,7 +85,7 @@ export function UserQuickView({ userId, onClose }: { userId: string | null; onCl
                 loading={signOutMut.isPending}
                 onClick={() => signOutMut.mutate()}
               >
-                Force sign-out
+                {t("Force sign-out")}
               </Button>
             )}
             {can("users.suspend") &&
@@ -108,7 +110,7 @@ export function UserQuickView({ userId, onClose }: { userId: string | null; onCl
                     })
                   }
                 >
-                  Suspend
+                  {t("Suspend")}
                 </Button>
               ) : (
                 <Button
@@ -122,7 +124,7 @@ export function UserQuickView({ userId, onClose }: { userId: string | null; onCl
                     })
                   }
                 >
-                  Reactivate
+                  {t("Reactivate")}
                 </Button>
               ))}
             <Link
@@ -160,25 +162,25 @@ export function UserQuickView({ userId, onClose }: { userId: string | null; onCl
 
           {user.status_reason && user.account_status !== "active" && (
             <div className="rounded-lg border border-warning/30 bg-warning/10 px-3 py-2 text-xs text-warning">
-              <span className="font-medium">Reason:</span> {user.status_reason}
+              <span className="font-medium">{t("Reason:")}</span> {user.status_reason}
             </div>
           )}
 
           <div>
-            <SectionLabel className="mb-1.5">Account</SectionLabel>
+            <SectionLabel className="mb-1.5">{t("Account")}</SectionLabel>
             <dl className="rounded-lg border border-border bg-surface-alt px-3 py-1">
-              <DataRow label="Joined" value={formatPkt(user.created_at)} />
-              <DataRow label="Last sign-in" value={formatPkt(user.last_sign_in_at)} />
-              <DataRow label="Email confirmed" value={formatPkt(user.email_confirmed_at)} />
-              <DataRow label="Plan selected" value={formatPkt(user.plan_selected_at)} />
+              <DataRow label={t("Joined")} value={formatPkt(user.created_at)} />
+              <DataRow label={t("Last sign-in")} value={formatPkt(user.last_sign_in_at)} />
+              <DataRow label={t("Email confirmed")} value={formatPkt(user.email_confirmed_at)} />
+              <DataRow label={t("Plan selected")} value={formatPkt(user.plan_selected_at)} />
             </dl>
           </div>
 
           <div>
-            <SectionLabel className="mb-1.5">Activity</SectionLabel>
+            <SectionLabel className="mb-1.5">{t("Activity")}</SectionLabel>
             {!user.activity.available || activityCounts.length === 0 ? (
               <p className="rounded-lg border border-border bg-surface-alt px-3 py-2.5 text-xs text-text-muted">
-                Activity metrics unavailable for this account.
+                {t("Activity metrics unavailable for this account.")}
               </p>
             ) : (
               <div className="grid grid-cols-2 gap-2">
@@ -196,7 +198,7 @@ export function UserQuickView({ userId, onClose }: { userId: string | null; onCl
 
           {user.notes.length > 0 && (
             <div>
-              <SectionLabel className="mb-1.5">Latest note</SectionLabel>
+              <SectionLabel className="mb-1.5">{t("Latest note")}</SectionLabel>
               <div className="rounded-lg border border-border bg-surface-alt px-3 py-2.5">
                 <p className="text-sm text-text-primary">{user.notes[0].note}</p>
                 <p className="mt-1 text-[11px] text-text-muted">

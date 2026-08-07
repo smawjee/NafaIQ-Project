@@ -34,7 +34,7 @@ export function HubChatPanel() {
     <div className="flex h-full flex-col overflow-hidden">
       <div ref={scrollRef} className="flex-1 space-y-3 overflow-y-auto p-3">
         {messages.map((m, i) => (
-          <div key={i} className={cn("max-w-[88%]", m.role === "user" ? "ml-auto" : "")}>
+          <div key={i} className={cn("max-w-[88%]", m.role === "user" ? "ms-auto" : "")}>
             <div
               className={cn(
                 "px-3 py-2 text-sm leading-relaxed",
@@ -54,7 +54,7 @@ export function HubChatPanel() {
               <button
                 key={p}
                 onClick={() => submit(p)}
-                className="block w-full rounded-full border border-border px-3 py-1.5 text-left text-[11px] text-text-secondary hover:border-bull hover:text-bull"
+                className="block w-full rounded-full border border-border px-3 py-1.5 text-start text-[11px] text-text-secondary hover:border-bull hover:text-bull"
               >
                 {t(p)}
               </button>

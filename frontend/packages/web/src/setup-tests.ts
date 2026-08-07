@@ -37,14 +37,16 @@ vi.stubGlobal(
   })),
 );
 
-vi.stubGlobal(
-  "ResizeObserver",
-  class {
-    observe() {}
-    unobserve() {}
-    disconnect() {}
-  },
-);
+// Plain assignment, NOT vi.stubGlobal: this config sets `unstubGlobals: true`,
+// which restores every stubbed global in an afterEach — so a stubbed
+// ResizeObserver disappears partway through a file and recharts'
+// ResponsiveContainer throws "ResizeObserver is not defined" on mount. Nothing
+// asserts against it, so there is no reason for it to be a mock at all.
+globalThis.ResizeObserver = class {
+  observe() {}
+  unobserve() {}
+  disconnect() {}
+} as unknown as typeof globalThis.ResizeObserver;
 
 vi.stubGlobal(
   "IntersectionObserver",

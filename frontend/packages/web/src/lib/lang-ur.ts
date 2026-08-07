@@ -151,6 +151,14 @@ export const UR: Record<string, string> = {
   "Mkt Cap": "مارکیٹ کیپ",
   "Sector Heatmap": "سیکٹر ہیٹ میپ",
   "Add Stock": "اسٹاک شامل کریں",
+  // Watchlist row delete button, e.g. "Remove HBL from watchlist".
+  Remove: "ہٹائیں",
+  "from watchlist": "واچ لسٹ سے",
+  // Shown when the server refuses an add/remove and the optimistic update is
+  // rolled back — the user must know the row snapped back on purpose.
+  "Could not remove": "ہٹایا نہیں جا سکا",
+  "Could not add": "شامل نہیں کیا جا سکا",
+  "Please try again.": "براہ کرم دوبارہ کوشش کریں۔",
   // Heatmap tiles are sized by size_metric — a real market cap where we have
   // listed_shares, a volume proxy otherwise. "By Size" over "By Market Cap".
   "By Size": "سائز کے حساب سے",
@@ -1196,4 +1204,1234 @@ export const UR: Record<string, string> = {
     "سبق حذف نہیں ہو سکا۔ براہ کرم دوبارہ کوشش کریں۔",
   "PDF exceeds the 15 MB limit.": "پی ڈی ایف 15 ایم بی کی حد سے بڑی ہے۔",
   "Reading and checking your private PDF": "آپ کی نجی پی ڈی ایف پڑھی اور جانچی جا رہی ہے",
+
+  /* ======================================================================
+     App-wide coverage pass. Keys are the English source strings, so every
+     entry here is what a component literally renders in English.
+     ====================================================================== */
+  // ── AI report panel / charts ──────────────────────────────────────────────
+  Regenerate: "دوبارہ بنائیں",
+  "View plans": "پلانز دیکھیں",
+  "Sign in": "سائن ان",
+  "Coming soon": "جلد آ رہا ہے",
+  "This report is being wired to the verified pipeline. The backend is ready.":
+    "یہ رپورٹ تصدیق شدہ پائپ لائن سے منسلک کی جا رہی ہے۔ بیک اینڈ تیار ہے۔",
+  "Try again": "دوبارہ کوشش کریں",
+  "No price data for this range": "اس مدت کے لیے قیمت کا ڈیٹا دستیاب نہیں",
+  "Reset zoom": "زوم ری سیٹ کریں",
+  "Search symbol or company…": "علامت یا کمپنی تلاش کریں…",
+  Candlestick: "کینڈل سٹک",
+  Line: "لائن",
+  "Select symbol": "علامت منتخب کریں",
+  Top: "سرفہرست",
+
+  // ── Demo mode ─────────────────────────────────────────────────────────────
+  "Demo Mode": "ڈیمو موڈ",
+  "Your changes are not stored permanently.": "آپ کی تبدیلیاں مستقل طور پر محفوظ نہیں ہوتیں۔",
+  "Sign up": "سائن اپ",
+  "to keep your data permanently.": "تاکہ آپ کا ڈیٹا مستقل محفوظ رہے۔",
+  "Demo data reset": "ڈیمو ڈیٹا ری سیٹ ہو گیا",
+  "Reset Demo Data": "ڈیمو ڈیٹا ری سیٹ کریں",
+
+  // ── App shell / navigation ────────────────────────────────────────────────
+  "Skip to main content": "مرکزی مواد پر جائیں",
+  Breadcrumb: "راستہ",
+  "Show menu": "مینو دکھائیں",
+  "Mutual Funds": "میوچل فنڈز",
+  Funds: "فنڈز",
+  "Dividend Calculator": "ڈیویڈنڈ کیلکولیٹر",
+  Dividends: "ڈیویڈنڈز",
+  Investments: "سرمایہ کاری",
+  Learning: "سیکھنا",
+  Tools: "اوزار",
+  "Go Premium": "پریمیم لیں",
+  "No notifications": "کوئی اطلاع نہیں",
+  "Ask NafaIQ AI": "نفع آئی کیو اے آئی سے پوچھیں",
+
+  // ── Stock search ──────────────────────────────────────────────────────────
+  "Loading stocks…": "اسٹاکس لوڈ ہو رہے ہیں…",
+  "Couldn't load stocks. Please try again.": "اسٹاکس لوڈ نہیں ہو سکے۔ براہ کرم دوبارہ کوشش کریں۔",
+  "No stocks found": "کوئی اسٹاک نہیں ملا",
+  Added: "شامل ہو گیا",
+  "Search stocks (e.g. HBL, Engro)…": "اسٹاکس تلاش کریں (مثلاً HBL، Engro)…",
+  "Search stock symbol": "اسٹاک کی علامت تلاش کریں",
+  "Loading symbols…": "علامات لوڈ ہو رہی ہیں…",
+  "Search symbol or company": "علامت یا کمپنی تلاش کریں",
+  "Clear symbol": "علامت صاف کریں",
+  "Could not load symbols. Check your connection and try again.":
+    "علامات لوڈ نہیں ہو سکیں۔ اپنا کنکشن چیک کر کے دوبارہ کوشش کریں۔",
+  "No matching symbol": "کوئی مماثل علامت نہیں",
+  "Scroll to top": "اوپر جائیں",
+
+  // ── Destructive actions / shared dialogs ──────────────────────────────────
+  "Delete all": "سب حذف کریں",
+  "This permanently removes all": "یہ مستقل طور پر ہٹا دیتا ہے تمام",
+  "This action cannot be undone.": "یہ عمل واپس نہیں کیا جا سکتا۔",
+  Deleted: "حذف ہو گیا",
+  "Could not delete. Please try again.": "حذف نہیں ہو سکا۔ براہ کرم دوبارہ کوشش کریں۔",
+  "An unexpected error occurred while rendering this section.":
+    "اس حصے کو دکھاتے ہوئے ایک غیر متوقع خرابی پیش آئی۔",
+
+  // ── Report an issue ───────────────────────────────────────────────────────
+  "We attach the page you're on automatically — no need to describe it.":
+    "آپ جس صفحے پر ہیں وہ ہم خود منسلک کر دیتے ہیں — اسے بیان کرنے کی ضرورت نہیں۔",
+  "e.g. Portfolio total doesn't match my holdings":
+    "مثلاً پورٹ فولیو کا کل میرے ہولڈنگز سے مطابقت نہیں رکھتا",
+  "What you did, what you expected, and what happened instead.":
+    "آپ نے کیا کیا، آپ کو کیا توقع تھی، اور اس کے بجائے کیا ہوا۔",
+  "Thanks — your report has been sent.": "شکریہ — آپ کی رپورٹ بھیج دی گئی ہے۔",
+
+  // ── Admin: command palette & shell ────────────────────────────────────────
+  "Admin command palette": "ایڈمن کمانڈ پیلیٹ",
+  "Search the admin console": "ایڈمن کنسول میں تلاش کریں",
+  "Jump to an admin section or look up a user by email or name.":
+    "کسی ایڈمن سیکشن پر جائیں یا ای میل یا نام سے صارف تلاش کریں۔",
+  "Close panel": "پینل بند کریں",
+  "Date range": "تاریخ کی حد",
+  "Clear search": "تلاش صاف کریں",
+
+  // ── Admin: navigation descriptions ────────────────────────────────────────
+  "Assistant, LearnHub and report usage": "اسسٹنٹ، لرن ہب اور رپورٹ کا استعمال",
+  "Price and app alert volumes and delivery health": "قیمت اور ایپ الرٹس کی مقدار اور ترسیل کی صحت",
+  "Automatically captured client and server failures":
+    "خودکار طور پر ریکارڈ کی گئی کلائنٹ اور سرور کی خرابیاں",
+  "Problems users reported themselves": "وہ مسائل جو صارفین نے خود رپورٹ کیے",
+  "Runtime platform switches": "پلیٹ فارم کے رن ٹائم سوئچز",
+  "Append-only record of every admin action": "ہر ایڈمن کارروائی کا صرف اضافہ ہونے والا ریکارڈ",
+  "Database, scheduler and deployment status": "ڈیٹابیس، شیڈولر اور تعیناتی کی حالت",
+  "Platform snapshot and recent admin activity": "پلیٹ فارم کا خلاصہ اور حالیہ ایڈمن سرگرمی",
+  "Search, inspect, suspend and re-tier accounts":
+    "اکاؤنٹس تلاش کریں، جائزہ لیں، معطل کریں اور ٹیئر تبدیل کریں",
+  "Administrators, roles and permission mapping": "ایڈمنسٹریٹرز، رولز اور اجازتوں کی نقشہ بندی",
+  "Plan distribution and tier management": "پلان کی تقسیم اور ٹیئر کا انتظام",
+  "PSX ingestion pipeline health": "PSX ڈیٹا پائپ لائن کی صحت",
+  "Model registry and computed-table volumes": "ماڈل رجسٹری اور شمار شدہ ٹیبلز کے حجم",
+
+  // ── Admin: account actions ────────────────────────────────────────────────
+  "Send a password reset email?": "پاس ورڈ ری سیٹ ای میل بھیجیں؟",
+  "The reset link goes to the account holder's own inbox. It is never shown to administrators.":
+    "ری سیٹ لنک اکاؤنٹ ہولڈر کے اپنے ان باکس میں جاتا ہے۔ یہ کبھی ایڈمنسٹریٹرز کو نہیں دکھایا جاتا۔",
+  "Irreversible. Use for erasure requests — personal data is destroyed, activity records are kept.":
+    "ناقابلِ واپسی۔ ڈیٹا مٹانے کی درخواستوں کے لیے استعمال کریں — ذاتی ڈیٹا تباہ ہو جاتا ہے، سرگرمی کا ریکارڈ رہتا ہے۔",
+  "Anonymising replaces the email address with an unroutable placeholder, clears the display name and ends all sessions. Portfolios, transactions and finance records are kept so platform totals stay accurate.":
+    "گمنام کرنے سے ای میل ایڈریس کی جگہ ایک ناقابلِ رسائی متبادل آ جاتا ہے، ظاہری نام مٹ جاتا ہے اور تمام سیشنز ختم ہو جاتے ہیں۔ پورٹ فولیوز، لین دین اور مالیاتی ریکارڈ رکھے جاتے ہیں تاکہ پلیٹ فارم کے کل درست رہیں۔",
+  "This cannot be undone. The original email address will not be recoverable.":
+    "یہ واپس نہیں کیا جا سکتا۔ اصل ای میل ایڈریس بحال نہیں ہو سکے گا۔",
+  "Email replaced with an unroutable placeholder":
+    "ای میل کی جگہ ایک ناقابلِ رسائی متبادل رکھ دیا گیا",
+  "All sessions revoked and the account suspended": "تمام سیشنز منسوخ اور اکاؤنٹ معطل کر دیا گیا",
+  "Portfolios, transactions and finance records are kept":
+    "پورٹ فولیوز، لین دین اور مالیاتی ریکارڈ محفوظ رکھے جاتے ہیں",
+  "Type the account's email to confirm": "تصدیق کے لیے اکاؤنٹ کی ای میل لکھیں",
+  "Reason (optional, recorded in the audit log)": "وجہ (اختیاری، آڈٹ لاگ میں محفوظ ہوتی ہے)",
+  "e.g. user erasure request": "مثلاً صارف کے ڈیٹا مٹانے کی درخواست",
+  "These reach into the authentication system. Every one is recorded in the audit log.":
+    "یہ تصدیقی نظام تک پہنچتے ہیں۔ ہر ایک آڈٹ لاگ میں ریکارڈ ہوتا ہے۔",
+  "Sign this user out everywhere?": "اس صارف کو ہر جگہ سے سائن آؤٹ کریں؟",
+  "Revokes every active session immediately. They can sign in again straight away — use Suspend if you want to block access.":
+    "ہر فعال سیشن فوراً منسوخ کر دیتا ہے۔ وہ فوراً دوبارہ سائن ان کر سکتے ہیں — رسائی روکنے کے لیے معطل کریں استعمال کریں۔",
+
+  // ── Admin: alerts ─────────────────────────────────────────────────────────
+  "Fired (24h)": "چلے (24 گھنٹے)",
+  "Price alerts triggered in the last day": "پچھلے دن میں چلنے والے قیمت الرٹس",
+  "Distinct users holding a price alert": "قیمت الرٹ رکھنے والے منفرد صارفین",
+  "Alert events raised in the last 7 days": "پچھلے 7 دنوں میں اٹھائے گئے الرٹ ایونٹس",
+  "Delivery data unavailable": "ترسیل کا ڈیٹا دستیاب نہیں",
+  "No alert events in the last 7 days": "پچھلے 7 دنوں میں کوئی الرٹ ایونٹ نہیں",
+  "Either no alerts met their conditions, or the evaluator isn't running.":
+    "یا تو کسی الرٹ کی شرائط پوری نہیں ہوئیں، یا ایویلیویٹر نہیں چل رہا۔",
+  Delivered: "پہنچا دیا گیا",
+  Undelivered: "نہیں پہنچا",
+  "By channel": "چینل کے لحاظ سے",
+  "Daily volume over the last 14 days (PKT)": "پچھلے 14 دنوں کا روزانہ حجم (PKT)",
+  "Event history unavailable": "ایونٹ کی تاریخ دستیاب نہیں",
+  "App alerts by type": "قسم کے لحاظ سے ایپ الرٹس",
+  "Enabled and disabled combined": "فعال اور غیر فعال ملا کر",
+  "App alert data unavailable": "ایپ الرٹ ڈیٹا دستیاب نہیں",
+  "No app alerts have been created yet": "ابھی تک کوئی ایپ الرٹ نہیں بنایا گیا",
+  "Across all enabled price alerts": "تمام فعال قیمت الرٹس میں",
+  "Symbol data unavailable": "علامت کا ڈیٹا دستیاب نہیں",
+  "No active price alerts": "کوئی فعال قیمت الرٹ نہیں",
+  "Active alerts": "فعال الرٹس",
+  "Distinct users": "منفرد صارفین",
+  "Platform-wide alert volume and delivery health. Aggregates only — the contents of an individual user's alerts are never exposed to this console.":
+    "پورے پلیٹ فارم پر الرٹس کا حجم اور ترسیل کی صحت۔ صرف مجموعی اعداد — کسی انفرادی صارف کے الرٹس کا مواد اس کنسول پر کبھی ظاہر نہیں ہوتا۔",
+
+  // ── Admin: audit log ──────────────────────────────────────────────────────
+  "Every administrative action, append-only and immutable. Written in the same transaction as the change it records, so the log can never drift from reality. All times in PKT.":
+    "ہر انتظامی کارروائی، صرف اضافہ ہونے والی اور ناقابلِ تبدیل۔ جس تبدیلی کو ریکارڈ کرتی ہے اسی ٹرانزیکشن میں لکھی جاتی ہے، اس لیے لاگ کبھی حقیقت سے ہٹ نہیں سکتا۔ تمام اوقات PKT میں۔",
+  "Audit log": "آڈٹ لاگ",
+  "No admin actions recorded yet": "ابھی تک کوئی ایڈمن کارروائی ریکارڈ نہیں ہوئی",
+  "Suspensions, tier changes, role grants and flag edits all land here.":
+    "معطلیاں، ٹیئر کی تبدیلیاں، رول کی منظوریاں اور فلیگ کی ترامیم سب یہاں آتی ہیں۔",
+  "Filter by action, e.g. admin.user.tier": "کارروائی کے لحاظ سے چھانیں، مثلاً admin.user.tier",
+  "Clear actor filter": "کارکن کا فلٹر صاف کریں",
+  "Who & when": "کون اور کب",
+  "Actor roles": "کارکن کے رولز",
+  Timestamp: "وقت کی مہر",
+  "Request ID": "درخواست کی شناخت",
+  "Resource ID": "وسیلے کی شناخت",
+  "Target user": "ہدف صارف",
+  Reason: "وجہ",
+  Before: "پہلے",
+  After: "بعد میں",
+
+  // ── Admin: bug reports & errors ───────────────────────────────────────────
+  "Problems users reported themselves. These catch what automatic capture cannot — wrong numbers, confusing flows, and anything that fails without throwing.":
+    "وہ مسائل جو صارفین نے خود رپورٹ کیے۔ یہ وہ چیزیں پکڑتے ہیں جو خودکار نظام نہیں پکڑ سکتا — غلط اعداد، الجھے ہوئے مراحل، اور ہر وہ چیز جو خرابی دکھائے بغیر ناکام ہو۔",
+  "Bug reports": "بگ رپورٹس",
+  "Users can file one from the lifebuoy icon in the app header.":
+    "صارفین ایپ ہیڈر میں لائف بوائے آئیکن سے رپورٹ درج کر سکتے ہیں۔",
+  "Shown to the user on their report. Saved with the status you pick.":
+    "صارف کو ان کی رپورٹ پر دکھایا جاتا ہے۔ آپ کی منتخب کردہ حالت کے ساتھ محفوظ ہوتا ہے۔",
+  Resolved: "حل ہو گیا",
+  Bug: "بگ",
+  Data: "ڈیٹا",
+  Billing: "بلنگ",
+  "Failures captured automatically from the app and the API, grouped so one bug is one row. Personal data is stripped before storage; events are kept for 30 days.":
+    "ایپ اور API سے خودکار طور پر ریکارڈ کی گئی خرابیاں، اس طرح گروپ کی گئی ہیں کہ ایک بگ ایک قطار ہو۔ محفوظ کرنے سے پہلے ذاتی ڈیٹا نکال دیا جاتا ہے؛ ایونٹس 30 دن رکھے جاتے ہیں۔",
+  "Nothing has failed in this window. Client crashes and API 5xxs appear here automatically.":
+    "اس مدت میں کچھ ناکام نہیں ہوا۔ کلائنٹ کریش اور API 5xx یہاں خودکار طور پر ظاہر ہوتے ہیں۔",
+  "Marked resolved. If this error is captured again it will reopen automatically — a bug that recurs was not fixed.":
+    "حل شدہ نشان زد۔ اگر یہ خرابی دوبارہ ریکارڈ ہوئی تو خودکار طور پر دوبارہ کھل جائے گی — جو بگ دوبارہ آئے وہ ٹھیک نہیں ہوا تھا۔",
+  "No stored occurrences (they may have aged out).":
+    "کوئی محفوظ واقعہ نہیں (ممکن ہے مدت گزر چکی ہو)۔",
+  Ignored: "نظر انداز",
+  Client: "کلائنٹ",
+  Server: "سرور",
+
+  // ── Admin: flags & monitoring ─────────────────────────────────────────────
+  "Typed, validated platform switches read by the backend at request time. Changing one takes effect immediately without a redeploy, and every edit is written to the audit log.":
+    "ٹائپ شدہ، تصدیق شدہ پلیٹ فارم سوئچز جو بیک اینڈ ہر درخواست پر پڑھتا ہے۔ کسی ایک کو بدلنا فوراً نافذ ہو جاتا ہے، دوبارہ تعیناتی کے بغیر، اور ہر ترمیم آڈٹ لاگ میں لکھی جاتی ہے۔",
+  "Filter flags…": "فلیگز چھانیں…",
+  "No records": "کوئی ریکارڈ نہیں",
+  "No data": "کوئی ڈیٹا نہیں",
+  "Health of the PSX ingestion pipeline — per-source status, the live index snapshot and the market snapshot table.":
+    "PSX ڈیٹا پائپ لائن کی صحت — ہر ذریعے کی حالت، لائیو انڈیکس اسنیپ شاٹ اور مارکیٹ اسنیپ شاٹ ٹیبل۔",
+  "Trigger a market-data refresh?": "مارکیٹ ڈیٹا کی تازہ کاری چلائیں؟",
+  "Runs the market snapshot scrape immediately instead of waiting for the next scheduled tick. Safe to run at any time; the action is recorded in the audit log.":
+    "اگلے شیڈول شدہ وقت کا انتظار کیے بغیر مارکیٹ اسنیپ شاٹ فوراً حاصل کرتا ہے۔ کسی بھی وقت چلانا محفوظ ہے؛ یہ کارروائی آڈٹ لاگ میں ریکارڈ ہوتی ہے۔",
+  "Signals model registry and computed-table volumes. Read-only — the serving path is /api/signals.":
+    "سگنلز ماڈل رجسٹری اور شمار شدہ ٹیبلز کے حجم۔ صرف پڑھنے کے لیے — سروِنگ راستہ /api/signals ہے۔",
+  "Usage counts for the assistant, LearnHub and report generators. No API keys, prompts or user conversations are exposed here.":
+    "اسسٹنٹ، لرن ہب اور رپورٹ جنریٹرز کے استعمال کی گنتی۔ یہاں کوئی API کلید، پرامپٹ یا صارف کی گفتگو ظاہر نہیں ہوتی۔",
+  "Database connectivity and deployment metadata. No secrets, stack traces or environment values are ever returned by this endpoint.":
+    "ڈیٹابیس کنیکٹیویٹی اور تعیناتی کا میٹا ڈیٹا۔ یہ اینڈ پوائنٹ کبھی کوئی خفیہ معلومات، اسٹیک ٹریس یا ماحول کی قدریں واپس نہیں کرتا۔",
+  "Supabase transaction pooler": "Supabase ٹرانزیکشن پولر",
+  "Derived from CORS config": "CORS کنفیگ سے اخذ کردہ",
+  "What this page does not cover": "یہ صفحہ کیا احاطہ نہیں کرتا",
+  "Being explicit about monitoring gaps is more useful than implying full coverage.":
+    "نگرانی کے خلا کو کھل کر بتانا مکمل احاطے کا تاثر دینے سے زیادہ مفید ہے۔",
+  "• Per-job scheduler run history — jobs report into Market Data, not here.":
+    "• فی جاب شیڈولر کی رن ہسٹری — جابز مارکیٹ ڈیٹا میں رپورٹ کرتی ہیں، یہاں نہیں۔",
+  "• Upstream provider health (Gemini, Groq) — see AI Operations for usage volume.":
+    "• اوپری فراہم کنندگان کی صحت (Gemini، Groq) — استعمال کے حجم کے لیے AI آپریشنز دیکھیں۔",
+  "• Application error rates — no error-tracking sink is wired to this console yet.":
+    "• ایپلیکیشن کی خرابی کی شرح — ابھی اس کنسول سے کوئی ایرر ٹریکنگ سنک منسلک نہیں۔",
+  "This metric couldn't be computed on the last request. It is not a zero — the query failed.":
+    "یہ پیمانہ پچھلی درخواست پر شمار نہیں ہو سکا۔ یہ صفر نہیں ہے — کوئری ناکام ہوئی۔",
+
+  // ── Admin: overview ───────────────────────────────────────────────────────
+  "Sign-ups in the last 7 days": "پچھلے 7 دنوں میں سائن اپ",
+  "Blocked from authenticated actions": "تصدیق شدہ کارروائیوں سے روک دیا گیا",
+  "Distribution across the whole user base": "پورے صارف حلقے میں تقسیم",
+  "Tier data unavailable": "ٹیئر کا ڈیٹا دستیاب نہیں",
+  "The aggregate query failed on this request.": "اس درخواست پر مجموعی کوئری ناکام ہو گئی۔",
+  "Lifetime totals across user-owned records": "صارفین کے ریکارڈز پر تاحیات کل",
+  "Engagement data unavailable": "مصروفیت کا ڈیٹا دستیاب نہیں",
+  "Latest entries from the append-only audit log":
+    "صرف اضافہ ہونے والے آڈٹ لاگ کی تازہ ترین اندراجات",
+  "Suspensions, tier changes, role grants and flag edits all appear here.":
+    "معطلیاں، ٹیئر کی تبدیلیاں، رول کی منظوریاں اور فلیگ کی ترامیم سب یہاں ظاہر ہوتی ہیں۔",
+  "Watchlist entries": "واچ لسٹ کے اندراجات",
+  "AI reports": "اے آئی رپورٹس",
+  "Assistant events": "اسسٹنٹ ایونٹس",
+  "Live operational snapshot. Every figure is a real count — a block that can't be computed is labelled, never estimated or faked.":
+    "لائیو آپریشنل خلاصہ۔ ہر عدد ایک حقیقی گنتی ہے — جو بلاک شمار نہ ہو سکے اسے نشان زد کیا جاتا ہے، کبھی اندازہ یا فرضی نہیں بنایا جاتا۔",
+
+  // ── Admin: plans & roles ──────────────────────────────────────────────────
+  "These values are read by the backend on every request, so a change applies immediately — no deploy or restart. Every edit is recorded in the audit log.":
+    "یہ قدریں بیک اینڈ ہر درخواست پر پڑھتا ہے، اس لیے تبدیلی فوراً لاگو ہوتی ہے — نہ تعیناتی نہ ری اسٹارٹ۔ ہر ترمیم آڈٹ لاگ میں ریکارڈ ہوتی ہے۔",
+  "You have read-only access to entitlements. Editing requires the subscriptions.write permission.":
+    "آپ کو حقوق پر صرف پڑھنے کی رسائی ہے۔ ترمیم کے لیے subscriptions.write اجازت درکار ہے۔",
+  "Unlimited — click to set a numeric limit": "لامحدود — عددی حد مقرر کرنے کے لیے کلک کریں",
+  "Roles and their permission mapping are fixed in the database. To grant or revoke a role, open the administrator's profile — every change is written to the audit log.":
+    "رولز اور ان کی اجازتوں کی نقشہ بندی ڈیٹابیس میں طے شدہ ہے۔ رول دینے یا واپس لینے کے لیے ایڈمنسٹریٹر کی پروفائل کھولیں — ہر تبدیلی آڈٹ لاگ میں لکھی جاتی ہے۔",
+  "Access sections": "رسائی کے حصے",
+  "No administrators found": "کوئی ایڈمنسٹریٹر نہیں ملا",
+  "Bootstrap the first admin via ADMIN_BOOTSTRAP_EMAILS, then grant roles from a user profile.":
+    "پہلا ایڈمن ADMIN_BOOTSTRAP_EMAILS کے ذریعے بنائیں، پھر صارف کی پروفائل سے رولز دیں۔",
+  "Filter administrators…": "ایڈمنسٹریٹرز چھانیں…",
+  None: "کوئی نہیں",
+  "Role × permission matrix": "رول × اجازت میٹرکس",
+  "The authoritative mapping the backend uses to authorize every admin request.":
+    "وہ مستند نقشہ جو بیک اینڈ ہر ایڈمن درخواست کی اجازت دینے کے لیے استعمال کرتا ہے۔",
+  Permission: "اجازت",
+  "Tier distribution and inline tier management, plus the entitlements each plan grants. There is no payment-provider integration yet — tiers are assigned manually and every change is audited.":
+    "ٹیئر کی تقسیم اور اسی جگہ ٹیئر کا انتظام، نیز ہر پلان کے دیے گئے حقوق۔ ابھی کوئی ادائیگی فراہم کنندہ منسلک نہیں — ٹیئرز دستی طور پر دیے جاتے ہیں اور ہر تبدیلی کا آڈٹ ہوتا ہے۔",
+  "Across all tiers": "تمام ٹیئرز میں",
+
+  // ── Admin: user detail ────────────────────────────────────────────────────
+  "Suspend this account?": "اس اکاؤنٹ کو معطل کریں؟",
+  "Status reason:": "حالت کی وجہ:",
+  "User sections": "صارف کے حصے",
+  "Display name": "ظاہری نام",
+  "User ID": "صارف کی شناخت",
+  "Last sign-in": "آخری سائن ان",
+  "Email confirmed": "ای میل کی تصدیق ہوئی",
+  "Plan selected": "منتخب کردہ پلان",
+  "Records this user owns across the platform": "پلیٹ فارم پر اس صارف کے ریکارڈز",
+  "Activity metrics unavailable": "سرگرمی کے پیمانے دستیاب نہیں",
+  "The per-user aggregate query failed or returned nothing.":
+    "فی صارف مجموعی کوئری ناکام ہوئی یا کچھ واپس نہیں آیا۔",
+  "Manually override this user's plan. Recorded in the audit log with the before/after value.":
+    "اس صارف کا پلان دستی طور پر تبدیل کریں۔ پہلے/بعد کی قدر کے ساتھ آڈٹ لاگ میں ریکارڈ ہوتا ہے۔",
+  "Nothing has failed for them in the retention window.":
+    "برقراری کی مدت میں ان کے لیے کچھ ناکام نہیں ہوا۔",
+  "Roles are resolved server-side from the database on every request — granting one here takes effect immediately.":
+    "رولز ہر درخواست پر سرور کی طرف سے ڈیٹابیس سے طے ہوتے ہیں — یہاں رول دینا فوراً نافذ ہو جاتا ہے۔",
+  "Grant a role": "رول دیں",
+  "Select a role…": "رول منتخب کریں…",
+  "This user holds no administrative roles.": "اس صارف کے پاس کوئی انتظامی رول نہیں۔",
+  "This immediately removes the administrative access that role grants.":
+    "یہ فوراً وہ انتظامی رسائی ہٹا دیتا ہے جو یہ رول دیتا ہے۔",
+  "Internal context for other administrators. Visible only inside this console.":
+    "دیگر ایڈمنسٹریٹرز کے لیے اندرونی سیاق۔ صرف اسی کنسول کے اندر نظر آتا ہے۔",
+  "Add a note about this account…": "اس اکاؤنٹ کے بارے میں نوٹ لکھیں…",
+  "New admin note": "نیا ایڈمن نوٹ",
+  "No notes on this account yet.": "اس اکاؤنٹ پر ابھی کوئی نوٹ نہیں۔",
+  "Every grant and revocation recorded against this account, including revoked entries.":
+    "اس اکاؤنٹ کے خلاف ریکارڈ کی گئی ہر منظوری اور منسوخی، بشمول منسوخ شدہ اندراجات۔",
+  "No role assignments have ever been made for this user.":
+    "اس صارف کے لیے کبھی کوئی رول تفویض نہیں ہوا۔",
+  "Reason:": "وجہ:",
+  "Activity metrics unavailable for this account.":
+    "اس اکاؤنٹ کے لیے سرگرمی کے پیمانے دستیاب نہیں۔",
+  "Latest note": "تازہ ترین نوٹ",
+  "Search the whole user base, inspect an account inline, or open a profile to suspend, re-tier, note or grant roles.":
+    "پورے صارف حلقے میں تلاش کریں، اکاؤنٹ کا اسی جگہ جائزہ لیں، یا معطل کرنے، ٹیئر بدلنے، نوٹ لکھنے یا رول دینے کے لیے پروفائل کھولیں۔",
+  "Each account will be signed out and blocked from every authenticated action until reactivated. This is recorded in the audit log.":
+    "ہر اکاؤنٹ سائن آؤٹ ہو جائے گا اور دوبارہ فعال ہونے تک ہر تصدیق شدہ کارروائی سے روک دیا جائے گا۔ یہ آڈٹ لاگ میں ریکارڈ ہوتا ہے۔",
+  "Access will be restored immediately for each account.":
+    "ہر اکاؤنٹ کی رسائی فوراً بحال کر دی جائے گی۔",
+
+  // ── Alerts ────────────────────────────────────────────────────────────────
+  "Please choose a stock.": "براہ کرم ایک اسٹاک منتخب کریں۔",
+  "Please enter a valid threshold.": "براہ کرم درست حد درج کریں۔",
+  "Percent threshold must be 100 or less.": "فیصد حد 100 یا اس سے کم ہونی چاہیے۔",
+  "Volume multiple must be at least 1.5×.": "حجم کا ضرب کم از کم 1.5× ہونا چاہیے۔",
+  "Please select a bill.": "براہ کرم ایک بل منتخب کریں۔",
+  "Please select a budget category.": "براہ کرم بجٹ کی ایک قسم منتخب کریں۔",
+  "Please select a goal.": "براہ کرم ایک ہدف منتخب کریں۔",
+  "Delete Alert": "الرٹ حذف کریں",
+  "Are you sure you want to delete this alert? This action cannot be undone.":
+    "کیا آپ واقعی یہ الرٹ حذف کرنا چاہتے ہیں؟ یہ عمل واپس نہیں کیا جا سکتا۔",
+  "Alert condition": "الرٹ کی شرط",
+  Threshold: "حد",
+  "No alerts yet. Create your first alert below.":
+    "ابھی کوئی الرٹ نہیں۔ نیچے اپنا پہلا الرٹ بنائیں۔",
+  "Alert Events": "الرٹ ایونٹس",
+  "No notifications yet": "ابھی کوئی اطلاع نہیں",
+  "Your triggered alerts will appear here. Click 'Check now' to evaluate alerts manually.":
+    "آپ کے چلنے والے الرٹس یہاں ظاہر ہوں گے۔ الرٹس دستی طور پر جانچنے کے لیے 'ابھی چیک کریں' پر کلک کریں۔",
+  "Price Alerts": "قیمت الرٹس",
+  Triggered: "چل گیا",
+  Disabled: "غیر فعال",
+
+  // ── Assistant ─────────────────────────────────────────────────────────────
+  Send: "بھیجیں",
+  "Taking you there now.": "آپ کو ابھی وہاں لے جا رہے ہیں۔",
+  "Done. Anything else I can help with?": "ہو گیا۔ اور کسی چیز میں مدد کر سکتا ہوں؟",
+  "Please fill the highlighted details.": "براہ کرم نمایاں کردہ تفصیلات پُر کریں۔",
+  "Please review this before I save it.": "محفوظ کرنے سے پہلے براہ کرم اس کا جائزہ لیں۔",
+  "Working on that now.": "ابھی اس پر کام کر رہا ہوں۔",
+
+  // ── Auth ──────────────────────────────────────────────────────────────────
+  "Back to home": "ہوم پر واپس",
+  "Confirm your email": "اپنی ای میل کی تصدیق کریں",
+  ". Click the link to activate your NafaIQ account, then sign in.":
+    "۔ اپنا نفع آئی کیو اکاؤنٹ فعال کرنے کے لیے لنک پر کلک کریں، پھر سائن ان کریں۔",
+  "Go to Sign In": "سائن ان پر جائیں",
+  "NafaIQ is undergoing scheduled maintenance. You may not be able to sign in until it completes.":
+    "نفع آئی کیو پر طے شدہ دیکھ بھال جاری ہے۔ اس کے مکمل ہونے تک آپ سائن ان نہیں کر سکیں گے۔",
+  "New sign-ups are temporarily closed. Existing accounts can still sign in.":
+    "نئے سائن اپ عارضی طور پر بند ہیں۔ موجودہ اکاؤنٹس اب بھی سائن ان کر سکتے ہیں۔",
+  "Or continue with email": "یا ای میل کے ساتھ جاری رکھیں",
+  "First name": "پہلا نام",
+  "Last name": "آخری نام",
+  "Email address": "ای میل ایڈریس",
+  "Forgot password?": "پاس ورڈ بھول گئے؟",
+  Terms: "شرائط",
+  "Privacy Policy": "پرائیویسی پالیسی",
+  "Try Demo": "ڈیمو آزمائیں",
+  "Register your identity": "اپنی شناخت رجسٹر کریں",
+  "Configure your studio": "اپنا اسٹوڈیو ترتیب دیں",
+  "Finalize your profile": "اپنی پروفائل مکمل کریں",
+  "Join NafaIQ": "نفع آئی کیو میں شامل ہوں",
+  "Follow these 3 quick phases to activate your space.":
+    "اپنی جگہ فعال کرنے کے لیے یہ 3 تیز مراحل مکمل کریں۔",
+  "Continue with Google": "گوگل کے ساتھ جاری رکھیں",
+  "Send code": "کوڈ بھیجیں",
+  "Verification code": "تصدیقی کوڈ",
+  "Verify code": "کوڈ کی تصدیق کریں",
+  "Back to sign in": "سائن ان پر واپس",
+  "At least 8 characters": "کم از کم 8 حروف",
+  "One uppercase letter": "ایک بڑا انگریزی حرف",
+  "One number": "ایک عدد",
+  "One special character": "ایک خاص علامت",
+  "Too weak": "بہت کمزور",
+  Weak: "کمزور",
+  Fair: "ٹھیک ٹھاک",
+  Good: "اچھا",
+  Strong: "مضبوط",
+
+  // ── Dashboard ─────────────────────────────────────────────────────────────
+  "Loading portfolio history...": "پورٹ فولیو کی تاریخ لوڈ ہو رہی ہے...",
+  "No portfolio history yet. Add holdings to build your chart.":
+    "ابھی پورٹ فولیو کی تاریخ نہیں۔ اپنا چارٹ بنانے کے لیے ہولڈنگز شامل کریں۔",
+  "No savings goals yet. Add a goal from Finance to track progress here.":
+    "ابھی کوئی بچت کا ہدف نہیں۔ یہاں پیش رفت دیکھنے کے لیے مالیات سے ہدف شامل کریں۔",
+  "Change in your holdings' value today versus yesterday's closing prices.":
+    "آپ کے ہولڈنگز کی آج کی قدر میں کل کی اختتامی قیمتوں کے مقابلے تبدیلی۔",
+  "Welcome to NafaIQ!": "نفع آئی کیو میں خوش آمدید!",
+  "Add your first holding, transaction, or goal to get started with real insights.":
+    "حقیقی بصیرت شروع کرنے کے لیے اپنی پہلی ہولڈنگ، لین دین یا ہدف شامل کریں۔",
+  "Your portfolio's market value plus cash — your total wealth on NafaIQ.":
+    "آپ کے پورٹ فولیو کی مارکیٹ قدر اور نقدی — نفع آئی کیو پر آپ کی کل دولت۔",
+  "The total cost basis of your holdings — what you originally paid for them.":
+    "آپ کے ہولڈنگز کی کل لاگت — جو آپ نے اصل میں ادا کیا تھا۔",
+  "cost basis": "لاگت کی بنیاد",
+  "Data based": "ڈیٹا پر مبنی",
+  "Refresh recommendation": "تجویز تازہ کریں",
+  "Refreshing…": "تازہ ہو رہا ہے…",
+  "AI recommendation of the day": "دن کی اے آئی تجویز",
+  "Preparing your daily nudge…": "آپ کا روزانہ مشورہ تیار ہو رہا ہے…",
+  "Tap to see today's insight from your finances":
+    "اپنی مالیات سے آج کی بصیرت دیکھنے کے لیے ٹیپ کریں",
+  "Price unavailable": "قیمت دستیاب نہیں",
+  "removed from watchlist": "واچ لسٹ سے ہٹا دیا گیا",
+  "Your watchlist is empty. Add stocks from the PSX page to track them here.":
+    "آپ کی واچ لسٹ خالی ہے۔ یہاں نظر رکھنے کے لیے PSX صفحے سے اسٹاکس شامل کریں۔",
+
+  // ── Macro widget ──────────────────────────────────────────────────────────
+  "Macro Snapshot": "معاشی خلاصہ",
+  "Interest Rates": "شرح سود",
+  "KIBOR 3M": "کائبور 3 ماہ",
+  "KIBOR 6M": "کائبور 6 ماہ",
+  "Policy Rate": "پالیسی ریٹ",
+  "Exchange Rates": "زرِ مبادلہ کی شرحیں",
+  "USD / PKR": "امریکی ڈالر / روپیہ",
+  "EUR / PKR": "یورو / روپیہ",
+  "GBP / PKR": "پاؤنڈ / روپیہ",
+  Commodities: "اجناس",
+  "Gold (tola)": "سونا (تولہ)",
+
+  // ── Quick-add modals ──────────────────────────────────────────────────────
+  "Please enter a valid milestone.": "براہ کرم درست سنگِ میل درج کریں۔",
+  "Alert created": "الرٹ بن گیا",
+  "Please enter a valid buy price.": "براہ کرم درست خرید قیمت درج کریں۔",
+  "Holding added": "ہولڈنگ شامل ہو گئی",
+  "Buy price per share (PKR)": "فی حصص خرید قیمت (روپے)",
+  "Please enter a merchant name.": "براہ کرم دکاندار کا نام درج کریں۔",
+  "Please select or add a payment method.": "براہ کرم ادائیگی کا طریقہ منتخب کریں یا شامل کریں۔",
+  "Transaction added": "لین دین شامل ہو گیا",
+  "Failed to add transaction.": "لین دین شامل کرنے میں ناکامی۔",
+  "Merchant / description": "دکاندار / تفصیل",
+  "Add new payment method": "ادائیگی کا نیا طریقہ شامل کریں",
+  "e.g. Allied Bank Card, Cheque": "مثلاً الائیڈ بینک کارڈ، چیک",
+  "Please enter a payment method.": "براہ کرم ادائیگی کا طریقہ درج کریں۔",
+
+  // ── Dividends ─────────────────────────────────────────────────────────────
+  "Loading dividend data...": "ڈیویڈنڈ کا ڈیٹا لوڈ ہو رہا ہے...",
+  "Could not load dividend data.": "ڈیویڈنڈ کا ڈیٹا لوڈ نہیں ہو سکا۔",
+  "No dividend announcements available.": "کوئی ڈیویڈنڈ اعلان دستیاب نہیں۔",
+  "Dividend Calendar": "ڈیویڈنڈ کیلنڈر",
+  "Showing the most recent dividend announcements across PSX.":
+    "PSX کے تازہ ترین ڈیویڈنڈ اعلانات دکھائے جا رہے ہیں۔",
+  "Ex-Date": "ایکس ڈیٹ",
+  "Per Share": "فی حصص",
+  "Bonus %": "بونس ٪",
+  "Announcement Date": "اعلان کی تاریخ",
+
+  // ── Bills ─────────────────────────────────────────────────────────────────
+  "Failed to add bill.": "بل شامل کرنے میں ناکامی۔",
+  "Bill marked as paid": "بل ادا شدہ نشان زد",
+  "Could not mark the bill as paid. Please try again.":
+    "بل کو ادا شدہ نشان زد نہیں کیا جا سکا۔ براہ کرم دوبارہ کوشش کریں۔",
+  "Delete bill?": "بل حذف کریں؟",
+  '"{name}" will be permanently removed. This action cannot be undone.':
+    '‏"{name}" مستقل طور پر ہٹا دیا جائے گا۔ یہ عمل واپس نہیں کیا جا سکتا۔',
+
+  "Delete Bill": "بل حذف کریں",
+  "Bill deleted": "بل حذف ہو گیا",
+  "Could not delete bill. Please try again.": "بل حذف نہیں ہو سکا۔ براہ کرم دوبارہ کوشش کریں۔",
+  "Please log in to view and add bills.": "بل دیکھنے اور شامل کرنے کے لیے لاگ اِن کریں۔",
+  "Loading bills...": "بل لوڈ ہو رہے ہیں...",
+  "No bills yet. Add your first bill below.": "ابھی کوئی بل نہیں۔ نیچے اپنا پہلا بل شامل کریں۔",
+  "Recurring monthly (auto-rolls to next month when marked paid)":
+    "ماہانہ تکرار (ادا شدہ نشان زد ہونے پر خودکار طور پر اگلے مہینے چلا جاتا ہے)",
+  "Please log in first.": "براہ کرم پہلے لاگ اِن کریں۔",
+
+  // ── Budgets ───────────────────────────────────────────────────────────────
+  "Add Budget": "بجٹ شامل کریں",
+  "Budget category": "بجٹ کی قسم",
+  "Limit amount (PKR)": "حد کی رقم (روپے)",
+  "Tip (optional) — e.g. Stay under limit to save for Hajj":
+    "مشورہ (اختیاری) — مثلاً حج کے لیے بچت کرنے کو حد کے اندر رہیں",
+  "Please enter a category name.": "براہ کرم قسم کا نام درج کریں۔",
+  "Please enter a valid limit.": "براہ کرم درست حد درج کریں۔",
+  "Budget added": "بجٹ شامل ہو گیا",
+  "Could not add budget — it may already exist or you've hit your plan limit.":
+    "بجٹ شامل نہیں ہو سکا — ہو سکتا ہے پہلے سے موجود ہو یا آپ اپنے پلان کی حد تک پہنچ گئے ہوں۔",
+  "Saving…": "محفوظ ہو رہا ہے…",
+  "No budgets yet. Add your first budget to start tracking spending.":
+    "ابھی کوئی بجٹ نہیں۔ اخراجات پر نظر رکھنے کے لیے اپنا پہلا بجٹ شامل کریں۔",
+
+  // ── Goals ─────────────────────────────────────────────────────────────────
+  "Delete goal?": "ہدف حذف کریں؟",
+  "Delete Goal": "ہدف حذف کریں",
+  "Goal deleted": "ہدف حذف ہو گیا",
+  "Could not delete goal. Please try again.": "ہدف حذف نہیں ہو سکا۔ براہ کرم دوبارہ کوشش کریں۔",
+  "No goals yet. Add your first savings goal to start tracking progress.":
+    "ابھی کوئی ہدف نہیں۔ پیش رفت دیکھنے کے لیے اپنا پہلا بچت ہدف شامل کریں۔",
+  "Delete goal": "ہدف حذف کریں",
+  "Goal created": "ہدف بن گیا",
+  "Could not create goal — you may have reached your plan limit.":
+    "ہدف نہیں بن سکا — ہو سکتا ہے آپ اپنے پلان کی حد تک پہنچ گئے ہوں۔",
+
+  // ── Finance overview ──────────────────────────────────────────────────────
+  "Total Monthly Income": "کل ماہانہ آمدنی",
+  "From your monthly salary": "آپ کی ماہانہ تنخواہ سے",
+  "Recorded this month": "اس مہینے ریکارڈ کیا گیا",
+  "Available Balance": "دستیاب بیلنس",
+  "carried over": "پچھلے مہینے سے آگے لایا گیا",
+  "this month": "اس مہینے",
+
+  // ── Zakat ─────────────────────────────────────────────────────────────────
+  "Zakatable Assets": "زکوٰۃ کے قابل اثاثے",
+  "Total Assets": "کل اثاثے",
+  Liabilities: "واجبات",
+  "Total Liabilities": "کل واجبات",
+  "Nisab Threshold": "نصاب کی حد",
+  "Zakatable Wealth": "زکوٰۃ کے قابل دولت",
+  "Zakat Due (2.5%)": "واجب زکوٰۃ (2.5٪)",
+  "Cash & Bank Balance": "نقد اور بینک بیلنس",
+  "Enter your current cash and bank balance": "اپنا موجودہ نقد اور بینک بیلنس درج کریں",
+  "Gold & Jewelry": "سونا اور زیورات",
+  "Enter gold weight in tola": "سونے کا وزن تولہ میں درج کریں",
+  "Enter silver weight in tola": "چاندی کا وزن تولہ میں درج کریں",
+  "Stocks (PSX)": "اسٹاکس (PSX)",
+  "Live portfolio value, editable": "لائیو پورٹ فولیو قدر، قابلِ ترمیم",
+  "Enter current redeemable value": "موجودہ قابلِ واپسی قدر درج کریں",
+  "Business Inventory": "کاروباری مالِ تجارت",
+  "Self-reported": "خود بتائی گئی",
+  Receivables: "واجب الوصول رقوم",
+  "Money owed to you": "وہ رقم جو آپ کو ملنی ہے",
+  "Property (non-primary)": "جائیداد (رہائشی کے علاوہ)",
+  "Outstanding Loans": "واجب الادا قرضے",
+  "Credit Card Debt": "کریڈٹ کارڈ کا قرض",
+  "Refresh metal prices": "دھاتوں کی قیمتیں تازہ کریں",
+  "Gold per tola": "فی تولہ سونا",
+  "Silver per tola": "فی تولہ چاندی",
+  "Live gold and silver prices are required before Zakat can be calculated.":
+    "زکوٰۃ کے حساب سے پہلے سونے اور چاندی کی لائیو قیمتیں درکار ہیں۔",
+  "Silver Nisab": "چاندی کا نصاب",
+  "Gold Nisab": "سونے کا نصاب",
+  "tola gold": "تولہ سونا",
+  "tola silver": "تولہ چاندی",
+  "Above Nisab - Zakat Due": "نصاب سے اوپر - زکوٰۃ واجب",
+  "Below Nisab - No Zakat Due": "نصاب سے کم - زکوٰۃ واجب نہیں",
+  "Waiting for live metal prices": "دھاتوں کی لائیو قیمتوں کا انتظار",
+  "Could not save this Zakat record. Please try again.":
+    "یہ زکوٰۃ ریکارڈ محفوظ نہیں ہو سکا۔ براہ کرم دوبارہ کوشش کریں۔",
+  "Estimates for guidance only. Nisab and rulings vary by scholar - consult a qualified authority.":
+    "یہ صرف رہنمائی کے لیے اندازے ہیں۔ نصاب اور احکام عالم کے لحاظ سے مختلف ہوتے ہیں - کسی مستند عالم سے رجوع کریں۔",
+  "Use live portfolio value": "لائیو پورٹ فولیو قدر استعمال کریں",
+  "Live rate": "لائیو شرح",
+  "Live rate unavailable": "لائیو شرح دستیاب نہیں",
+
+  // ── Mutual funds ──────────────────────────────────────────────────────────
+  "Loading NAV history...": "NAV کی تاریخ لوڈ ہو رہی ہے...",
+  "No NAV history available.": "NAV کی کوئی تاریخ دستیاب نہیں۔",
+  Date: "تاریخ",
+  "Loading funds...": "فنڈز لوڈ ہو رہے ہیں...",
+  "No mutual funds data available.": "میوچل فنڈز کا کوئی ڈیٹا دستیاب نہیں۔",
+
+  // ── Heatmap ───────────────────────────────────────────────────────────────
+  "Heatmap data unavailable": "ہیٹ میپ کا ڈیٹا دستیاب نہیں",
+  "Market snapshot updates every 5 seconds. If the market is closed, prices reflect the last close. Heatmap will repopulate when live data resumes.":
+    "مارکیٹ اسنیپ شاٹ ہر 5 سیکنڈ بعد تازہ ہوتا ہے۔ اگر مارکیٹ بند ہو تو قیمتیں آخری اختتامی قیمت دکھاتی ہیں۔ لائیو ڈیٹا بحال ہونے پر ہیٹ میپ دوبارہ بھر جائے گا۔",
+  Loss: "نقصان",
+  Gain: "منافع",
+  "Loading market heatmap…": "مارکیٹ ہیٹ میپ لوڈ ہو رہا ہے…",
+  "Click to view details": "تفصیلات دیکھنے کے لیے کلک کریں",
+  "All sectors": "تمام شعبے",
+
+  // ── Learn Hub ─────────────────────────────────────────────────────────────
+  "Flip card": "کارڈ پلٹیں",
+  "Daily tutor limit reached — upgrade your plan or come back tomorrow.":
+    "روزانہ ٹیوٹر کی حد پوری ہو گئی — اپنا پلان اپ گریڈ کریں یا کل واپس آئیں۔",
+  "Sign in to chat with your tutor": "اپنے ٹیوٹر سے بات کرنے کے لیے سائن ان کریں",
+  "Level Progress": "لیول کی پیش رفت",
+  "Urdu + English": "اردو + انگریزی",
+  "Build PSX confidence one lesson at a time": "ایک ایک سبق سے PSX پر اعتماد بنائیں",
+  "Practical investing lessons, quizzes, glossary search, and an AI tutor built for Pakistan's market.":
+    "عملی سرمایہ کاری کے اسباق، کوئزز، اصطلاحات کی تلاش، اور پاکستان کی مارکیٹ کے لیے بنایا گیا اے آئی ٹیوٹر۔",
+  "Start Learning": "سیکھنا شروع کریں",
+  Streak: "تسلسل",
+  "Lessons done": "مکمل شدہ اسباق",
+  "XP earned": "حاصل کردہ XP",
+  Level: "لیول",
+  "Continue next": "اگلا جاری رکھیں",
+  "Open lesson": "سبق کھولیں",
+  "Complete quizzes to unlock deeper investing tracks and keep your streak alive.":
+    "گہرے سرمایہ کاری کے راستے کھولنے اور اپنا تسلسل برقرار رکھنے کے لیے کوئزز مکمل کریں۔",
+  "Samjho, Seekho, Barho": "سمجھو، سیکھو، بڑھو",
+  "Table of contents": "فہرستِ مضامین",
+  "Show table of contents": "فہرستِ مضامین دکھائیں",
+  "Collapse table of contents": "فہرستِ مضامین بند کریں",
+  "AI Tutor panel": "اے آئی ٹیوٹر پینل",
+  "Open AI tutor": "اے آئی ٹیوٹر کھولیں",
+  "Collapse AI Tutor panel": "اے آئی ٹیوٹر پینل بند کریں",
+  "Practice result saved": "مشق کا نتیجہ محفوظ ہو گیا",
+  "Lesson video": "سبق کی ویڈیو",
+
+  // ── Learn Studio ──────────────────────────────────────────────────────────
+  "We need better sources for this topic": "اس موضوع کے لیے ہمیں بہتر ذرائع درکار ہیں",
+  "Lesson generation failed": "سبق بنانے میں ناکامی",
+  "Please try another PSX topic.": "براہ کرم کوئی اور PSX موضوع آزمائیں۔",
+  "PSX lesson topic": "PSX سبق کا موضوع",
+  "e.g. How dividends work on PSX": "مثلاً PSX پر ڈیویڈنڈ کیسے کام کرتے ہیں",
+  Difficulty: "دشواری",
+  "Creating…": "بن رہا ہے…",
+  "Create lesson": "سبق بنائیں",
+  "The lesson could not be started. Check your daily allowance and try again.":
+    "سبق شروع نہیں ہو سکا۔ اپنی روزانہ حد چیک کر کے دوبارہ کوشش کریں۔",
+  "5 study packs and 1 video per day · Educational content only":
+    "روزانہ 5 اسٹڈی پیک اور 1 ویڈیو · صرف تعلیمی مواد",
+  "Your generated lessons": "آپ کے بنائے گئے اسباق",
+  "Create your own PSX lesson": "اپنا PSX سبق خود بنائیں",
+  "Enter a PSX topic to create source-grounded notes, flashcards, a quiz, and an optional video lecture.":
+    "ذرائع پر مبنی نوٹس، فلیش کارڈز، کوئز اور اختیاری ویڈیو لیکچر بنانے کے لیے کوئی PSX موضوع درج کریں۔",
+  "LearnHub Studio is installed, but disabled on this backend. Enable LEARN_STUDIO_ENABLED and restart the API.":
+    "لرن ہب اسٹوڈیو نصب ہے، مگر اس بیک اینڈ پر بند ہے۔ LEARN_STUDIO_ENABLED فعال کریں اور API دوبارہ چلائیں۔",
+
+  // ── Portfolio ─────────────────────────────────────────────────────────────
+  "Apply hedging actions below to project their impact on your shield score.":
+    "اپنے شیلڈ اسکور پر اثر دیکھنے کے لیے نیچے دی گئی حفاظتی کارروائیاں لاگو کریں۔",
+  Apply: "لاگو کریں",
+  "Select actions to improve": "بہتری کے لیے کارروائیاں منتخب کریں",
+  "Low risk": "کم خطرہ",
+  "High risk": "زیادہ خطرہ",
+  "Buy Price per Share (PKR)": "فی حصص خرید قیمت (روپے)",
+  "Total Cost Paid (PKR)": "کل ادا شدہ لاگت (روپے)",
+  "= PKR {p} / share": "= {p} روپے / حصص",
+  "Add anyway": "پھر بھی شامل کریں",
+  "Search stock by symbol or name…": "علامت یا نام سے اسٹاک تلاش کریں…",
+  "Price per share": "فی حصص قیمت",
+  "Total cost": "کل لاگت",
+  "— rule-based indicators suggest reviewing these positions.":
+    "— اصولوں پر مبنی اشاریے ان پوزیشنز کا جائزہ لینے کی تجویز دیتے ہیں۔",
+  "Add holdings to compare performance with KSE-100":
+    "KSE-100 سے کارکردگی کا موازنہ کرنے کے لیے ہولڈنگز شامل کریں",
+  Outperforming: "بہتر کارکردگی",
+  Underperforming: "کمزور کارکردگی",
+  "benchmark by": "معیار سے",
+  "No portfolio history yet. Add holdings to build your performance chart.":
+    "ابھی پورٹ فولیو کی تاریخ نہیں۔ کارکردگی کا چارٹ بنانے کے لیے ہولڈنگز شامل کریں۔",
+  "Unrealized profit or loss — your holdings' current value minus what you paid.":
+    "غیر حاصل شدہ نفع یا نقصان — آپ کے ہولڈنگز کی موجودہ قدر منہا جو آپ نے ادا کیا۔",
+  "Add USD-hedged exposure": "ڈالر سے محفوظ سرمایہ کاری شامل کریں",
+  "Increase Oil & Gas weighting": "تیل و گیس کا حصہ بڑھائیں",
+  "Trim cash & PKR fixed income": "نقدی اور روپے کی مقررہ آمدنی کم کریں",
+  "Add gold / commodity proxy": "سونا / اجناس کا متبادل شامل کریں",
+  "Please enter a valid total cost.": "براہ کرم درست کل لاگت درج کریں۔",
+  "Buy price PKR {price} is far from the current price PKR {current}. Add anyway?":
+    "خرید قیمت {price} روپے موجودہ قیمت {current} روپے سے کافی دور ہے۔ پھر بھی شامل کریں؟",
+
+  // ── PSX market ────────────────────────────────────────────────────────────
+  "Refresh market brief": "مارکیٹ بریف تازہ کریں",
+  "Today's PSX market analysis": "آج کا PSX مارکیٹ تجزیہ",
+  "Preparing today's market brief…": "آج کا مارکیٹ بریف تیار ہو رہا ہے…",
+  "Tap for the AI read on today's market": "آج کی مارکیٹ پر اے آئی کی رائے کے لیے ٹیپ کریں",
+  "News for": "خبریں برائے",
+  "Latest News": "تازہ ترین خبریں",
+  "Loading...": "لوڈ ہو رہا ہے...",
+  "No news yet.": "ابھی کوئی خبر نہیں۔",
+  "Scroll indices right": "اشاریے دائیں سکرول کریں",
+  "Index cards": "انڈیکس کارڈز",
+  Indices: "اشاریے",
+  "Show 4": "4 دکھائیں",
+  "Show all": "سب دکھائیں",
+  "Scroll indices left": "اشاریے بائیں سکرول کریں",
+  Showing: "دکھایا جا رہا ہے",
+  "No stocks match the selected filters.": "منتخب فلٹرز سے کوئی اسٹاک مطابقت نہیں رکھتا۔",
+  "Search symbol or sector...": "علامت یا شعبہ تلاش کریں...",
+  "All Sectors": "تمام شعبے",
+  Strength: "طاقت",
+  "Not enough history": "کافی تاریخ دستیاب نہیں",
+  "Signal unavailable": "سگنل دستیاب نہیں",
+  "By % Change": "٪ تبدیلی کے لحاظ سے",
+  "By Volume": "حجم کے لحاظ سے",
+  "Treemap view": "ٹری میپ منظر",
+  "Sectors bar list": "شعبوں کی بار فہرست",
+  "Top Movers": "سب سے زیادہ حرکت کرنے والے",
+  "Zoom out": "زوم آؤٹ",
+  "Reset heatmap view": "ہیٹ میپ منظر ری سیٹ کریں",
+  "Fit to screen": "اسکرین کے مطابق",
+  "Zoom in": "زوم اِن",
+  "Collapse heatmap": "ہیٹ میپ بند کریں",
+  "Expand heatmap": "ہیٹ میپ پھیلائیں",
+  "Expanded view": "پھیلا ہوا منظر",
+  "Sector navigation": "شعبوں کی فہرست",
+  "Live price unavailable": "لائیو قیمت دستیاب نہیں",
+  "No signal": "کوئی سگنل نہیں",
+  "Search stocks to add…": "شامل کرنے کے لیے اسٹاکس تلاش کریں…",
+  "is already in your watchlist": "پہلے سے آپ کی واچ لسٹ میں ہے",
+  "added to watchlist": "واچ لسٹ میں شامل ہو گیا",
+  "Unusual Volume": "غیر معمولی حجم",
+  "No unusual activity right now.": "اس وقت کوئی غیر معمولی سرگرمی نہیں۔",
+  "Intraday bars aren't available for indices — showing daily candles.":
+    "اشاریوں کے لیے انٹرا ڈے بارز دستیاب نہیں — روزانہ کینڈلز دکھائی جا رہی ہیں۔",
+
+  "Intraday bars aren't available for this symbol yet — showing daily candles instead.":
+    "اس علامت کے لیے ابھی انٹرا ڈے بارز دستیاب نہیں — اس کے بجائے روزانہ کینڈلز دکھائی جا رہی ہیں۔",
+  "Index OHLC is daily-only — showing a close line. Live tick is the latest point.":
+    "انڈیکس کا OHLC صرف روزانہ ہے — بند ہونے کی لائن دکھائی جا رہی ہے۔ لائیو ٹک تازہ ترین نقطہ ہے۔",
+  "No chart data available for": "چارٹ ڈیٹا دستیاب نہیں برائے",
+  "Historical prices haven't been loaded for this symbol yet.":
+    "اس علامت کے لیے ابھی تاریخی قیمتیں لوڈ نہیں ہوئیں۔",
+
+  // ── Signals ───────────────────────────────────────────────────────────────
+  "Setup strength": "سیٹ اپ کی طاقت",
+  Trend: "رجحان",
+  "Market regime": "مارکیٹ کی کیفیت",
+  Risk: "خطرہ",
+  "Foreign flow": "غیر ملکی سرمائے کا بہاؤ",
+  "EPS YoY": "فی حصص آمدنی سالانہ",
+  Surprise: "غیر متوقع فرق",
+  "Recent disclosures": "حالیہ انکشافات",
+  "20-day event outlook": "20 دن کا واقعاتی منظرنامہ",
+  "Technical Setup": "تکنیکی سیٹ اپ",
+  "What indicators read right now — not a forecast":
+    "اشاریے اس وقت کیا بتا رہے ہیں — یہ پیشین گوئی نہیں",
+  "Setup unavailable": "سیٹ اپ دستیاب نہیں",
+  "95% confidence": "95٪ اعتماد",
+  "Buy calls require stronger evidence than sell calls — on PSX the sell-side signal has historically been the more reliable of the two.":
+    "خریداری کی کال کے لیے فروخت کی کال سے زیادہ مضبوط شواہد درکار ہوتے ہیں — PSX پر تاریخی طور پر فروخت کا سگنل دونوں میں سے زیادہ قابلِ اعتماد رہا ہے۔",
+  Recommendation: "تجویز",
+
+  // ── Stock detail ──────────────────────────────────────────────────────────
+  "Remove from Watchlist": "واچ لسٹ سے ہٹائیں",
+  "Loading dividends...": "ڈیویڈنڈز لوڈ ہو رہے ہیں...",
+  "Failed to load dividends.": "ڈیویڈنڈز لوڈ کرنے میں ناکامی۔",
+  "No dividends data available for this symbol.":
+    "اس علامت کے لیے ڈیویڈنڈ کا کوئی ڈیٹا دستیاب نہیں۔",
+  "Ann. Date": "اعلان کی تاریخ",
+  "Open PDF": "PDF کھولیں",
+  "Loading filing text...": "فائلنگ کا متن لوڈ ہو رہا ہے...",
+  "Couldn't load this filing's text. Please try again.":
+    "اس فائلنگ کا متن لوڈ نہیں ہو سکا۔ براہ کرم دوبارہ کوشش کریں۔",
+  "No text content available for this filing.": "اس فائلنگ کے لیے کوئی متن دستیاب نہیں۔",
+  "Loading filings...": "فائلنگز لوڈ ہو رہی ہیں...",
+  "No filings available for this symbol yet.": "اس علامت کے لیے ابھی کوئی فائلنگ دستیاب نہیں۔",
+  "Annual Financials (5y)": "سالانہ مالیاتی گوشوارے (5 سال)",
+  "Loading financials...": "مالیاتی گوشوارے لوڈ ہو رہے ہیں...",
+  "No annual financials available for this symbol.":
+    "اس علامت کے لیے کوئی سالانہ مالیاتی گوشوارہ دستیاب نہیں۔",
+  "Quarterly Financials": "سہ ماہی مالیاتی گوشوارے",
+  "No quarterly data available.": "کوئی سہ ماہی ڈیٹا دستیاب نہیں۔",
+  Period: "مدت",
+  Sales: "فروخت",
+  "Net Income": "خالص آمدنی",
+  "Current price": "موجودہ قیمت",
+  "Price goes above": "قیمت اس سے اوپر جائے",
+  "Price goes below": "قیمت اس سے نیچے جائے",
+  "Target price": "ہدف قیمت",
+  "Analyzing fundamentals and technicals…": "بنیادی اور تکنیکی پہلوؤں کا تجزیہ ہو رہا ہے…",
+  "Please try again in a moment.": "براہ کرم تھوڑی دیر بعد دوبارہ کوشش کریں۔",
+  "Drag across the chart to zoom.": "زوم کرنے کے لیے چارٹ پر کھینچیں۔",
+  "Loading chart data...": "چارٹ کا ڈیٹا لوڈ ہو رہا ہے...",
+  "Latest candle is reconciled with today's live tick. Current close =":
+    "تازہ ترین کینڈل آج کے لائیو ٹک سے ملائی گئی ہے۔ موجودہ اختتامی قیمت =",
+  "Technical setup": "تکنیکی سیٹ اپ",
+  "Pakistan Stock Exchange": "پاکستان اسٹاک ایکسچینج",
+  "Live tick from PSX snapshot": "PSX اسنیپ شاٹ سے لائیو ٹک",
+  "EOD close — live unavailable": "دن کے اختتام کی قیمت — لائیو دستیاب نہیں",
+  "Technical setup pending": "تکنیکی سیٹ اپ زیرِ التوا",
+  "No recent announcements.": "کوئی حالیہ اعلان نہیں۔",
+  Announcements: "اعلانات",
+  Filings: "فائلنگز",
+  Financials: "مالیاتی گوشوارے",
+  News: "خبریں",
+  "Removed from Watchlist": "واچ لسٹ سے ہٹا دیا گیا",
+  "Added to Watchlist": "واچ لسٹ میں شامل ہو گیا",
+  "Something went wrong. Please try again.": "کچھ غلط ہو گیا۔ براہ کرم دوبارہ کوشش کریں۔",
+  "Please enter a valid price": "براہ کرم درست قیمت درج کریں",
+  "Price alert created": "قیمت الرٹ بن گیا",
+  "Could not set alert — you may have reached your plan's alert limit.":
+    "الرٹ مقرر نہیں ہو سکا — ہو سکتا ہے آپ اپنے پلان کی الرٹ حد تک پہنچ گئے ہوں۔",
+
+  // ── Market data labels ────────────────────────────────────────────────────
+  "KSE All Share": "کے ایس ای آل شیئر",
+  "USD/PKR": "امریکی ڈالر/روپیہ",
+  "GOLD/TOLA": "سونا/تولہ",
+  High: "زیادہ",
+
+  // ── Plans ─────────────────────────────────────────────────────────────────
+  "Premium tier with all features": "تمام سہولیات کے ساتھ پریمیم ٹیئر",
+  "Free tier with delayed data": "تاخیر شدہ ڈیٹا کے ساتھ مفت ٹیئر",
+  "Pro tier with real-time data": "حقیقی وقت کے ڈیٹا کے ساتھ پرو ٹیئر",
+  "You are now on the": "اب آپ اس پر ہیں",
+  "plan!": "پلان!",
+  "Failed to change plan": "پلان تبدیل کرنے میں ناکامی",
+  "Current Plan": "موجودہ پلان",
+  Choose: "منتخب کریں",
+
+  // ── Error / not-found screens ─────────────────────────────────────────────
+  "Page not found": "صفحہ نہیں ملا",
+  "The page you're looking for doesn't exist or has been moved.":
+    "آپ جو صفحہ تلاش کر رہے ہیں وہ موجود نہیں یا منتقل ہو چکا ہے۔",
+  "Go home": "ہوم پر جائیں",
+  "This page didn't load": "یہ صفحہ لوڈ نہیں ہوا",
+  "Something went wrong on our end. You can try refreshing or head back home.":
+    "ہماری طرف سے کچھ غلط ہو گیا۔ آپ تازہ کرنے کی کوشش کر سکتے ہیں یا ہوم پر واپس جا سکتے ہیں۔",
+
+  // ── Settings ──────────────────────────────────────────────────────────────
+  "Settings saved": "ترتیبات محفوظ ہو گئیں",
+  "Failed to save settings": "ترتیبات محفوظ کرنے میں ناکامی",
+  "Failed to save notification preferences": "اطلاعات کی ترجیحات محفوظ کرنے میں ناکامی",
+  "Set a fixed monthly income (e.g. your salary). It's counted as income for every month in your finance.":
+    "ایک مقررہ ماہانہ آمدنی رکھیں (مثلاً آپ کی تنخواہ)۔ یہ آپ کی مالیات میں ہر مہینے آمدنی کے طور پر شمار ہوتی ہے۔",
+  "Fixed monthly income (PKR)": "مقررہ ماہانہ آمدنی (روپے)",
+  "A recurring salary added to your income every month. Leave 0 if your income varies.":
+    "ایک باقاعدہ تنخواہ جو ہر مہینے آپ کی آمدنی میں شامل ہوتی ہے۔ اگر آپ کی آمدنی بدلتی رہتی ہے تو 0 چھوڑ دیں۔",
+  "Sign in to save your monthly income across devices.":
+    "اپنی ماہانہ آمدنی تمام آلات پر محفوظ کرنے کے لیے سائن ان کریں۔",
+  "Choose how you want to be notified when alerts trigger.":
+    "منتخب کریں کہ الرٹ چلنے پر آپ کو کیسے اطلاع دی جائے۔",
+  "In-app": "ایپ کے اندر",
+  "Show notifications inside the app": "ایپ کے اندر اطلاعات دکھائیں",
+  "Price, bill, budget & goal alerts you set up": "آپ کے مقرر کردہ قیمت، بل، بجٹ اور ہدف کے الرٹس",
+  "Email activity & receipts": "ای میل سرگرمی اور رسیدیں",
+  "Emails when you add a transaction, trade, pay a bill, etc.":
+    "جب آپ لین دین، سودا یا بل کی ادائیگی درج کریں تو ای میل",
+  "Web push notifications (requires permission)": "ویب پش اطلاعات (اجازت درکار ہے)",
+  "Sign in to manage notification channels.": "اطلاعات کے ذرائع سنبھالنے کے لیے سائن ان کریں۔",
+
+  // ── Email / broker import ─────────────────────────────────────────────────
+  "Gmail connected — we'll import your bank transactions.":
+    "جی میل منسلک ہو گیا — ہم آپ کے بینک لین دین درآمد کریں گے۔",
+  "Gmail connection cancelled.": "جی میل کا کنکشن منسوخ ہو گیا۔",
+  "Could not connect Gmail. Please try again.":
+    "جی میل منسلک نہیں ہو سکا۔ براہ کرم دوبارہ کوشش کریں۔",
+  "merged into existing": "موجودہ میں ضم ہو گئے",
+  "could not be read": "پڑھے نہیں جا سکے",
+  "broker confirmation(s) need review": "بروکر تصدیق(ات) جائزے کے منتظر ہیں",
+  "broker confirmation(s) imported": "بروکر تصدیق(ات) درآمد ہو گئیں",
+  Imported: "درآمد شدہ",
+  "transaction(s)": "لین دین",
+  "No new transactions found": "کوئی نیا لین دین نہیں ملا",
+  "Sync failed": "ہم آہنگی ناکام",
+  "Gmail disconnected": "جی میل منقطع ہو گیا",
+  "Could not disconnect": "منقطع نہیں ہو سکا",
+  "Bank & broker email import": "بینک اور بروکر ای میل درآمد",
+  "Connect the Gmail account your bank sends alerts to and NafaIQ will add those transactions for you automatically. Read-only — we only look at bank emails.":
+    "وہ جی میل اکاؤنٹ منسلک کریں جس پر آپ کا بینک الرٹس بھیجتا ہے اور نفع آئی کیو وہ لین دین خودکار طور پر شامل کر دے گا۔ صرف پڑھنے کے لیے — ہم صرف بینک کی ای میلز دیکھتے ہیں۔",
+  "Sign in to connect Gmail.": "جی میل منسلک کرنے کے لیے سائن ان کریں۔",
+  "Last checked": "آخری بار چیک کیا گیا",
+  "Not checked yet": "ابھی چیک نہیں کیا گیا",
+  "email(s) could not be read and were skipped. They stay on record and are retried.":
+    "ای میل(ز) پڑھی نہیں جا سکیں اور چھوڑ دی گئیں۔ وہ ریکارڈ پر رہتی ہیں اور دوبارہ کوشش کی جاتی ہے۔",
+  Pending: "زیرِ التوا",
+  Unsupported: "غیر معاون",
+  Failed: "ناکام",
+  "No portfolio": "کوئی پورٹ فولیو نہیں",
+  "broker confirmation(s) waiting for review.": "بروکر تصدیق(ات) جائزے کی منتظر ہیں۔",
+  "Reconnect Gmail": "جی میل دوبارہ منسلک کریں",
+  "Sync now": "ابھی ہم آہنگ کریں",
+  Disconnect: "منقطع کریں",
+  "Connect Gmail": "جی میل منسلک کریں",
+  "You'll see a Google warning that the app isn't verified — that's expected while NafaIQ is in testing. Choose Advanced, then continue.":
+    "آپ کو گوگل کی طرف سے تنبیہ نظر آئے گی کہ ایپ تصدیق شدہ نہیں — نفع آئی کیو کے آزمائشی مرحلے میں یہ متوقع ہے۔ ایڈوانسڈ منتخب کریں، پھر جاری رکھیں۔",
+  "Create a portfolio before approving broker imports.":
+    "بروکر درآمد منظور کرنے سے پہلے ایک پورٹ فولیو بنائیں۔",
+  "Broker confirmation imported": "بروکر تصدیق درآمد ہو گئی",
+  "Could not approve import": "درآمد منظور نہیں ہو سکی",
+  "Broker confirmation rejected": "بروکر تصدیق مسترد کر دی گئی",
+  "Could not reject import": "درآمد مسترد نہیں ہو سکی",
+  "Broker imports": "بروکر درآمدات",
+  "No broker confirmations are waiting for review.": "کوئی بروکر تصدیق جائزے کی منتظر نہیں۔",
+  "Automatically import future confirmations from this broker account after approval":
+    "منظوری کے بعد اس بروکر اکاؤنٹ سے آنے والی تصدیقات خودکار طور پر درآمد کریں",
+  "No trade date": "کوئی سودے کی تاریخ نہیں",
+  "trade(s)": "سودے",
+  Approve: "منظور کریں",
+  Reject: "مسترد کریں",
+  Destination: "منزل",
+  "No portfolio available": "کوئی پورٹ فولیو دستیاب نہیں",
+  Qty: "تعداد",
+  Rate: "شرح",
+  Fees: "فیس",
+  Net: "خالص",
+
+  // ── Urdu QA preview surface ───────────────────────────────────────────────
+  "Typography scale": "ٹائپوگرافی کا پیمانہ",
+  "Buttons & actions": "بٹن اور کارروائیاں",
+  "Signal badges": "سگنل بیجز",
+  "KPI cards": "کے پی آئی کارڈز",
+  "+1.32% this month": "‎+1.32٪ اس مہینے",
+  "YTD +12.73%": "سال بہ تاریخ ‎+12.73٪",
+  "-12% vs May": "‎-12٪ مئی کے مقابلے",
+  "Price change indicators": "قیمت میں تبدیلی کے اشاریے",
+  "Form inputs": "فارم کے خانے",
+  "Progress & goals": "پیش رفت اور اہداف",
+  "Data table": "ڈیٹا ٹیبل",
+  "Callouts & alerts": "نمایاں پیغامات اور الرٹس",
+  "Not quite.": "بالکل ٹھیک نہیں۔",
+  "Lesson cards": "سبق کے کارڈز",
+
+  // ── Watchlist ─────────────────────────────────────────────────────────────
+  "Track live prices, technical setups, and the PSX names you care about.":
+    "لائیو قیمتوں، تکنیکی سیٹ اپس اور اپنی پسندیدہ PSX کمپنیوں پر نظر رکھیں۔",
+  /* ======================================================================
+     Month names (chart axes and the 6-month caption) and the demo finance
+     fixture. Real user data is never in this dictionary, so it passes
+     through the translator untouched — only the seeded demo copy switches.
+     ====================================================================== */
+  Jan: "جنوری",
+  Feb: "فروری",
+  Mar: "مارچ",
+  Apr: "اپریل",
+  May: "مئی",
+  Jun: "جون",
+  Jul: "جولائی",
+  Aug: "اگست",
+  Sep: "ستمبر",
+  Oct: "اکتوبر",
+  Nov: "نومبر",
+  Dec: "دسمبر",
+
+  // Demo transaction dates
+  "June 10": "10 جون",
+  "June 9": "9 جون",
+  "June 8": "8 جون",
+  "June 7": "7 جون",
+  "June 5": "5 جون",
+  "June 4": "4 جون",
+  "June 2": "2 جون",
+  "June 1": "1 جون",
+  "Jun 15": "15 جون",
+  "Jun 18": "18 جون",
+  "Jun 25": "25 جون",
+  "Jun 28": "28 جون",
+  "Jun 10, 09:15": "10 جون، 09:15",
+  "Jun 10, 08:00": "10 جون، 08:00",
+  "Jun 9, 18:30": "9 جون، 18:30",
+  "Jun 9, 08:00": "9 جون، 08:00",
+  "April 2028": "اپریل 2028",
+
+  // Demo merchants, accounts and descriptions
+  "K-Electric Bill": "کے الیکٹرک بل",
+  "HBL Current": "ایچ بی ایل کرنٹ",
+  "Salary — TRG Pakistan": "تنخواہ — ٹی آر جی پاکستان",
+  Cheezious: "چیزیئس",
+  "Meezan Debit": "میزان ڈیبٹ",
+  Careem: "کریم",
+  Easypaisa: "ایزی پیسہ",
+  "Imtiaz Super Market": "امتیاز سپر مارکیٹ",
+  Netflix: "نیٹ فلکس",
+  Khaadi: "کھادی",
+  "PSO Fuel": "پی ایس او فیول",
+  "Hajj Fund Transfer": "حج فنڈ منتقلی",
+  "Meezan Savings": "میزان سیونگز",
+  /* ======================================================================
+     Admin → Content → Lectures (LearnHub catalogue management).
+     ====================================================================== */
+  Content: "مواد",
+  Lectures: "لیکچرز",
+  Lecture: "لیکچر",
+  "Add, edit and remove Learn Hub lectures": "لرن ہب کے لیکچرز شامل، ترمیم اور حذف کریں",
+  "The Learn Hub catalogue. A lecture added here is live for learners immediately — no deploy. Every create, edit, archive and delete is written to the audit log.":
+    "لرن ہب کی فہرست۔ یہاں شامل کیا گیا لیکچر سیکھنے والوں کے لیے فوراً دستیاب ہو جاتا ہے — کسی تعیناتی کی ضرورت نہیں۔ ہر تخلیق، ترمیم، محفوظ شدہ اور حذف آڈٹ لاگ میں لکھی جاتی ہے۔",
+  "New lecture": "نیا لیکچر",
+  "Edit lecture": "لیکچر میں ترمیم کریں",
+  "Create lecture": "لیکچر بنائیں",
+  "Delete lecture": "لیکچر حذف کریں",
+  "Archive lecture": "لیکچر محفوظ کریں",
+  "Restore lecture": "لیکچر بحال کریں",
+  "Filter lectures…": "لیکچرز چھانیں…",
+  "Lecture created": "لیکچر بن گیا",
+  "Lecture updated": "لیکچر اپ ڈیٹ ہو گیا",
+  "Lecture deleted": "لیکچر حذف ہو گیا",
+  "No lectures yet": "ابھی کوئی لیکچر نہیں",
+  "The Learn Hub still shows its built-in catalogue. Add a lecture here to extend it.":
+    "لرن ہب اب بھی اپنی بلٹ اِن فہرست دکھا رہا ہے۔ اسے بڑھانے کے لیے یہاں لیکچر شامل کریں۔",
+  "You have read-only access to the lecture catalogue. Editing requires the learn.write permission.":
+    "آپ کو لیکچر فہرست پر صرف پڑھنے کی رسائی ہے۔ ترمیم کے لیے learn.write اجازت درکار ہے۔",
+  "Restore this lecture?": "یہ لیکچر بحال کریں؟",
+  "Archive this lecture?": "یہ لیکچر محفوظ کریں؟",
+  "It becomes visible to learners again straight away.":
+    "یہ فوراً دوبارہ سیکھنے والوں کو نظر آنے لگے گا۔",
+  "Learners stop seeing it immediately. The row and its content are kept, so this is reversible.":
+    "سیکھنے والوں کو یہ فوراً نظر آنا بند ہو جائے گا۔ اندراج اور اس کا مواد محفوظ رہتا ہے، اس لیے یہ واپس کیا جا سکتا ہے۔",
+  "Delete this lecture?": "یہ لیکچر حذف کریں؟",
+  "The lecture and its content are removed permanently. Archive instead if you may want it back — that is reversible.":
+    "لیکچر اور اس کا مواد مستقل طور پر ہٹا دیا جاتا ہے۔ اگر آپ کو یہ دوبارہ چاہیے ہو سکتا ہے تو اس کے بجائے محفوظ کریں — وہ واپس کیا جا سکتا ہے۔",
+  Archive: "محفوظ کریں",
+
+  // Editor form
+  "Learners see this in the Learn Hub as soon as it is published.":
+    "شائع ہوتے ہی یہ سیکھنے والوں کو لرن ہب میں نظر آتا ہے۔",
+  Title: "عنوان",
+  Slug: "سلَگ",
+  "Used in the lesson URL. Leave blank to derive it from the title.":
+    "سبق کے یو آر ایل میں استعمال ہوتا ہے۔ خالی چھوڑ دیں تو عنوان سے خود بن جائے گا۔",
+  Subtitle: "ذیلی عنوان",
+  Duration: "دورانیہ",
+  Emoji: "ایموجی",
+  "Video URL": "ویڈیو یو آر ایل",
+  "Lesson body": "سبق کا متن",
+  'JSON array of sections: [{ "id": "intro", "heading": "Introduction", "blocks": [{ "type": "p", "text": "…" }] }]':
+    'سیکشنز کی JSON فہرست: [{ "id": "intro", "heading": "Introduction", "blocks": [{ "type": "p", "text": "…" }] }]',
+  'JSON array of questions: [{ "q": "…", "options": ["…"], "correct": 0, "explanation": "…" }]':
+    'سوالات کی JSON فہرست: [{ "q": "…", "options": ["…"], "correct": 0, "explanation": "…" }]',
+  "Sort order": "ترتیب نمبر",
+  "Lower numbers appear first in the catalogue.": "کم نمبر فہرست میں پہلے آتے ہیں۔",
+  "Not valid JSON — the last valid value is kept.":
+    "درست JSON نہیں — آخری درست قدر برقرار رکھی گئی ہے۔",
+  "A lecture needs a title.": "لیکچر کے لیے عنوان ضروری ہے۔",
+  "The slug may only contain lowercase letters, numbers and hyphens.":
+    "سلَگ میں صرف چھوٹے انگریزی حروف، اعداد اور ہائفن ہو سکتے ہیں۔",
+  "A video lecture needs a video URL.": "ویڈیو لیکچر کے لیے ویڈیو یو آر ایل ضروری ہے۔",
+
+  // Lecture status / type values, shown verbatim in the selects and badges.
+  draft: "مسودہ",
+  published: "شائع شدہ",
+  archived: "محفوظ شدہ",
+  article: "مضمون",
+  video: "ویڈیو",
+  Index: "انڈیکس",
+  /* Short labels and inline fragments that the broad sweep skips as
+     code-like tokens, but which a user still reads on screen. */
+  IP: "آئی پی",
+  LIVE: "لائیو",
+  EOD: "دن کا اختتام",
+  NAV: "این اے وی",
+  ROE: "آر او ای",
+  system: "نظام",
+  current: "موجودہ",
+  disabled: "غیر فعال",
+  actions: "کارروائیاں",
+  next: "اگلا",
+  pages: "صفحات",
+  sectors: "شعبے",
+  stocks: "اسٹاکس",
+  tola: "تولہ",
+  truncated: "مختصر کیا گیا",
+  "e.g. 65": "مثلاً 65",
+  "e.g. 33": "مثلاً 33",
+  "Latest candle is reconciled with today's live tick. Current close = ":
+    "تازہ ترین کینڈل آج کے لائیو ٹک سے ملائی گئی ہے۔ موجودہ اختتامی قیمت = ",
+  pending: "زیرِ التوا",
+  /* ======================================================================
+     Public site — landing page, marketing sections and the team page.
+     Reachable in Urdu via the language toggle in the landing nav.
+     ====================================================================== */
+
+  // Nav / chrome
+  "Switch language": "زبان تبدیل کریں",
+  "Dark mode": "تاریک موڈ",
+  "Light mode": "روشن موڈ",
+  "Log In": "لاگ اِن",
+  "Search ticker…": "ٹکر تلاش کریں…",
+  "Search stock ticker": "اسٹاک ٹکر تلاش کریں",
+  About: "تعارف",
+  Pricing: "قیمتیں",
+  Contact: "رابطہ",
+  App: "ایپ",
+  Company: "کمپنی",
+  "Our Team": "ہماری ٹیم",
+  "v1.0 · Beta": "ورژن 1.0 · بیٹا",
+  "nafaiq · live": "نفع آئی کیو · لائیو",
+
+  // Hero
+  "Built for the Pakistani Investor": "پاکستانی سرمایہ کار کے لیے بنایا گیا",
+  "One Terminal.": "ایک ہی ٹرمینل۔",
+  "Track markets, manage money, and get AI insights — built around Pakistan's financial reality.":
+    "مارکیٹس پر نظر رکھیں، پیسے کا انتظام کریں اور اے آئی بصیرت حاصل کریں — پاکستان کی مالی حقیقت کے مطابق بنایا گیا۔",
+  "No account required to explore": "دیکھنے کے لیے اکاؤنٹ کی ضرورت نہیں",
+  "Works on iOS, Android & Desktop": "iOS، اینڈرائیڈ اور ڈیسک ٹاپ پر کام کرتا ہے",
+
+  // Trust strip
+  "Built on real foundations": "حقیقی بنیادوں پر قائم",
+  "Live PSX & KSE-100": "لائیو PSX اور KSE-100",
+  "Real market data": "حقیقی مارکیٹ ڈیٹا",
+  "Shariah Screening": "شرعی اسکریننگ",
+  "Halal by design": "بنیادی طور پر حلال",
+  Encrypted: "خفیہ کاری شدہ",
+  "In transit & at rest": "منتقلی اور ذخیرے دونوں میں",
+  "No Account Needed": "اکاؤنٹ کی ضرورت نہیں",
+  "Explore free first": "پہلے مفت میں دیکھیں",
+
+  // Features grid
+  "Everything you need": "وہ سب کچھ جو آپ کو چاہیے",
+  "One App. Complete Financial Intelligence.": "ایک ایپ۔ مکمل مالی بصیرت۔",
+  "PSX Trading Terminal": "PSX ٹریڈنگ ٹرمینل",
+  "Candlestick charts, heatmaps, top movers, AI signals — the first Bloomberg-grade PSX terminal on your phone.":
+    "کینڈل سٹک چارٹس، ہیٹ میپس، نمایاں حرکت کرنے والے اسٹاکس، اے آئی سگنلز — آپ کے فون پر پہلا بلومبرگ معیار کا PSX ٹرمینل۔",
+  "Haqeeqi Daulat™ Engine": "حقیقی دولت™ انجن",
+  "See your REAL wealth after PKR devaluation. Pakistan's first devaluation-adjusted portfolio intelligence.":
+    "روپے کی قدر میں کمی کے بعد اپنی حقیقی دولت دیکھیں۔ پاکستان کی پہلی قدر میں کمی کے مطابق ڈھلی پورٹ فولیو بصیرت۔",
+  "World First": "دنیا میں پہلی بار",
+  "AI Financial Advisor": "اے آئی مالی مشیر",
+  "Personalized insights, AI-generated portfolio reports, and a 24/7 finance tutor.":
+    "ذاتی نوعیت کی بصیرت، اے آئی سے بنی پورٹ فولیو رپورٹس، اور چوبیس گھنٹے دستیاب مالیاتی ٹیوٹر۔",
+  "Built for Muslim Investors": "مسلمان سرمایہ کاروں کے لیے بنایا گیا",
+  "Halal stock screening, Zakat calculator, Islamic savings goals — finance aligned with your values.":
+    "حلال اسٹاک اسکریننگ، زکوٰۃ کیلکولیٹر، اسلامی بچت کے اہداف — آپ کی اقدار کے مطابق مالیات۔",
+  "Complete Finance Manager": "مکمل مالیاتی منتظم",
+  "Track income, expenses, budgets, bills, and goals — all in one place, in Pakistani Rupees.":
+    "آمدنی، اخراجات، بجٹ، بل اور اہداف — سب ایک جگہ، پاکستانی روپے میں۔",
+  "Financial Education": "مالی تعلیم",
+  "Beginner to advanced courses in Urdu and English. Earn XP. Build real investing knowledge.":
+    "ابتدائی سے اعلیٰ سطح تک کورسز اردو اور انگریزی میں۔ XP کمائیں۔ حقیقی سرمایہ کاری کا علم بنائیں۔",
+
+  // How it works
+  "How it works": "یہ کیسے کام کرتا ہے",
+  "From raw PSX data to confident decisions": "خام PSX ڈیٹا سے پُراعتماد فیصلوں تک",
+  "NafaIQ is a premium PSX terminal and personal-finance companion. It reveals your real, devaluation-adjusted wealth — then turns AI insight into halal, Zakat-aware action. Here's the journey in three steps.":
+    "نفع آئی کیو ایک پریمیم PSX ٹرمینل اور ذاتی مالیات کا ساتھی ہے۔ یہ آپ کی حقیقی، قدر میں کمی کے مطابق دولت ظاہر کرتا ہے — پھر اے آئی بصیرت کو حلال اور زکوٰۃ سے آگاہ عمل میں بدل دیتا ہے۔ یہ رہا تین مرحلوں کا سفر۔",
+  "Live Preview": "لائیو جھلک",
+  Track: "نظر رکھیں",
+  "Live Market Data": "لائیو مارکیٹ ڈیٹا",
+  "Connect your portfolio or explore live PSX data instantly — no account required. Real-time KSE-100, watchlists, and pro charts in one terminal.":
+    "اپنا پورٹ فولیو جوڑیں یا فوراً لائیو PSX ڈیٹا دیکھیں — اکاؤنٹ کی ضرورت نہیں۔ حقیقی وقت کا KSE-100، واچ لسٹس اور پرو چارٹس ایک ہی ٹرمینل میں۔",
+  Understand: "سمجھیں",
+  "Real Wealth Engine": "حقیقی دولت انجن",
+  "See your real, devaluation-adjusted wealth in plain language. Haqeeqi Daulat™ strips away rupee decay so you know what your money is truly worth.":
+    "اپنی حقیقی، قدر میں کمی کے مطابق دولت سادہ الفاظ میں دیکھیں۔ حقیقی دولت™ روپے کی گھلاوٹ ہٹا دیتا ہے تاکہ آپ جان سکیں کہ آپ کے پیسے کی اصل قدر کیا ہے۔",
+  Decide: "فیصلہ کریں",
+  "Decision Engine": "فیصلہ انجن",
+  "Act on personalized moves for investing, saving, and Zakat. Halal-screened recommendations turn insight into confident, values-aligned action.":
+    "سرمایہ کاری، بچت اور زکوٰۃ کے لیے ذاتی تجاویز پر عمل کریں۔ حلال اسکریننگ شدہ سفارشات بصیرت کو پُراعتماد، اقدار کے مطابق عمل میں بدل دیتی ہیں۔",
+
+  // Understand / Decide panels
+  "Haqeeqi Daulat™ · حقیقی دولت": "حقیقی دولت™",
+  "Haqeeqi Daulat™ — حقیقی دولت": "حقیقی دولت™",
+  "Your Real Wealth": "آپ کی حقیقی دولت",
+  "Your Real Wealth Breakdown": "آپ کی حقیقی دولت کی تفصیل",
+  Erosion: "کمی",
+  "PSX shows you": "PSX آپ کو دکھاتا ہے",
+  "PSX Shows You": "PSX آپ کو دکھاتا ہے",
+  "Real USD return": "حقیقی ڈالر منافع",
+  "15.9% rupee decay": "15.9٪ روپے کی گھلاوٹ",
+  "The Reality — After PKR Decay": "حقیقت — روپے کی گھلاوٹ کے بعد",
+  "PKR 1,02,722 eroded by devaluation this year": "اس سال قدر میں کمی سے 1,02,722 روپے ضائع ہوئے",
+  "Tap to flip back": "واپس پلٹنے کے لیے ٹیپ کریں",
+  "USD return →": "ڈالر منافع ←",
+  "PKR 858,054 portfolio": "858,054 روپے کا پورٹ فولیو",
+  "Recommended for you": "آپ کے لیے تجویز کردہ",
+  "Devaluation Shield": "قدر میں کمی سے تحفظ",
+  "safe zone": "محفوظ حد",
+  "+11 projected": "‎+11 متوقع",
+  "Zakat Reminder": "زکوٰۃ کی یاد دہانی",
+  "PKR 21,451 due": "21,451 روپے واجب",
+  "12 days left": "12 دن باقی",
+
+  // Phone mockup
+  "Asalam-o-Alaikum, Usman": "السلام علیکم، عثمان",
+  "Net Worth": "کل مالیت",
+  "PKR 5,840,000": "5,840,000 روپے",
+  "PKR 4.25M": "42.5 لاکھ روپے",
+  "+2.4% today": "آج ‎+2.4٪",
+  Spending: "اخراجات",
+  "PKR 185K": "1.85 لاکھ روپے",
+  "+PKR 28.4K": "‎+28.4 ہزار روپے",
+
+  // Store / install
+  "Install as Web App — Free": "ویب ایپ کے طور پر انسٹال کریں — مفت",
+  "App Store": "ایپ اسٹور",
+  "Google Play": "گوگل پلے",
+  "Email me at launch": "لانچ پر مجھے ای میل کریں",
+  "Email for native app launch notification": "نیٹو ایپ کے لانچ کی اطلاع کے لیے ای میل",
+  Notify: "اطلاع دیں",
+  "iOS 14+": "iOS 14 اور اس سے اوپر",
+  "Android 8+": "اینڈرائیڈ 8 اور اس سے اوپر",
+  "All Browsers": "تمام براؤزرز",
+  "Installable PWA": "انسٹال ہونے والا PWA",
+
+  // Testimonials
+  "Customer testimonials": "صارفین کی آراء",
+  "Trusted by Pakistani Investors": "پاکستانی سرمایہ کاروں کا اعتماد",
+  "Previous testimonial": "پچھلی رائے",
+  "Select testimonial": "رائے منتخب کریں",
+  "Next testimonial": "اگلی رائے",
+  "PSX investor since 2018 · Karachi": "2018 سے PSX سرمایہ کار · کراچی",
+  "Finance professional · Islamabad": "مالیاتی پیشہ ور · اسلام آباد",
+  "Software engineer · Lahore": "سافٹ ویئر انجینئر · لاہور",
+  "Business owner · Karachi": "کاروباری مالک · کراچی",
+  "New to investing · Lahore": "سرمایہ کاری میں نئے · لاہور",
+
+  // FAQ
+  "We've got answers.": "ہمارے پاس جواب ہیں۔",
+  "Didn't find your answer?": "اپنا جواب نہیں ملا؟",
+
+  // Haqeeqi Daulat feature section
+  "World-first feature": "دنیا کی پہلی خصوصیت",
+  "Your PKR Gains": "آپ کا روپے میں منافع",
+  "Most Pakistani investors don't realize their PSX gains are partly an illusion. When PKR devalues 16% in a year, a 12% PSX gain means you're actually poorer in real terms. NafaIQ is the first app in the world to show you the complete picture.":
+    "زیادہ تر پاکستانی سرمایہ کاروں کو اندازہ نہیں کہ ان کا PSX منافع کچھ حد تک ایک دھوکہ ہے۔ جب روپیہ سال میں 16٪ گر جائے تو 12٪ PSX منافع کا مطلب ہے کہ حقیقت میں آپ پہلے سے غریب ہو گئے۔ نفع آئی کیو دنیا کی پہلی ایپ ہے جو آپ کو مکمل تصویر دکھاتی ہے۔",
+
+  // Closing CTA / about / contact / footer
+  "Start Managing Your Wealth Today": "آج ہی اپنی دولت کا انتظام شروع کریں",
+  "Free forever. No credit card. No account required to explore.":
+    "ہمیشہ کے لیے مفت۔ کریڈٹ کارڈ نہیں۔ دیکھنے کے لیے اکاؤنٹ کی ضرورت نہیں۔",
+  "About NafaIQ": "نفع آئی کیو کے بارے میں",
+  "Built for Pakistan's financial reality.": "پاکستان کی مالی حقیقت کے لیے بنایا گیا۔",
+  "NafaIQ brings live Pakistan Stock Exchange data, personal finance, and AI insight into a single terminal — designed around the realities of investing, saving, and growing wealth in Pakistan. We help everyday investors see their true, devaluation-adjusted picture and make confident, values-aligned decisions.":
+    "نفع آئی کیو پاکستان اسٹاک ایکسچینج کا لائیو ڈیٹا، ذاتی مالیات اور اے آئی بصیرت ایک ہی ٹرمینل میں لاتا ہے — جو پاکستان میں سرمایہ کاری، بچت اور دولت بڑھانے کی حقیقتوں کے مطابق بنایا گیا ہے۔ ہم عام سرمایہ کاروں کی مدد کرتے ہیں کہ وہ اپنی حقیقی، قدر میں کمی کے مطابق تصویر دیکھیں اور پُراعتماد، اقدار کے مطابق فیصلے کریں۔",
+  "Get in touch": "رابطہ کریں",
+  "We'd love to hear from you.": "ہم آپ سے سننا پسند کریں گے۔",
+  "Questions, feedback, or partnership ideas? Reach out and our team will get back to you.":
+    "سوالات، رائے یا شراکت داری کے خیالات؟ ہم سے رابطہ کریں، ہماری ٹیم آپ کو جواب دے گی۔",
+  "Karachi, Pakistan": "کراچی، پاکستان",
+  "Pakistan's Financial Intelligence Terminal": "پاکستان کا مالی بصیرت ٹرمینل",
+  "Built in Pakistan": "پاکستان میں بنایا گیا",
+
+  // Team page
+  "Built by people who": "ان لوگوں کا بنایا ہوا جو",
+  believe: "یقین رکھتے ہیں",
+  "in Pakistan's potential.": "پاکستان کی صلاحیت پر۔",
+  "We're a small, focused team building Pakistan's Financial Intelligence Terminal — combining live PSX data, personal finance, and AI insight into a single experience designed for the realities of investing in Pakistan.":
+    "ہم ایک چھوٹی، یکسو ٹیم ہیں جو پاکستان کا مالی بصیرت ٹرمینل بنا رہی ہے — لائیو PSX ڈیٹا، ذاتی مالیات اور اے آئی بصیرت کو ایک ہی تجربے میں یکجا کرتے ہوئے، جو پاکستان میں سرمایہ کاری کی حقیقتوں کے لیے بنایا گیا ہے۔",
+  "Back to homepage": "ہوم پیج پر واپس",
+  "Usman Khalid": "عثمان خالد",
+  "Tayyib Sayyid": "طیب سید",
+  "Shakir Mawjee": "شاکر ماوجی",
+  Misbah: "مصباح",
+  "Software Engineer": "سافٹ ویئر انجینئر",
+  "Backend Developer": "بیک اینڈ ڈویلپر",
+  "App Developer": "ایپ ڈویلپر",
+  "PWA Developer": "پی ڈبلیو اے ڈویلپر",
+  "Architecting the backend infrastructure with scalable, resilient systems and clean APIs.":
+    "قابلِ توسیع، مضبوط نظاموں اور صاف APIs کے ساتھ بیک اینڈ کا ڈھانچہ تیار کرنا۔",
+  "Building the progressive web app layer for NafaIQ with a focus on performance and offline-first experiences.":
+    "نفع آئی کیو کے لیے پروگریسو ویب ایپ کی تہہ بنانا، کارکردگی اور آف لائن تجربے پر توجہ کے ساتھ۔",
+  "Contributing to software engineering efforts across the stack with clean, maintainable code.":
+    "پورے اسٹیک میں صاف اور قابلِ دیکھ بھال کوڈ کے ساتھ سافٹ ویئر انجینئرنگ میں حصہ ڈالنا۔",
+  "Developing the mobile application experience with intuitive interfaces and smooth interactions.":
+    "بدیہی انٹرفیس اور ہموار تعامل کے ساتھ موبائل ایپلیکیشن کا تجربہ تیار کرنا۔",
+  /* Browser tab titles. useDocumentTitle() splits "Page — NafaIQ" and
+     translates only the page part, so most pages reuse their nav label; these
+     are the ones that need an entry of their own. */
+  "Generated Lesson": "تیار کردہ سبق",
+  "Plans & Pricing": "پلانز اور قیمتیں",
+  "NafaIQ — PSX Terminal & Personal Finance": "نفع آئی کیو — پی ایس ایکس ٹرمینل اور ذاتی مالیات",
+  "NafaIQ — PSX, Finance & AI in One Terminal":
+    "نفع آئی کیو — پی ایس ایکس، مالیات اور اے آئی ایک ہی ٹرمینل میں",
+  FAQ: "اکثر پوچھے گئے سوالات",
+  real: "حقیقی",
+  "in purchasing power lost to a": "قوتِ خرید کا نقصان بوجہ",
+  "this year.": "اس سال۔",
 };

@@ -65,7 +65,7 @@ export function ReportPanel({
 
   return (
     <div className="space-y-3">
-      <div className="rounded-[8px] border border-border border-l-4 border-l-ai bg-ai-tint p-4">
+      <div className="rounded-[8px] border border-border border-s-4 border-s-ai bg-ai-tint p-4">
         <div className="flex flex-col gap-3 md:flex-row md:items-center">
           <Sparkles className="h-5 w-5 shrink-0 text-ai" />
           <div className="flex-1">
@@ -116,7 +116,7 @@ function ReportView({
 }) {
   const { t } = useLang();
   return (
-    <div className="rounded-[8px] border border-border border-l-4 border-l-ai bg-surface p-4">
+    <div className="rounded-[8px] border border-border border-s-4 border-s-ai bg-surface p-4">
       <div className="mb-3 flex items-center justify-between">
         <h3 className="text-sm font-semibold text-text-primary">{title}</h3>
         <div className="flex items-center gap-2">

@@ -3,9 +3,11 @@ import { motion, useScroll, useTransform, useSpring, useReducedMotion } from "fr
 import { STEPS } from "@/features/landing/landing.data";
 import { StepPanelFrame } from "@/features/landing/components/StepPanelFrame";
 import { STEP_PANELS } from "@/features/landing/components/StepPanels";
+import { useLang } from "@/hooks/use-lang";
 
 /* ---------- Desktop scrollytelling (sticky panel + step observer) ---------- */
 export function HowItWorksDesktop() {
+  const { t } = useLang();
   const reduce = useReducedMotion();
   const [active, setActive] = useState(0);
   const stepRefs = useRef<(HTMLDivElement | null)[]>([]);
@@ -115,7 +117,7 @@ export function HowItWorksDesktop() {
                         {s.title}
                       </h3>
                       <p className="mt-3 max-w-[440px] text-base leading-[1.6] text-text-secondary">
-                        {s.desc}
+                        {t(s.desc)}
                       </p>
 
                       {/* Feature chips */}
@@ -204,7 +206,7 @@ export function HowItWorksDesktop() {
                     {/* Step counter header */}
                     <div className="relative mb-6 flex w-full max-w-[380px] items-center justify-between">
                       <span className="font-mono text-[11px] font-semibold uppercase tracking-[0.22em] text-text-muted">
-                        Live Preview
+                        {t("Live Preview")}
                       </span>
                       <span className="font-mono text-[11px] font-bold tabular-nums text-bull">
                         {STEPS[active].step} / {STEPS[STEPS.length - 1].step}

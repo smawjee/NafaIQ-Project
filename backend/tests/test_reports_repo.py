@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import contextlib
 import json
+from datetime import date
 
 import pytest
 
@@ -110,6 +111,78 @@ async def test_get_or_create_shared_uses_on_conflict_do_nothing_then_select():
     assert select_sql.startswith("SELECT") or "SELECT" in select_sql
     assert conn.params(1)["subject"] == "OGDC"
     assert conn.params(1)["td"] == "2026-07-14"
+
+
+async def test_get_or_create_shared_replace_overwrites_the_existing_row():
+    """`replace=True` must upgrade the conflict to DO UPDATE.
+
+    With DO NOTHING a deliberate regeneration — an explicit ?refresh=true, or
+    the post-close job — paid for a full generation and then silently returned
+    the row already there. That is what kept a stale market brief on screen: on
+    2026-08-06 the card reported a mid-session +725.79 while a correct
+    post-close generation (+1761.66) was produced and thrown away.
+    """
+    fresh = {"id": 4, "content": {"x": 2}, "verified": True}
+    conn = RecordingConn([_Result([]), _Result([fresh])])
+    row = await reports_repo.get_or_create_shared(
+        conn,
+        report_type="market_brief",
+        subject=None,
+        trading_date=date(2026, 8, 6),
+        content={"headline": "closed at 181776.59"},
+        context_hash="h2",
+        verified=True,
+        provider="gemini",
+        model="flash",
+        replace=True,
+    )
+    assert row == fresh
+    insert_sql = conn.sql(0)
+    assert "DO UPDATE" in insert_sql
+    assert "DO NOTHING" not in insert_sql
+    # Every field the regeneration can change must actually be written, or the
+    # row keeps stale prose while claiming a fresh timestamp.
+    for column in ("content", "context_hash", "verified", "provider", "model"):
+        assert f"{column} " in insert_sql or f"{column}=" in insert_sql
+    assert "created_at" in insert_sql
+
+
+async def test_get_or_create_shared_defaults_to_do_nothing():
+    """The default must stay DO NOTHING — it is the dashboard stampede guard.
+
+    Many users opening the dashboard at once must dedupe to a single write,
+    not overwrite each other's row in turn.
+    """
+    conn = RecordingConn([_Result([]), _Result([{"id": 5}])])
+    await reports_repo.get_or_create_shared(
+        conn,
+        report_type="market_brief",
+        subject=None,
+        trading_date=date(2026, 8, 6),
+        content={},
+        context_hash="h",
+    )
+    assert "DO NOTHING" in conn.sql(0)
+    assert "DO UPDATE" not in conn.sql(0)
+
+
+async def test_get_or_create_shared_binds_trading_date_as_a_date():
+    """asyncpg needs a `date` here, not an isoformat string.
+
+    A str raises "'str' object has no attribute 'toordinal'" against the DATE
+    column — the exact failure that made job_generate_market_brief throw on
+    every run it ever made.
+    """
+    conn = RecordingConn([_Result([]), _Result([{"id": 6}])])
+    await reports_repo.get_or_create_shared(
+        conn,
+        report_type="market_brief",
+        subject=None,
+        trading_date=date(2026, 8, 6),
+        content={},
+        context_hash="h",
+    )
+    assert conn.params(0)["td"] == date(2026, 8, 6)
 
 
 # --------------------------------------------------------------------------- #

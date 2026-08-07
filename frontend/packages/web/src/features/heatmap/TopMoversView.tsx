@@ -23,14 +23,14 @@ export function TopMoversView({ movers }: { movers: TopMover[] }) {
     <div className="overflow-x-auto rounded-[8px] border border-border">
       <table className="w-full text-xs">
         <thead>
-          <tr className="border-b border-border bg-surface-alt text-left text-text-muted">
+          <tr className="border-b border-border bg-surface-alt text-start text-text-muted">
             <th className="px-3 py-2 font-semibold">#</th>
             <th className="px-3 py-2 font-semibold">{t("Symbol")}</th>
             <th className="px-3 py-2 font-semibold">{t("Sector")}</th>
-            <th className="px-3 py-2 text-right font-semibold">{t("Price")}</th>
-            <th className="px-3 py-2 text-right font-semibold">{t("Change")}</th>
-            <th className="px-3 py-2 text-right font-semibold">{t("Volume")}</th>
-            <th className="px-3 py-2 text-right font-semibold">{t("Mkt Cap")}</th>
+            <th className="px-3 py-2 text-end font-semibold">{t("Price")}</th>
+            <th className="px-3 py-2 text-end font-semibold">{t("Change")}</th>
+            <th className="px-3 py-2 text-end font-semibold">{t("Volume")}</th>
+            <th className="px-3 py-2 text-end font-semibold">{t("Mkt Cap")}</th>
           </tr>
         </thead>
         <tbody>
@@ -49,10 +49,10 @@ export function TopMoversView({ movers }: { movers: TopMover[] }) {
                   </Link>
                 </td>
                 <td className="px-3 py-1.5 text-text-secondary">{t(s.sector)}</td>
-                <td className="px-3 py-1.5 text-right font-mono tabular-nums text-text-primary">
+                <td className="px-3 py-1.5 text-end font-mono tabular-nums text-text-primary">
                   {s.price.toFixed(2)}
                 </td>
-                <td className="px-3 py-1.5 text-right">
+                <td className="px-3 py-1.5 text-end">
                   <span
                     className={cn(
                       "inline-flex items-center gap-0.5 font-mono tabular-nums font-semibold",
@@ -63,10 +63,10 @@ export function TopMoversView({ movers }: { movers: TopMover[] }) {
                     {Math.abs(s.change_pct).toFixed(2)}%
                   </span>
                 </td>
-                <td className="px-3 py-1.5 text-right font-mono tabular-nums text-text-secondary">
+                <td className="px-3 py-1.5 text-end font-mono tabular-nums text-text-secondary">
                   {s.volume.toLocaleString()}
                 </td>
-                <td className="px-3 py-1.5 text-right font-mono tabular-nums text-text-secondary">
+                <td className="px-3 py-1.5 text-end font-mono tabular-nums text-text-secondary">
                   {s.market_cap != null ? formatCompact(s.market_cap) : "—"}
                 </td>
               </tr>

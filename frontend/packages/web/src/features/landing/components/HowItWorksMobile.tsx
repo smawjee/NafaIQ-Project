@@ -2,6 +2,7 @@ import { motion } from "framer-motion";
 import { StepPanelFrame } from "@/features/landing/components/StepPanelFrame";
 import { STEP_PANELS } from "@/features/landing/components/StepPanels";
 import { STEPS } from "@/features/landing/landing.data";
+import { useLang } from "@/hooks/use-lang";
 
 /**
  * Mobile / tablet "how it works" — a clean vertical stepper.
@@ -13,6 +14,7 @@ import { STEPS } from "@/features/landing/landing.data";
  * viewports where pinned/overlapping scrollytelling breaks down.
  */
 export function HowItWorksMobile() {
+  const { t } = useLang();
   return (
     <div className="relative mt-10 lg:hidden">
       {/* connecting rail */}
@@ -29,7 +31,7 @@ export function HowItWorksMobile() {
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true, margin: "-12% 0px -12% 0px" }}
             transition={{ duration: 0.5, ease: "easeOut" }}
-            className="relative pl-12"
+            className="relative ps-12"
           >
             {/* rail node */}
             <span
@@ -48,7 +50,7 @@ export function HowItWorksMobile() {
               </span>
             </div>
             <h3 className="mt-2.5 text-2xl font-bold leading-tight text-text-primary">{s.title}</h3>
-            <p className="mt-2 text-sm leading-[1.6] text-text-secondary">{s.desc}</p>
+            <p className="mt-2 text-sm leading-[1.6] text-text-secondary">{t(s.desc)}</p>
             <div className="mt-4 flex flex-wrap gap-2">
               {s.chips.map((c) => (
                 <span

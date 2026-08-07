@@ -38,7 +38,7 @@ export function MarketBriefCard() {
       <button
         data-testid="market-brief"
         onClick={() => setOpen(true)}
-        className="group relative flex w-full items-center gap-3 overflow-hidden rounded-[14px] border border-border bg-gradient-to-r from-ai/[0.10] via-surface to-primary/[0.08] px-4 py-3.5 text-left backdrop-blur-xl transition hover:border-ai/30 hover:from-ai/[0.16] hover:to-primary/[0.12]"
+        className="group relative flex w-full items-center gap-3 overflow-hidden rounded-[14px] border border-border bg-gradient-to-r from-ai/[0.10] via-surface to-primary/[0.08] px-4 py-3.5 text-start backdrop-blur-xl transition hover:border-ai/30 hover:from-ai/[0.16] hover:to-primary/[0.12]"
       >
         <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-ai/15 ring-1 ring-inset ring-ai/20">
           <Sparkles

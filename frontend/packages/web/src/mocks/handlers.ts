@@ -14,13 +14,22 @@ export const financeSummary = {
   month: "2026-07",
   income: 45_000,
   fixed_income: 250_000,
+  // Recorded income (45k) is BELOW the salary (250k), so the salary evidently
+  // did not arrive as a transaction and is added on top. Were recorded income
+  // at or above the salary it would already contain it and stand alone — that
+  // is what stops a salary arriving as an imported bank credit counting twice.
   total_income: 295_000,
-  expenses: 120_000,
-  savings: 175_000,
-  savings_rate: 59.32,
+  expenses: 20_000,
+  savings: 275_000,
+  savings_rate: 93.22,
   last_month_income: 280_000,
   last_month_expense: 130_000,
   last_month_savings: 150_000,
+  // Running balance — `savings` is one month in isolation, these carry earlier
+  // months forward.
+  opening_balance: 100_000,
+  carried_over: 400_000,
+  available_balance: 675_000, // carried_over + this month's savings
 };
 
 /** backend/src/app/schemas/profile.py :: plan payload */

@@ -84,7 +84,7 @@ export function StockDetailHeader({
           </div>
         </div>
       </div>
-      <div className="text-right">
+      <div className="text-end">
         {sig ? (
           <SignalBadge signal={sig} className="text-xs" />
         ) : (

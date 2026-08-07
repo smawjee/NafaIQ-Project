@@ -1,14 +1,16 @@
 import { motion } from "framer-motion";
 import { Reveal, RevealGroup, fadeUp } from "@/components/shared/animations";
 import { TRUST_MARKERS } from "@/features/landing/landing.data";
+import { useLang } from "@/hooks/use-lang";
 
 export function TrustStrip() {
+  const { t } = useLang();
   return (
     <section className="border-b border-border bg-surface/40">
       <div className="mx-auto max-w-[1200px] px-6 py-6">
         <Reveal className="text-center">
           <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-text-muted">
-            Built on real foundations
+            {t("Built on real foundations")}
           </p>
         </Reveal>
         <RevealGroup amount={0.4} className="mt-5 grid grid-cols-2 gap-4 md:grid-cols-4">
@@ -23,9 +25,9 @@ export function TrustStrip() {
               </span>
               <span className="min-w-0">
                 <span className="block truncate text-sm font-semibold text-text-primary">
-                  {m.label}
+                  {t(m.label)}
                 </span>
-                <span className="block truncate text-xs text-text-muted">{m.sub}</span>
+                <span className="block truncate text-xs text-text-muted">{t(m.sub)}</span>
               </span>
             </motion.div>
           ))}

@@ -61,7 +61,7 @@ export function CollapsibleColumn({
             onClick={() => onToggle(false)}
             className={cn(
               "relative top-[var(--sticky-rail)] flex h-8 w-8 items-center justify-center rounded-full border border-border bg-surface text-text-muted shadow-sm transition-all hover:border-bull hover:text-bull",
-              isLeft ? "-ml-3" : "-mr-3",
+              isLeft ? "-ms-3" : "-me-3",
             )}
             style={{ left: isLeft ? 0 : undefined, right: isLeft ? undefined : 0 }}
             aria-label={expandButtonLabel}

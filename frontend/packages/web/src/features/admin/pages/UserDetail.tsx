@@ -181,7 +181,7 @@ export function AdminUserDetail() {
               loading={statusMut.isPending}
               onClick={suspend}
             >
-              Suspend
+              {t("Suspend")}
             </Button>
           ) : (
             <Button
@@ -192,7 +192,7 @@ export function AdminUserDetail() {
                 statusMut.mutate({ status: "active", reason: "Reactivated from admin" })
               }
             >
-              Reactivate
+              {t("Reactivate")}
             </Button>
           ))
         }
@@ -200,7 +200,7 @@ export function AdminUserDetail() {
 
       {user.status_reason && user.account_status !== "active" && (
         <div className="rounded-xl border border-warning/30 bg-warning/10 px-4 py-3 text-sm text-warning">
-          <span className="font-medium">Status reason:</span> {user.status_reason}
+          <span className="font-medium">{t("Status reason:")}</span> {user.status_reason}
           {user.status_changed_at && (
             <span className="ms-2 text-xs opacity-80">({formatPkt(user.status_changed_at)})</span>
           )}
@@ -209,7 +209,7 @@ export function AdminUserDetail() {
 
       <Tabs.Root defaultValue="overview">
         <Tabs.List
-          aria-label="User sections"
+          aria-label={t("User sections")}
           className="flex flex-wrap gap-1 border-b border-border"
         >
           <TabTrigger value="overview">{t("Overview")}</TabTrigger>
@@ -224,26 +224,26 @@ export function AdminUserDetail() {
         {/* ---------------------------------------------------------------- */}
         <Tabs.Content value="overview" className="pt-5 focus-visible:outline-none">
           <div className="grid gap-4 lg:grid-cols-3">
-            <Panel title="Profile" className="lg:col-span-1">
+            <Panel title={t("Profile")} className="lg:col-span-1">
               <dl>
-                <DataRow label="Display name" value={user.display_name ?? "—"} />
-                <DataRow label="User ID" value={<code className="text-xs">{user.id}</code>} />
-                <DataRow label="Joined" value={formatPkt(user.created_at)} />
-                <DataRow label="Last sign-in" value={formatPkt(user.last_sign_in_at)} />
-                <DataRow label="Email confirmed" value={formatPkt(user.email_confirmed_at)} />
-                <DataRow label="Plan selected" value={formatPkt(user.plan_selected_at)} />
+                <DataRow label={t("Display name")} value={user.display_name ?? "—"} />
+                <DataRow label={t("User ID")} value={<code className="text-xs">{user.id}</code>} />
+                <DataRow label={t("Joined")} value={formatPkt(user.created_at)} />
+                <DataRow label={t("Last sign-in")} value={formatPkt(user.last_sign_in_at)} />
+                <DataRow label={t("Email confirmed")} value={formatPkt(user.email_confirmed_at)} />
+                <DataRow label={t("Plan selected")} value={formatPkt(user.plan_selected_at)} />
               </dl>
             </Panel>
 
             <Panel
-              title="Activity"
-              description="Records this user owns across the platform"
+              title={t("Activity")}
+              description={t("Records this user owns across the platform")}
               className="lg:col-span-2"
             >
               {!user.activity.available || activityCounts.length === 0 ? (
                 <EmptyBlock
-                  label="Activity metrics unavailable"
-                  hint="The per-user aggregate query failed or returned nothing."
+                  label={t("Activity metrics unavailable")}
+                  hint={t("The per-user aggregate query failed or returned nothing.")}
                 />
               ) : (
                 <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
@@ -266,8 +266,10 @@ export function AdminUserDetail() {
           <div className="mt-4">
             {can("users.tier.write") ? (
               <Panel
-                title="Subscription tier"
-                description="Manually override this user's plan. Recorded in the audit log with the before/after value."
+                title={t("Subscription tier")}
+                description={t(
+                  "Manually override this user's plan. Recorded in the audit log with the before/after value.",
+                )}
               >
                 <div className="flex flex-wrap items-center gap-2">
                   {PLANS.map((p) => {
@@ -287,7 +289,7 @@ export function AdminUserDetail() {
                       >
                         {current && <Check className="h-3.5 w-3.5" aria-hidden />}
                         {p}
-                        {current && <span className="text-xs opacity-70">current</span>}
+                        {current && <span className="text-xs opacity-70">{t("current")}</span>}
                       </button>
                     );
                   })}
@@ -344,17 +346,19 @@ export function AdminUserDetail() {
         <Tabs.Content value="access" className="pt-5 focus-visible:outline-none">
           {can("roles.assign") ? (
             <Panel
-              title="Administrative roles"
-              description="Roles are resolved server-side from the database on every request — granting one here takes effect immediately."
+              title={t("Administrative roles")}
+              description={t(
+                "Roles are resolved server-side from the database on every request — granting one here takes effect immediately.",
+              )}
             >
               <div className="flex flex-wrap items-end gap-2">
-                <Field label="Grant a role" htmlFor="role-select" className="min-w-[14rem]">
+                <Field label={t("Grant a role")} htmlFor="role-select" className="min-w-[14rem]">
                   <Select
                     id="role-select"
                     value={roleToGrant}
                     onChange={(e) => setRoleToGrant(e.target.value)}
                   >
-                    <option value="">Select a role…</option>
+                    <option value="">{t("Select a role…")}</option>
                     {(rolesQ.data ?? [])
                       .filter((r) => !user.roles.includes(r.slug))
                       .map((r) => (
@@ -370,15 +374,17 @@ export function AdminUserDetail() {
                   loading={grantMut.isPending}
                   onClick={() => grantMut.mutate(roleToGrant)}
                 >
-                  Assign
+                  {t("Assign")}
                 </Button>
               </div>
 
               <div className="mt-5">
-                <div className="mb-2 text-xs font-medium text-text-secondary">Current roles</div>
+                <div className="mb-2 text-xs font-medium text-text-secondary">
+                  {t("Current roles")}
+                </div>
                 {user.roles.length === 0 ? (
                   <p className="text-sm text-text-muted">
-                    This user holds no administrative roles.
+                    {t("This user holds no administrative roles.")}
                   </p>
                 ) : (
                   <ul className="flex flex-wrap gap-2">
@@ -415,7 +421,7 @@ export function AdminUserDetail() {
               </div>
             </Panel>
           ) : (
-            <Panel title="Administrative roles">
+            <Panel title={t("Administrative roles")}>
               <PermissionDenied permission="roles.assign" />
             </Panel>
           )}
@@ -425,16 +431,18 @@ export function AdminUserDetail() {
         <Tabs.Content value="notes" className="pt-5 focus-visible:outline-none">
           {can("users.note") ? (
             <Panel
-              title="Admin notes"
-              description="Internal context for other administrators. Visible only inside this console."
+              title={t("Admin notes")}
+              description={t(
+                "Internal context for other administrators. Visible only inside this console.",
+              )}
             >
               <div className="flex flex-col gap-2 sm:flex-row sm:items-start">
                 <Textarea
                   value={note}
                   onChange={(e) => setNote(e.target.value)}
-                  placeholder="Add a note about this account…"
+                  placeholder={t("Add a note about this account…")}
                   rows={2}
-                  aria-label="New admin note"
+                  aria-label={t("New admin note")}
                   className="flex-1"
                 />
                 <Button
@@ -443,12 +451,14 @@ export function AdminUserDetail() {
                   loading={noteMut.isPending}
                   onClick={() => noteMut.mutate(note.trim())}
                 >
-                  Add note
+                  {t("Add note")}
                 </Button>
               </div>
 
               <ul className="mt-4 space-y-2">
-                {user.notes.length === 0 && <EmptyBlock label="No notes on this account yet." />}
+                {user.notes.length === 0 && (
+                  <EmptyBlock label={t("No notes on this account yet.")} />
+                )}
                 {user.notes.map((n) => (
                   <li
                     key={n.id}
@@ -461,7 +471,7 @@ export function AdminUserDetail() {
               </ul>
             </Panel>
           ) : (
-            <Panel title="Admin notes">
+            <Panel title={t("Admin notes")}>
               <PermissionDenied permission="users.note" />
             </Panel>
           )}
@@ -470,8 +480,10 @@ export function AdminUserDetail() {
         {/* ---------------------------------------------------------------- */}
         <Tabs.Content value="history" className="pt-5 focus-visible:outline-none">
           <Panel
-            title="Role assignment history"
-            description="Every grant and revocation recorded against this account, including revoked entries."
+            title={t("Role assignment history")}
+            description={t(
+              "Every grant and revocation recorded against this account, including revoked entries.",
+            )}
           >
             {!can("roles.read") ? (
               <PermissionDenied permission="roles.read" />
@@ -480,7 +492,7 @@ export function AdminUserDetail() {
             ) : historyQ.isError ? (
               <ErrorBlock onRetry={() => void historyQ.refetch()} />
             ) : (historyQ.data ?? []).length === 0 ? (
-              <EmptyBlock label="No role assignments have ever been made for this user." />
+              <EmptyBlock label={t("No role assignments have ever been made for this user.")} />
             ) : (
               <ol className="relative space-y-4 ps-4">
                 {/* Timeline spine */}

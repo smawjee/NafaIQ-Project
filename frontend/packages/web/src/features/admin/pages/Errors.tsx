@@ -221,7 +221,7 @@ export function AdminErrors() {
 
       <Panel flush>
         <DataTable
-          label="Errors"
+          label={t("Errors")}
           columns={columns}
           rows={q.data?.items ?? []}
           getRowId={(r) => r.fingerprint}

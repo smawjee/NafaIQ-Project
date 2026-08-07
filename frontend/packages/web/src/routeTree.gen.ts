@@ -38,6 +38,7 @@ import { Route as AdminSubscriptionsRouteImport } from './routes/admin.subscript
 import { Route as AdminSignalsRouteImport } from './routes/admin.signals'
 import { Route as AdminRolesRouteImport } from './routes/admin.roles'
 import { Route as AdminMarketDataRouteImport } from './routes/admin.market-data'
+import { Route as AdminLecturesRouteImport } from './routes/admin.lectures'
 import { Route as AdminFlagsRouteImport } from './routes/admin.flags'
 import { Route as AdminErrorsRouteImport } from './routes/admin.errors'
 import { Route as AdminBugReportsRouteImport } from './routes/admin.bug-reports'
@@ -193,6 +194,11 @@ const AdminMarketDataRoute = AdminMarketDataRouteImport.update({
   path: '/market-data',
   getParentRoute: () => AdminRoute,
 } as any)
+const AdminLecturesRoute = AdminLecturesRouteImport.update({
+  id: '/lectures',
+  path: '/lectures',
+  getParentRoute: () => AdminRoute,
+} as any)
 const AdminFlagsRoute = AdminFlagsRouteImport.update({
   id: '/flags',
   path: '/flags',
@@ -266,6 +272,7 @@ export interface FileRoutesByFullPath {
   '/admin/bug-reports': typeof AdminBugReportsRoute
   '/admin/errors': typeof AdminErrorsRoute
   '/admin/flags': typeof AdminFlagsRoute
+  '/admin/lectures': typeof AdminLecturesRoute
   '/admin/market-data': typeof AdminMarketDataRoute
   '/admin/roles': typeof AdminRolesRoute
   '/admin/signals': typeof AdminSignalsRoute
@@ -304,6 +311,7 @@ export interface FileRoutesByTo {
   '/admin/bug-reports': typeof AdminBugReportsRoute
   '/admin/errors': typeof AdminErrorsRoute
   '/admin/flags': typeof AdminFlagsRoute
+  '/admin/lectures': typeof AdminLecturesRoute
   '/admin/market-data': typeof AdminMarketDataRoute
   '/admin/roles': typeof AdminRolesRoute
   '/admin/signals': typeof AdminSignalsRoute
@@ -345,6 +353,7 @@ export interface FileRoutesById {
   '/admin/bug-reports': typeof AdminBugReportsRoute
   '/admin/errors': typeof AdminErrorsRoute
   '/admin/flags': typeof AdminFlagsRoute
+  '/admin/lectures': typeof AdminLecturesRoute
   '/admin/market-data': typeof AdminMarketDataRoute
   '/admin/roles': typeof AdminRolesRoute
   '/admin/signals': typeof AdminSignalsRoute
@@ -387,6 +396,7 @@ export interface FileRouteTypes {
     | '/admin/bug-reports'
     | '/admin/errors'
     | '/admin/flags'
+    | '/admin/lectures'
     | '/admin/market-data'
     | '/admin/roles'
     | '/admin/signals'
@@ -425,6 +435,7 @@ export interface FileRouteTypes {
     | '/admin/bug-reports'
     | '/admin/errors'
     | '/admin/flags'
+    | '/admin/lectures'
     | '/admin/market-data'
     | '/admin/roles'
     | '/admin/signals'
@@ -465,6 +476,7 @@ export interface FileRouteTypes {
     | '/admin/bug-reports'
     | '/admin/errors'
     | '/admin/flags'
+    | '/admin/lectures'
     | '/admin/market-data'
     | '/admin/roles'
     | '/admin/signals'
@@ -708,6 +720,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminMarketDataRouteImport
       parentRoute: typeof AdminRoute
     }
+    '/admin/lectures': {
+      id: '/admin/lectures'
+      path: '/lectures'
+      fullPath: '/admin/lectures'
+      preLoaderRoute: typeof AdminLecturesRouteImport
+      parentRoute: typeof AdminRoute
+    }
     '/admin/flags': {
       id: '/admin/flags'
       path: '/flags'
@@ -793,6 +812,7 @@ interface AdminRouteChildren {
   AdminBugReportsRoute: typeof AdminBugReportsRoute
   AdminErrorsRoute: typeof AdminErrorsRoute
   AdminFlagsRoute: typeof AdminFlagsRoute
+  AdminLecturesRoute: typeof AdminLecturesRoute
   AdminMarketDataRoute: typeof AdminMarketDataRoute
   AdminRolesRoute: typeof AdminRolesRoute
   AdminSignalsRoute: typeof AdminSignalsRoute
@@ -809,6 +829,7 @@ const AdminRouteChildren: AdminRouteChildren = {
   AdminBugReportsRoute: AdminBugReportsRoute,
   AdminErrorsRoute: AdminErrorsRoute,
   AdminFlagsRoute: AdminFlagsRoute,
+  AdminLecturesRoute: AdminLecturesRoute,
   AdminMarketDataRoute: AdminMarketDataRoute,
   AdminRolesRoute: AdminRolesRoute,
   AdminSignalsRoute: AdminSignalsRoute,

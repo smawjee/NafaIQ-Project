@@ -1,4 +1,4 @@
-import { Link } from "@tanstack/react-router";
+import { Link, useNavigate } from "@tanstack/react-router";
 import { Filter, Info } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Card } from "@/components/shared/Card";
@@ -46,6 +46,17 @@ export function PsxScreenerCard({
   onSignalChange: (value: string) => void;
 }) {
   const { t } = useLang();
+  const navigate = useNavigate();
+
+  /** The row has always looked clickable (`cursor-pointer`) but only the
+   *  ticker cell actually navigated. Clicking anywhere else now opens the
+   *  stock — except on nested controls (the signal popover, links), which
+   *  handle their own clicks. */
+  const openStock = (ticker: string) => navigate({ to: "/stock/$ticker", params: { ticker } });
+
+  const isInteractive = (target: EventTarget | null) =>
+    target instanceof Element && target.closest("a,button,select,input,[role='button']") !== null;
+
   const renderSignal = (s: PsxScreenRow) => {
     if (!s.signal) {
       return (
@@ -172,23 +183,30 @@ export function PsxScreenerCard({
       <div className="overflow-x-auto">
         <table className="w-full min-w-[780px] text-xs">
           <thead>
-            <tr className="border-b border-border text-left text-text-muted">
+            <tr className="border-b border-border text-start text-text-muted">
               <th className="py-2">{t("Stock")}</th>
               <th>{t("Sector")}</th>
-              <th className="text-right">{t("Price")}</th>
-              <th className="text-right">{t("Change")}</th>
+              <th className="text-end">{t("Price")}</th>
+              <th className="text-end">{t("Change")}</th>
               <th className="text-center">{t("Signal")}</th>
-              <th className="text-right">{t("Strength")}</th>
-              <th className="text-right">RSI</th>
-              <th className="text-right">{t("Volume")}</th>
-              <th className="pr-2 text-right">{t("Mkt Cap")}</th>
+              <th className="text-end">{t("Strength")}</th>
+              <th className="text-end">{t("RSI")}</th>
+              <th className="text-end">{t("Volume")}</th>
+              <th className="pe-2 text-end">{t("Mkt Cap")}</th>
             </tr>
           </thead>
           <tbody>
             {rows.map((s, i) => (
               <tr
                 key={s.ticker}
-                className={cn("cursor-pointer hover:bg-hover", i % 2 ? "bg-surface-alt" : "")}
+                onClick={(e) => {
+                  if (isInteractive(e.target)) return;
+                  openStock(s.ticker);
+                }}
+                className={cn(
+                  "cursor-pointer hover:bg-hover focus-within:bg-hover",
+                  i % 2 ? "bg-surface-alt" : "",
+                )}
               >
                 <td className="py-2">
                   <Link
@@ -200,10 +218,10 @@ export function PsxScreenerCard({
                   </Link>
                 </td>
                 <td className="text-text-secondary">{t(s.sector)}</td>
-                <td className="text-right font-mono tabular-nums text-text-primary">
+                <td className="text-end font-mono tabular-nums text-text-primary">
                   {fmtNum(s.price)}
                 </td>
-                <td className="text-right">
+                <td className="text-end">
                   <Change pct={s.changePct} />
                 </td>
                 <td className="text-center">
@@ -214,10 +232,10 @@ export function PsxScreenerCard({
                     </span>
                   )}
                 </td>
-                <td className="text-right font-mono tabular-nums text-text-secondary">
+                <td className="text-end font-mono tabular-nums text-text-secondary">
                   {s.signalDetails ? `${s.signalDetails.confidence.toFixed(0)}%` : "—"}
                 </td>
-                <td className="text-right font-mono tabular-nums">
+                <td className="text-end font-mono tabular-nums">
                   {s.rsi == null ? (
                     <span className="text-text-muted" title={t("Not enough history")}>
                       —
@@ -236,10 +254,8 @@ export function PsxScreenerCard({
                     </span>
                   )}
                 </td>
-                <td className="text-right font-mono tabular-nums text-text-secondary">
-                  {s.volume}
-                </td>
-                <td className="pr-2 text-right font-mono tabular-nums text-text-secondary">
+                <td className="text-end font-mono tabular-nums text-text-secondary">{s.volume}</td>
+                <td className="pe-2 text-end font-mono tabular-nums text-text-secondary">
                   {s.marketCap}
                 </td>
               </tr>

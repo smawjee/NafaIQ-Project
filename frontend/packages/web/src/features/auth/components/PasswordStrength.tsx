@@ -1,6 +1,7 @@
 import { Check, X } from "lucide-react";
 import { motion } from "framer-motion";
 import { passwordStrength } from "@/features/auth/password-rules";
+import { useLang } from "@/hooks/use-lang";
 
 /**
  * Segmented strength bar + the four rules, as shown under the sign-up password
@@ -8,6 +9,7 @@ import { passwordStrength } from "@/features/auth/password-rules";
  * users to the same bar (and show them the same words).
  */
 export function PasswordStrength({ password }: { password: string }) {
+  const { t } = useLang();
   const { checks, score, label, color } = passwordStrength(password);
 
   return (
@@ -27,7 +29,7 @@ export function PasswordStrength({ password }: { password: string }) {
           ))}
         </div>
         <span className="text-xs font-medium" style={{ color }}>
-          {label}
+          {t(label)}
         </span>
       </div>
       <ul className="grid grid-cols-2 gap-x-3 gap-y-1.5">
@@ -40,7 +42,7 @@ export function PasswordStrength({ password }: { password: string }) {
             <span className="flex h-4 w-4 shrink-0 items-center justify-center">
               {c.ok ? <Check className="h-3.5 w-3.5" /> : <X className="h-3.5 w-3.5 opacity-50" />}
             </span>
-            {c.label}
+            {t(c.label)}
           </li>
         ))}
       </ul>

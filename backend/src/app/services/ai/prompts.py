@@ -41,5 +41,31 @@ def load_prompt(name: str) -> str:
 
 
 def security_rules() -> str:
-    """Shared anti-leakage rules included in every LLM system prompt."""
+    """Full anti-leakage rules, for CONVERSATIONAL surfaces.
+
+    The tutor and the assistant take free-form user turns, so they need the
+    whole policy: refusing role-play and "ignore previous instructions" framings,
+    declining to confirm what is confidential, and staying on the NafaIQ surface
+    instead of answering general-knowledge questions.
+    """
     return load_prompt("security_rules")
+
+
+def report_security_rules() -> str:
+    """Reduced rules for the REPORT surfaces.
+
+    Reports are not a conversation. The user presses a button; the request
+    carries no user-authored turn, the model's only input is a system prompt
+    plus a fixed data bundle, and the output is a schema-validated JSON object
+    that a verifier then checks number by number. There is no channel through
+    which someone can ask it to role-play, to reveal its prompt, or to discuss
+    the weather — so those clauses are instruction noise competing for attention
+    with the citation rules the surface actually depends on.
+
+    What is KEPT is the prompt-injection rule, and deliberately so: the bundle
+    embeds merchant names, categories, goal names and announcement titles, and
+    on the finance surface those strings are parsed out of THIRD-PARTY EMAIL.
+    That is attacker-influenceable text reaching the model, so treating the
+    bundle as data rather than instructions is load-bearing here, not ceremony.
+    """
+    return load_prompt("security_rules_report")

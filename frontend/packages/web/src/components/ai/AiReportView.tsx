@@ -154,7 +154,7 @@ export function AiReportView({
           {report.considerations.map((c, i) => (
             <div
               key={i}
-              className="rounded-[10px] border border-border border-l-4 border-l-ai bg-ai-tint p-3"
+              className="rounded-[10px] border border-border border-s-4 border-s-ai bg-ai-tint p-3"
             >
               <p className="text-sm leading-relaxed text-text-primary">
                 <AiText text={c.consideration} />

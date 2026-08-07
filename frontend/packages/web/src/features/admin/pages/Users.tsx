@@ -153,7 +153,7 @@ export function AdminUsers() {
     () => [
       {
         id: "email",
-        header: "User",
+        header: t("User"),
         sortable: true,
         hideable: false,
         exportValue: (r) => r.email ?? r.id,
@@ -178,21 +178,21 @@ export function AdminUsers() {
       },
       {
         id: "plan",
-        header: "Plan",
+        header: t("Plan"),
         sortable: true,
         exportValue: (r) => r.plan,
         cell: (r) => <Badge tone={r.plan === "Free" ? "neutral" : "accent"}>{r.plan}</Badge>,
       },
       {
         id: "account_status",
-        header: "Status",
+        header: t("Status"),
         sortable: true,
         exportValue: (r) => r.account_status,
         cell: (r) => <StatusBadge status={r.account_status} />,
       },
       {
         id: "created_at",
-        header: "Joined",
+        header: t("Joined"),
         sortable: true,
         secondary: true,
         exportValue: (r) => r.created_at,
@@ -204,7 +204,7 @@ export function AdminUsers() {
       },
       {
         id: "last_sign_in_at",
-        header: "Last seen",
+        header: t("Last seen"),
         sortable: true,
         exportValue: (r) => r.last_sign_in_at,
         cell: (r) => (
@@ -228,7 +228,7 @@ export function AdminUsers() {
                 setQuickView(r.id);
               }}
             >
-              Inspect
+              {t("Inspect")}
             </Button>
             <Link
               to="/admin/users/$userId"
@@ -243,7 +243,7 @@ export function AdminUsers() {
         ),
       },
     ],
-    [],
+    [t],
   );
 
   return (
@@ -251,13 +251,15 @@ export function AdminUsers() {
       <PageHeader
         title={t("Users")}
         breadcrumbs={[{ label: t("Admin"), to: "/admin" }, { label: t("Users") }]}
-        description="Search the whole user base, inspect an account inline, or open a profile to suspend, re-tier, note or grant roles."
+        description={t(
+          "Search the whole user base, inspect an account inline, or open a profile to suspend, re-tier, note or grant roles.",
+        )}
         meta={q.data && <Badge tone="neutral">{q.data.meta.total.toLocaleString()} total</Badge>}
       />
 
       <Panel flush>
         <DataTable
-          label="Users"
+          label={t("Users")}
           columns={columns}
           rows={q.data?.items ?? []}
           getRowId={(r) => r.id}
@@ -325,7 +327,7 @@ export function AdminUsers() {
                     })
                   }
                 >
-                  Suspend
+                  {t("Suspend")}
                 </Button>
               )}
               {canSuspend && (
@@ -345,7 +347,7 @@ export function AdminUsers() {
                     })
                   }
                 >
-                  Reactivate
+                  {t("Reactivate")}
                 </Button>
               )}
               {canTier && (

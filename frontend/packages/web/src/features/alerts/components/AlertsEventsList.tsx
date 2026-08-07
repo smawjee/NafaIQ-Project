@@ -59,7 +59,7 @@ export function AlertsEventsList({
                   onClick={() => {
                     if (!ev.read_at) onMarkRead(i);
                   }}
-                  className="flex w-full items-start gap-3 px-3 py-3 text-left transition hover:bg-hover"
+                  className="flex w-full items-start gap-3 px-3 py-3 text-start transition hover:bg-hover"
                 >
                   <span
                     className={cn(

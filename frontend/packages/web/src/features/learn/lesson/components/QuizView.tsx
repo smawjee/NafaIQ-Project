@@ -213,7 +213,7 @@ export function QuizView({
                       animate={isCorrectAns ? { scale: [1, 1.015, 1] } : { scale: 1 }}
                       transition={{ duration: 0.3 }}
                       className={cn(
-                        "flex w-full items-center gap-3 rounded-btn border px-5 py-4 text-left transition-colors",
+                        "flex w-full items-center gap-3 rounded-btn border px-5 py-4 text-start transition-colors",
                         stateCls,
                       )}
                     >
@@ -262,8 +262,8 @@ export function QuizView({
                   style={{
                     background: "var(--color-elevated)",
                     borderColor: wasCorrect ? "rgba(0,212,170,0.35)" : "rgba(229,72,77,0.35)",
-                    borderLeftWidth: 3,
-                    borderLeftColor: wasCorrect ? "#00d4aa" : "#e5484d",
+                    borderInlineStartWidth: 3,
+                    borderInlineStartColor: wasCorrect ? "#00d4aa" : "#e5484d",
                   }}
                 >
                   <div

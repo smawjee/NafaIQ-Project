@@ -37,7 +37,7 @@ export function VideoPlayer({
       ) : (
         <iframe
           src={url}
-          title="Lesson video"
+          title={t("Lesson video")}
           className="h-full w-full"
           allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
           allowFullScreen

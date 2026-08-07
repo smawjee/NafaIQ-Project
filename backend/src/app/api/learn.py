@@ -17,6 +17,8 @@ from fastapi import APIRouter, Query, Request
 
 from app.config import settings
 from app.middleware.rate_limit import limiter
+from app.repositories.admin import lectures_repo
+from app.repositories.base import connect
 from app.services.learnhub import retrieval
 
 router = APIRouter(tags=["learn"])
@@ -107,3 +109,40 @@ async def learn_related(
     if not settings.learnhub_rag_enabled:
         return {"results": []}
     return {"results": await retrieval.related_lessons(lesson_id, limit=limit)}
+
+
+# Fields a learner may see. Draft/archived rows never reach this endpoint, and
+# the admin-only bookkeeping columns (created_by/updated_by, timestamps) are
+# projected away rather than deleted, so a new internal column cannot leak by
+# default — the same rule as _PUBLIC_RESULT_FIELDS above.
+_PUBLIC_LECTURE_FIELDS = (
+    "id",
+    "slug",
+    "title",
+    "subtitle",
+    "category",
+    "level",
+    "duration",
+    "emoji",
+    "accent",
+    "type",
+    "video_url",
+    "sections",
+    "quiz",
+    "sort_order",
+)
+
+
+@router.get("/learn/lectures")
+@limiter.limit("60/minute")
+async def learn_lectures(request: Request):
+    """Published lectures added through the admin console.
+
+    Public for the same reason as the rest of this router: it is course
+    material the web app already ships in its bundle. The web Learn Hub merges
+    these with its static catalogue, so an admin-added lecture appears to
+    learners without a redeploy.
+    """
+    async with connect() as conn:
+        rows = await lectures_repo.list_lectures(conn, status="published")
+    return {"lectures": [{k: r.get(k) for k in _PUBLIC_LECTURE_FIELDS} for r in rows]}

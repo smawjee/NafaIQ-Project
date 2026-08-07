@@ -34,7 +34,7 @@ export function Breadcrumbs() {
     });
   }
   return (
-    <nav aria-label="Breadcrumb" className="border-b border-border px-3 py-2 sm:px-5 lg:px-6">
+    <nav aria-label={t("Breadcrumb")} className="border-b border-border px-3 py-2 sm:px-5 lg:px-6">
       <ol className="mx-auto flex max-w-7xl items-center gap-1.5 text-[12px]">
         {crumbs.map((c, i) => (
           // href alone is not unique: on a lesson page "Learn Hub" and the

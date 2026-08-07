@@ -326,6 +326,47 @@ CHECKS: List[MigrationCheck] = [
         ],
     ),
     MigrationCheck(
+        filename="20260806140000_create_psx_intraday.sql",
+        description="5-minute intraday bars backing the chart's 1D timeframe",
+        checks=[
+            Check("psx_intraday table exists",
+                  "SELECT to_regclass('public.psx_intraday') IS NOT NULL"),
+            Check("psx_intraday.session_date column",
+                  "SELECT 1 FROM information_schema.columns WHERE table_name='psx_intraday' AND column_name='session_date'",
+                  "The nightly prune filters on this; without it retention "
+                  "never runs and the table grows by ~39k rows per session."),
+            Check("psx_intraday.cum_volume column",
+                  "SELECT 1 FROM information_schema.columns WHERE table_name='psx_intraday' AND column_name='cum_volume'"),
+            Check("psx_intraday symbol+ts index",
+                  "SELECT to_regclass('public.idx_psx_intraday_symbol_ts') IS NOT NULL"),
+            Check("psx_intraday session_date index",
+                  "SELECT to_regclass('public.idx_psx_intraday_session_date') IS NOT NULL"),
+            Check("psx_intraday has RLS enabled",
+                  "SELECT relrowsecurity FROM pg_class WHERE relname='psx_intraday'"),
+        ],
+    ),
+    MigrationCheck(
+        filename="20260806170000_finance_opening_balance.sql",
+        description="Opening balance anchoring the carried-forward finance balance",
+        checks=[
+            Check("user_settings.opening_balance column",
+                  "SELECT 1 FROM information_schema.columns WHERE table_name='user_settings' AND column_name='opening_balance'",
+                  "Without it finance.summary() cannot carry a balance across "
+                  "months and every month silently restarts from zero."),
+            Check("user_settings.opening_balance_date column",
+                  "SELECT 1 FROM information_schema.columns WHERE table_name='user_settings' AND column_name='opening_balance_date'",
+                  "Months strictly before this date are excluded from the running "
+                  "total; without it they would double-count money already inside "
+                  "the user's own opening figure."),
+            Check("opening_balance defaults to 0 and is NOT NULL",
+                  "SELECT (is_nullable='NO' AND column_default IS NOT NULL) "
+                  "FROM information_schema.columns "
+                  "WHERE table_name='user_settings' AND column_name='opening_balance'",
+                  "A user who never sets one must keep the previous behaviour "
+                  "(open at 0), not get NULL propagating through the summary."),
+        ],
+    ),
+    MigrationCheck(
         filename="20260728120000_email_import_correlation.sql",
         description=(
             "Email-import correlation: staging ledger, learned merchant aliases, "
@@ -392,6 +433,46 @@ CHECKS: List[MigrationCheck] = [
                 "HAVING COUNT(*) > 1)",
                 "Duplicates mean the index is not enforcing; the newest wins and "
                 "shadows the real report.",
+            ),
+        ],
+    ),
+    MigrationCheck(
+        filename="20260807100000_learnhub_lectures.sql",
+        description="Admin-managed LearnHub lecture catalogue",
+        checks=[
+            Check(
+                "learnhub_lectures table exists",
+                "SELECT to_regclass('public.learnhub_lectures') IS NOT NULL",
+            ),
+            Check(
+                "slug is unique",
+                "SELECT EXISTS (SELECT 1 FROM pg_indexes "
+                "WHERE tablename = 'learnhub_lectures' AND indexdef ILIKE '%UNIQUE%slug%')",
+                "Without this two lectures can claim the same /learn/lesson/$id route.",
+            ),
+            Check(
+                "RLS is on",
+                "SELECT relrowsecurity FROM pg_class WHERE relname = 'learnhub_lectures'",
+                "Admin-managed tables are service_role only; a browser key must not read drafts.",
+            ),
+            Check(
+                "learn permissions seeded",
+                "SELECT COUNT(*) = 2 FROM public.admin_permissions "
+                "WHERE slug IN ('learn.read', 'learn.write')",
+            ),
+            Check(
+                "content_admin can manage lectures",
+                "SELECT COUNT(*) = 2 FROM public.admin_role_permissions "
+                "WHERE role_slug = 'content_admin' "
+                "AND permission_slug IN ('learn.read', 'learn.write')",
+            ),
+            Check(
+                "super_admin picked up the new permissions",
+                "SELECT COUNT(*) = 2 FROM public.admin_role_permissions "
+                "WHERE role_slug = 'super_admin' "
+                "AND permission_slug IN ('learn.read', 'learn.write')",
+                "The base migration seeds super_admin from a snapshot of the "
+                "permission table, so a later permission needs re-seeding.",
             ),
         ],
     ),

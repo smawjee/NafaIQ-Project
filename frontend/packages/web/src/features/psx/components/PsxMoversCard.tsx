@@ -48,20 +48,20 @@ export function PsxMoversCard({
                 old fixed 6-column grid was wider than the panel and clipped the
                 volume column. */}
             <div className="flex items-center gap-2">
-              <span className="w-4 shrink-0 text-right tabular-nums text-text-muted">{i + 1}</span>
+              <span className="w-4 shrink-0 text-end tabular-nums text-text-muted">{i + 1}</span>
               <span className="min-w-0 flex-1 truncate font-semibold text-text-primary">
                 {s.ticker}
               </span>
               <span className="shrink-0 whitespace-nowrap font-mono tabular-nums text-text-primary">
                 {fmtNum(s.price)}
               </span>
-              <span className="shrink-0 whitespace-nowrap text-right">
+              <span className="shrink-0 whitespace-nowrap text-end">
                 <Change pct={s.changePct} />
               </span>
             </div>
             {/* Line 2: signal on the left, volume on the right — the vertical
                 expansion that lets the full "Strong Bullish/Bearish" label fit. */}
-            <div className="mt-1 flex items-center justify-between gap-2 pl-6">
+            <div className="mt-1 flex items-center justify-between gap-2 ps-6">
               {s.signal ? (
                 <SignalBadge signal={s.signal} className="px-2 text-[9px] tracking-normal" />
               ) : (

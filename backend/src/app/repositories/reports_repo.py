@@ -10,6 +10,7 @@ codec, so we pass a JSON string and cast it with `::jsonb` in SQL.
 from __future__ import annotations
 
 import json
+from datetime import date
 from typing import Any, Optional
 
 from sqlalchemy import text
@@ -76,23 +77,53 @@ async def get_or_create_shared(
     *,
     report_type: str,
     subject: Optional[str],
-    trading_date: Optional[str],
+    trading_date: Optional[date],
     content: dict[str, Any],
     context_hash: str,
     lang: str = "en",
     verified: bool = False,
     provider: Optional[str] = None,
     model: Optional[str] = None,
+    replace: bool = False,
 ) -> Optional[dict[str, Any]]:
     """Concurrency-safe shared-report get-or-create (§19.5).
 
-    INSERT ... ON CONFLICT DO NOTHING against the partial unique index, then
-    SELECT the winning row. Simultaneous requests for the same
+    INSERT ... ON CONFLICT against the partial unique index, then SELECT the
+    winning row. Simultaneous requests for the same
     (report_type, subject, trading_date) dedupe to one generation.
+
+    `trading_date` is a `date`, NOT an isoformat string: asyncpg binds it to a
+    DATE column and rejects a str with "'str' object has no attribute
+    'toordinal'". The annotation used to say `Optional[str]`, and
+    `job_generate_market_brief` believed it — that job passed
+    `.date().isoformat()` and therefore threw on EVERY run since it was written
+    (psx_data_source_health.market_brief had last_success = NULL), which is why
+    the daily brief was only ever created as a side effect of the first user to
+    open the dashboard.
+
+    `replace=True` upgrades the conflict to DO UPDATE. The default DO NOTHING is
+    right for the stampede it was built for — many users opening the dashboard
+    at once dedupe to one generation — but it is wrong for a deliberate
+    regeneration: an explicit `?refresh=true` or the post-close job would pay
+    for a full ~13s generation and then silently discard it, leaving the stale
+    row on screen. Pass replace=True only when the caller *intends* to overwrite.
     """
+    conflict = (
+        """
+            DO UPDATE SET
+                content      = EXCLUDED.content,
+                context_hash = EXCLUDED.context_hash,
+                verified     = EXCLUDED.verified,
+                provider     = EXCLUDED.provider,
+                model        = EXCLUDED.model,
+                created_at   = now()
+        """
+        if replace
+        else "DO NOTHING"
+    )
     await conn.execute(
         text(
-            """
+            f"""
             INSERT INTO ai_reports
                 (user_id, report_type, subject, trading_date,
                  content, context_hash, verified, provider, model, lang)
@@ -102,7 +133,7 @@ async def get_or_create_shared(
                  :lang)
             ON CONFLICT (report_type, subject, trading_date, lang)
                 WHERE user_id IS NULL
-            DO NOTHING
+            {conflict}
             """
         ),
         {

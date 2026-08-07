@@ -204,7 +204,7 @@ export function AdminBugReports() {
 
       <Panel flush>
         <DataTable
-          label="Bug reports"
+          label={t("Bug reports")}
           columns={columns}
           rows={q.data?.items ?? []}
           getRowId={(r) => String(r.id)}

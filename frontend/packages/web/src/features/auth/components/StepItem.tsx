@@ -1,4 +1,5 @@
 import { Check } from "lucide-react";
+import { useLang } from "@/hooks/use-lang";
 
 export function StepItem({
   number,
@@ -11,6 +12,7 @@ export function StepItem({
   state: "done" | "active" | "todo";
   isLight: boolean;
 }) {
+  const { t } = useLang();
   const active = state === "active";
   const done = state === "done";
   return (
@@ -36,7 +38,7 @@ export function StepItem({
       >
         {done ? <Check className="h-4 w-4" /> : number}
       </span>
-      <span className="text-sm font-medium">{text}</span>
+      <span className="text-sm font-medium">{t(text)}</span>
     </div>
   );
 }

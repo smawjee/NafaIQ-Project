@@ -9,6 +9,7 @@ import * as Dialog from "@radix-ui/react-dialog";
 import { X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { IconButton } from "./primitives";
+import { useLang } from "@/hooks/use-lang";
 
 export function Drawer({
   open,
@@ -27,6 +28,7 @@ export function Drawer({
   footer?: ReactNode;
   width?: "sm" | "md" | "lg";
 }) {
+  const { t } = useLang();
   const widths = {
     sm: "sm:max-w-md",
     md: "sm:max-w-xl",
@@ -68,7 +70,7 @@ export function Drawer({
               )}
             </div>
             <Dialog.Close asChild>
-              <IconButton label="Close panel" size="sm">
+              <IconButton label={t("Close panel")} size="sm">
                 <X className="h-4 w-4" />
               </IconButton>
             </Dialog.Close>

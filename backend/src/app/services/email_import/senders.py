@@ -403,15 +403,34 @@ def is_candidate(from_header: str, subject: str, body: str) -> bool:
     return looks_like_purchase(subject, body)
 
 
-def _start_of_month_epoch(now: datetime | None = None) -> int:
-    """Unix seconds for the current month start in the app's Pakistan timezone."""
+# Months of history a FIRST sync pulls. Matches the 6-month income/expense
+# chart, so a user who connects their inbox sees a populated graph immediately
+# instead of five empty months and one bar. Only the first sync pays for this:
+# afterwards the poll runs from the stored watermark, so previous months are
+# never re-fetched or re-parsed.
+FIRST_SYNC_MONTHS = 6
+
+
+def _start_of_month_epoch(now: datetime | None = None, *, months_back: int = 0) -> int:
+    """Unix seconds for a month start in the app's Pakistan timezone.
+
+    `months_back=0` is the current month; higher values step back whole months.
+    """
     if now is None:
         current = datetime.now(_APP_TZ)
     elif now.tzinfo is None:
         current = now.replace(tzinfo=_APP_TZ)
     else:
         current = now.astimezone(_APP_TZ)
-    month_start = current.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    year, month = current.year, current.month
+    for _ in range(max(0, months_back)):
+        month -= 1
+        if month == 0:
+            month = 12
+            year -= 1
+    month_start = current.replace(
+        year=year, month=month, day=1, hour=0, minute=0, second=0, microsecond=0
+    )
     return int(month_start.astimezone(timezone.utc).timestamp())
 
 
@@ -424,10 +443,17 @@ def gmail_query(
     """Gmail `q` restricting the fetch to finance senders since the watermark.
 
     Gmail's `after:` takes epoch *seconds* and is coarse (day-granular in
-    practice), so callers must still filter exactly on internalDate. On first
-    sync (watermark 0) we start at the first day of the current month rather
-    than importing the user's entire mail history. `lookback_days` is accepted
-    for backward compatibility but no longer controls first-sync behavior.
+    practice), so callers must still filter exactly on internalDate.
+
+    On first sync (watermark 0) we reach back `FIRST_SYNC_MONTHS` whole months
+    rather than importing the user's entire mail history. It used to start at
+    the first of the CURRENT month, which is why a newly-connected inbox left
+    every earlier month of the 6-month income/expense chart empty — the
+    transactions were never imported, so the chart was accurate about data that
+    had simply never been fetched.
+
+    `lookback_days` is accepted for backward compatibility but no longer
+    controls first-sync behavior.
     """
     senders = " OR ".join(f"from:{d}" for d in FINANCE_SENDER_DOMAINS)
     # Receipt-shaped mail from ANY sender, so store receipts (foodpanda, Anomaly,
@@ -447,7 +473,7 @@ def gmail_query(
         # message (the DB unique index dedups) than miss one.
         after = max(0, after_internal_date_ms // 1000 - 86_400)
     else:
-        after = _start_of_month_epoch(now)
+        after = _start_of_month_epoch(now, months_back=FIRST_SYNC_MONTHS - 1)
     window = f"after:{after}"
     brokers = " OR ".join(f"from:{addr}" for addr in BROKER_SENDER_ADDRESSES)
     return f"(({senders}) OR ({brokers}) OR ({receipts})) {window}"

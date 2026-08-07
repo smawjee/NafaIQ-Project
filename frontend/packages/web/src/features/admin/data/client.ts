@@ -11,6 +11,8 @@ import type {
   AlertsOverview,
   AuditEntry,
   FlagInfo,
+  Lecture,
+  LectureInput,
   OverviewResponse,
   Page,
   PlanFeatures,
@@ -89,6 +91,16 @@ export const adminApi = {
   listFlags: () => userGet<FlagInfo[]>("/api/admin/flags"),
   updateFlag: (key: string, value: unknown, enabled?: boolean, reason?: string) =>
     userPut<FlagInfo>(`/api/admin/flags/${key}`, { value, enabled, reason }),
+
+  /* --- LearnHub lectures (learn.read / learn.write) --------------------- */
+  listLectures: (params: { status?: string; q?: string } = {}) =>
+    userGet<Lecture[]>(`/api/admin/lectures${qs(params)}`),
+  getLecture: (id: string) => userGet<Lecture>(`/api/admin/lectures/${id}`),
+  createLecture: (body: LectureInput) => userPost<Lecture>("/api/admin/lectures", body),
+  updateLecture: (id: string, body: LectureInput) =>
+    userPatch<Lecture>(`/api/admin/lectures/${id}`, body),
+  deleteLecture: (id: string, reason?: string) =>
+    userDelete<void>(`/api/admin/lectures/${id}`, { reason }),
 
   listAudit: (params: {
     action?: string;

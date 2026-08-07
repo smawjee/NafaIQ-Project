@@ -18,6 +18,23 @@ export interface ApiOHLCVBar {
   volume: number;
 }
 
+/**
+ * One 5-minute intraday bar from GET /api/quote/{symbol}/intraday.
+ *
+ * `ts` is an ISO-8601 UTC instant (not a date), and `volume` is already
+ * per-bar — the backend derives it by diffing the day-cumulative figure it
+ * stores.
+ */
+export interface ApiIntradayBar {
+  ts: string;
+  session_date: string | null;
+  open: number;
+  high: number;
+  low: number;
+  close: number;
+  volume: number;
+}
+
 export interface ApiSymbolInfo {
   symbol: string;
   name: string;
