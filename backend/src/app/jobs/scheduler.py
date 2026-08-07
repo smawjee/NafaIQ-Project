@@ -758,25 +758,56 @@ async def job_refresh_index_snapshot():
 
 
 async def job_capture_intraday():
-    """Fold the live market snapshot into 5-minute bars in ``psx_intraday``.
+    """Write 5-minute bars into ``psx_intraday``.
 
     ``psx_market_snapshot`` is upsert-on-symbol — every refresh overwrites the
     previous tick — so before this job existed no intraday series was retained
     anywhere and the chart's "1D" timeframe had nothing but daily bars to draw.
 
-    Runs every minute during market hours; each sample is merged into the
-    5-minute bucket it lands in, so a re-run of the same minute is idempotent
-    rather than duplicative.
+    The AhleTrade tape is the primary source. It carries every print, so a bar's
+    O/H/L/C are exact and its volume is a sum; the snapshot sampler could only
+    see ~5 prices per bucket and had to reverse out volume from a day-cumulative
+    counter it could not verify. The tape also stays correct while DPS is
+    unreachable, which on 2026-08-07 left the snapshot frozen from the previous
+    session's close and every candle drawing as a flat full-range hairline.
+
+    Snapshot sampling remains the fallback: it needs no per-symbol requests, so
+    it still produces something if the tape is down. Both paths write the same
+    bucket key, so a re-run of the same minute is idempotent either way.
     """
     if not await _is_market_open():
         return
     try:
-        written = await intraday_service.capture_snapshot()
-        log.info("job:capture_intraday:done", rows=written)
+        symbols = await _intraday_symbols()
+        written = 0
+        source = "tape"
+        if symbols:
+            written = await intraday_service.capture_from_trades(
+                ahletrade.fetch_trades, symbols
+            )
+        if written == 0:
+            # Nothing from the tape: either every fetch failed or the market is
+            # genuinely quiet. The sampler cannot tell those apart either, but
+            # it costs one already-cached read, so prefer a bar to no bar.
+            source = "snapshot"
+            written = await intraday_service.capture_snapshot()
+        log.info("job:capture_intraday:done", rows=written, source=source)
         await _record_health("psx_intraday", success=True, rows_updated=written)
     except Exception as e:
         log.exception("job:capture_intraday:failed")
         await _record_health("psx_intraday", success=False, error=str(e))
+
+
+async def _intraday_symbols() -> list[str]:
+    """Symbols to pull tapes for. Empty list falls the caller back to sampling."""
+    try:
+        res = await async_execute(
+            lambda c: c.table("psx_market_snapshot").select("symbol").order("symbol")
+        )
+        return [r["symbol"] for r in (res.data or []) if r.get("symbol")]
+    except Exception:
+        log.warning("job:capture_intraday:symbol_list_failed", exc_info=True)
+        return []
 
 
 async def job_prune_intraday():

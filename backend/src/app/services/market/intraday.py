@@ -13,6 +13,7 @@ function so it can be tested without a database — only `capture_snapshot` and
 """
 from __future__ import annotations
 
+import asyncio
 from datetime import date, datetime, timedelta, timezone
 from typing import Any, Iterable
 
@@ -35,6 +36,10 @@ TTL_INTRADAY = 30.0
 # How many trading sessions the chart may ask for, and how long rows survive.
 MAX_SESSIONS = 5
 RETENTION_DAYS = 10
+
+# Buckets the tape writer restates each run: the one in progress, plus one back
+# so a print that lands after the boundary still reaches its own bar.
+RECENT_BUCKETS = 2
 
 
 def bucket_start(moment: datetime, minutes: int = BUCKET_MINUTES) -> datetime:
@@ -82,15 +87,30 @@ def merge_sample(
     """Fold one snapshot sample into its bucket and return the row to upsert.
 
     First sample of a bucket sets `open`; later samples widen `high`/`low` and
-    move `close`. `day_high`/`day_low` are session-wide extremes, so they are
-    only allowed to widen a bucket that already exists — seeding a fresh bucket
-    with them would draw a candle spanning the whole day's range at whatever
-    minute the bucket opened.
+    move `close`. A bucket's range spans only the prices actually sampled
+    inside it.
 
-    `cum_volume` never decreases: the snapshot is day-cumulative, and a
-    momentarily stale read must not make a later bucket look emptier than an
-    earlier one (the reader diffs consecutive buckets and would emit a
-    negative).
+    `day_high`/`day_low` are accepted (the snapshot carries them) but never
+    enter the bar. They are session-wide and carry no timestamp, so there is no
+    minute they can honestly be attributed to. The previous rule folded them
+    into any bucket that already existed, reasoning that such a bucket had
+    "printed through" them — but the writer samples every 60s into a 5-minute
+    bucket, so samples 2-5 always found an existing row and every bucket
+    inherited the full session range. Since max/min never narrow, it stuck: on
+    2026-08-07 MEBL had 3 distinct (high, low) pairs across all 58 bars of the
+    session, and 28,276 of 29,518 bars market-wide had open == close. Every
+    candle rendered as an identical full-height hairline with no body.
+
+    The honest cost of dropping them: at 60s sampling a 5-minute bar sees ~5
+    prices, so wicks understate the true intra-bucket range. An understated
+    wick is a sampling limit; a day-wide one is a fabrication.
+
+    `cum_volume` never decreases *within* a bucket: the snapshot is
+    day-cumulative, and a momentarily stale read must not make a later bucket
+    look emptier than an earlier one (the reader diffs consecutive buckets and
+    would emit a negative). Across buckets the writer cannot enforce this — it
+    only ever loads the current bucket — so `to_bars` holds the high-water mark
+    on the read side.
     """
     prev_high = _num((existing or {}).get("high"))
     prev_low = _num((existing or {}).get("low"))
@@ -98,11 +118,6 @@ def merge_sample(
 
     highs = [price, prev_high]
     lows = [price, prev_low]
-    if existing is not None:
-        # Widen an in-progress bucket toward the session extremes only if the
-        # snapshot has already printed through them.
-        highs.append(_num(day_high))
-        lows.append(_num(day_low))
 
     cum = _num(volume)
     # A stored row whose `open` failed to parse falls back to the current price
@@ -122,27 +137,124 @@ def merge_sample(
     }
 
 
+def bars_from_trades(
+    trades: Iterable[dict[str, Any]],
+    *,
+    symbol: str,
+    session: date,
+    minutes: int = BUCKET_MINUTES,
+) -> list[dict[str, Any]]:
+    """Build true OHLCV buckets from a trade tape, shaped for `psx_intraday`.
+
+    Snapshot sampling can only ever approximate a bar: it sees ~5 prices per
+    5-minute bucket, so the high and low are whichever of those happened to be
+    sampled, and per-bar volume has to be reverse-engineered from a
+    day-cumulative counter. A tape carries every print, so open/high/low/close
+    are exact and volume is a plain sum.
+
+    `cum_volume` is written as a running session total rather than the bar's own
+    volume, because `to_bars` diffs consecutive buckets on the read side.
+    Writing per-bar volume here would make the reader diff it a second time.
+
+    Trade times are PKT wall-clock ("HH:MM:SS") with no date, which is why the
+    session must be supplied. Rows that cannot be parsed, and non-positive
+    prices, are skipped rather than allowed to open a bucket at zero.
+    """
+    by_bucket: dict[datetime, dict[str, Any]] = {}
+    for trade in trades:
+        moment = _trade_moment(trade.get("time"), session)
+        if moment is None:
+            continue
+        price = _num(trade.get("price"))
+        if price is None or price <= 0:
+            continue
+        size = _num(trade.get("volume")) or 0.0
+        bucket = bucket_start(moment, minutes)
+        bar = by_bucket.get(bucket)
+        if bar is None:
+            by_bucket[bucket] = {
+                "open": price, "high": price, "low": price,
+                "close": price, "volume": max(size, 0.0),
+            }
+            continue
+        # The tape is ordered, so the last print in a bucket is its close.
+        bar["high"] = max(bar["high"], price)
+        bar["low"] = min(bar["low"], price)
+        bar["close"] = price
+        bar["volume"] += max(size, 0.0)
+
+    out: list[dict[str, Any]] = []
+    running = 0.0
+    for bucket in sorted(by_bucket):
+        bar = by_bucket[bucket]
+        running += bar["volume"]
+        out.append(
+            {
+                "symbol": symbol.upper(),
+                "ts": bucket.isoformat(),
+                "session_date": session.isoformat(),
+                "open": bar["open"],
+                "high": bar["high"],
+                "low": bar["low"],
+                "close": bar["close"],
+                "cum_volume": int(running),
+                "updated_at": datetime.now(timezone.utc).isoformat(),
+            }
+        )
+    return out
+
+
+def _trade_moment(value: Any, session: date) -> datetime | None:
+    """A tape's "HH:MM:SS" PKT clock time as an aware UTC instant."""
+    if isinstance(value, datetime):
+        return value.replace(tzinfo=timezone.utc) if value.tzinfo is None else value
+    if not value:
+        return None
+    parts = str(value).strip().split(":")
+    if len(parts) < 2:
+        return None
+    try:
+        hour, minute = int(parts[0]), int(parts[1])
+        second = int(parts[2]) if len(parts) > 2 else 0
+    except (TypeError, ValueError):
+        return None
+    if not (0 <= hour < 24 and 0 <= minute < 60 and 0 <= second < 60):
+        return None
+    return datetime(
+        session.year, session.month, session.day, hour, minute, second, tzinfo=PKT
+    ).astimezone(timezone.utc)
+
+
 def to_bars(rows: Iterable[dict[str, Any]]) -> list[dict[str, Any]]:
     """Shape stored rows into chart-ready bars, oldest first.
 
     Turns day-cumulative `cum_volume` into per-bar volume by diffing
     consecutive buckets *within a session*. The first bar of each session keeps
     its cumulative value — it is the volume traded since the open, which is
-    exactly that bar's volume. A diff is clamped at zero so a snapshot that
-    reset or arrived out of order cannot emit a negative bar.
+    exactly that bar's volume.
+
+    The baseline is a high-water mark, not the previous bucket's raw value. A
+    cumulative that goes backwards means the snapshot's volume column regressed
+    (a stale or corrupted read), not that shares were untraded, so adopting the
+    lower figure would re-baseline every later diff against it. That is what
+    zeroed a whole session on 2026-08-07: MEBL's stored cumulative read
+    4,052,268 and then 587 for every remaining bucket, so each subsequent bar
+    diffed 587-587 and the chart showed V 0 from the second bar onward. Holding
+    the peak keeps the next genuine increase measurable and still clamps at
+    zero, so no bar can ever report negative volume.
     """
     ordered = sorted(
         (r for r in rows if r.get("ts") is not None),
         key=lambda r: str(r["ts"]),
     )
     out: list[dict[str, Any]] = []
-    prev_cum_by_session: dict[str, float] = {}
+    peak_cum_by_session: dict[str, float] = {}
     for row in ordered:
         session = str(row.get("session_date") or "")
         cum = _num(row.get("cum_volume")) or 0.0
-        prev = prev_cum_by_session.get(session)
-        volume = cum if prev is None else max(0.0, cum - prev)
-        prev_cum_by_session[session] = cum
+        peak = peak_cum_by_session.get(session)
+        volume = cum if peak is None else max(0.0, cum - peak)
+        peak_cum_by_session[session] = cum if peak is None else max(peak, cum)
         out.append(
             {
                 "ts": _iso_utc(row["ts"]),
@@ -183,6 +295,61 @@ def latest_sessions(bars: list[dict[str, Any]], sessions: int) -> list[dict[str,
 
 
 # ---------- capture (writer) ----------
+
+
+async def capture_from_trades(
+    fetch_trades: Any,
+    symbols: Iterable[str],
+    *,
+    now: datetime | None = None,
+    concurrency: int = 6,
+    recent_buckets: int = RECENT_BUCKETS,
+) -> int:
+    """Write the newest buckets for `symbols` from their trade tapes.
+
+    Preferred over `capture_snapshot`: a tape carries every print, so O/H/L/C
+    are exact and volume is a sum rather than a diff of a day-cumulative
+    counter that the writer cannot verify. It also only emits a bucket for a
+    five-minute window that actually traded, where the sampler wrote one every
+    five minutes regardless and left invented flat bars on illiquid symbols.
+
+    Only the last `recent_buckets` windows are written. `bars_from_trades`
+    rebuilds the whole session on every call, and re-upserting ~70 buckets for
+    ~500 symbols every minute would be ~35,000 rows a minute to restate history
+    that cannot change. The tail is the only part still moving — the current
+    bucket, plus one back so a late print is not lost. Earlier buckets keep the
+    running `cum_volume` written when they were current, which is what
+    `to_bars` diffs against.
+
+    `fetch_trades` is injected rather than imported so this stays unit-testable
+    and the scheduler can share its existing pooled client. A symbol whose
+    fetch raises is skipped: one dead symbol must not cost the other 500.
+    """
+    moment = now or datetime.now(timezone.utc)
+    session = session_date_for(moment)
+    cutoff = bucket_start(moment) - timedelta(minutes=BUCKET_MINUTES * (recent_buckets - 1))
+
+    sem = asyncio.Semaphore(concurrency)
+    rows: list[dict[str, Any]] = []
+
+    async def one(symbol: str) -> None:
+        async with sem:
+            try:
+                trades = await fetch_trades(symbol)
+            except Exception:  # noqa: BLE001 - a dead symbol must not stop the run
+                log.debug("intraday_tape_failed", symbol=symbol, exc_info=True)
+                return
+        for bar in bars_from_trades(trades or [], symbol=symbol, session=session):
+            if datetime.fromisoformat(bar["ts"]) >= cutoff:
+                rows.append(bar)
+
+    await asyncio.gather(*(one(s) for s in symbols))
+    if not rows:
+        return 0
+    await async_execute(
+        lambda c: c.table("psx_intraday").upsert(rows, on_conflict="symbol,ts")
+    )
+    return len(rows)
 
 
 async def capture_snapshot(now: datetime | None = None) -> int:
